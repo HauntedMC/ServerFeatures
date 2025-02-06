@@ -4,7 +4,6 @@ import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
