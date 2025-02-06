@@ -1,54 +1,40 @@
 package nl.hauntedmc.serverfeatures.commands;
 
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandMap;
-import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.*;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
+import java.util.*;
 
 public class FeatureCommandManager {
 
     private final JavaPlugin plugin;
-    private final Logger logger;
-    private CommandMap commandMap;
+    private final CommandMap commandMap;
     private final Map<String, FeatureCommand> registeredCommands = new HashMap<>();
 
     public FeatureCommandManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
-        initializeCommandMap();
+        this.commandMap = plugin.getServer().getCommandMap();
     }
 
     /**
-     * Uses reflection to get the Bukkit CommandMap safely.
+     * Registers a command dynamically at runtime with an optional tab completer.
      */
-    private void initializeCommandMap() {
-        commandMap = plugin.getServer().getCommandMap();
-    }
-
-    /**
-     * Registers a command dynamically at runtime.
-     */
-    public boolean registerCommand(String commandName, CommandExecutor executor) {
+    public boolean registerCommand(String commandName, CommandExecutor executor, TabCompleter tabCompleter) {
         if (commandMap == null) {
-            logger.severe("CommandMap is not initialized. Cannot register command: " + commandName);
+            plugin.getLogger().severe("CommandMap is not initialized. Cannot register command: " + commandName);
             return false;
         }
 
         if (registeredCommands.containsKey(commandName)) {
-            logger.warning("Command " + commandName + " is already registered.");
+            plugin.getLogger().warning("Command " + commandName + " is already registered.");
             return false;
         }
 
-        FeatureCommand command = new FeatureCommand(commandName, executor);
+        FeatureCommand command = new FeatureCommand(commandName, executor, tabCompleter);
         commandMap.register(plugin.getDescription().getName(), command);
         registeredCommands.put(commandName, command);
-        logger.warning("Command " + commandName + " is registered.");
+
+        plugin.getLogger().info("Registered command: " + commandName);
         return true;
     }
 
@@ -57,15 +43,15 @@ public class FeatureCommandManager {
      */
     public boolean unregisterCommand(String commandName) {
         if (!registeredCommands.containsKey(commandName)) {
-            logger.warning("Command " + commandName + " is not registered.");
+            plugin.getLogger().warning("Command " + commandName + " is not registered.");
             return false;
         }
 
-        Command command = registeredCommands.remove(commandName);
+        FeatureCommand command = registeredCommands.remove(commandName);
         command.unregister(commandMap);
         commandMap.getKnownCommands().remove(commandName);
 
-        logger.warning("Command " + commandName + " is unregistered.");
+        plugin.getLogger().info("Unregistered command: " + commandName);
         return true;
     }
 
@@ -73,12 +59,9 @@ public class FeatureCommandManager {
      * Unregisters all dynamically registered commands safely.
      */
     public void unregisterAllCommands() {
-        // Copy the keys to prevent ConcurrentModificationException
         List<String> commandNames = new ArrayList<>(registeredCommands.keySet());
-
         for (String commandName : commandNames) {
             unregisterCommand(commandName);
         }
     }
-
 }
