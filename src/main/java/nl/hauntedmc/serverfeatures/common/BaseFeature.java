@@ -9,10 +9,10 @@ import java.util.Map;
 
 public abstract class BaseFeature<T extends BaseMeta> {
 
-    protected final JavaPlugin plugin;
+    private final JavaPlugin plugin;
     private final T meta;
-    protected final FeatureConfigHandler configHandler;
-    protected final FeatureLifecycleManager lifecycleManager;
+    private final FeatureConfigHandler configHandler;
+    private final FeatureLifecycleManager lifecycleManager;
 
     protected BaseFeature(JavaPlugin plugin, T meta) {
         this.plugin = plugin;
@@ -31,10 +31,6 @@ public abstract class BaseFeature<T extends BaseMeta> {
 
     public List<String> getDependencies() {
         return meta.getDependencies();
-    }
-
-    public T getMeta() {
-        return meta;
     }
 
     public JavaPlugin getPlugin() {
@@ -63,6 +59,7 @@ public abstract class BaseFeature<T extends BaseMeta> {
      * Properly unloads the feature using the lifecycle manager.
      */
     public void unload() {
+        plugin.getLogger().info("Unloading feature: " + getFeatureName());
         lifecycleManager.cleanup();
     }
 }

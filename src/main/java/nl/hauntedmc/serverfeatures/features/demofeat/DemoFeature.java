@@ -35,13 +35,13 @@ public class DemoFeature extends BaseFeature<Meta>{
 
     @Override
     public void initialize() {
-        int delay = (int) configHandler.getSetting("delay");
-        String message = configHandler.getSetting("message").toString();
+        int delay = (int) getConfigHandler().getSetting("delay");
+        String message = getConfigHandler().getSetting("message").toString();
 
-        lifecycleManager.registerListener(new PlayerJoinListener());
-        lifecycleManager.getCommandManager().registerCommand("demo", new DemoFeatureCommand(), new DemoTabCompleter());
+        getLifecycleManager().registerListener(new PlayerJoinListener());
+        getLifecycleManager().getCommandManager().registerCommand("demo", new DemoFeatureCommand(), new DemoTabCompleter());
 
-        lifecycleManager.getTaskManager().scheduleDelayedTask(
+        getLifecycleManager().getTaskManager().scheduleDelayedTask(
                 () -> Bukkit.broadcastMessage("[SYNC] " + message), delay);
     }
 

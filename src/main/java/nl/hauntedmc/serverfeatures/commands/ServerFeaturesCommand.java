@@ -8,7 +8,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
@@ -19,7 +18,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (args.length == 0) {
             sender.sendMessage(ChatColor.YELLOW + "Usage: /serverfeatures <subcommand>");
             return true;
@@ -34,15 +33,6 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 listLoadedFeatures(sender);
                 return true;
 
-            case "reloadall":
-                if (!sender.hasPermission("serverfeatures.command.reloadall")) {
-                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload all features.");
-                    return true;
-                }
-                plugin.getFeatureHandler().reloadAllLoadedFeatures();
-                sender.sendMessage(ChatColor.GREEN + "All features reloaded.");
-                return true;
-
             case "reload":
                 if (!sender.hasPermission("serverfeatures.command.reload")) {
                     sender.sendMessage(ChatColor.RED + "You do not have permission to reload features.");
@@ -52,7 +42,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                     sender.sendMessage(ChatColor.RED + "Usage: /serverfeatures reload <feature>");
                     return true;
                 }
-                if (plugin.getFeatureHandler().reloadFeature(args[1])) {
+                if (plugin.getFeatureLoadManager().reloadFeature(args[1])) {
                     sender.sendMessage(ChatColor.GREEN + "Feature " + args[1] + " reloaded.");
                 } else {
                     sender.sendMessage(ChatColor.RED + "Feature not found or not enabled.");
@@ -65,7 +55,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 if (args.length < 2) return false;
-                if (plugin.getFeatureHandler().enableFeature(args[1])) {
+                if (plugin.getFeatureLoadManager().enableFeature(args[1])) {
                     sender.sendMessage(ChatColor.GREEN + "Feature " + args[1] + " enabled.");
                 } else {
                     sender.sendMessage(ChatColor.RED + "Feature not found or already enabled.");
@@ -78,7 +68,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                     return true;
                 }
                 if (args.length < 2) return false;
-                if (plugin.getFeatureHandler().disableFeature(args[1])) {
+                if (plugin.getFeatureLoadManager().disableFeature(args[1])) {
                     sender.sendMessage(ChatColor.YELLOW + "Feature " + args[1] + " disabled.");
                 } else {
                     sender.sendMessage(ChatColor.RED + "Feature not found or already disabled.");
@@ -93,7 +83,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
 
     private void listLoadedFeatures(CommandSender sender) {
-        List<BaseFeature<?>> loadedFeatures = plugin.getFeatureHandler().getLoadedFeatures();
+        List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
 
         if (loadedFeatures.isEmpty()) {
             sender.sendMessage(ChatColor.RED + "No features are currently loaded.");
@@ -111,7 +101,6 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
         if (args.length == 1) {
             completions.add("list");
-            completions.add("reloadall");
             completions.add("reload");
             completions.add("enable");
             completions.add("disable");
@@ -120,15 +109,15 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 case "reload":
                 case "disable":
                     // Suggest only currently loaded features
-                    completions.addAll(plugin.getFeatureHandler().getLoadedFeatures().stream()
+                    completions.addAll(plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                             .map(BaseFeature::getFeatureName)
                             .toList());
                     break;
 
                 case "enable":
                     // Suggest only available features that are NOT loaded
-                    completions.addAll(plugin.getFeatureHandler().getAvailableFeatures().keySet().stream()
-                            .filter(feature -> plugin.getFeatureHandler().getLoadedFeatures().stream()
+                    completions.addAll(plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
+                            .filter(feature -> plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                                     .noneMatch(loadedFeature -> loadedFeature.getFeatureName().equalsIgnoreCase(feature)))
                             .toList());
                     break;

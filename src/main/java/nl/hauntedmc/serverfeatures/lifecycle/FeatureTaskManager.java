@@ -6,17 +6,14 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 public class FeatureTaskManager {
 
     private final JavaPlugin plugin;
-    private final Logger logger;
     private final List<BukkitTask> scheduledTasks = new ArrayList<>();
 
     public FeatureTaskManager(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
     }
 
     /**

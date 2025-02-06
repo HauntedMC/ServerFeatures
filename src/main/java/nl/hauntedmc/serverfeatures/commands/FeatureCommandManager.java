@@ -19,15 +19,15 @@ public class FeatureCommandManager {
     /**
      * Registers a command dynamically at runtime with an optional tab completer.
      */
-    public boolean registerCommand(String commandName, CommandExecutor executor, TabCompleter tabCompleter) {
+    public void registerCommand(String commandName, CommandExecutor executor, TabCompleter tabCompleter) {
         if (commandMap == null) {
             plugin.getLogger().severe("CommandMap is not initialized. Cannot register command: " + commandName);
-            return false;
+            return;
         }
 
         if (registeredCommands.containsKey(commandName)) {
             plugin.getLogger().warning("Command " + commandName + " is already registered.");
-            return false;
+            return;
         }
 
         FeatureCommand command = new FeatureCommand(commandName, executor, tabCompleter);
@@ -35,16 +35,15 @@ public class FeatureCommandManager {
         registeredCommands.put(commandName, command);
 
         plugin.getLogger().info("Registered command: " + commandName);
-        return true;
     }
 
     /**
      * Unregisters a command dynamically.
      */
-    public boolean unregisterCommand(String commandName) {
+    public void unregisterCommand(String commandName) {
         if (!registeredCommands.containsKey(commandName)) {
             plugin.getLogger().warning("Command " + commandName + " is not registered.");
-            return false;
+            return;
         }
 
         FeatureCommand command = registeredCommands.remove(commandName);
@@ -52,7 +51,6 @@ public class FeatureCommandManager {
         commandMap.getKnownCommands().remove(commandName);
 
         plugin.getLogger().info("Unregistered command: " + commandName);
-        return true;
     }
 
     /**
