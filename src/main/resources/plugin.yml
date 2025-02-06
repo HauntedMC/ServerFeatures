@@ -3,3 +3,10 @@ main: ${project.groupId}.${project.name}
 version: ${project.version}
 author: HauntedMC
 api-version: 1.19
+
+commands:
+  serverfeatures:
+    description: Manage server features
+    usage: /serverfeatures <subcommand>
+    permission: serverfeatures.use
+    permission-message: You do not have permission to use this command.
