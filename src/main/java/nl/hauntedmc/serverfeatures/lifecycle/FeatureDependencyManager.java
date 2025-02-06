@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.lifecycle;
 
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashSet;
@@ -25,7 +27,7 @@ public class FeatureDependencyManager {
      * Ensures that all dependencies of a feature are enabled before loading.
      */
     public boolean areDependenciesMet(BaseFeature<?> feature) {
-        return checkDependencies(feature, new HashSet<>()); // Pass a new visited set
+        return checkDependencies(feature, new HashSet<>()) && arePluginDependenciesMet(feature);
     }
 
     /**
@@ -71,6 +73,28 @@ public class FeatureDependencyManager {
         return true;
     }
 
+    /**
+     * Checks if all required external plugins are loaded.
+     */
+    public boolean arePluginDependenciesMet(BaseFeature<?> feature) {
+        List<String> requiredPlugins = feature.getPluginDependencies();
+
+        for (String pluginName : requiredPlugins) {
+            if (!isPluginLoaded(pluginName)) {
+                logger.warning("Cannot enable " + feature.getFeatureName() + " because required plugin " + pluginName + " is missing.");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Checks if a specific plugin is loaded.
+     */
+    public boolean isPluginLoaded(String pluginName) {
+        Plugin foundPlugin = Bukkit.getPluginManager().getPlugin(pluginName);
+        return foundPlugin != null && foundPlugin.isEnabled();
+    }
 
     /**
      * Finds features that depend on a given feature.

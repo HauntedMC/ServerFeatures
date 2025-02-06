@@ -33,6 +33,10 @@ public abstract class BaseFeature<T extends BaseMeta> {
         return meta.getDependencies();
     }
 
+    public List<String> getPluginDependencies() {
+        return meta.getPluginDependencies();
+    }
+
     public JavaPlugin getPlugin() {
         return plugin;
     }

@@ -9,4 +9,8 @@ public interface BaseMeta {
     default List<String> getDependencies() {
         return List.of();
     }
+
+    default List<String> getPluginDependencies() {
+        return List.of();
+    }
 }
