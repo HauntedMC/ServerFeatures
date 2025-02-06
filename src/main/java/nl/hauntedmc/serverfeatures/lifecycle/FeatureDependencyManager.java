@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.lifecycle;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -31,5 +32,18 @@ public class FeatureDependencyManager {
             }
         }
         return true;
+    }
+
+    /**
+     * Finds features that depend on a given feature.
+     */
+    public List<String> getDependentFeatures(String featureName) {
+        List<String> dependents = new ArrayList<>();
+        for (BaseFeature<?> feature : this.featureLoadManager.getLoadedFeatures()) {
+            if (feature.getDependencies().contains(featureName)) {
+                dependents.add(feature.getFeatureName());
+            }
+        }
+        return dependents;
     }
 }

@@ -18,6 +18,6 @@ public class Meta implements BaseMeta {
 
     @Override
     public List<String> getDependencies() {
-        return List.of();
+        return List.of("InstaSkull");
     }
 }

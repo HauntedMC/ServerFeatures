@@ -69,7 +69,10 @@ public class FeatureLoadManager {
      * Enables and loads a feature dynamically.
      */
     public boolean enableFeature(String featureName) {
-        if (!validateFeatureAvailability(featureName)) return false;
+        if (!availableFeatures.containsKey(featureName)) {
+            plugin.getLogger().warning("Feature not found: " + featureName);
+            return false;
+        }
 
         configHandler.setFeatureEnabled(featureName, true);
         return loadFeature(featureName);
@@ -202,7 +205,19 @@ public class FeatureLoadManager {
         configHandler.reloadConfig();
         feature.unload();
         loadedFeatures.remove(featureName);
-        return loadFeature(featureName);
+
+        boolean success = loadFeature(featureName);
+        if (success) {
+            plugin.getLogger().info("Feature " + featureName + " reloaded.");
+
+            // Reload dependent features
+            for (String dependent : this.dependencyManager.getDependentFeatures(featureName)) {
+                plugin.getLogger().info("Reloading dependent feature: " + dependent);
+                reloadFeature(dependent);
+            }
+        }
+
+        return success;
     }
 
     /**
@@ -210,22 +225,6 @@ public class FeatureLoadManager {
      */
     public List<BaseFeature<?>> getLoadedFeatures() {
         return new ArrayList<>(loadedFeatures.values());
-    }
-
-    /**
-     * Validates if a feature exists and is available.
-     */
-    private boolean validateFeatureAvailability(String featureName) {
-        if (!availableFeatures.containsKey(featureName)) {
-            plugin.getLogger().warning("Feature not found: " + featureName);
-            return false;
-        }
-
-        if (configHandler.isFeatureEnabled(featureName)) {
-            plugin.getLogger().warning("Feature already enabled: " + featureName);
-            return false;
-        }
-        return true;
     }
 
     public Map<String, Class<? extends BaseFeature<?>>> getAvailableFeatures() {
