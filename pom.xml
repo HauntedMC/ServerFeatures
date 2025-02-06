@@ -6,7 +6,7 @@
 
     <groupId>nl.hauntedmc.serverfeatures</groupId>
     <artifactId>serverfeatures</artifactId>
-    <version>1.21.4-v1</version>
+    <version>0.0.0</version>
     <packaging>jar</packaging>
     <name>ServerFeatures</name>
     <url>http://maven.apache.org</url>
