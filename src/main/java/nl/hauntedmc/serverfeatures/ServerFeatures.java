@@ -2,20 +2,20 @@ package nl.hauntedmc.serverfeatures;
 
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.config.ConfigHandler;
-import nl.hauntedmc.serverfeatures.handler.FeatureHandler;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureLoadManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class ServerFeatures extends JavaPlugin {
 
     private ConfigHandler configHandler;
-    private FeatureHandler featureHandler;
+    private FeatureLoadManager featureLoadManager;
 
     @Override
     public void onEnable() {
         configHandler = new ConfigHandler(this);
-        featureHandler = new FeatureHandler(this, configHandler);
+        featureLoadManager = new FeatureLoadManager(this, configHandler);
         registerCommands();
-        featureHandler.initializeAllFeatures();
+        featureLoadManager.initializeAllFeatures();
     }
 
     private void registerCommands() {
@@ -23,13 +23,13 @@ public class ServerFeatures extends JavaPlugin {
         getCommand("serverfeatures").setTabCompleter(new ServerFeaturesCommand(this));
     }
 
-    public FeatureHandler getFeatureHandler() {
-        return featureHandler;
+    public FeatureLoadManager getFeatureHandler() {
+        return featureLoadManager;
     }
 
     @Override
     public void onDisable() {
-        featureHandler.disableAllLoadedFeatures();
+        featureLoadManager.disableAllLoadedFeatures();
         getLogger().info("ServerFeatures is shutting down...");
     }
 }

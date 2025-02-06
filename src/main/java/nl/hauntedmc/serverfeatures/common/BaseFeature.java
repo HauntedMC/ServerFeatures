@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class BaseFeature<T extends BaseMeta> {
@@ -26,6 +27,10 @@ public abstract class BaseFeature<T extends BaseMeta> {
 
     public String getFeatureVersion() {
         return meta.getFeatureVersion();
+    }
+
+    public List<String> getDependencies() {
+        return meta.getDependencies();
     }
 
     public T getMeta() {

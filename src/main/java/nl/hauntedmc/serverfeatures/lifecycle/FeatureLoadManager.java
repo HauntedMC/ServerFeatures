@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.handler;
+package nl.hauntedmc.serverfeatures.lifecycle;
 
 import io.github.classgraph.ClassGraph;
 import io.github.classgraph.ScanResult;
@@ -10,16 +10,18 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.*;
 import java.util.logging.Level;
 
-public class FeatureHandler {
+public class FeatureLoadManager {
 
     private final ServerFeatures plugin;
     private final ConfigHandler configHandler;
     private final Map<String, BaseFeature<?>> loadedFeatures = new HashMap<>();
     private final Map<String, Class<? extends BaseFeature<?>>> availableFeatures = new HashMap<>();
+    private final FeatureDependencyManager dependencyManager;
 
-    public FeatureHandler(ServerFeatures plugin, ConfigHandler configHandler) {
+    public FeatureLoadManager(ServerFeatures plugin, ConfigHandler configHandler) {
         this.plugin = plugin;
         this.configHandler = configHandler;
+        this.dependencyManager = new FeatureDependencyManager(this, plugin);
         discoverFeatures();
     }
 
@@ -53,6 +55,13 @@ public class FeatureHandler {
      */
     public void initializeAllFeatures() {
         availableFeatures.keySet().forEach(this::loadFeature);
+    }
+
+    /**
+     * Checks if a feature is currently enabled.
+     */
+    public boolean isFeatureEnabled(String featureName) {
+        return loadedFeatures.containsKey(featureName);
     }
 
     /**
@@ -92,6 +101,11 @@ public class FeatureHandler {
 
         BaseFeature<?> feature = instantiateFeature(featureName);
         if (feature == null) return false;
+
+        if (!dependencyManager.areDependenciesMet(feature)) {
+            plugin.getLogger().warning("Feature " + featureName + " is missing dependencies and cannot be enabled.");
+            return false;
+        }
 
         configHandler.registerFeature(featureName);
         configHandler.injectFeatureDefaults(featureName, feature.getDefaultConfig());
