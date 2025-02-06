@@ -75,6 +75,5 @@ public class FeatureTaskManager {
             task.cancel();
         }
         scheduledTasks.clear();
-        logger.info("All scheduled tasks have been cancelled.");
     }
 }

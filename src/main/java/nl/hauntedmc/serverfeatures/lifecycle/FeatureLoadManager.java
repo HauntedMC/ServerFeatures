@@ -64,6 +64,7 @@ public class FeatureLoadManager {
         return loadedFeatures.containsKey(featureName);
     }
 
+
     /**
      * Enables and loads a feature dynamically.
      */
@@ -153,7 +154,9 @@ public class FeatureLoadManager {
         plugin.getLogger().info("Reloading all features...");
         configHandler.reloadConfig();
 
-        // Unload features that are now disabled
+        List<String> featuresToReload = new ArrayList<>();
+
+        // Unload features that are now disabled or need reloading
         Iterator<Map.Entry<String, BaseFeature<?>>> iterator = loadedFeatures.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, BaseFeature<?>> entry = iterator.next();
@@ -164,12 +167,17 @@ public class FeatureLoadManager {
                 iterator.remove();
                 plugin.getLogger().info("Unloaded feature: " + featureName);
             } else {
-                // Fully unload and reload the feature like reloadFeature()
+                // Collect for reloading AFTER iteration
                 entry.getValue().unload();
                 iterator.remove();
-                loadFeature(featureName);
-                plugin.getLogger().info("Reloaded feature: " + featureName);
+                featuresToReload.add(featureName);
             }
+        }
+
+        // Reload collected features AFTER iteration
+        for (String featureName : featuresToReload) {
+            loadFeature(featureName);
+            plugin.getLogger().info("Reloaded feature: " + featureName);
         }
 
         // Load newly enabled features
@@ -179,6 +187,7 @@ public class FeatureLoadManager {
 
         plugin.getLogger().info("All features reloaded.");
     }
+
 
     /**
      * Reloads a single feature dynamically.

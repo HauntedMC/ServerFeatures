@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
+import nl.hauntedmc.serverfeatures.commands.FeatureCommandManager;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
@@ -17,11 +18,13 @@ public class FeatureLifecycleManager {
     private final List<Listener> registeredListeners = new ArrayList<>();
     private final List<String> registeredCommands = new ArrayList<>();
     private final FeatureTaskManager taskManager;
+    private final FeatureCommandManager commandManager;
 
     public FeatureLifecycleManager(JavaPlugin plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.taskManager = new FeatureTaskManager(plugin);
+        this.commandManager = new FeatureCommandManager(plugin);
     }
 
     /**
@@ -32,24 +35,19 @@ public class FeatureLifecycleManager {
         registeredListeners.add(listener);
     }
 
-    /**
-     * Registers a command and tracks it for later removal.
-     */
-    public void registerCommand(String command, CommandExecutor executor) {
-        PluginCommand cmd = plugin.getCommand(command);
-        if (cmd != null) {
-            cmd.setExecutor(executor);
-            registeredCommands.add(command);
-        } else {
-            logger.warning("Command " + command + " not found in plugin.yml!");
-        }
-    }
 
     /**
      * Provides access to the task manager.
      */
     public FeatureTaskManager getTaskManager() {
         return taskManager;
+    }
+
+    /**
+     * Provides access to the command manager.
+     */
+    public FeatureCommandManager getCommandManager() {
+        return commandManager;
     }
 
     /**
@@ -61,10 +59,6 @@ public class FeatureLifecycleManager {
 
         taskManager.cancelAllTasks();
 
-        registeredCommands.forEach(cmd -> {
-            PluginCommand command = plugin.getCommand(cmd);
-            if (command != null) command.setExecutor(null);
-        });
-        registeredCommands.clear();
+        commandManager.unregisterAllCommands();
     }
 }
