@@ -17,9 +17,9 @@ jobs:
       packages: write
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -35,7 +35,7 @@ jobs:
 
     - name: Upload Distributable Jar
       id: upload-final
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dist
         path: ./target/${{ env.TARGET_NAME }}.jar
@@ -50,7 +50,7 @@ jobs:
         fetch-depth: 0
 
     - name: Download Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: dist
         path: dist
@@ -60,7 +60,7 @@ jobs:
 
     - name: Create Release
       id: create-release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
