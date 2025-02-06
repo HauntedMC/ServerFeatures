@@ -21,21 +21,33 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /serverfeatures <list|reloadall|reload <feature>|enable <feature>|disable <feature>>");
+            sender.sendMessage(ChatColor.YELLOW + "Usage: /serverfeatures <subcommand>");
             return true;
         }
 
         switch (args[0].toLowerCase()) {
             case "list":
+                if (!sender.hasPermission("serverfeatures.command.list")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload all features.");
+                    return true;
+                }
                 listLoadedFeatures(sender);
                 return true;
 
             case "reloadall":
+                if (!sender.hasPermission("serverfeatures.command.reloadall")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload all features.");
+                    return true;
+                }
                 plugin.getFeatureHandler().reloadAllLoadedFeatures();
                 sender.sendMessage(ChatColor.GREEN + "All features reloaded.");
                 return true;
 
             case "reload":
+                if (!sender.hasPermission("serverfeatures.command.reload")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload features.");
+                    return true;
+                }
                 if (args.length < 2) {
                     sender.sendMessage(ChatColor.RED + "Usage: /serverfeatures reload <feature>");
                     return true;
@@ -48,6 +60,10 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 return true;
 
             case "enable":
+                if (!sender.hasPermission("serverfeatures.command.enable")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to enable features.");
+                    return true;
+                }
                 if (args.length < 2) return false;
                 if (plugin.getFeatureHandler().enableFeature(args[1])) {
                     sender.sendMessage(ChatColor.GREEN + "Feature " + args[1] + " enabled.");
@@ -57,6 +73,10 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 return true;
 
             case "disable":
+                if (!sender.hasPermission("serverfeatures.command.disable")) {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to disable features.");
+                    return true;
+                }
                 if (args.length < 2) return false;
                 if (plugin.getFeatureHandler().disableFeature(args[1])) {
                     sender.sendMessage(ChatColor.YELLOW + "Feature " + args[1] + " disabled.");
@@ -70,6 +90,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 return true;
         }
     }
+
 
     private void listLoadedFeatures(CommandSender sender) {
         List<BaseFeature<?>> loadedFeatures = plugin.getFeatureHandler().getLoadedFeatures();
