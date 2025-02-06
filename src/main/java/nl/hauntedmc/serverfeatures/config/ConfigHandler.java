@@ -7,13 +7,22 @@ import java.util.Set;
 
 public class ConfigHandler {
     private final JavaPlugin plugin;
-    private final FileConfiguration config;
+    private FileConfiguration config;
 
     public ConfigHandler(JavaPlugin plugin) {
         this.plugin = plugin;
         this.config = plugin.getConfig();
         plugin.saveDefaultConfig();
     }
+
+    /**
+     * Reloads config from disk.
+     */
+    public void reloadConfig() {
+        plugin.reloadConfig();  // Reload from file
+        this.config = plugin.getConfig();  // Update the local reference
+    }
+
 
     /**
      * Registers a feature in config with `enabled: false` if missing.
@@ -50,6 +59,11 @@ public class ConfigHandler {
      */
     public boolean isFeatureEnabled(String featureName) {
         return config.getBoolean("features." + featureName + ".enabled", false);
+    }
+
+    public void setFeatureEnabled(String featureName, boolean enabled) {
+        config.set("features." + featureName + ".enabled", enabled);
+        plugin.saveConfig();
     }
 
     /**
