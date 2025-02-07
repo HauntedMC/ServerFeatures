@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.events.registry.FeatureDisabledEvent;
 import nl.hauntedmc.serverfeatures.events.FeatureEventManager;
 import nl.hauntedmc.serverfeatures.events.registry.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 
 import java.util.*;
 import java.util.logging.Level;
@@ -17,10 +18,12 @@ public class FeatureLoadManager {
     private final ConfigHandler configHandler;
     private final FeatureRegistry featureRegistry;
     private final FeatureDependencyManager dependencyManager;
+    private final LocalizationHandler localizationHandler;
 
-    public FeatureLoadManager(ServerFeatures plugin, ConfigHandler configHandler) {
+    public FeatureLoadManager(ServerFeatures plugin) {
         this.plugin = plugin;
-        this.configHandler = configHandler;
+        this.configHandler = plugin.getConfigHandler();
+        this.localizationHandler = plugin.getLocalizationHandler();
         this.featureRegistry = new FeatureRegistry();
         this.dependencyManager = new FeatureDependencyManager(this, plugin);
         discoverFeatures();
@@ -125,6 +128,7 @@ public class FeatureLoadManager {
 
         configHandler.registerFeature(featureName);
         configHandler.injectFeatureDefaults(featureName, feature.getDefaultConfig());
+        localizationHandler.registerDefaultMessages(feature.getDefaultMessages());
 
         if (configHandler.isFeatureEnabled(featureName)) {
             if (!dependencyManager.areDependenciesMet(feature)) {

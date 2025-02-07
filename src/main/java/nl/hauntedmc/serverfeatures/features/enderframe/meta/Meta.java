@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.spawnertoggle.meta;
+package nl.hauntedmc.serverfeatures.features.enderframe.meta;
 
 import nl.hauntedmc.serverfeatures.common.BaseMeta;
 
@@ -8,7 +8,7 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureName() {
-        return "SpawnerToggle";
+        return "EnderFrame";
     }
 
     @Override

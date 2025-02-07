@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.instaskull;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.instaskull.meta.Meta;
+import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -25,6 +26,11 @@ public class InstaSkull extends BaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("require_permission", true);
         return defaults;
+    }
+
+    @Override
+    public MessageMap getDefaultMessages() {
+        return new MessageMap();
     }
 
     @Override

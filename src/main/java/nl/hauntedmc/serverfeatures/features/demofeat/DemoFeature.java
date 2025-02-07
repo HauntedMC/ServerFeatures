@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.demofeat;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.demofeat.meta.Meta;
+import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -31,6 +32,11 @@ public class DemoFeature extends BaseFeature<Meta>{
         defaults.put("message", "Test completed");
         defaults.put("delay", 20);
         return defaults;
+    }
+
+    @Override
+    public MessageMap getDefaultMessages() {
+        return new MessageMap();
     }
 
     @Override

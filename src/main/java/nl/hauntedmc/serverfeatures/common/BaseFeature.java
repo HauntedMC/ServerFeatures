@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,12 @@ public abstract class BaseFeature<T extends BaseMeta> {
      * Each feature should define its default settings.
      */
     public abstract Map<String, Object> getDefaultConfig();
+
+    /**
+     * Each feature should define its default messages.
+     */
+    public abstract MessageMap getDefaultMessages();
+
 
     /**
      * Feature initialization logic (must be implemented by each feature).

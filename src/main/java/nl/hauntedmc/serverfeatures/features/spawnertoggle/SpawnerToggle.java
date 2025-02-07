@@ -5,6 +5,8 @@ import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
+import nl.hauntedmc.serverfeatures.localization.MessageMap;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -23,6 +25,8 @@ import java.util.Map;
 
 public class SpawnerToggle extends BaseFeature<Meta> {
 
+    private boolean griefPreventionEnabled;
+
     public SpawnerToggle(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
@@ -36,8 +40,17 @@ public class SpawnerToggle extends BaseFeature<Meta> {
     }
 
     @Override
+    public MessageMap getDefaultMessages() {
+        MessageMap messageMap = new MessageMap();
+        messageMap.add("spawner_toggle.toggle_message", "&7[&bSpawner&7] Mob spawning is {status} &7voor deze spawner.");
+        messageMap.add("spawner_toggle.claim_restricted", "&cJe kunt deze spawner niet bewerken in andermans claim.");
+        return messageMap;
+    }
+
+    @Override
     public void initialize() {
         getLifecycleManager().registerListener(new SpawnerInteractListener());
+        griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
     }
 
     private class SpawnerInteractListener implements Listener {
@@ -49,9 +62,11 @@ public class SpawnerToggle extends BaseFeature<Meta> {
                 Block clickedBlock = event.getClickedBlock();
                 if (clickedBlock == null || clickedBlock.getType() != Material.SPAWNER) return;
 
-                if (!checkBuildPermissions(player, clickedBlock.getLocation())) {
-                    player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.claim_restricted"));
-                    return;
+                if (griefPreventionEnabled) {
+                    if (!checkBuildPermissions(player, clickedBlock.getLocation())) {
+                        player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.claim_restricted"));
+                        return;
+                    }
                 }
 
                 toggleSpawner(player, clickedBlock);

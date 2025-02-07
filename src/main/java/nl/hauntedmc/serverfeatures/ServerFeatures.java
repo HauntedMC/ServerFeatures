@@ -17,8 +17,8 @@ public class ServerFeatures extends JavaPlugin {
     @Override
     public void onEnable() {
         configHandler = new ConfigHandler(this);
-        featureLoadManager = new FeatureLoadManager(this, configHandler);
         localizationHandler = new LocalizationHandler(this);
+        featureLoadManager = new FeatureLoadManager(this);
         registerBaseCommand();
         featureLoadManager.initializeFeatures();
     }
@@ -32,7 +32,7 @@ public class ServerFeatures extends JavaPlugin {
         return featureLoadManager;
     }
 
-    public ConfigHandler geConfigHandler() {
+    public ConfigHandler getConfigHandler() {
         return configHandler;
     }
 
