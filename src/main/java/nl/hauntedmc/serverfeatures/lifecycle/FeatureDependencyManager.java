@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashSet;
 import java.util.List;
@@ -15,9 +15,9 @@ public class FeatureDependencyManager {
 
     private final FeatureLoadManager featureLoadManager;
     private final Logger logger;
-    private final JavaPlugin plugin;
+    private final ServerFeatures plugin;
 
-    public FeatureDependencyManager(FeatureLoadManager featureLoadManager, JavaPlugin plugin) {
+    public FeatureDependencyManager(FeatureLoadManager featureLoadManager, ServerFeatures plugin) {
         this.featureLoadManager = featureLoadManager;
         this.logger = plugin.getLogger();
         this.plugin = plugin;

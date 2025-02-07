@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.demofeat;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.demofeat.meta.Meta;
 import org.bukkit.Bukkit;
@@ -10,7 +11,6 @@ import org.bukkit.command.TabCompleter;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
@@ -20,7 +20,7 @@ import java.util.Map;
 
 public class DemoFeature extends BaseFeature<Meta>{
 
-    public DemoFeature(JavaPlugin plugin) {
+    public DemoFeature(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
 

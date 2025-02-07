@@ -1,14 +1,14 @@
 package nl.hauntedmc.serverfeatures.config;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public class FeatureConfigHandler {
 
     private final FileConfiguration config;
     private final String featureName;
 
-    public FeatureConfigHandler(JavaPlugin plugin, String featureName) {
+    public FeatureConfigHandler(ServerFeatures plugin, String featureName) {
         this.config = plugin.getConfig();
         this.featureName = featureName;
     }

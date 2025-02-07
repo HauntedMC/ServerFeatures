@@ -1,24 +1,24 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.config.ConfigHandler;
 import nl.hauntedmc.serverfeatures.events.registry.FeatureDisabledEvent;
 import nl.hauntedmc.serverfeatures.events.FeatureEventManager;
 import nl.hauntedmc.serverfeatures.events.registry.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 import java.util.logging.Level;
 
 public class FeatureLoadManager {
 
-    private final JavaPlugin plugin;
+    private final ServerFeatures plugin;
     private final ConfigHandler configHandler;
     private final FeatureRegistry featureRegistry;
     private final FeatureDependencyManager dependencyManager;
 
-    public FeatureLoadManager(JavaPlugin plugin, ConfigHandler configHandler) {
+    public FeatureLoadManager(ServerFeatures plugin, ConfigHandler configHandler) {
         this.plugin = plugin;
         this.configHandler = configHandler;
         this.featureRegistry = new FeatureRegistry();

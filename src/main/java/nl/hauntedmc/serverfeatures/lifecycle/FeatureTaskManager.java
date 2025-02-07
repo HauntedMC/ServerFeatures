@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -9,10 +9,10 @@ import java.util.List;
 
 public class FeatureTaskManager {
 
-    private final JavaPlugin plugin;
+    private final ServerFeatures plugin;
     private final List<BukkitTask> scheduledTasks = new ArrayList<>();
 
-    public FeatureTaskManager(JavaPlugin plugin) {
+    public FeatureTaskManager(ServerFeatures plugin) {
         this.plugin = plugin;
     }
 

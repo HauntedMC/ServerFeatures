@@ -1,17 +1,17 @@
 package nl.hauntedmc.serverfeatures.commands;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import org.bukkit.command.*;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 
 public class FeatureCommandManager {
 
-    private final JavaPlugin plugin;
+    private final ServerFeatures plugin;
     private final CommandMap commandMap;
     private final Map<String, FeatureCommand> registeredCommands = new HashMap<>();
 
-    public FeatureCommandManager(JavaPlugin plugin) {
+    public FeatureCommandManager(ServerFeatures plugin) {
         this.plugin = plugin;
         this.commandMap = plugin.getServer().getCommandMap();
     }

@@ -1,20 +1,21 @@
 package nl.hauntedmc.serverfeatures.common;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
-import org.bukkit.plugin.java.JavaPlugin;
+import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 
 import java.util.List;
 import java.util.Map;
 
 public abstract class BaseFeature<T extends BaseMeta> {
 
-    private final JavaPlugin plugin;
+    private final ServerFeatures plugin;
     private final T meta;
     private final FeatureConfigHandler configHandler;
     private final FeatureLifecycleManager lifecycleManager;
 
-    protected BaseFeature(JavaPlugin plugin, T meta) {
+    protected BaseFeature(ServerFeatures plugin, T meta) {
         this.plugin = plugin;
         this.meta = meta;
         this.configHandler = new FeatureConfigHandler(plugin, getFeatureName());
@@ -37,7 +38,7 @@ public abstract class BaseFeature<T extends BaseMeta> {
         return meta.getPluginDependencies();
     }
 
-    public JavaPlugin getPlugin() {
+    public ServerFeatures getPlugin() {
         return plugin;
     }
 
@@ -47,6 +48,10 @@ public abstract class BaseFeature<T extends BaseMeta> {
 
     public FeatureLifecycleManager getLifecycleManager() {
         return lifecycleManager;
+    }
+
+    public LocalizationHandler getLocalizationHandler() {
+        return plugin.getLocalizationHandler();
     }
 
     /**

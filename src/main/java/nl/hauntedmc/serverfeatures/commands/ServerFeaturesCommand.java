@@ -3,11 +3,9 @@ package nl.hauntedmc.serverfeatures.commands;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import org.bukkit.command.*;
-import org.bukkit.ChatColor;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
@@ -20,14 +18,14 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(ChatColor.YELLOW + "Usage: /serverfeatures <subcommand>");
+                sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.usage"));
             return true;
         }
 
         switch (args[0].toLowerCase()) {
             case "list":
                 if (!sender.hasPermission("serverfeatures.command.list")) {
-                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload all features.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
                 listLoadedFeatures(sender);
@@ -35,64 +33,75 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
             case "reload":
                 if (!sender.hasPermission("serverfeatures.command.reload")) {
-                    sender.sendMessage(ChatColor.RED + "You do not have permission to reload features.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
                 if (args.length < 2) {
-                    sender.sendMessage(ChatColor.RED + "Usage: /serverfeatures reload <feature>");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.reload.usage"));
                     return true;
                 }
                 if (plugin.getFeatureLoadManager().reloadFeature(args[1])) {
-                    sender.sendMessage(ChatColor.GREEN + "Feature " + args[1] + " reloaded.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.reload.success", Map.of("feature", args[1])));
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Feature not found or not enabled.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.reload.fail"));
                 }
                 return true;
 
             case "enable":
                 if (!sender.hasPermission("serverfeatures.command.enable")) {
-                    sender.sendMessage(ChatColor.RED + "You do not have permission to enable features.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
                 if (args.length < 2) return false;
                 if (plugin.getFeatureLoadManager().enableFeature(args[1])) {
-                    sender.sendMessage(ChatColor.GREEN + "Feature " + args[1] + " enabled.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.enable.success", Map.of("feature", args[1])));
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Feature not found or already enabled.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.enable.fail"));
                 }
                 return true;
 
             case "disable":
                 if (!sender.hasPermission("serverfeatures.command.disable")) {
-                    sender.sendMessage(ChatColor.RED + "You do not have permission to disable features.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
                 if (args.length < 2) return false;
                 if (plugin.getFeatureLoadManager().disableFeature(args[1])) {
-                    sender.sendMessage(ChatColor.YELLOW + "Feature " + args[1] + " disabled.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.disable.success", Map.of("feature", args[1])));
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Feature not found or already disabled.");
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.disable.fail"));
                 }
                 return true;
 
+            case "reloadlocal":
+                if (!sender.hasPermission("serverfeatures.command.reloadlocal")) {
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
+                    return true;
+                }
+                plugin.getLocalizationHandler().reloadLocalization();
+                sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.reloadlocal.success"));
+                return true;
+
             default:
-                sender.sendMessage(ChatColor.RED + "Unknown command.");
+                sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.unknown_command"));
                 return true;
         }
     }
-
 
     private void listLoadedFeatures(CommandSender sender) {
         List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
 
         if (loadedFeatures.isEmpty()) {
-            sender.sendMessage(ChatColor.RED + "No features are currently loaded.");
+            sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.list.empty"));
             return;
         }
 
-        sender.sendMessage(ChatColor.GREEN + "Loaded Features:");
+        sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.list.header"));
         for (BaseFeature<?> feature : loadedFeatures) {
-            sender.sendMessage(ChatColor.GOLD + " - " + feature.getFeatureName() + " (v" + feature.getFeatureVersion() + ")");
+            sender.sendMessage(plugin.getLocalizationHandler().getMessage(
+                    "command.list.entry",
+                    Map.of("feature", feature.getFeatureName(), "version", feature.getFeatureVersion())
+            ));
         }
     }
 
@@ -102,20 +111,19 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             completions.add("list");
             completions.add("reload");
+            completions.add("reloadlocal");
             completions.add("enable");
             completions.add("disable");
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "reload":
                 case "disable":
-                    // Suggest only currently loaded features
                     completions.addAll(plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                             .map(BaseFeature::getFeatureName)
                             .toList());
                     break;
 
                 case "enable":
-                    // Suggest only available features that are NOT loaded
                     completions.addAll(plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
                             .filter(feature -> plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                                     .noneMatch(loadedFeature -> loadedFeature.getFeatureName().equalsIgnoreCase(feature)))
