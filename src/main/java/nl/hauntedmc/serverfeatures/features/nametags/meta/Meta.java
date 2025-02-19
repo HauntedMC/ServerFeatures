@@ -1,14 +1,15 @@
-package nl.hauntedmc.serverfeatures.features.demofeat.meta;
+package nl.hauntedmc.serverfeatures.features.nametags.meta;
 
 import nl.hauntedmc.serverfeatures.common.BaseMeta;
 
 import java.util.List;
 
+
 public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureName() {
-        return "DemoFeature";
+        return "Nametags";
     }
 
     @Override
@@ -16,8 +17,4 @@ public class Meta implements BaseMeta {
         return "1.0.0";
     }
 
-    @Override
-    public List<String> getDependencies() {
-        return List.of();
-    }
 }

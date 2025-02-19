@@ -1,19 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.deephaste;
 
-import com.destroystokyo.paper.event.block.BeaconEffectEvent;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.deephaste.listener.BeaconEffectListener;
 import nl.hauntedmc.serverfeatures.features.deephaste.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
-import org.bukkit.configuration.Configuration;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.potion.PotionEffect;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,7 +44,7 @@ public class DeepHaste extends BaseFeature<Meta> {
             getPlugin().getLogger().warning("DeepHaste feature requires Paper (BeaconEffectEvent). Disabling this feature.");
             return;
         }
-        getLifecycleManager().registerListener(new DeepHasteListener());
+        getLifecycleManager().registerListener(new BeaconEffectListener(this));
     }
 
     /**
@@ -63,40 +55,4 @@ public class DeepHaste extends BaseFeature<Meta> {
                 || Bukkit.getServer().getVersion().contains("Paper");
     }
 
-    /**
-     * Our event listener handling the Paper-specific BeaconEffectEvent and PlayerMoveEvent.
-     */
-    private class DeepHasteListener implements Listener {
-
-        @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-        public void onBeaconEffect(BeaconEffectEvent event) {
-            Player player = event.getPlayer();
-
-            int yLevel = (int) getConfigHandler().getSetting("y_level");
-
-            if (player.getLocation().getY() < yLevel) {
-                if (event.getEffect().getType() == PotionEffectType.HASTE) {
-                    int amplifier = (int) getConfigHandler().getSetting("haste_amplifier");
-                    event.setEffect(new PotionEffect(PotionEffectType.HASTE, 320, amplifier));
-                }
-            }
-        }
-
-        @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
-        public void onMove(PlayerMoveEvent event) {
-            Player player = event.getPlayer();
-
-            int yLevel = (int) getConfigHandler().getSetting("y_level");
-
-            PotionEffect hasteEffect = player.getPotionEffect(PotionEffectType.HASTE);
-            if (hasteEffect != null) {
-                int amplifier = hasteEffect.getAmplifier();
-                int configuredAmplifier = (int) getConfigHandler().getSetting("haste_amplifier");
-
-                if (player.getLocation().getY() > yLevel && amplifier == configuredAmplifier) {
-                    player.removePotionEffect(PotionEffectType.HASTE);
-                }
-            }
-        }
-    }
 }

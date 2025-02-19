@@ -19,7 +19,9 @@ public class FeatureCommandManager {
     /**
      * Registers a command dynamically at runtime with an optional tab completer.
      */
-    public void registerCommand(String commandName, CommandExecutor executor, TabCompleter tabCompleter) {
+    public void registerFeatureCommand(FeatureCommand command) {
+        String commandName = command.getName();
+
         if (commandMap == null) {
             plugin.getLogger().severe("CommandMap is not initialized. Cannot register command: " + commandName);
             return;
@@ -30,7 +32,6 @@ public class FeatureCommandManager {
             return;
         }
 
-        FeatureCommand command = new FeatureCommand(commandName, executor, tabCompleter);
         commandMap.register(plugin.getDescription().getName(), command);
         registeredCommands.put(commandName, command);
 
