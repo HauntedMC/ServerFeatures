@@ -47,6 +47,10 @@ public class DeepHaste extends BaseFeature<Meta> {
         getLifecycleManager().registerListener(new BeaconEffectListener(this));
     }
 
+    @Override
+    public void disable() {
+    }
+
     /**
      * Utility to detect if the server is Paper.
      */

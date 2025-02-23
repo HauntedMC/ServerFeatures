@@ -33,4 +33,8 @@ public class InstaSkull extends BaseFeature<Meta> {
         getLifecycleManager().registerListener(new SkullBreakListener(this));
     }
 
+    @Override
+    public void disable() {
+    }
+
 }

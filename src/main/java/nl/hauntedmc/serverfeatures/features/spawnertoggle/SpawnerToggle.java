@@ -48,6 +48,11 @@ public class SpawnerToggle extends BaseFeature<Meta> {
         getLifecycleManager().registerListener(new SpawnerInteractListener(this));
     }
 
+    @Override
+    public void disable() {
+
+    }
+
     public void toggleSpawner(Player player, Block block) {
         BlockState blockState = block.getState();
         if (!(blockState instanceof CreatureSpawner spawner)) return;
@@ -56,10 +61,10 @@ public class SpawnerToggle extends BaseFeature<Meta> {
 
         if (spawner.getRequiredPlayerRange() == defaultRange) {
             spawner.setRequiredPlayerRange(0);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&aingeschakeld")));
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&cuitgeschakeld")));
         } else {
             spawner.setRequiredPlayerRange(defaultRange);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&cuitgeschakeld")));
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&aingeschakeld")));
         }
 
         blockState.update();

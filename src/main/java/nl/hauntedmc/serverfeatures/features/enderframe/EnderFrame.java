@@ -58,6 +58,10 @@ public class EnderFrame extends BaseFeature<Meta> {
         getLifecycleManager().registerListener(new BlockBreakListener(this));
     }
 
+    @Override
+    public void disable() {
+    }
+
     public boolean isGriefPreventionEnabled() {
         return griefPreventionEnabled;
     }

@@ -156,7 +156,8 @@ public class FeatureLoadManager {
             return false;
         }
 
-        feature.unload();
+        feature.disable();
+        feature.cleanup();
         configHandler.setFeatureEnabled(featureName, false);
         plugin.getLogger().info("Feature disabled: " + featureName);
         featureRegistry.deregisterLoadedFeature(featureName);
@@ -181,7 +182,7 @@ public class FeatureLoadManager {
 
         configHandler.reloadConfig();
         BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-        feature.unload();
+        feature.cleanup();
         featureRegistry.deregisterLoadedFeature(featureName);
 
         boolean hasReloaded = loadFeature(featureName);
@@ -215,7 +216,8 @@ public class FeatureLoadManager {
         List<BaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
 
         for (BaseFeature<?> feature : loadedFeatures) {
-            feature.unload();
+            feature.disable();
+            feature.cleanup();
         }
 
         plugin.getLogger().info("All features have been unloaded.");

@@ -42,6 +42,10 @@ public class Glow extends BaseFeature<Meta> {
         getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
     }
 
+    @Override
+    public void disable() {
+    }
+
     /**
      * Enables glow for a player using the provided color.
      *

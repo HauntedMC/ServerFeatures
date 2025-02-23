@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.common.packet;
 
 import org.bukkit.entity.Player;
 
+import java.util.List;
+
 /**
  * Manages sending packets to players, allowing unicast, multicast, and broadcast.
  */
@@ -22,16 +24,13 @@ public class PacketManager {
     /**
      * Sends packets to multiple players in range of a specific player.
      *
-     * @param player The center player.
-     * @param range The max range to send to.
+     * @param players The center player.
      * @param packets The packets to send.
      */
-    public static void sendMulticast(Player player, double range, Packet... packets) {
-        for (Player nearby : player.getWorld().getPlayers()) {
-            if (!nearby.equals(player) && nearby.getLocation().distance(player.getLocation()) <= range) {
-                for (Packet packet : packets) {
-                    packet.sendTo(nearby);
-                }
+    public static void sendMulticast(List<Player> players, Packet... packets) {
+        for (Player target : players) {
+            for (Packet packet : packets) {
+                packet.sendTo(target);
             }
         }
     }

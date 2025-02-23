@@ -72,10 +72,15 @@ public abstract class BaseFeature<T extends BaseMeta> {
     public abstract void initialize();
 
     /**
+     * Feature disable logic (must be implemented by each feature).
+     */
+    public abstract void disable();
+
+    /**
      * Properly unloads the feature using the lifecycle manager.
      */
-    public void unload() {
-        plugin.getLogger().info("Unloading feature: " + getFeatureName());
+    public void cleanup() {
+        plugin.getLogger().info("Cleaning feature tasks of " + getFeatureName());
         lifecycleManager.cleanup();
     }
 }
