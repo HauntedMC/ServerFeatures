@@ -51,4 +51,5 @@ public class NametagListener implements Listener {
         feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
     }
 
+
 }

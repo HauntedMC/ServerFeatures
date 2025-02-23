@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.VaultHook;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
 import com.github.retrooper.packetevents.util.Vector3f;
 import org.bukkit.Color;
@@ -12,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+
 /**
  * Represents an individual nametag.
  * Holds the owner, its properties configuration, a custom entity id and
@@ -20,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Nametag {
     private final Player nametagOwner;
     private final int entityId;
-    private NametagProperties properties;
+    private final NametagProperties properties;
     private final Set<Player> viewers = ConcurrentHashMap.newKeySet();
 
     public Nametag(Player nametagOwner) {
@@ -54,20 +57,23 @@ public class Nametag {
      * Updates the default properties based on owner's properties.
      */
     private void initDefaultProperties() {
-        Component customName = Component.empty();
-        if (nametagOwner.hasPermission("nametag.owner")) {
-            customName = customName.append(Component.text("[Owner] ", NamedTextColor.DARK_RED));
-        }
-        customName = customName.append(Component.text(nametagOwner.getName(), NamedTextColor.GRAY));
+        updateNametagText();
+        this.properties.setBillboardConstraints(BillboardConstraints.CENTER);
+        this.properties.setTranslation(new Vector3f(0.0f, 0.3f, 0.0f));
+        this.properties.setHasShadow(true);
+        this.properties.setIsSeeThrough(false);
+        this.properties.setBackgroundColor(Color.BLACK.setAlpha(0).asARGB());
+    }
 
-        NametagProperties newLayout = new NametagProperties();
-        newLayout.setText(customName);
-        newLayout.setBillboardConstraints(BillboardConstraints.CENTER);
-        newLayout.setTranslation(new Vector3f(0.0f, 0.3f, 0.0f));
-        newLayout.setHasShadow(true);
-        newLayout.setIsSeeThrough(false);
-        newLayout.setBackgroundColor(Color.BLACK.setAlpha(0).asARGB());
+    public void updateNametagText() {
+        String vaultPrefix = VaultHook.getPlayerPrefix(nametagOwner);
+        Component prefix = LegacyComponentSerializer.legacyAmpersand().deserialize(vaultPrefix);
+        Component playerName = Component.text(nametagOwner.getName(), NamedTextColor.GRAY);
 
-        this.properties = newLayout;
+        Component customName = Component.empty()
+                .append(prefix)
+                .append(playerName);
+
+        this.properties.setText(customName);
     }
 }

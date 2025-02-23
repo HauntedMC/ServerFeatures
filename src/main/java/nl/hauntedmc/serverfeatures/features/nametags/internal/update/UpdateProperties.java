@@ -4,11 +4,13 @@ public class UpdateProperties {
     private final boolean forced;
     private final boolean ownerOnly;
     private final long delay;
+    private final boolean updateText;
 
     private UpdateProperties(Builder builder) {
         this.forced = builder.forced;
         this.ownerOnly = builder.ownerOnly;
         this.delay = builder.delay;
+        this.updateText = builder.updateText;
     }
 
     public boolean isForced() {
@@ -23,10 +25,15 @@ public class UpdateProperties {
         return delay;
     }
 
+    public boolean getUpdateText() {
+        return updateText;
+    }
+
     public static class Builder {
         private boolean forced = false;
         private boolean ownerOnly = false;
         private long delay = 0L;
+        private boolean updateText;
 
         /**
          * Set whether the update is forced.
@@ -57,6 +64,17 @@ public class UpdateProperties {
             this.delay = delay;
             return this;
         }
+
+        /**
+         * Set whether the nametag text should be updated.
+         * @param updateText true if only the text should be updated.
+         * @return this Builder instance.
+         */
+        public Builder updateText(boolean updateText) {
+            this.updateText = updateText;
+            return this;
+        }
+
 
         /**
          * Build and return the UpdateProperty instance.

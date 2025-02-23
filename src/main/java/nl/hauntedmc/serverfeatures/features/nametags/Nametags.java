@@ -9,6 +9,8 @@ import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.*;
 
+import static nl.hauntedmc.serverfeatures.features.nametags.internal.hook.LuckPermsHook.subscribeLuckPermsHook;
+
 public class Nametags extends BaseFeature<Meta> {
     private NametagManager nametagManager;
 
@@ -21,6 +23,7 @@ public class Nametags extends BaseFeature<Meta> {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", true);
         return defaults;
+
     }
 
     @Override
@@ -36,6 +39,7 @@ public class Nametags extends BaseFeature<Meta> {
         this.nametagManager = new NametagManager(this);
         this.nametagManager.initializeOnlinePlayers();
         getLifecycleManager().registerListener(new NametagListener(this));
+        subscribeLuckPermsHook(this);
     }
 
     @Override

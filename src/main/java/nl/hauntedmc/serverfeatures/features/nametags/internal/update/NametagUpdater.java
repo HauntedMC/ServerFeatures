@@ -37,6 +37,12 @@ public class NametagUpdater {
      * @param nametag the nametag to update.
      */
     public void update(Nametag nametag, UpdateProperties updateProperties) {
+
+        // Update the text if flagged
+        if (updateProperties.getUpdateText()) {
+            taskManager.scheduleDelayedTask(nametag::updateNametagText, updateProperties.getDelay());
+        }
+
         // If owner only update, recreate the complete nametag entity
         if (updateProperties.isOwnerOnly()) {
             ownerOnlyUpdate(nametag, updateProperties.getDelay());
