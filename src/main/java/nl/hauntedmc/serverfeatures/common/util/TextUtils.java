@@ -13,11 +13,18 @@ import java.util.Map;
 
 public class TextUtils {
 
-    public static Component serializeComponent(String text) {
+    public static Component serializeMultilineComponent(String text) {
         return Component.join(JoinConfiguration.separator(Component.newline()),
-                Arrays.stream(text.split("\n"))
+                Arrays.stream(text.split("<newline>"))
                         .map(line -> LegacyComponentSerializer.legacyAmpersand().deserialize(line))
                         .toList());
+    }
+
+    public static Component serializeComponent(String text) {
+        if (text.contains("<newline>")) {
+            return serializeMultilineComponent(text);
+        }
+        return LegacyComponentSerializer.legacyAmpersand().deserialize(text);
     }
 
     public static String parseWithPAPI(String text, Player player) {

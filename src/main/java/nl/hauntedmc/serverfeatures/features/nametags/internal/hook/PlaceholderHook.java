@@ -52,13 +52,9 @@ public final class PlaceholderHook {
      * @return the combined custom name as an Adventure {@link Component}.
      */
     public Component getNametagText(Player player) {
-        String prefixRaw = feature.getLocalizationHandler().getMessage("nametags.prefix", player);
-        String suffixRaw = feature.getLocalizationHandler().getMessage("nametags.suffix", player);
-        String playerNameRaw = feature.getLocalizationHandler().getMessage("nametags.playername", player);
-
-        Component prefix = TextUtils.serializeComponent(prefixRaw);
-        Component suffix = TextUtils.serializeComponent(suffixRaw);
-        Component playerName = TextUtils.serializeComponent(playerNameRaw);
+        Component prefix = feature.getLocalizationHandler().getMessage("nametags.prefix", player);
+        Component suffix = feature.getLocalizationHandler().getMessage("nametags.suffix", player);
+        Component playerName = feature.getLocalizationHandler().getMessage("nametags.playername", player);
 
         return Component.empty()
                 .append(prefix)

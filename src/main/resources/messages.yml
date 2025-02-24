@@ -2,6 +2,8 @@ general:
   usage: '&eGebruik: /serverfeatures <subcommand>'
   no_permission: '&cJe hebt geen toestemming om dit te doen.'
   unknown_command: '&cOnbekend commando! Gebruik &e/serverfeatures help &cvoor hulp.'
+  player_command: '&cAlleen spelers kunnen dit commando gebruiken.'
+  console_command: '&cDit commando is alleen uit te voeren in de server console.'
 command:
   reload:
     usage: '&cGebruik: /serverfeatures reload <feature>'

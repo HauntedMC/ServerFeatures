@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.localization;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.util.TextUtils;
 
@@ -80,7 +81,7 @@ public class LocalizationHandler {
 
     // -- Existing methods --
 
-    public String getMessage(String key, Player targetPlayer, Map<String, String> placeholders) {
+    public Component getMessage(String key, Player targetPlayer, Map<String, String> placeholders) {
         String message = messagesConfig.getString(key, "&cMessage not found: " + key);
 
         if (placeholders != null) {
@@ -93,18 +94,18 @@ public class LocalizationHandler {
 
         message = TextUtils.parseLegacyColors(message);
 
-        return message;
+        return TextUtils.serializeComponent(message);
     }
 
-    public String getMessage(String key) {
+    public Component getMessage(String key) {
         return getMessage(key, null, null);
     }
 
-    public String getMessage(String key, Map<String, String> placeholders) {
+    public Component getMessage(String key, Map<String, String> placeholders) {
         return getMessage(key, null, placeholders);
     }
 
-    public String getMessage(String key, Player targetPlayer) {
+    public Component getMessage(String key, Player targetPlayer) {
         return getMessage(key, targetPlayer, null);
     }
 }

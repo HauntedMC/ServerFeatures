@@ -5,17 +5,26 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand;
+import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;
 import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
-import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
+/**
+ * Main Glow feature class. Holds configuration, messages, and references
+ * to the {@link GlowHandler}, which actually performs the glow logic.
+ */
 public class Glow extends BaseFeature<Meta> {
+
+    private final GlowHandler glowHandler;
 
     public Glow(ServerFeatures plugin) {
         super(plugin, new Meta());
+        // Initialize the handler with "this" so it can access feature methods.
+        this.glowHandler = new GlowHandler(this);
     }
 
     @Override
@@ -38,38 +47,20 @@ public class Glow extends BaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        // Register listener and command
         getLifecycleManager().registerListener(new GlowListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
     }
 
     @Override
     public void disable() {
+        // Nothing specific to do on disable, but a placeholder is here for clarity.
     }
 
     /**
-     * Enables glow for a player using the provided color.
-     *
-     * @param player the player to glow
-     * @param glowColor  the glow color
+     * Exposes the GlowHandler, so other classes (listener, commands) can perform glow operations.
      */
-    public void setGlow(Player player, NamedTextColor glowColor) {
-        player.setGlowing(true);
-        if (!ScoreboardManager.hasValidTeam(player)) {
-            return;
-        }
-        ScoreboardManager.setTeamColor(player, glowColor);
-    }
-
-    /**
-     * Disables the glow effect for a player.
-     *
-     * @param player the player to remove glow from
-     */
-    public void removeGlow(Player player) {
-        player.setGlowing(false);
-        if (!ScoreboardManager.hasValidTeam(player)) {
-            return;
-        }
-        ScoreboardManager.setTeamColor(player, NamedTextColor.GRAY);
+    public GlowHandler getGlowHandler() {
+        return glowHandler;
     }
 }

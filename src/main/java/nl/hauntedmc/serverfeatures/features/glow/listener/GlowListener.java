@@ -20,6 +20,6 @@ public class GlowListener implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        feature.removeGlow(player);
+        feature.getGlowHandler().removeGlow(player);
     }
 }
