@@ -21,7 +21,7 @@ public class Nametags extends BaseFeature<Meta> {
     @Override
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         return defaults;
 
     }

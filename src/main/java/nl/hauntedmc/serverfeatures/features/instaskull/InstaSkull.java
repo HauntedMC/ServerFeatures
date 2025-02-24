@@ -19,7 +19,6 @@ public class InstaSkull extends BaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
-        defaults.put("require_permission", true);
         return defaults;
     }
 

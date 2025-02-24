@@ -4,7 +4,6 @@ import net.luckperms.api.LuckPerms;
 import net.luckperms.api.event.EventBus;
 import net.luckperms.api.event.log.LogReceiveEvent;
 import net.luckperms.api.event.node.NodeMutateEvent;
-import net.luckperms.api.event.sync.PostSyncEvent;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import org.bukkit.Bukkit;

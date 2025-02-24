@@ -38,11 +38,8 @@ public class BlockBreakListener implements Listener {
 
         Player player = event.getPlayer();
 
-        boolean requiresPermission = feature.getConfigHandler().getBoolean("require_permission", true);
-        if (requiresPermission) {
-            if (!player.hasPermission("serverfeatures.feature.enderframe.use")) {
-                return;
-            }
+        if (!player.hasPermission("serverfeatures.feature.enderframe.use")) {
+            return;
         }
 
         // --- GriefPrevention check, only if GP is loaded/active ---

@@ -20,8 +20,7 @@ public class SkullBreakListener implements Listener {
     public void onBlockDamage(BlockDamageEvent event) {
         Player player = event.getPlayer();
 
-        boolean requiresPermission = feature.getConfigHandler().getBoolean("require_permission", true);
-        if (requiresPermission && !player.hasPermission("serverfeatures.feature.instaskull.use")) {
+        if (!player.hasPermission("serverfeatures.feature.instaskull.use")) {
             return;
         }
 
