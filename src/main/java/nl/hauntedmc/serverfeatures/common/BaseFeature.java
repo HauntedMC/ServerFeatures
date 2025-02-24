@@ -80,7 +80,8 @@ public abstract class BaseFeature<T extends BaseMeta> {
      * Properly unloads the feature using the lifecycle manager.
      */
     public void cleanup() {
-        plugin.getLogger().info("Cleaning feature tasks of " + getFeatureName());
+        plugin.getLogger().info("Disabling " + getFeatureName());
+        disable();
         lifecycleManager.cleanup();
     }
 }

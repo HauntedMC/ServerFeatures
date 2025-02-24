@@ -36,7 +36,7 @@ public class LuckPermsHook {
                 }
                 Player player = Bukkit.getPlayer(uuid.get());
                 if (player != null) {
-                    if (Bukkit.getOnlinePlayers().contains(player)) {
+                    if (feature.getNametagManager().getRegisteredPlayers().contains(player)) {
                         feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).updateText(true).delay(20L).build());
                     }
                 }
@@ -45,7 +45,7 @@ public class LuckPermsHook {
             eventBus.subscribe(feature.getPlugin(), NodeMutateEvent.class, e -> {
                 Player player = Bukkit.getPlayer(e.getTarget().getFriendlyName());
                 if (player != null) {
-                    if (Bukkit.getOnlinePlayers().contains(player)) {
+                    if (feature.getNametagManager().getRegisteredPlayers().contains(player)) {
                         feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).updateText(true).build());
                     }
                 }

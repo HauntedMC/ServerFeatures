@@ -155,8 +155,6 @@ public class FeatureLoadManager {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
             return false;
         }
-
-        feature.disable();
         feature.cleanup();
         configHandler.setFeatureEnabled(featureName, false);
         plugin.getLogger().info("Feature disabled: " + featureName);
@@ -181,6 +179,7 @@ public class FeatureLoadManager {
         }
 
         configHandler.reloadConfig();
+        localizationHandler.reloadLocalization();
         BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
         feature.cleanup();
         featureRegistry.deregisterLoadedFeature(featureName);
@@ -216,7 +215,6 @@ public class FeatureLoadManager {
         List<BaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
 
         for (BaseFeature<?> feature : loadedFeatures) {
-            feature.disable();
             feature.cleanup();
         }
 

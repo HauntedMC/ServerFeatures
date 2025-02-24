@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal.update;
 
 import nl.hauntedmc.serverfeatures.common.packet.BundleDelimiterPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
@@ -18,13 +19,11 @@ import java.util.List;
  * Handles sending packets and updating viewer logic for a given Nametag.
  */
 public class NametagUpdater {
-    private final VisibilityManager visibilityManager;
-    private final PassengerHandler passengerHandler;
     private final FeatureTaskManager taskManager;
+    private final NametagManager nametagManager;
 
-    public NametagUpdater(VisibilityManager visibilityManager, PassengerHandler passengerHandler, FeatureTaskManager taskManager) {
-        this.visibilityManager = visibilityManager;
-        this.passengerHandler = passengerHandler;
+    public NametagUpdater(NametagManager nametagManager, FeatureTaskManager taskManager) {
+        this.nametagManager = nametagManager;
         this.taskManager = taskManager;
     }
 
@@ -74,8 +73,8 @@ public class NametagUpdater {
 
     private void updateViewers(Nametag nametag, long delay) {
         List<Player> newViewers = new ArrayList<>();
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            if (visibilityManager.isPlayerVisible(viewer, nametag)) {
+        for (Player viewer : nametagManager.getRegisteredPlayers()) {
+            if (nametagManager.getVisibilityManager().isPlayerVisible(viewer, nametag)) {
                 newViewers.add(viewer);
             }
         }
@@ -108,7 +107,7 @@ public class NametagUpdater {
                 nametag.getEntityId(),
                 nametag.getNametagProperties().getMetadata()
         );
-        int[] passengerList = passengerHandler.updatePassengerList(nametag.getNametagOwner(), nametag);
+        int[] passengerList = nametagManager.getPassengerHandler().updatePassengerList(nametag.getNametagOwner(), nametag);
         MountNametagEntityPacket mountPacket = new MountNametagEntityPacket(nametag.getNametagOwner(), passengerList);
         taskManager.scheduleDelayedTask(() -> {
             PacketManager.sendMulticast(viewersToAdd, new BundleDelimiterPacket());

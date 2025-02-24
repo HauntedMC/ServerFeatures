@@ -3,13 +3,13 @@ package nl.hauntedmc.serverfeatures.features.nametags;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.LuckPermsHook;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.nametags.listener.NametagListener;
 import nl.hauntedmc.serverfeatures.features.nametags.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.*;
-
-import static nl.hauntedmc.serverfeatures.features.nametags.internal.hook.LuckPermsHook.subscribeLuckPermsHook;
 
 public class Nametags extends BaseFeature<Meta> {
     private NametagManager nametagManager;
@@ -29,17 +29,20 @@ public class Nametags extends BaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-        messages.add("nametag.updated", "§aNametag updated!");
+        messages.add("nametags.prefix", "%vault_prefix%");
+        messages.add("nametags.playername", "&7%player_name%");
+        messages.add("nametags.suffix", "%vault_suffix%");
         return messages;
     }
 
 
     @Override
     public void initialize() {
+        new PlaceholderHook(this);
         this.nametagManager = new NametagManager(this);
         this.nametagManager.initializeOnlinePlayers();
         getLifecycleManager().registerListener(new NametagListener(this));
-        subscribeLuckPermsHook(this);
+        LuckPermsHook.subscribeLuckPermsHook(this);
     }
 
     @Override

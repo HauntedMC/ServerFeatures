@@ -2,8 +2,6 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * A thread-safe registry for storing and retrieving active nametags.

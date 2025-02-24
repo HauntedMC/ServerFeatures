@@ -1,18 +1,18 @@
 package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
-import org.bukkit.Bukkit;
+
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
-import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
+
 import org.jetbrains.annotations.NotNull;
 
 public class NametagListener implements Listener {
@@ -25,7 +25,10 @@ public class NametagListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().delay(10L).build());
+        // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
+        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> {
+            this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build());
+        }, 10L);
     }
 
     @EventHandler
@@ -51,5 +54,11 @@ public class NametagListener implements Listener {
         feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
     }
 
+    @EventHandler
+    public void onResourcePackSend(PlayerResourcePackStatusEvent event) {
+        if (event.getStatus() == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) {
+            feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
+        }
+    }
 
 }

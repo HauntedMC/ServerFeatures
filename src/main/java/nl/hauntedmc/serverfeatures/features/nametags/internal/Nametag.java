@@ -1,10 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import net.kyori.adventure.text.Component;
+
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.VaultHook;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
 import com.github.retrooper.packetevents.util.Vector3f;
 import org.bukkit.Color;
@@ -66,14 +69,6 @@ public class Nametag {
     }
 
     public void updateNametagText() {
-        String vaultPrefix = VaultHook.getPlayerPrefix(nametagOwner);
-        Component prefix = LegacyComponentSerializer.legacyAmpersand().deserialize(vaultPrefix);
-        Component playerName = Component.text(nametagOwner.getName(), NamedTextColor.GRAY);
-
-        Component customName = Component.empty()
-                .append(prefix)
-                .append(playerName);
-
-        this.properties.setText(customName);
+        this.properties.setText(PlaceholderHook.getInstance().getNametagText(getNametagOwner()));
     }
 }

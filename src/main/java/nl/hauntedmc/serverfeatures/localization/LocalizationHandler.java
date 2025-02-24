@@ -1,9 +1,8 @@
 package nl.hauntedmc.serverfeatures.localization;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import nl.hauntedmc.serverfeatures.common.util.TextUtils;
+
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -85,16 +84,16 @@ public class LocalizationHandler {
         String message = messagesConfig.getString(key, "&cMessage not found: " + key);
 
         if (placeholders != null) {
-            for (Map.Entry<String, String> entry : placeholders.entrySet()) {
-                message = message.replace("{" + entry.getKey() + "}", entry.getValue());
-            }
+            message = TextUtils.parsePlaceholders(message, placeholders);
         }
 
-        if (targetPlayer != null && Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            message = PlaceholderAPI.setPlaceholders(targetPlayer, message);
+        if (targetPlayer != null ) {
+            message = TextUtils.parseWithPAPI(message, targetPlayer);
         }
 
-        return ChatColor.translateAlternateColorCodes('&', message);
+        message = TextUtils.parseLegacyColors(message);
+
+        return message;
     }
 
     public String getMessage(String key) {

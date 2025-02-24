@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
@@ -13,6 +12,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -27,12 +27,16 @@ public class NametagManager {
     private final NametagUpdater updater;
     private final Nametags feature;
 
+    private final PassengerHandler passengerHandler;
+
+    private final VisibilityManager visibilityManager;
     public NametagManager(Nametags feature) {
         this.feature = feature;
         this.registry = new NametagRegistry();
-        PassengerHandler passengerHandler = new PassengerHandler();
-        VisibilityManager visibilityManager = new VisibilityManager();
-        this.updater = new NametagUpdater(visibilityManager, passengerHandler, feature.getLifecycleManager().getTaskManager());
+        this.passengerHandler = new PassengerHandler();
+        this.visibilityManager = new VisibilityManager();
+
+        this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
         scheduleRepeatingUpdate();
     }
 
@@ -110,6 +114,30 @@ public class NametagManager {
         for (Player player : Bukkit.getOnlinePlayers()) {
             createNametag(player);
         }
+    }
+
+    /**
+     * Gets a list of all players who have a registered nametag.
+     *
+     * @return List of players with registered nametags.
+     */
+    public List<Player> getRegisteredPlayers() {
+        List<Player> players = new ArrayList<>();
+        for (Nametag nametag : registry.getAllNametags()) {
+            Player player = nametag.getNametagOwner();
+            if (player != null && player.isOnline()) {
+                players.add(player);
+            }
+        }
+        return players;
+    }
+
+    public PassengerHandler getPassengerHandler() {
+        return passengerHandler;
+    }
+
+    public VisibilityManager getVisibilityManager() {
+        return visibilityManager;
     }
 }
 
