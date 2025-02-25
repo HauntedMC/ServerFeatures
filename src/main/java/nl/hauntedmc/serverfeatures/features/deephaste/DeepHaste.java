@@ -44,7 +44,7 @@ public class DeepHaste extends BaseFeature<Meta> {
             getPlugin().getLogger().warning("DeepHaste feature requires Paper (BeaconEffectEvent). Disabling this feature.");
             return;
         }
-        getLifecycleManager().registerListener(new BeaconEffectListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new BeaconEffectListener(this));
     }
 
     @Override

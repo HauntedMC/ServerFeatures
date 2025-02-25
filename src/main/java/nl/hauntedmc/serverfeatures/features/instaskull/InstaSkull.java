@@ -29,7 +29,7 @@ public class InstaSkull extends BaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        getLifecycleManager().registerListener(new SkullBreakListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new SkullBreakListener(this));
     }
 
     @Override

@@ -41,7 +41,7 @@ public class Nametags extends BaseFeature<Meta> {
         new PlaceholderHook(this);
         this.nametagManager = new NametagManager(this);
         this.nametagManager.initializeOnlinePlayers();
-        getLifecycleManager().registerListener(new NametagListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new NametagListener(this));
         LuckPermsHook.subscribeLuckPermsHook(this);
     }
 

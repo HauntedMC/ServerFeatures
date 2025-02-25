@@ -1,11 +1,14 @@
 package nl.hauntedmc.serverfeatures.commands;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
@@ -23,6 +26,14 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         }
 
         switch (args[0].toLowerCase()) {
+            case "status":
+                if (!sender.hasPermission("serverfeatures.command.status")) {
+                    sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
+                    return true;
+                }
+                sendPluginStatus(sender);
+                return true;
+
             case "list":
                 if (!sender.hasPermission("serverfeatures.command.list")) {
                     sender.sendMessage(plugin.getLocalizationHandler().getMessage("general.no_permission"));
@@ -88,6 +99,31 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private void sendPluginStatus(@NotNull CommandSender sender) {
+
+        List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
+        List<String> loadedCommands = new ArrayList<>();
+        int loadedFeatureCount = loadedFeatures.size();
+        int activeTaskCount = 0;
+        int registeredListenerCount = 0;
+        int registeredCommandCount = 0;
+
+
+        for (BaseFeature<?> feature : loadedFeatures) {
+            registeredCommandCount += feature.getLifecycleManager().getCommandManager().getRegisteredCommandCount();
+            loadedCommands.addAll(feature.getLifecycleManager().getCommandManager().getRegisteredCommands().values().stream().map(Command::getName).toList());
+            activeTaskCount += feature.getLifecycleManager().getTaskManager().getActiveTaskCount();
+            registeredListenerCount += feature.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
+        }
+
+        sender.sendMessage(Component.text("ServerFeatures Status:" + loadedFeatureCount, NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("- Number of loaded features: " + loadedFeatureCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of active tasks: " + activeTaskCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of registered listeners: " + registeredListenerCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of registered commands: " + registeredCommandCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Registered commands: " + loadedCommands, NamedTextColor.WHITE));
+    }
+
     private void listLoadedFeatures(CommandSender sender) {
         List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
 
@@ -114,6 +150,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
             completions.add("reloadlocal");
             completions.add("enable");
             completions.add("disable");
+            completions.add("status");
         } else if (args.length == 2) {
             switch (args[0].toLowerCase()) {
                 case "reload":

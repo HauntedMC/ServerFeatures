@@ -7,9 +7,12 @@ import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class BossbarHandler {
 
@@ -51,20 +54,41 @@ public class BossbarHandler {
 
     private void startAutoFade(BossbarMessage message) {
         Object animationSettings = feature.getConfigHandler().getSetting("animation");
-        int steps = 20;
+        int stepsPerSecond;
+        int fadeDelay;
         if (animationSettings instanceof ConfigurationSection configSection) {
-            steps = configSection.getInt("steps", 20);
+            stepsPerSecond = configSection.getInt("steps_per_second", 5);
+            fadeDelay = configSection.getInt("fade_delay", 0);
+        } else {
+            stepsPerSecond = 5;
+            fadeDelay = 0;
         }
+
         long duration = message.getDurationTicks();
-        long interval = duration / steps;
-        for (int i = 0; i <= steps; i++) {
-            final double progress = 1.0 - ((double) i / steps);
-            taskManager.scheduleDelayedTask(() -> {
+        if (duration <= fadeDelay) {
+            return;
+        }
+        long fadeDuration = duration - fadeDelay;
+        int seconds = (int) (fadeDuration / 20L);
+        int totalSteps = seconds * stepsPerSecond;
+        long timePerStep = fadeDuration / totalSteps;
+
+        taskManager.scheduleDelayedTask(() -> {
+            AtomicInteger stepCounter = new AtomicInteger(0);
+            AtomicReference<BukkitTask> taskRef = new AtomicReference<>();
+
+            BukkitTask task = taskManager.scheduleRepeatingTask(() -> {
+                int currentStep = stepCounter.getAndIncrement();
+                double progress = 1.0 - ((double) currentStep / totalSteps);
                 for (BossBar bossBar : activeBossbars.values()) {
                     bossBar.setProgress(Math.max(0.0, Math.min(progress, 1.0)));
                 }
-            }, i * interval);
-        }
+                if (currentStep >= totalSteps) {
+                    taskManager.cancelTask(taskRef.get());
+                }
+            }, timePerStep);
+            taskRef.set(task);
+        }, fadeDelay);
     }
 
     private void updateBossbar(BossBar bossBar, BossbarMessage message) {

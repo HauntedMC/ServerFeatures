@@ -48,7 +48,7 @@ public class Glow extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         // Register listener and command
-        getLifecycleManager().registerListener(new GlowListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new GlowListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
     }
 

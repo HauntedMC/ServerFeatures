@@ -46,7 +46,8 @@ public class Bossbars extends BaseFeature<Meta> {
         defaults.put("messages", messages);
 
         Map<String, Object> animation = new HashMap<>();
-        animation.put("steps", 20);
+        animation.put("steps_per_second", 20);
+        animation.put("fade_delay", 0);
         defaults.put("animation", animation);
         return defaults;
     }
@@ -59,7 +60,7 @@ public class Bossbars extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         this.bossbarHandler = new BossbarHandler(this);
-        getLifecycleManager().registerListener(new BossbarListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new BossbarListener(this));
 
         bossbarHandler.initOnlinePlayers();
         bossbarHandler.startMessageCycle();

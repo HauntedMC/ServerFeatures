@@ -59,7 +59,7 @@ public class Tablist extends BaseFeature<Meta> {
     public void initialize() {
         new PlaceholderHook(this);
         this.handler = new TablistHandler(this);
-        getLifecycleManager().registerListener(new TablistListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new TablistListener(this));
 
         long refreshInterval = (int) getConfigHandler().getSetting("refresh_interval") * 20L;
 

@@ -117,4 +117,11 @@ public class FeatureTaskManager {
         }
         scheduledTasks.clear();
     }
+
+    /**
+     * Get the number of active tasks
+     */
+    public int getActiveTaskCount() {
+        return scheduledTasks.size();
+    }
 }

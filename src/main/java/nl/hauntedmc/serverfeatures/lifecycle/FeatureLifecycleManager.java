@@ -1,34 +1,19 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommandManager;
-import org.bukkit.event.HandlerList;
-import org.bukkit.event.Listener;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class FeatureLifecycleManager {
 
-    private final ServerFeatures plugin;
-    private final List<Listener> registeredListeners = new ArrayList<>();
     private final FeatureTaskManager taskManager;
     private final FeatureCommandManager commandManager;
 
+    private final FeatureListenerManager listenerManager;
+
     public FeatureLifecycleManager(ServerFeatures plugin) {
-        this.plugin = plugin;
         this.taskManager = new FeatureTaskManager(plugin);
         this.commandManager = new FeatureCommandManager(plugin);
+        this.listenerManager = new FeatureListenerManager(plugin);
     }
-
-    /**
-     * Registers an event listener and tracks it for later removal.
-     */
-    public void registerListener(Listener listener) {
-        plugin.getServer().getPluginManager().registerEvents(listener, plugin);
-        registeredListeners.add(listener);
-    }
-
 
     /**
      * Provides access to the task manager.
@@ -45,11 +30,17 @@ public class FeatureLifecycleManager {
     }
 
     /**
+     * Provides access to the listener manager.
+     */
+    public FeatureListenerManager getListenerManager() {
+        return listenerManager;
+    }
+
+    /**
      * Cleans up all registered listeners, tasks, and commands.
      */
     public void cleanup() {
-        registeredListeners.forEach(HandlerList::unregisterAll);
-        registeredListeners.clear();
+        listenerManager.unregisterAllListeners();
         taskManager.cancelAllTasks();
         commandManager.unregisterAllCommands();
     }

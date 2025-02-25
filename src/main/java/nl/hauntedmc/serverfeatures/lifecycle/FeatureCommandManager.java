@@ -1,6 +1,7 @@
-package nl.hauntedmc.serverfeatures.commands;
+package nl.hauntedmc.serverfeatures.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import org.bukkit.command.*;
 
 import java.util.*;
@@ -9,6 +10,7 @@ public class FeatureCommandManager {
 
     private final ServerFeatures plugin;
     private final CommandMap commandMap;
+
     private final Map<String, FeatureCommand> registeredCommands = new HashMap<>();
 
     public FeatureCommandManager(ServerFeatures plugin) {
@@ -63,4 +65,16 @@ public class FeatureCommandManager {
             unregisterCommand(commandName);
         }
     }
+
+    /**
+     * Get all registered commands of the feature
+     */
+    public Map<String, FeatureCommand> getRegisteredCommands() {
+        return registeredCommands;
+    }
+
+    public int getRegisteredCommandCount() {
+        return registeredCommands.size();
+    }
+
 }

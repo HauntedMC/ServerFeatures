@@ -45,7 +45,7 @@ public class SpawnerToggle extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
-        getLifecycleManager().registerListener(new SpawnerInteractListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new SpawnerInteractListener(this));
     }
 
     @Override

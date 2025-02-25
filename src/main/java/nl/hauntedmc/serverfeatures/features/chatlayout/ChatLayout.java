@@ -74,7 +74,7 @@ public class ChatLayout extends BaseFeature<Meta> {
     public void initialize() {
         this.chatFormatRegistry = new ChatFormatRegistry(this);
         this.chatHandler = new ChatHandler(this);
-        getLifecycleManager().registerListener(new ChatListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new ChatListener(this));
     }
 
     @Override

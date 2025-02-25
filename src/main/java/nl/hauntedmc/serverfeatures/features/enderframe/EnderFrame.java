@@ -54,7 +54,7 @@ public class EnderFrame extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
-        getLifecycleManager().registerListener(new BlockBreakListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new BlockBreakListener(this));
     }
 
     @Override
