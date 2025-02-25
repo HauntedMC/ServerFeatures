@@ -19,49 +19,55 @@ public class FeatureTaskManager {
     /**
      * Runs a one-time synchronous task immediately.
      */
-    public void scheduleOneTimeTask(Runnable task) {
+    public BukkitTask scheduleOneTimeTask(Runnable task) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTask(plugin, task);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
      * Runs a one-time synchronous task with a delay.
      */
-    public void scheduleDelayedTask(Runnable task, long delay) {
+    public BukkitTask scheduleDelayedTask(Runnable task, long delay) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskLater(plugin, task, delay);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
      * Runs a repeating synchronous task with no initial delay.
      */
-    public void scheduleRepeatingTask(Runnable task, long period) {
+    public BukkitTask scheduleRepeatingTask(Runnable task, long period) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskTimer(plugin, task, 0L, period);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
      * Runs a repeating synchronous task with an initial delay.
      */
-    public void scheduleDelayedRepeatingTask(Runnable task, long delay, long period) {
+    public BukkitTask scheduleDelayedRepeatingTask(Runnable task, long delay, long period) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskTimer(plugin, task, delay, period);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
      * Runs an asynchronous one-time task.
      */
-    public void scheduleAsyncTask(Runnable task) {
+    public BukkitTask scheduleAsyncTask(Runnable task) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
      * Runs an asynchronous repeating task.
      */
-    public void scheduleAsyncRepeatingTask(Runnable task, long delay, long period) {
+    public BukkitTask scheduleAsyncRepeatingTask(Runnable task, long delay, long period) {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period);
         scheduledTasks.add(bukkitTask);
+        return bukkitTask;
     }
 
     /**
