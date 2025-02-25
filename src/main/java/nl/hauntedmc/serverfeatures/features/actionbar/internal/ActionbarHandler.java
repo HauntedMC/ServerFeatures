@@ -42,13 +42,13 @@ public class ActionbarHandler {
     public void stopMessageCycle() {
         // Cancel all tasks related to the cycle
         if (currentRepeatingTask != null && !currentRepeatingTask.isCancelled()) {
-            currentRepeatingTask.cancel();
+            taskManager.cancelTask(currentRepeatingTask);
         }
         if (currentDelayTask != null && !currentDelayTask.isCancelled()) {
-            currentDelayTask.cancel();
+            taskManager.cancelTask(currentDelayTask);
         }
         if (messageIntervalTask != null && !messageIntervalTask.isCancelled()) {
-            messageIntervalTask.cancel();
+            taskManager.cancelTask(messageIntervalTask);
         }
 
         // Reset references
@@ -62,22 +62,17 @@ public class ActionbarHandler {
         ActionbarMessage currentMessage = messageRegistry.get(currentMessageIndex);
         long durationTicks = currentMessage.getDuration();
 
-        // 1) Start repeating: re-send the same action bar until we’re done
         currentRepeatingTask = taskManager.scheduleRepeatingTask(() -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 sendActionbar(player, currentMessage.getText());
             }
         }, 20L);
 
-        // 2) After 'durationTicks', cancel the repeating task
-        //    Then wait for 'messageInterval' ticks before next message
         currentDelayTask = taskManager.scheduleDelayedTask(() -> {
             if (currentRepeatingTask != null) {
-                currentRepeatingTask.cancel();
+                taskManager.cancelTask(currentRepeatingTask);
             }
 
-            // Start a gap/wait if you want the screen to be cleared
-            // for 'messageInterval' ticks before the next message.
             messageIntervalTask = taskManager.scheduleDelayedTask(() -> {
                 // Move to the next message
                 currentMessageIndex = (currentMessageIndex + 1) % messageRegistry.getTotalMessages();
@@ -113,7 +108,7 @@ public class ActionbarHandler {
 
             taskManager.scheduleDelayedTask(() -> {
                 if (manualRepeatingTask != null) {
-                    manualRepeatingTask.cancel();
+                    taskManager.cancelTask(manualRepeatingTask);
                 }
             }, durationTicks);
         }

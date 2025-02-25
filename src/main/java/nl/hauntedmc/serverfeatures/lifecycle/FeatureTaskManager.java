@@ -6,6 +6,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class FeatureTaskManager {
 
@@ -20,7 +21,16 @@ public class FeatureTaskManager {
      * Runs a one-time synchronous task immediately.
      */
     public BukkitTask scheduleOneTimeTask(Runnable task) {
-        BukkitTask bukkitTask = Bukkit.getScheduler().runTask(plugin, task);
+        AtomicReference<BukkitTask> taskRef = new AtomicReference<>();
+        Runnable wrappedTask = () -> {
+            try {
+                task.run();
+            } finally {
+                scheduledTasks.remove(taskRef.get());
+            }
+        };
+        BukkitTask bukkitTask = Bukkit.getScheduler().runTask(plugin, wrappedTask);
+        taskRef.set(bukkitTask);
         scheduledTasks.add(bukkitTask);
         return bukkitTask;
     }
@@ -29,7 +39,16 @@ public class FeatureTaskManager {
      * Runs a one-time synchronous task with a delay.
      */
     public BukkitTask scheduleDelayedTask(Runnable task, long delay) {
-        BukkitTask bukkitTask = Bukkit.getScheduler().runTaskLater(plugin, task, delay);
+        AtomicReference<BukkitTask> taskRef = new AtomicReference<>();
+        Runnable wrappedTask = () -> {
+            try {
+                task.run();
+            } finally {
+                scheduledTasks.remove(taskRef.get());
+            }
+        };
+        BukkitTask bukkitTask = Bukkit.getScheduler().runTaskLater(plugin, wrappedTask, delay);
+        taskRef.set(bukkitTask);
         scheduledTasks.add(bukkitTask);
         return bukkitTask;
     }
@@ -56,7 +75,16 @@ public class FeatureTaskManager {
      * Runs an asynchronous one-time task.
      */
     public BukkitTask scheduleAsyncTask(Runnable task) {
-        BukkitTask bukkitTask = Bukkit.getScheduler().runTaskAsynchronously(plugin, task);
+        AtomicReference<BukkitTask> taskRef = new AtomicReference<>();
+        Runnable wrappedTask = () -> {
+            try {
+                task.run();
+            } finally {
+                scheduledTasks.remove(taskRef.get());
+            }
+        };
+        BukkitTask bukkitTask = Bukkit.getScheduler().runTaskAsynchronously(plugin, wrappedTask);
+        taskRef.set(bukkitTask);
         scheduledTasks.add(bukkitTask);
         return bukkitTask;
     }
@@ -68,6 +96,16 @@ public class FeatureTaskManager {
         BukkitTask bukkitTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, task, delay, period);
         scheduledTasks.add(bukkitTask);
         return bukkitTask;
+    }
+
+    /**
+     * Must be used to cancel a task.
+     */
+    public void cancelTask(BukkitTask task) {
+        if (task != null) {
+            task.cancel();
+            scheduledTasks.remove(task);
+        }
     }
 
     /**
