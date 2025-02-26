@@ -1,11 +1,10 @@
-package nl.hauntedmc.serverfeatures.lifecycle;
+package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 import nl.hauntedmc.serverfeatures.config.ConfigHandler;
-import nl.hauntedmc.serverfeatures.events.registry.FeatureDisabledEvent;
-import nl.hauntedmc.serverfeatures.events.FeatureEventManager;
-import nl.hauntedmc.serverfeatures.events.registry.FeatureLoadedEvent;
+import nl.hauntedmc.serverfeatures.internal.events.FeatureDisabledEvent;
+import nl.hauntedmc.serverfeatures.internal.events.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 

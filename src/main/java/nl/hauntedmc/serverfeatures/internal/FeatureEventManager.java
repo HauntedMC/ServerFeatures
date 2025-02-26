@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.events;
+package nl.hauntedmc.serverfeatures.internal;
 
 import java.util.HashMap;
 import java.util.HashSet;

@@ -1,13 +1,10 @@
 package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.PacketEventsAPI;
-import com.github.retrooper.packetevents.settings.PacketEventsSettings;
-import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.common.listener.ServerPlayerStateListener;
 import nl.hauntedmc.serverfeatures.config.ConfigHandler;
-import nl.hauntedmc.serverfeatures.lifecycle.FeatureLoadManager;
+import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;

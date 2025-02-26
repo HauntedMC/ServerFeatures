@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.events.registry;
+package nl.hauntedmc.serverfeatures.internal.events;
 
 /**
  * Event triggered when a feature is loaded.

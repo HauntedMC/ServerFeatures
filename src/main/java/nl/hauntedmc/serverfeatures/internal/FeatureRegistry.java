@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.lifecycle;
+package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.common.BaseFeature;
 

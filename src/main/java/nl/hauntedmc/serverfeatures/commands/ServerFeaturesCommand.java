@@ -116,7 +116,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
             registeredListenerCount += feature.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
         }
 
-        sender.sendMessage(Component.text("ServerFeatures Status:" + loadedFeatureCount, NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("ServerFeatures Status:", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("- Number of loaded features: " + loadedFeatureCount, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of active tasks: " + activeTaskCount, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of registered listeners: " + registeredListenerCount, NamedTextColor.WHITE));
