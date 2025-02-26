@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.meta;
 
-import nl.hauntedmc.serverfeatures.common.BaseMeta;
+import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
 import java.util.List;
 

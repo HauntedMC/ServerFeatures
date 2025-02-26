@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nametags;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.LuckPermsHook;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;

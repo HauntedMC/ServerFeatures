@@ -3,12 +3,11 @@ package nl.hauntedmc.serverfeatures.commands;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 

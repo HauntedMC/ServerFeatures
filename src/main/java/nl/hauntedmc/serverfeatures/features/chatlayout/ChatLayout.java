@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;

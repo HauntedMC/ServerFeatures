@@ -1,22 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.enderframe;
 
-import me.ryanhamshire.GriefPrevention.Claim;
-import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.enderframe.listener.BlockBreakListener;
 import nl.hauntedmc.serverfeatures.features.enderframe.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockDamageEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;

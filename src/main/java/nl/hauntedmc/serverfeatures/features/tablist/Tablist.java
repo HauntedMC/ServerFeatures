@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.tablist;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.tablist.internal.TablistHandler;
 import nl.hauntedmc.serverfeatures.features.tablist.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.tablist.listener.TablistListener;

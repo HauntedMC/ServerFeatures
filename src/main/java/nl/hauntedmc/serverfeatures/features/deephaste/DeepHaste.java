@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.deephaste;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.deephaste.listener.BeaconEffectListener;
 import nl.hauntedmc.serverfeatures.features.deephaste.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;

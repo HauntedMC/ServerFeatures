@@ -1,9 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.glow;
 
-import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
-import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand;
 import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;

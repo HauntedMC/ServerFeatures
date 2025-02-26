@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.meta;
 
-import nl.hauntedmc.serverfeatures.common.BaseMeta;
+import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
 
 public class Meta implements BaseMeta {

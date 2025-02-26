@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.common;
+package nl.hauntedmc.serverfeatures.features;
 
 import java.util.List;
 

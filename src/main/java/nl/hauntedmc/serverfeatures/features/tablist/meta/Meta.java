@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.tablist.meta;
 
-import nl.hauntedmc.serverfeatures.common.BaseMeta;
-
-import java.util.List;
+import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
 public class Meta implements BaseMeta {
 

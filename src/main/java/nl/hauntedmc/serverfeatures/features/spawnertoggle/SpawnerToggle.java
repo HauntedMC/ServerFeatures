@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;

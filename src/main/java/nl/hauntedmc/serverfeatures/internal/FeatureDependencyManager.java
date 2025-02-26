@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;

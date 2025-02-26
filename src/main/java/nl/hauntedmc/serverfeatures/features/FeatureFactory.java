@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
 
 public class FeatureFactory {
 

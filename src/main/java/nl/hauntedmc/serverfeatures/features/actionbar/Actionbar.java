@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.actionbar;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarHandler;

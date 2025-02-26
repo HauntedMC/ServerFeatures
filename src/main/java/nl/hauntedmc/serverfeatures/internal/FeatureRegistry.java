@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.internal;
 
-import nl.hauntedmc.serverfeatures.common.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
 
 import java.util.*;
 
