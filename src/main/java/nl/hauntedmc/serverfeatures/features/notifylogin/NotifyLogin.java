@@ -1,0 +1,50 @@
+package nl.hauntedmc.serverfeatures.features.notifylogin;
+
+import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHandler;
+import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
+import nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta;
+import nl.hauntedmc.serverfeatures.localization.MessageMap;
+
+import java.util.*;
+
+public class NotifyLogin extends BaseFeature<Meta> {
+
+    private NotificationHandler notificationHandler;
+
+    public NotifyLogin(ServerFeatures plugin) {
+        super(plugin, new Meta());
+    }
+
+    @Override
+    public Map<String, Object> getDefaultConfig() {
+        Map<String, Object> defaults = new HashMap<>();
+        defaults.put("enabled", false);
+        return defaults;
+
+    }
+
+    @Override
+    public MessageMap getDefaultMessages() {
+        MessageMap messages = new MessageMap();
+        messages.add("notifylogin.supremeplus", "&3[Supreme&f+&3] {name} heeft de server gejoined!");
+        return messages;
+    }
+
+
+    @Override
+    public void initialize() {
+        this.notificationHandler = new NotificationHandler(this);
+        getLifecycleManager().getListenerManager().registerListener(new PlayerListener(this));
+    }
+
+    @Override
+    public void disable() {
+    }
+
+    public NotificationHandler getNotificationHandler() {
+        return notificationHandler;
+    }
+
+}
