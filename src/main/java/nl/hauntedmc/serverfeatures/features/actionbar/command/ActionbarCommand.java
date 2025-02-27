@@ -17,7 +17,7 @@ public class ActionbarCommand extends FeatureCommand {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
-        if (!sender.hasPermission("serverfeatures.actionbar.use")) {
+        if (!sender.hasPermission("serverfeatures.feature.actionbar.use")) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
             return true;
         }
@@ -31,7 +31,7 @@ public class ActionbarCommand extends FeatureCommand {
 
         switch (subCommand) {
             case "start":
-                if (!sender.hasPermission("serverfeatures.actionbar.command.start")) {
+                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.start")) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
@@ -44,7 +44,7 @@ public class ActionbarCommand extends FeatureCommand {
                 break;
 
             case "stop":
-                if (!sender.hasPermission("serverfeatures.actionbar.command.stop")) {
+                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.stop")) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
@@ -57,7 +57,7 @@ public class ActionbarCommand extends FeatureCommand {
                 break;
 
             case "send":
-                if (!sender.hasPermission("serverfeatures.actionbar.command.send")) {
+                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.send")) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
                     return true;
                 }
