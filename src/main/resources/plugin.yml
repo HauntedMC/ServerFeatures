@@ -3,7 +3,7 @@ main: ${project.groupId}.${project.name}
 version: ${project.version}
 author: HauntedMC
 api-version: 1.19
-depend: [packetevents]
+depend: [packetevents, DataRegistry, DataProvider]
 softdepend: [PlaceholderAPI]
 
 commands:
