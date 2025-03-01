@@ -7,14 +7,18 @@ general:
 command:
   reload:
     usage: '&cGebruik: /serverfeatures reload <feature>'
-    success: '&7De functie &e{feature} &7is succesvol herladen.'
-    fail: '&cDeze functie bestaat niet of is niet ingeschakeld.'
+    success: '&7Feature &e{feature} &7is succesvol herladen.'
+    fail: '&cDeze feature bestaat niet of is niet ingeschakeld.'
+  softreload:
+    usage: '&cGebruik: /serverfeatures softreload <feature>'
+    success: '&7Feature configuratie &e{feature} &7is succesvol herladen.'
+    fail: '&cDeze feature bestaat niet of is niet ingeschakeld.'
   enable:
-    success: '&7De functie &e{feature} &7is &aingeschakeld&7.'
-    fail: '&cDeze functie bestaat niet of is al ingeschakeld.'
+    success: '&7Feature &e{feature} &7is &aingeschakeld&7.'
+    fail: '&cDeze feature bestaat niet of is al ingeschakeld.'
   disable:
-    success: '&eDe functie &e{feature} &7is &cuitgeschakeld&7.'
-    fail: '&cDeze functie bestaat niet of is al uitgeschakeld.'
+    success: '&7Feature &e{feature} &7is &cuitgeschakeld&7.'
+    fail: '&cDeze feature bestaat niet of is al uitgeschakeld.'
   reloadlocal:
     success: '&7De localization is opnieuw geladen.'
   list:

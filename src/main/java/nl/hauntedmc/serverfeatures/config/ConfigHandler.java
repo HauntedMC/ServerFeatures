@@ -7,7 +7,7 @@ import java.util.Set;
 
 public class ConfigHandler {
     private final ServerFeatures plugin;
-    private FileConfiguration config;
+    protected FileConfiguration config;
 
     public ConfigHandler(ServerFeatures plugin) {
         this.plugin = plugin;
