@@ -51,32 +51,32 @@ public class ChatHandler {
 
         // Check for disallowed words
         if (containsDisallowedWords(normalizedMessage)) {
-            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word"));
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word", Map.of("name", player.getName(), "message", message)));
+            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word", player));
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[FILTERED] ", message, player);
             return true;
         }
 
         // Check for IP addresses in the message
         if (containsIP(message)) {
-            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_ip"));
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip", Map.of("name", player.getName(), "message", message)));
+            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_ip", player));
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[IP FILTERED] ", message, player);
             return true;
         }
 
         // Check for blocked links
         if (containsBlockedLink(message)) {
-            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_link"));
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link", Map.of("name", player.getName(), "message", message)));
+            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_link", player));
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[LINK FILTERED] ", message, player);
             return true;
         }
 
         // Check for spam (excessively similar recent messages)
         if (isSpam(normalizedMessage, player)) {
-            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_spam"));
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_spam", Map.of("name", player.getName(), "message", message)));
+            notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_spam", player));
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_spam", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[SPAM] ", message, player);
             return true;
         }

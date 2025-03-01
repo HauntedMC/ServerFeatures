@@ -30,7 +30,7 @@ public class SpawnerInteractListener implements Listener {
 
             if (feature.isGriefPreventionEnabled()) {
                 if (!feature.checkBuildPermissions(player, clickedBlock.getLocation())) {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("spawner_toggle.claim_restricted"));
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("spawner_toggle.claim_restricted", player));
                     return;
                 }
             }

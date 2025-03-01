@@ -35,14 +35,14 @@ public class GlowCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command"));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command", sender));
             return true;
         }
         Player player = (Player) sender;
 
         // Basic usage check
         if (args.length != 1) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.usage"));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.usage", sender));
             return true;
         }
 
@@ -51,7 +51,7 @@ public class GlowCommand extends FeatureCommand {
             // Remove glow
             boolean removed = feature.getGlowHandler().removeGlow(player);
             if (removed) {
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.glow_removed"));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.glow_removed", sender));
             }
         } else {
             // Attempt to parse color
@@ -59,13 +59,13 @@ public class GlowCommand extends FeatureCommand {
             try {
                 color = NamedTextColor.NAMES.value(arg.toLowerCase());
             } catch (IllegalArgumentException e) {
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.invalid_color"));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.invalid_color", sender));
                 return true;
             }
 
             boolean success = feature.getGlowHandler().setGlow(player, color);
             if (success) {
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.glow_set", Map.of("color", color.toString())));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.glow_set", sender, Map.of("color", color.toString())));
             }
         }
         return true;

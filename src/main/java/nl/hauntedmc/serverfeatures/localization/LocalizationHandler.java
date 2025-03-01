@@ -1,11 +1,13 @@
 package nl.hauntedmc.serverfeatures.localization;
 
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.util.TextUtils;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -105,17 +107,46 @@ public class LocalizationHandler {
         }
     }
 
-    /**
-     * Gets a message based on the key.
-     * If a specific language is provided, looks into that language file first.
-     * Falls back to the default file if the key is not found.
-     *
-     * @param key          The message key.
-     * @param targetPlayer The target player (for placeholder parsing).
-     * @param placeholders Any additional placeholders.
-     * @return The message as a Component.
-     */
-    public Component getMessage(String key, Player targetPlayer, Map<String, String> placeholders) {
+    public Component getMessage(String key, Audience targetPlayer, Map<String, String> placeholders) {
+        if (targetPlayer instanceof Player) {
+            return getPlayerMessage(key, (Player) targetPlayer, placeholders);
+        } else {
+            return getSystemMessage(key, placeholders);
+        }
+    }
+
+    public Component getMessage(String key, Audience targetPlayer) {
+        if (targetPlayer instanceof Player) {
+            return getPlayerMessage(key, (Player) targetPlayer, null);
+        } else {
+            return getSystemMessage(key, null);
+        }
+    }
+
+    private Component getPlayerMessage(String key, Player targetPlayer, Map<String, String> placeholders) {
+        String message = getTranslateMessage(key, targetPlayer);
+        if (placeholders != null) {
+            message = TextUtils.parsePlaceholders(message, placeholders);
+        }
+        if (targetPlayer != null) {
+            message = TextUtils.parseWithPAPI(message, targetPlayer);
+        }
+        message = TextUtils.parseLegacyColors(message);
+        return TextUtils.serializeComponent(message);
+    }
+
+
+    public Component getSystemMessage(String key, Map<String, String> placeholders) {
+        String message = defaultMessagesConfig.getString(key, "&cMessage not found: " + key);
+        if (placeholders != null) {
+            message = TextUtils.parsePlaceholders(message, placeholders);
+        }
+        message = TextUtils.parseLegacyColors(message);
+        return TextUtils.serializeComponent(message);
+    }
+
+
+    private @NotNull String getTranslateMessage(String key, Player targetPlayer) {
         Language language = getPlayerLanguage(targetPlayer);
 
         String message = null;
@@ -128,29 +159,8 @@ public class LocalizationHandler {
         if (message == null) {
             message = defaultMessagesConfig.getString(key, "&cMessage not found: " + key);
         }
-        if (placeholders != null) {
-            message = TextUtils.parsePlaceholders(message, placeholders);
-        }
-        if (targetPlayer != null) {
-            message = TextUtils.parseWithPAPI(message, targetPlayer);
-        }
-        message = TextUtils.parseLegacyColors(message);
-        return TextUtils.serializeComponent(message);
+        return message;
     }
-
-    // Overloaded methods for convenience
-    public Component getMessage(String key) {
-        return getMessage(key, null, null);
-    }
-
-    public Component getMessage(String key, Map<String, String> placeholders) {
-        return getMessage(key, null, placeholders);
-    }
-
-    public Component getMessage(String key, Player targetPlayer) {
-        return getMessage(key, targetPlayer, null);
-    }
-
 
     /**
      * Retrieve the player's language.

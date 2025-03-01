@@ -18,12 +18,12 @@ public class ActionbarCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!sender.hasPermission("serverfeatures.feature.actionbar.use")) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", sender));
             return true;
         }
 
         if (args.length < 1) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage"));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage", sender));
             return true;
         }
 
@@ -32,37 +32,37 @@ public class ActionbarCommand extends FeatureCommand {
         switch (subCommand) {
             case "start":
                 if (!sender.hasPermission("serverfeatures.feature.actionbar.command.start")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", sender));
                     return true;
                 }
                 if (feature.getActionbarHandler().messageCycleRunning()) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.already_running"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.already_running", sender));
                     return true;
                 }
                 feature.getActionbarHandler().startMessageCycle();
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.started"));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.started", sender));
                 break;
 
             case "stop":
                 if (!sender.hasPermission("serverfeatures.feature.actionbar.command.stop")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", sender));
                     return true;
                 }
                 if (!feature.getActionbarHandler().messageCycleRunning()) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.not_running"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.not_running", sender));
                     return true;
                 }
                 feature.getActionbarHandler().stopMessageCycle();
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.stopped"));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.stopped", sender));
                 break;
 
             case "send":
                 if (!sender.hasPermission("serverfeatures.feature.actionbar.command.send")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", sender));
                     return true;
                 }
                 if (args.length < 2) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.send_usage"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.send_usage", sender));
                     return true;
                 }
 
@@ -75,7 +75,7 @@ public class ActionbarCommand extends FeatureCommand {
                 } catch (NumberFormatException ignored) {
                 }
                 if (timeSeconds < 0) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.invalid_time"));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.invalid_time", sender));
                     return true;
                 }
                 feature.getActionbarHandler().sendManualActionbar(message, timeSeconds);
@@ -84,15 +84,15 @@ public class ActionbarCommand extends FeatureCommand {
                 if (timeSeconds > 0) {
                     placeholders.put("time", String.valueOf(timeSeconds));
                     placeholders.put("message", message);
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer", placeholders));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer", sender, placeholders));
                 } else {
                     placeholders.put("message", message);
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once", placeholders));
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once", sender, placeholders));
                 }
                 break;
 
             default:
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage"));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage", sender));
                 break;
         }
 

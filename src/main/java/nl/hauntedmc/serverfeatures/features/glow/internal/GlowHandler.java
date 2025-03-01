@@ -26,12 +26,12 @@ public class GlowHandler {
      */
     public boolean setGlow(Player player, NamedTextColor glowColor) {
         if (!player.hasPermission("serverfeatures.feature.glow.use")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
             return false;
         }
         String colorPerm = "serverfeatures.feature.glow.color." + glowColor.toString().toLowerCase();
         if (!player.hasPermission(colorPerm)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
             return false;
         }
         player.setGlowing(true);
@@ -50,7 +50,7 @@ public class GlowHandler {
      */
     public boolean removeGlow(Player player) {
         if (!player.hasPermission("serverfeatures.feature.glow.use")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission"));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
             return false;
         }
         player.setGlowing(false);

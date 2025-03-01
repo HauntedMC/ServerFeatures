@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
@@ -39,6 +41,8 @@ public class SpawnerToggle extends BaseFeature<Meta> {
         MessageMap messageMap = new MessageMap();
         messageMap.add("spawner_toggle.toggle_message", "&7[&bSpawner&7] Mob spawning is {status} &7voor deze spawner.");
         messageMap.add("spawner_toggle.claim_restricted", "&cJe kunt deze spawner niet bewerken in andermans claim.");
+        messageMap.add("spawner_toggle.status_on", "&aingeschakeld");
+        messageMap.add("spawner_toggle.status_off", "&cuitgeschakeld");
         return messageMap;
     }
 
@@ -61,10 +65,14 @@ public class SpawnerToggle extends BaseFeature<Meta> {
 
         if (spawner.getRequiredPlayerRange() == defaultRange) {
             spawner.setRequiredPlayerRange(0);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&cuitgeschakeld")));
+            Component status_off = getLocalizationHandler().getMessage("spawner_toggle.status_off", player);
+            String status_off_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_off);
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", player, Map.of("status", status_off_str)));
         } else {
             spawner.setRequiredPlayerRange(defaultRange);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", Map.of("status", "&aingeschakeld")));
+            Component status_on = getLocalizationHandler().getMessage("spawner_toggle.status_on", player);
+            String status_on_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_on);
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", player, Map.of("status", status_on_str)));
         }
 
         blockState.update();
