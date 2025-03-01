@@ -106,6 +106,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         int activeTaskCount = 0;
         int registeredListenerCount = 0;
         int registeredCommandCount = 0;
+        int activeConnCount = 0;
 
 
         for (BaseFeature<?> feature : loadedFeatures) {
@@ -113,10 +114,12 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
             loadedCommands.addAll(feature.getLifecycleManager().getCommandManager().getRegisteredCommands().values().stream().map(Command::getName).toList());
             activeTaskCount += feature.getLifecycleManager().getTaskManager().getActiveTaskCount();
             registeredListenerCount += feature.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
+            activeConnCount += feature.getLifecycleManager().getDataManager().getActiveConnCount();
         }
 
         sender.sendMessage(Component.text("ServerFeatures Status:", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("- Number of loaded features: " + loadedFeatureCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of active database connections: " + activeConnCount, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of active tasks: " + activeTaskCount, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of registered listeners: " + registeredListenerCount, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of registered commands: " + registeredCommandCount, NamedTextColor.WHITE));
