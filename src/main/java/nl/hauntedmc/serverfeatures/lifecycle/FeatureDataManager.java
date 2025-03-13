@@ -36,7 +36,7 @@ public class FeatureDataManager {
      */
     public void initDataProvider(String featureName) {
         this.featureName = featureName;
-        dataProviderAPI.authenticate(featureName, "c5c052c7-b1a3-4c58-8b04-78496b2d4bd8");
+        dataProviderAPI.authenticate(featureName, "7ebbeae6-b52e-484a-ae61-8a215f8efc2b");
         plugin.getLogger().info("DataProvider authenticated feature '" + featureName + "' with token.");
     }
 

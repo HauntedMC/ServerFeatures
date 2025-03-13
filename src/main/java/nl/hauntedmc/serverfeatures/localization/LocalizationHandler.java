@@ -169,6 +169,6 @@ public class LocalizationHandler {
      * @return The Language, or null if no language is configured.
      */
     private Language getPlayerLanguage(Player player) {
-        return Language.DE;
+        return Language.NL;
     }
 }

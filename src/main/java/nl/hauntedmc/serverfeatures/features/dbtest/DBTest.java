@@ -1,9 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.dbtest;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataprovider.database.relational.RelationalDatabaseProvider;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.dataregistry.platform.bukkit.BukkitDataRegistry;
@@ -45,7 +43,7 @@ public class DBTest extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
-        getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "test_conn");
+        getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         getLifecycleManager().getDataManager().createORMContext("ormConnection", PlayerEntity.class);
 
         testFunction();
