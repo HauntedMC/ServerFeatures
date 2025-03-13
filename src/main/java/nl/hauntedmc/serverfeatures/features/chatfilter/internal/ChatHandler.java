@@ -52,12 +52,14 @@ public class ChatHandler {
 
         String normalizedMessage = normalizeMessage(message);
 
+        String finalMessage = message;
+
         // Check for disallowed words
         if (containsDisallowedWords(normalizedMessage)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[FILTERED] ", message, player);
-            discordService.sendFilterNotification(player.getName(), "Taalgebruik", message);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Taalgebruik", finalMessage));
             return true;
         }
 
@@ -66,7 +68,7 @@ public class ChatHandler {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_ip", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[IP FILTERED] ", message, player);
-            discordService.sendFilterNotification(player.getName(), "Reclame [IP]", message);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [IP]", finalMessage));
             return true;
         }
 
@@ -75,7 +77,7 @@ public class ChatHandler {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_link", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[LINK FILTERED] ", message, player);
-            discordService.sendFilterNotification(player.getName(), "Reclame [Link]", message);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [Link]", finalMessage));
             return true;
         }
 
