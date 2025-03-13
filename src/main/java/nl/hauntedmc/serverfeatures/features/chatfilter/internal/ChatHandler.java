@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.common.util.CastUtils;
 import nl.hauntedmc.serverfeatures.features.chatfilter.ChatFilter;
+import nl.hauntedmc.serverfeatures.features.chatfilter.internal.services.DiscordService;
 import org.apache.commons.text.similarity.LevenshteinDistance;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -23,6 +24,7 @@ public class ChatHandler {
     private final List<String> whitelistedDomains;
     private final Map<UUID, List<String>> recentMessages = new ConcurrentHashMap<>();
     private final LevenshteinDistance levenshtein = new LevenshteinDistance();
+    private final DiscordService discordService;
 
     private final Component prefix = Component.text("[", NamedTextColor.GRAY)
             .append(Component.text("ChatFilter", NamedTextColor.RED))
@@ -32,6 +34,7 @@ public class ChatHandler {
         this.feature = feature;
         this.disallowedWords = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("disallowedWords"), String.class);
         this.whitelistedDomains = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("whitelistedDomains"), String.class);
+        this.discordService = new DiscordService(feature);
     }
 
     /**
@@ -54,6 +57,7 @@ public class ChatHandler {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[FILTERED] ", message, player);
+            discordService.sendFilterNotification(player.getName(), "Taalgebruik", message);
             return true;
         }
 
@@ -62,6 +66,7 @@ public class ChatHandler {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_ip", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[IP FILTERED] ", message, player);
+            discordService.sendFilterNotification(player.getName(), "Reclame [IP]", message);
             return true;
         }
 
@@ -70,6 +75,7 @@ public class ChatHandler {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_link", player));
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link", player, Map.of("name", player.getName(), "message", message)));
             logBlockedMessage("[LINK FILTERED] ", message, player);
+            discordService.sendFilterNotification(player.getName(), "Reclame [Link]", message);
             return true;
         }
 
