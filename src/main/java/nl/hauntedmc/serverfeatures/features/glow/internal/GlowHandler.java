@@ -5,6 +5,8 @@ import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import org.bukkit.entity.Player;
 
+import java.util.Map;
+
 /**
  * Handles enabling and disabling glow effects for players.
  * Includes permission checks and scoreboard updates.
@@ -31,7 +33,7 @@ public class GlowHandler {
         }
         String colorPerm = "serverfeatures.feature.glow.color." + glowColor.toString().toLowerCase();
         if (!player.hasPermission(colorPerm)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_reason", player, Map.of("reason", "Je hebt deze glow kleur nog niet unlocked.")));
             return false;
         }
         player.setGlowing(true);

@@ -1,6 +1,8 @@
 general:
   usage: '&eGebruik: /serverfeatures <subcommand>'
   no_permission: '&cJe hebt geen toestemming om dit te doen.'
+  no_permission_rank: '&cVoor deze functie heb je de {rank} &crank nodig. Bekijk alle ranks, upgrades en overige functies in onze winkel (&a/store&c).'
+  no_permission_reason: '&cJe hebt geen toegang tot deze functie: {reason}&c.'
   unknown_command: '&cOnbekend commando! Gebruik &e/serverfeatures help &cvoor hulp.'
   player_command: '&cAlleen spelers kunnen dit commando gebruiken.'
   console_command: '&cDit commando is alleen uit te voeren in de server console.'
