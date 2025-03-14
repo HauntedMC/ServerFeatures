@@ -33,7 +33,7 @@ public class GlowHandler {
         }
         String colorPerm = "serverfeatures.feature.glow.color." + glowColor.toString().toLowerCase();
         if (!player.hasPermission(colorPerm)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_reason", player, Map.of("reason", "Je hebt deze glow kleur nog niet unlocked.")));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_reason", player, Map.of("reason", "&fJe hebt deze glow kleur nog niet unlocked")));
             return false;
         }
         player.setGlowing(true);
