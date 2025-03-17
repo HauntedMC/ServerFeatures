@@ -28,7 +28,7 @@ public class ScoreboardHandler implements Listener {
     private final Scoreboard feature;
     private final LocalizationHandler localizationHandler;
     private final Map<Player, org.bukkit.scoreboard.Scoreboard> playerScoreboards = new ConcurrentHashMap<>();
-    private final Map<Player, List<String>> lastScoreboardLines = new ConcurrentHashMap<>();
+    private final Map<Player, List<Component>> lastScoreboardLines = new ConcurrentHashMap<>();
     private final int refreshInterval;
     private final LegacyComponentSerializer serializer = LegacyComponentSerializer.legacyAmpersand();
 
@@ -52,8 +52,8 @@ public class ScoreboardHandler implements Listener {
         updateObjectiveTitle(objective, player);
 
         // Generate the list of new scoreboard lines
-        List<String> newLines = getProcessedScoreboardLines(player);
-        List<String> oldLines = lastScoreboardLines.get(player);
+        List<Component> newLines = getProcessedScoreboardLines(player);
+        List<Component> oldLines = lastScoreboardLines.get(player);
 
         // If no changes, skip updating to reduce overhead.
         if (oldLines != null && oldLines.equals(newLines)) {
@@ -121,7 +121,7 @@ public class ScoreboardHandler implements Listener {
      * @param newLines  the new list of scoreboard lines
      * @param oldLines  the previous list of scoreboard lines
      */
-    private void updateScoreLines(Objective objective, List<String> newLines, List<String> oldLines) {
+    private void updateScoreLines(Objective objective, List<Component> newLines, List<Component> oldLines) {
         for (int i = 0; i < newLines.size(); i++) {
             int scoreValue = newLines.size() - i;
             String lineKey = "line" + i;
@@ -130,7 +130,7 @@ public class ScoreboardHandler implements Listener {
             boolean needsUpdate = oldLines == null || i >= oldLines.size() || !oldLines.get(i).equals(newLines.get(i));
             if (needsUpdate) {
                 score.setScore(scoreValue);
-                score.customName(Component.text(newLines.get(i)));
+                score.customName(newLines.get(i));
                 score.numberFormat(NumberFormat.blank());
             }
         }
@@ -143,7 +143,7 @@ public class ScoreboardHandler implements Listener {
      * @param newLines   the new list of scoreboard lines
      * @param oldLines   the previous list of scoreboard lines
      */
-    private void cleanupExtraLines(org.bukkit.scoreboard.Scoreboard scoreboard, List<String> newLines, List<String> oldLines) {
+    private void cleanupExtraLines(org.bukkit.scoreboard.Scoreboard scoreboard, List<Component> newLines, List<Component> oldLines) {
         if (oldLines != null && oldLines.size() > newLines.size()) {
             for (int i = newLines.size(); i < oldLines.size(); i++) {
                 String lineKey = "line" + i;
@@ -158,8 +158,8 @@ public class ScoreboardHandler implements Listener {
      * @param player the player for which to process the lines
      * @return a list of processed scoreboard lines
      */
-    private List<String> getProcessedScoreboardLines(Player player) {
-        List<String> processedLines = new ArrayList<>(MAX_LINES);
+    private List<Component> getProcessedScoreboardLines(Player player) {
+        List<Component> processedLines = new ArrayList<>(MAX_LINES);
         for (int i = 1; i <= MAX_LINES; i++) {
             Component message = localizationHandler.getMessage("scoreboard.line" + i, player);
             String msg = serializer.serialize(message);
@@ -167,7 +167,7 @@ public class ScoreboardHandler implements Listener {
             if (msg.startsWith("<end>")) {
                 break;
             }
-            processedLines.add(msg);
+            processedLines.add(message);
         }
         return processedLines;
     }
