@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.tablist.meta;
 
 import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
+import java.util.List;
+
 public class Meta implements BaseMeta {
 
     @Override
@@ -13,4 +15,7 @@ public class Meta implements BaseMeta {
     public String getFeatureVersion() {
         return "1.0.0";
     }
+
+    @Override
+    public List<String> getPluginDependencies() { return List.of("Vault"); }
 }

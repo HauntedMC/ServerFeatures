@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.tablist;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.tablist.internal.TablistHandler;
-import nl.hauntedmc.serverfeatures.features.tablist.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.tablist.listener.TablistListener;
 import nl.hauntedmc.serverfeatures.features.tablist.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
@@ -11,6 +10,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Tablist extends BaseFeature<Meta> {
@@ -29,6 +29,33 @@ public class Tablist extends BaseFeature<Meta> {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
         defaults.put("refresh_interval", 5);
+        defaults.put("rank_order", List.of(
+                "owner",
+                "admin",
+                "serveraccount",
+                "modt3",
+                "modt2",
+                "modt1",
+                "bouwteamt3",
+                "bouwteamt2",
+                "bouwteamt1",
+                "eventteamt3",
+                "eventteamt2",
+                "eventteamt1",
+                "mediateam",
+                "discordteam",
+                "ambassador",
+                "streamer",
+                "supremeplus",
+                "supreme",
+                "god",
+                "legend",
+                "elite",
+                "premium",
+                "speler",
+                "default"
+        ));
+
         return defaults;
     }
 
@@ -57,7 +84,6 @@ public class Tablist extends BaseFeature<Meta> {
      */
     @Override
     public void initialize() {
-        new PlaceholderHook(this);
         this.handler = new TablistHandler(this);
         getLifecycleManager().getListenerManager().registerListener(new TablistListener(this));
 
