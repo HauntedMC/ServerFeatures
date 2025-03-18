@@ -1,0 +1,57 @@
+recipes:
+  - key: custom_diamond_sword
+    type: shaped
+    output: "DIAMOND_SWORD,1"
+    shape:
+      - " A "
+      - " A "
+      - " B "
+    ingredients:
+      A: IRON_INGOT
+      B: STICK
+
+  - key: custom_golden_apple
+    type: shapeless
+    output: "GOLDEN_APPLE,1"
+    ingredients:
+      - GOLD_BLOCK
+      - APPLE
+
+  - key: custom_iron_ingot_furnace
+    type: furnace
+    input: IRON_ORE
+    output: "IRON_INGOT,1"
+    experience: 0.7
+    cooking-time: 200
+
+  - key: custom_blasting_recipe
+    type: blasting
+    input: IRON_ORE
+    output: "IRON_INGOT,1"
+    experience: 0.7
+    cooking-time: 100
+
+  - key: custom_smoking_recipe
+    type: smoking
+    input: BEEF
+    output: "COOKED_BEEF,1"
+    experience: 0.35
+    cooking-time: 100
+
+  - key: custom_campfire_recipe
+    type: campfire
+    input: POTATO
+    output: "BAKED_POTATO,1"
+    experience: 0.35
+    cooking-time: 100
+
+  - key: custom_stonecutter
+    type: stonecutting
+    input: STONE
+    output: "STONE_BRICKS,1"
+
+  - key: custom_smithing_recipe
+    type: smithing
+    base: DIAMOND_SWORD
+    addition: NETHERITE_INGOT
+    result: "NETHERITE_SWORD,1"

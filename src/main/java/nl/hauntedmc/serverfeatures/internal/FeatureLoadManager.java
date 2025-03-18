@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BaseFeature;
-import nl.hauntedmc.serverfeatures.config.ConfigHandler;
+import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.events.FeatureDisabledEvent;
 import nl.hauntedmc.serverfeatures.internal.events.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
@@ -14,14 +14,14 @@ import java.util.logging.Level;
 public class FeatureLoadManager {
 
     private final ServerFeatures plugin;
-    private final ConfigHandler configHandler;
+    private final MainConfigHandler mainConfigHandler;
     private final FeatureRegistry featureRegistry;
     private final FeatureDependencyManager dependencyManager;
     private final LocalizationHandler localizationHandler;
 
     public FeatureLoadManager(ServerFeatures plugin) {
         this.plugin = plugin;
-        this.configHandler = plugin.getConfigHandler();
+        this.mainConfigHandler = plugin.getConfigHandler();
         this.localizationHandler = plugin.getLocalizationHandler();
         this.featureRegistry = new FeatureRegistry();
         this.dependencyManager = new FeatureDependencyManager(this, plugin);
@@ -51,7 +51,7 @@ public class FeatureLoadManager {
             });
         }
         plugin.getLogger().info("Discovered features: " + featureRegistry.getAvailableFeatures().keySet());
-        configHandler.cleanupUnusedFeatures(featureRegistry.getAvailableFeatures().keySet());
+        mainConfigHandler.cleanupUnusedFeatures(featureRegistry.getAvailableFeatures().keySet());
     }
 
     /**
@@ -108,7 +108,7 @@ public class FeatureLoadManager {
             plugin.getLogger().warning("Feature not found: " + featureName);
             return false;
         }
-        configHandler.setFeatureEnabled(featureName, true);
+        mainConfigHandler.setFeatureEnabled(featureName, true);
         return loadFeature(featureName);
     }
 
@@ -125,11 +125,11 @@ public class FeatureLoadManager {
         BaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
         if (feature == null) return false;
 
-        configHandler.registerFeature(featureName);
-        configHandler.injectFeatureDefaults(featureName, feature.getDefaultConfig());
+        mainConfigHandler.registerFeature(featureName);
+        mainConfigHandler.injectFeatureDefaults(featureName, feature.getDefaultConfig());
         localizationHandler.registerDefaultMessages(feature.getDefaultMessages());
 
-        if (configHandler.isFeatureEnabled(featureName)) {
+        if (mainConfigHandler.isFeatureEnabled(featureName)) {
             if (!dependencyManager.areDependenciesMet(feature)) {
                 plugin.getLogger().warning("Feature " + featureName + " is missing dependencies and cannot be enabled.");
                 return false;
@@ -155,7 +155,7 @@ public class FeatureLoadManager {
             return false;
         }
         feature.cleanup();
-        configHandler.setFeatureEnabled(featureName, false);
+        mainConfigHandler.setFeatureEnabled(featureName, false);
         plugin.getLogger().info("Feature disabled: " + featureName);
         featureRegistry.deregisterLoadedFeature(featureName);
         FeatureEventManager.triggerEvent(new FeatureDisabledEvent(featureName));
@@ -189,7 +189,7 @@ public class FeatureLoadManager {
             return false;
         }
 
-        configHandler.reloadConfig();
+        mainConfigHandler.reloadConfig();
         localizationHandler.reloadLocalization();
         BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
         feature.cleanup();

@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures;
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.common.listener.ServerPlayerStateListener;
-import nl.hauntedmc.serverfeatures.config.ConfigHandler;
+import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
@@ -14,7 +14,7 @@ import java.util.Objects;
 
 public class ServerFeatures extends JavaPlugin {
 
-    private ConfigHandler configHandler;
+    private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;
     private LocalizationHandler localizationHandler;
 
@@ -27,7 +27,7 @@ public class ServerFeatures extends JavaPlugin {
         PacketEvents.getAPI().init();
 
         // General plugin initialization
-        configHandler = new ConfigHandler(this);
+        mainConfigHandler = new MainConfigHandler(this);
         localizationHandler = new LocalizationHandler(this);
         featureLoadManager = new FeatureLoadManager(this);
         registerBaseCommand();
@@ -58,8 +58,8 @@ public class ServerFeatures extends JavaPlugin {
         return featureLoadManager;
     }
 
-    public ConfigHandler getConfigHandler() {
-        return configHandler;
+    public MainConfigHandler getConfigHandler() {
+        return mainConfigHandler;
     }
 
     public LocalizationHandler getLocalizationHandler() {

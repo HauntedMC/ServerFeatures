@@ -28,7 +28,7 @@ public class NickCommand extends FeatureCommand {
         }
 
         if (!player.hasPermission("serverfeatures.feature.nickname.command.nickname")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank", player, Map.of("rank", "&6Elite")));
             return false;
         }
 

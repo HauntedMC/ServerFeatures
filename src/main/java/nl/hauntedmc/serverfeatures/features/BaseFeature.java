@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
-import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.internal.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 

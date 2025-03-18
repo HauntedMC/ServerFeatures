@@ -1,8 +1,9 @@
-package nl.hauntedmc.serverfeatures.config;
+package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 
-public class FeatureConfigHandler extends ConfigHandler {
+public class FeatureConfigHandler extends MainConfigHandler {
 
     private final String featureName;
 

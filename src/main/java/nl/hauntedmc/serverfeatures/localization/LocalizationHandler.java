@@ -1,16 +1,14 @@
 package nl.hauntedmc.serverfeatures.localization;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
+import nl.hauntedmc.serverfeatures.common.util.TextUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.util.TextUtils;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -18,94 +16,57 @@ public class LocalizationHandler {
 
     private final ServerFeatures plugin;
 
-    // Default messages configuration and file.
-    private FileConfiguration defaultMessagesConfig;
-    private File defaultMessagesFile;
-
-    // Map to hold language-specific configurations.
-    private final EnumMap<Language, FileConfiguration> languageConfigs = new EnumMap<>(Language.class);
+    private final ResourceHandler defaultMessagesResource;
+    private final EnumMap<Language, ResourceHandler> languageResources = new EnumMap<>(Language.class);
 
     public LocalizationHandler(ServerFeatures plugin) {
         this.plugin = plugin;
-        loadDefaultMessages();
+        defaultMessagesResource = new ResourceHandler(plugin, "messages.yml");
         loadLanguageFiles();
     }
 
     /**
-     * Loads the default messages.yml file.
-     */
-    private void loadDefaultMessages() {
-        defaultMessagesFile = new File(plugin.getDataFolder(), "messages.yml");
-        if (!defaultMessagesFile.exists()) {
-            plugin.saveResource("messages.yml", false);
-        }
-        defaultMessagesConfig = YamlConfiguration.loadConfiguration(defaultMessagesFile);
-    }
-
-    /**
-     * Loads each language file based on the defined enum.
-     * If a file does not exist, a warning is logged.
+     * Loads each language file using ResourceHandler.
      */
     private void loadLanguageFiles() {
         for (Language lang : Language.values()) {
-            File langFile = new File(plugin.getDataFolder(), lang.getFileName());
-            if (!langFile.exists()) {
+            ResourceHandler resource = new ResourceHandler(plugin, lang.getFileName());
+            if (resource.getConfig() == null) {
                 plugin.getLogger().warning("Language file " + lang.getFileName() + " not found. Please create it manually.");
                 continue;
             }
-            FileConfiguration langConfig = YamlConfiguration.loadConfiguration(langFile);
-            languageConfigs.put(lang, langConfig);
+            languageResources.put(lang, resource);
         }
     }
 
     /**
-     * Reloads both the default and language-specific message files.
+     * Reloads both the default messages and language-specific files.
      */
     public void reloadLocalization() {
-        loadDefaultMessages();
-        loadLanguageFiles();
+        defaultMessagesResource.reload();
+        languageResources.values().forEach(ResourceHandler::reload);
         plugin.getLogger().info("All localization files reloaded.");
     }
 
     /**
-     * Registers multiple default messages in the default file.
-     * Only keys not already present will be added.
+     * Registers multiple default messages.
      */
     public void registerDefaultMessages(MessageMap messageMap) {
         boolean changes = false;
+        FileConfiguration config = defaultMessagesResource.getConfig();
         for (Map.Entry<String, String> entry : messageMap.getMessages().entrySet()) {
             String key = entry.getKey();
             String defaultValue = entry.getValue();
-            if (!defaultMessagesConfig.contains(key)) {
-                defaultMessagesConfig.set(key, defaultValue);
+            if (!config.contains(key)) {
+                config.set(key, defaultValue);
                 changes = true;
             }
         }
         if (changes) {
-            saveDefaultMessagesFile();
+            defaultMessagesResource.save();
         }
     }
 
-    /**
-     * Registers a single default message.
-     */
-    public void registerDefaultMessage(String key, String defaultValue) {
-        if (!defaultMessagesConfig.contains(key)) {
-            defaultMessagesConfig.set(key, defaultValue);
-            saveDefaultMessagesFile();
-        }
-    }
-
-    /**
-     * Saves changes to the default messages file.
-     */
-    private void saveDefaultMessagesFile() {
-        try {
-            defaultMessagesConfig.save(defaultMessagesFile);
-        } catch (IOException e) {
-            plugin.getLogger().severe("Could not save messages.yml: " + e.getMessage());
-        }
-    }
 
     public Component getMessage(String key, Audience targetPlayer, Map<String, String> placeholders) {
         if (targetPlayer instanceof Player) {
@@ -135,9 +96,8 @@ public class LocalizationHandler {
         return TextUtils.serializeComponent(message);
     }
 
-
     public Component getSystemMessage(String key, Map<String, String> placeholders) {
-        String message = defaultMessagesConfig.getString(key, "&cMessage not found: " + key);
+        String message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
         if (placeholders != null) {
             message = TextUtils.parsePlaceholders(message, placeholders);
         }
@@ -145,28 +105,24 @@ public class LocalizationHandler {
         return TextUtils.serializeComponent(message);
     }
 
-
     private @NotNull String getTranslateMessage(String key, Player targetPlayer) {
         Language language = getPlayerLanguage(targetPlayer);
-
         String message = null;
         if (language != null) {
-            FileConfiguration langConfig = languageConfigs.get(language);
-            if (langConfig != null && langConfig.contains(key)) {
-                message = langConfig.getString(key);
+            ResourceHandler resource = languageResources.get(language);
+            if (resource != null && resource.getConfig().contains(key)) {
+                message = resource.getConfig().getString(key);
             }
         }
         if (message == null) {
-            message = defaultMessagesConfig.getString(key, "&cMessage not found: " + key);
+            message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
         }
         return message;
     }
 
     /**
      * Retrieve the player's language.
-     *
-     * @param player The player whose language should be retrieved.
-     * @return The Language, or null if no language is configured.
+     * Modify this as needed to get the correct language for your player.
      */
     private Language getPlayerLanguage(Player player) {
         return Language.NL;
