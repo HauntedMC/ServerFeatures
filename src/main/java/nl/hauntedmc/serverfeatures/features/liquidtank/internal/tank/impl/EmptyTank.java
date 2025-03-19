@@ -5,18 +5,16 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHan
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.PotionUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 public class EmptyTank extends AbstractTank {
 	private static final ChatColor chatColor = ChatColor.GRAY;
 
-	private static int maxAmount = 30;
+	private static int maxAmount = 128;
 
 	private static final long delay = 100L;
 
@@ -24,12 +22,7 @@ public class EmptyTank extends AbstractTank {
 		super(location, 0, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, EmptyTank::gameTick, delay, delay);
+	public static void gameLoop(LiquidTank feature) {
 	}
 
 	private static void gameTick() {

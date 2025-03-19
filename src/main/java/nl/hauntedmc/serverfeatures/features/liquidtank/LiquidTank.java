@@ -24,18 +24,7 @@ public class LiquidTank extends BaseFeature<Meta> {
         defaults.put("enabled", true);
         defaults.put("item-name", "&bLiquid Tank");
         defaults.put("enable-items", true);
-        defaults.put("enable-crafting", false);
         defaults.put("amount-per-chunk", 16);
-        defaults.put("lava-amount", 128);
-        defaults.put("water-amount", 128);
-        defaults.put("milk-amount", 128);
-        defaults.put("mushroomStew-amount", 128);
-        defaults.put("rabbitStew-amount", 128);
-        defaults.put("dragonBreath-amount", 128);
-        defaults.put("beetroot-amount", 128);
-        defaults.put("honey-amount", 128);
-        defaults.put("need-redstone-for-export", false);
-        defaults.put("water-fountains-enabled", false);
         return defaults;
     }
 
@@ -51,11 +40,13 @@ public class LiquidTank extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         this.tankManager = new LiquidTankManager(this);
+        getLifecycleManager().getListenerManager().registerListener(this.tankManager);
         getLifecycleManager().getCommandManager().registerFeatureCommand(new LiquidTankCommand(this));
     }
 
     @Override
     public void disable() {
+        this.tankManager.save();
     }
 
     public LiquidTankManager getTankManager() {

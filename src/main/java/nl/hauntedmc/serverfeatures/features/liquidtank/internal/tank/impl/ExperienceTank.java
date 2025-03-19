@@ -1,12 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ExperienceUtil;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.MessageUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import static org.bukkit.Material.LIME_WOOL;
 import static org.bukkit.Material.YELLOW_WOOL;
@@ -20,32 +23,28 @@ public class ExperienceTank extends AbstractTank {
 
 	private static int maxAmount = 1395;
 
-	public ExperienceTank(Location location, int amount) {
-		super(location, amount);
+	public ExperienceTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, feature);
 	}
 
 	public static TankType getType() {
 		return type;
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
-				gameTick();
+				gameTick(feature);
 			} catch (Exception exception) {
 			}
 		}, delay, delay);
 	}
 
-	private static void gameTick() {
+	private static void gameTick(LiquidTank feature) {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
-			if (block.getType() == Material.HOPPER && (!LiquidTanks.settings.isPowerRequired() || block.isBlockPowered() || block.isBlockIndirectlyPowered())) {
-				AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
+			if (block.getType() == Material.HOPPER) {
+				AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
 				if (abstractTank != null && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE)) && abstractTank instanceof ExperienceTank)
 					if (abstractTank.getQuantity() > 100) {
 						ExperienceUtil.addExp(player, 100);
@@ -54,7 +53,7 @@ public class ExperienceTank extends AbstractTank {
 						abstractTank.showParticles();
 					} else if (abstractTank.getQuantity() <= 100) {
 						ExperienceUtil.addExp(player, abstractTank.getQuantity());
-						AbstractTank abstractTank1 = LiquidTanks.tankManager.emptyTank(abstractTank);
+						AbstractTank abstractTank1 = feature.getTankManager().emptyTank(abstractTank);
 						abstractTank1.updateVisuals();
 						abstractTank.showParticles();
 					}
@@ -65,7 +64,7 @@ public class ExperienceTank extends AbstractTank {
 						.equals(GameMode.ADVENTURE))) {
 					block = player.getLocation().add(0.0D, -0.1D, 0.0D).getBlock();
 					if (block.getType() == Material.HOPPER) {
-						AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
+						AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
 						if (abstractTank != null) {
 							if (abstractTank instanceof ExperienceTank && abstractTank.getQuantity() < abstractTank
 									.getMaxQuantity()) {
@@ -104,13 +103,13 @@ public class ExperienceTank extends AbstractTank {
 							if (abstractTank instanceof EmptyTank) {
 								if (i >= 100) {
 									ExperienceUtil.removeExp(player, 100);
-									abstractTank = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.EXPERIENCE, 100);
+									abstractTank = feature.getTankManager().changeTankType(abstractTank, TankType.EXPERIENCE, 100);
 									abstractTank.updateVisuals();
 									abstractTank.playTitle(player);
 									continue;
 								}
 								ExperienceUtil.removeExp(player, i);
-								abstractTank = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.EXPERIENCE, i);
+								abstractTank = feature.getTankManager().changeTankType(abstractTank, TankType.EXPERIENCE, i);
 								abstractTank.updateVisuals();
 								player.updateInventory();
 								abstractTank.playTitle(player);
@@ -147,7 +146,7 @@ public class ExperienceTank extends AbstractTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
 			if (getQuantity() < 14) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.EXPERIENCE_BOTTLE));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

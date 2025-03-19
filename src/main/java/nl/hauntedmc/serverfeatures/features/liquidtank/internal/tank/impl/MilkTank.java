@@ -1,10 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 
 import static org.bukkit.Material.QUARTZ_BLOCK;
@@ -12,44 +14,37 @@ import static org.bukkit.Material.QUARTZ_BLOCK;
 public class MilkTank extends AbstractTank {
 	private static final ChatColor chatColor = ChatColor.WHITE;
 
-	private static int maxAmount = 30;
+	private static int maxAmount = 128;
 
 	private static final long delay = 20L;
 
-	public MilkTank(Location location, int amount) {
-		super(location, amount);
+	public MilkTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 3)
-			paramInt = 3;
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
-				gameTick();
+				gameTick(feature);
 			} catch (Exception exception) {
 			}
 		}, delay, delay);
 	}
 
-	private static void gameTick() {
+	private static void gameTick(LiquidTank feature) {
 		for (Player player : Bukkit.getOnlinePlayers()) {
 			if (!player.getActivePotionEffects().isEmpty() && (player.getGameMode().equals(GameMode.SURVIVAL) || player
 					.getGameMode().equals(GameMode.ADVENTURE))) {
 				Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
-				if (block.getType() == Material.HOPPER && (!LiquidTanks.settings.isPowerRequired() || block.isBlockPowered() || block
-						.isBlockIndirectlyPowered())) {
-					AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
+				if (block.getType() == Material.HOPPER) {
+					AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
 					if (abstractTank != null && abstractTank instanceof MilkTank) {
 						abstractTank.showParticles();
 						for (PotionEffect potionEffect : player.getActivePotionEffects())
 							player.removePotionEffect(potionEffect.getType());
 						abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 						if (abstractTank.getQuantity() == 0) {
-							LiquidTanks.tankManager.emptyTank(abstractTank);
+							feature.getTankManager().emptyTank(abstractTank);
 							continue;
 						}
 						abstractTank.updateVisuals();
@@ -75,7 +70,7 @@ public class MilkTank extends AbstractTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BUCKET) {
 			if (getQuantity() == 3) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.MILK_BUCKET));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

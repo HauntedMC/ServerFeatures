@@ -1,38 +1,30 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import org.bukkit.Bukkit;
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import static org.bukkit.Material.*;
 
 public class RabbitStewTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.YELLOW;
 
-	private static int maxAmount = 10;
+	private static int maxAmount = 128;
 
 	private static final long delay = 20L;
 
-	public RabbitStewTank(Location location, int amount) {
-		super(location, amount, 12);
+	public RabbitStewTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, 12, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 1)
-			paramInt = 1;
-		maxAmount = paramInt;
+	public static void gameLoop(LiquidTank feature) {
 	}
 
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, RabbitStewTank::gameTick, delay, delay);
-	}
-
-	private static void gameTick() {
-	}
 
 	@Override
 	protected String getLiquidHeadUrl() {
@@ -50,7 +42,7 @@ public class RabbitStewTank extends FoodTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BOWL) {
 			if (getQuantity() == 1) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.RABBIT_STEW));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

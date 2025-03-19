@@ -20,7 +20,7 @@ import static org.bukkit.Particle.FALLING_DUST;
 public abstract class AbstractTank {
 	private static final ChatColor chatColor = ChatColor.GRAY;
 
-	private static int maxAmount = 30;
+	private static final int maxAmount = 128;
 
 	private static final int cooldownTime = 50;
 
@@ -34,7 +34,7 @@ public abstract class AbstractTank {
 
 	private PacketHandler packetHandlerLiquid = null;
 
-	private List<String> playersNearby = new ArrayList<>();
+	private final List<String> playersNearby = new ArrayList<>();
 
 	private boolean onCooldown = false;
 	protected LiquidTank feature;
@@ -76,15 +76,11 @@ public abstract class AbstractTank {
 		this.packetHandlerLiquid = packetHandlerLiquid;
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		maxAmount = paramInt;
-	}
-
 	public static void gameLoop(LiquidTank feature) {
 		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask(() -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, delay, delay);
 	}
@@ -122,7 +118,7 @@ public abstract class AbstractTank {
 		int j = getMaxQuantity() / i;
 		if (j % 2 == 1)
 			j++;
-		double d = getQuantity() / getMaxQuantity();
+		double d = (double) getQuantity() / getMaxQuantity();
 		int k = (int) (d * j);
 		String str = "&7";
 		if (isOverFlown())
@@ -146,7 +142,7 @@ public abstract class AbstractTank {
 		MessageUtils.sendTitle(paramPlayer, stringBuilder.toString());
 	}
 
-	public void clear(boolean paramBoolean) {
+	public void clear(boolean b) {
 		this.playersNearby.clear();
 		if (this.packetHandlerGlass != null)
 			for (Player player : Bukkit.getOnlinePlayers())
@@ -243,7 +239,7 @@ public abstract class AbstractTank {
 			}
 	}
 
-	public void spawnFallingDust(Location location, int count, float offset, float offsetY, Material material) {
+	public static void spawnFallingDust(Location location, int count, float offset, float offsetY, Material material) {
 		location.getWorld().spawnParticle(FALLING_DUST, location, count, offset * 3.0F, offsetY, offset * 3.0F, material.createBlockData());
 	}
 

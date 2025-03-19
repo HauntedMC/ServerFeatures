@@ -1,5 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.PotionUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -8,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionType;
 
@@ -22,41 +26,49 @@ public class WaterTank extends AbstractTank {
 
 	private static final ChatColor chatColor = ChatColor.AQUA;
 
-	private static int maxAmount = 30;
+	private static int maxAmount = 128;
 
 	private static final long delay = 20L;
 
-	public WaterTank(Location location, int amount) {
-		super(location, amount);
+	public WaterTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 3)
-			paramInt = 3;
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
-				gameTick();
+				gameTick(feature);
 			} catch (Exception exception) {
 			}
 		}, delay, delay);
 	}
 
-	private static void gameTick() {
-		for (Player player : Bukkit.getOnlinePlayers()) {
-			if (player.getFireTicks() > 0 && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE))) {
-				Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
-				if (block.getType() == Material.HOPPER && (!LiquidTanks.settings.isPowerRequired() || block.isBlockPowered() || block.isBlockIndirectlyPowered())) {
-					AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
-					if (abstractTank != null && abstractTank instanceof WaterTank) {
-						abstractTank.showParticles();
-						player.setFireTicks(0);
+	private static void gameTick(LiquidTank feature) {
+		for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
+			if (abstractTank instanceof WaterTank && BlockUtils.isLoaded(abstractTank.getLocation())) {
+				WaterTank tank = (WaterTank) abstractTank;
+				ArrayList<Block> arrayList1 = new ArrayList<>();
+				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.SOUTH));
+				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.NORTH));
+				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.WEST));
+				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.EAST));
+				ArrayList<Block> arrayList2 = new ArrayList<>();
+				for (Block block : arrayList1) {
+					if (block.getType() == Material.DISPENSER && ((Directional) block.getBlockData()).getFacing() == BlockFace.UP && (block.isBlockPowered() || block.isBlockIndirectlyPowered()))
+						arrayList2.add(block);
+				}
+				if (arrayList2.size() > 0 && arrayList2.size() < 3) {
+					for (Block block : arrayList2) {
+						if (arrayList2.size() > 1) {
+							tank.showFountainParticles(block.getLocation(), 1.5D, 5, 1.0F);
+							continue;
+						}
+						tank.showFountainParticles(block.getLocation(), 2.0D, 7, 1.5F);
+					}
+					if (!isFullWater(abstractTank.getLocation().getBlock().getRelative(BlockFace.UP))) {
 						abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 						if (abstractTank.getQuantity() == 0) {
-							LiquidTanks.tankManager.emptyTank(abstractTank);
+							feature.getTankManager().emptyTank(abstractTank);
 							continue;
 						}
 						abstractTank.updateVisuals();
@@ -64,47 +76,14 @@ public class WaterTank extends AbstractTank {
 				}
 			}
 		}
-		if (LiquidTanks.settings.isFountainEnabled())
-			for (AbstractTank abstractTank : LiquidTanks.tankManager.getTankList()) {
-				if (abstractTank instanceof WaterTank && BlockUtils.isLoaded(abstractTank.getLocation())) {
-					WaterTank tank = (WaterTank) abstractTank;
-					ArrayList<Block> arrayList1 = new ArrayList<>();
-					arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.SOUTH));
-					arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.NORTH));
-					arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.WEST));
-					arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.EAST));
-					ArrayList<Block> arrayList2 = new ArrayList<>();
-					for (Block block : arrayList1) {
-						if (block.getType() == Material.DISPENSER && ((Directional) block.getBlockData()).getFacing() == BlockFace.UP && (block.isBlockPowered() || block.isBlockIndirectlyPowered()))
-							arrayList2.add(block);
-					}
-					if (arrayList2.size() > 0 && arrayList2.size() < 3) {
-						for (Block block : arrayList2) {
-							if (arrayList2.size() > 1) {
-								tank.showFountainParticles(block.getLocation(), 1.5D, 5, 1.0F);
-								continue;
-							}
-							tank.showFountainParticles(block.getLocation(), 2.0D, 7, 1.5F);
-						}
-						if (!isFullWater(abstractTank.getLocation().getBlock().getRelative(BlockFace.UP))) {
-							abstractTank.setQuantity(abstractTank.getQuantity() - 1);
-							if (abstractTank.getQuantity() == 0) {
-								LiquidTanks.tankManager.emptyTank(abstractTank);
-								continue;
-							}
-							abstractTank.updateVisuals();
-						}
-					}
-				}
-			}
-		for (AbstractTank abstractTank : LiquidTanks.tankManager.getTankList()) {
+		for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
 			if ((abstractTank instanceof WaterTank || abstractTank instanceof EmptyTank) &&
 					BlockUtils.isLoaded(abstractTank.getLocation()) && abstractTank.getQuantity() < abstractTank.getMaxQuantity()) {
 				Block block = abstractTank.getLocation().clone().add(0.0D, 1.0D, 0.0D).getBlock();
 				if (isFullWater(block)) {
 					block.setType(Material.AIR);
 					if (abstractTank instanceof EmptyTank) {
-						LiquidTanks.tankManager.changeTankType(abstractTank, type, 3);
+						feature.getTankManager().changeTankType(abstractTank, type, 3);
 						continue;
 					}
 					abstractTank.setQuantity(Math.min(abstractTank.getQuantity() + 3, abstractTank.getMaxQuantity()));
@@ -134,7 +113,7 @@ public class WaterTank extends AbstractTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BUCKET) {
 			if (getQuantity() == 3) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.WATER_BUCKET));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;
@@ -159,7 +138,7 @@ public class WaterTank extends AbstractTank {
 				potionMeta.setBasePotionData(potionData);
 				itemStack.setItemMeta(itemMeta);
 				changeItemFromPlayer(paramPlayer, new ItemStack(itemStack));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;
@@ -205,6 +184,6 @@ public class WaterTank extends AbstractTank {
 	private void showFountainParticles(Location location, double locationYOffset, int count, double offsetY) {
 		Location locationClone = location.clone().add(0.5D,locationYOffset, 0.5D);
 		for (byte b = 0; b < 4; b++)
-			Bukkit.getScheduler().runTaskLater(LiquidTanks.instance, () -> locationClone.getWorld().spawnParticle(SPLASH, locationClone, count * 10, 0.05F, offsetY, 0.05F, 0.01D),(b * 5));
+			feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> locationClone.getWorld().spawnParticle(SPLASH, locationClone, count * 10, 0.05F, offsetY, 0.05F, 0.01D),(b * 5));
 	}
 }

@@ -38,7 +38,7 @@ public class LiquidTankCommand extends FeatureCommand {
 
         // Usage: /liquidtank give <player> [amount]
         if (args.length < 1 || !args[0].equalsIgnoreCase("give") || args.length < 2) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.give_usage", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.usage", player));
             return true;
         }
 
@@ -72,7 +72,7 @@ public class LiquidTankCommand extends FeatureCommand {
     private org.bukkit.inventory.ItemStack getTankItem(int amount) {
         org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.HOPPER, amount);
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        String displayName = (String) feature.getPlugin().getConfig().get("item-name");
+        String displayName = (String) feature.getConfigHandler().getSetting("item-name");
         meta.displayName(Component.text(TextUtils.parseLegacyColors(displayName)));
         item.setItemMeta(meta);
         return item;

@@ -1,12 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.*;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import java.util.Random;
 
@@ -16,30 +19,24 @@ import static org.bukkit.Material.TERRACOTTA;
 public class MushroomStewTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.YELLOW;
 
-	private static int maxAmount = 10;
+	private static int maxAmount = 128;
 
 	private static final long delay = 1200L;
 
-	public MushroomStewTank(Location location, int amount) {
-		super(location, amount, 5);
+	public MushroomStewTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, 5, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 1)
-			paramInt = 1;
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
-				gameTick();
+				gameTick(feature);
 			} catch (Exception exception) {
 			}
 		}, delay, delay);
 	}
 
-	private static void gameTick() {
+	private static void gameTick(LiquidTank feature) {
 		for (World world : Bukkit.getWorlds()) {
 			for (Entity entity : world.getEntities()) {
 				if (entity.getType().equals(EntityType.MOOSHROOM)) {
@@ -48,7 +45,7 @@ public class MushroomStewTank extends FoodTank {
 						Location location = entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getLocation();
 						Random random = new Random();
 						if (random.nextInt(5) == 0) {
-							AbstractTank abstractTank = LiquidTanks.tankManager.getTank(location);
+							AbstractTank abstractTank = feature.getTankManager().getTank(location);
 							if (abstractTank != null) {
 								if (abstractTank instanceof MilkTank && abstractTank.getQuantity() < abstractTank
 										.getMaxQuantity()) {
@@ -63,7 +60,7 @@ public class MushroomStewTank extends FoodTank {
 									continue;
 								}
 								if (abstractTank instanceof EmptyTank) {
-									AbstractTank abstractTank1 = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.MUSHROOM_STEW, 1);
+									AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MUSHROOM_STEW, 1);
 									abstractTank1.updateVisuals();
 								}
 							}
@@ -77,7 +74,7 @@ public class MushroomStewTank extends FoodTank {
 					Location location = entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getLocation();
 					Random random = new Random();
 					if (random.nextInt(5) == 0) {
-						AbstractTank abstractTank = LiquidTanks.tankManager.getTank(location);
+						AbstractTank abstractTank = feature.getTankManager().getTank(location);
 						if (abstractTank != null) {
 							if (abstractTank instanceof MilkTank && abstractTank.getQuantity() < abstractTank
 									.getMaxQuantity()) {
@@ -86,7 +83,7 @@ public class MushroomStewTank extends FoodTank {
 								continue;
 							}
 							if (abstractTank instanceof EmptyTank) {
-								AbstractTank abstractTank1 = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.MILK, 1);
+								AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MILK, 1);
 								abstractTank1.updateVisuals();
 							}
 						}
@@ -112,7 +109,7 @@ public class MushroomStewTank extends FoodTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BOWL) {
 			if (getQuantity() == 1) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.MUSHROOM_STEW));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

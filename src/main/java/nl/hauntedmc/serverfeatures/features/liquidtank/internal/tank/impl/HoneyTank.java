@@ -1,6 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import org.bukkit.Bukkit;
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -9,7 +12,6 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Beehive;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
 
@@ -18,29 +20,28 @@ import static org.bukkit.Material.*;
 public class HoneyTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.GOLD;
 
-	private static int maxAmount = 30;
+	private static int maxAmount = 128;
 
 	private static final long delay = 20L;
 
-	public HoneyTank(Location location, int amount) {
-		super(location, amount, 4);
+	public HoneyTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, 4, feature);
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 1)
-			paramInt = 1;
-		maxAmount = paramInt;
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
+			try {
+				gameTick(feature);
+			} catch (Exception exception) {
+			}
+		}, delay, delay);
 	}
 
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, HoneyTank::gameTick, delay, delay);
-	}
-
-	private static void gameTick() {
+	private static void gameTick(LiquidTank feature) {
 		try {
 			Method method1 = Block.class.getMethod("getBlockData", new Class[0]);
 			Method method2 = Block.class.getMethod("setBlockData", new Class[] { BlockData.class });
-			for (AbstractTank abstractTank : LiquidTanks.tankManager.getTankList()) {
+			for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
 				if ((abstractTank instanceof HoneyTank || abstractTank instanceof EmptyTank) &&
 						abstractTank.getQuantity() < abstractTank.getMaxQuantity() &&
 						BlockUtils.isLoaded(abstractTank.getLocation())) {
@@ -51,7 +52,7 @@ public class HoneyTank extends FoodTank {
 							beehive.setHoneyLevel(beehive.getHoneyLevel() - 1);
 							method2.invoke(block, new Object[] { beehive });
 							if (abstractTank instanceof EmptyTank) {
-								LiquidTanks.tankManager.changeTankType(abstractTank, TankType.HONEY, 1);
+								feature.getTankManager().changeTankType(abstractTank, TankType.HONEY, 1);
 								continue;
 							}
 							abstractTank.setQuantity(abstractTank.getQuantity() + 1);
@@ -80,7 +81,7 @@ public class HoneyTank extends FoodTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
 			if (getQuantity() == 1) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.HONEY_BOTTLE));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

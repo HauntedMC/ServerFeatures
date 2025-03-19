@@ -12,11 +12,7 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTan
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.*;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.MessageUtils;
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Hopper;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -49,6 +45,9 @@ public class LiquidTankManager implements Listener {
     List<AbstractTank> tankList = new ArrayList<>();
     List<UnloadedTank> unloadedTankList = new ArrayList<>();
     LiquidTank feature;
+    private int maxAmountPerChunk;
+    private String itemName;
+    private boolean enableItems;
 
     public LiquidTankManager(LiquidTank feature) {
         this.feature = feature;
@@ -61,8 +60,15 @@ public class LiquidTankManager implements Listener {
         FoodTank.gameLoop(feature);
         ExperienceTank.gameLoop(feature);
         HoneyTank.gameLoop(feature);
+        DragonBreathTank.gameLoop(feature);
+        readConfigOptions();
     }
 
+    private void readConfigOptions() {
+        maxAmountPerChunk = (int) feature.getConfigHandler().getSetting("amount-per-chunk");
+        itemName = ((String) feature.getConfigHandler().getSetting("item-name")).replace("&", "§");
+        enableItems = (boolean) feature.getConfigHandler().getSetting("enable-items");
+    }
 
     public List<AbstractTank> getTankList() {
         return this.tankList;
@@ -75,29 +81,29 @@ public class LiquidTankManager implements Listener {
     }
 
     public void createLiquidTank(Location location, TankType tankType, int n) {
-        AbstractTank liquidTank = tankType.equals(TankType.LAVA) ? new LavaTank(location, n)
-                : (tankType.equals(TankType.WATER) ? new WaterTank(location, n)
-                : (tankType.equals(TankType.MILK) ? new MilkTank(location, n)
-                : (tankType.equals(TankType.MUSHROOM_STEW) ? new MushroomStewTank(location, n)
-                : (tankType.equals(TankType.RABBIT_STEW) ? new RabbitStewTank(location, n)
-                : (tankType.equals(TankType.BEETROOT_SOUP) ? new BeetrootSoupTank(location, n)
-                : (tankType.equals(TankType.DRAGON_BREATH) ? new DragonBreathTank(location, n)
-                : (tankType.equals(TankType.EXPERIENCE) ? new ExperienceTank(location, n)
-                : (tankType.equals(TankType.HONEY) ? new HoneyTank(location, n) : new EmptyTank(location, feature)))))))));
+        AbstractTank liquidTank = tankType.equals(TankType.LAVA) ? new LavaTank(location, n, feature)
+                : (tankType.equals(TankType.WATER) ? new WaterTank(location, n, feature)
+                : (tankType.equals(TankType.MILK) ? new MilkTank(location, n, feature)
+                : (tankType.equals(TankType.MUSHROOM_STEW) ? new MushroomStewTank(location, n, feature)
+                : (tankType.equals(TankType.RABBIT_STEW) ? new RabbitStewTank(location, n, feature)
+                : (tankType.equals(TankType.BEETROOT_SOUP) ? new BeetrootSoupTank(location, n, feature)
+                : (tankType.equals(TankType.DRAGON_BREATH) ? new DragonBreathTank(location, n, feature)
+                : (tankType.equals(TankType.EXPERIENCE) ? new ExperienceTank(location, n, feature)
+                : (tankType.equals(TankType.HONEY) ? new HoneyTank(location, n, feature) : new EmptyTank(location, feature)))))))));
         this.tankList.add(liquidTank);
     }
 
     public AbstractTank changeTankType(AbstractTank liquidTank, TankType tankType, int n) {
         liquidTank.clear(false);
-        AbstractTank liquidTank2 = tankType.equals(TankType.LAVA) ? new LavaTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.WATER) ? new WaterTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.MILK) ? new MilkTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.MUSHROOM_STEW) ? new MushroomStewTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.RABBIT_STEW) ? new RabbitStewTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.BEETROOT_SOUP) ? new BeetrootSoupTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.DRAGON_BREATH) ? new DragonBreathTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.EXPERIENCE) ? new ExperienceTank(liquidTank.getLocation(), n)
-                : (tankType.equals(TankType.HONEY) ? new HoneyTank(liquidTank.getLocation(), n)
+        AbstractTank liquidTank2 = tankType.equals(TankType.LAVA) ? new LavaTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.WATER) ? new WaterTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.MILK) ? new MilkTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.MUSHROOM_STEW) ? new MushroomStewTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.RABBIT_STEW) ? new RabbitStewTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.BEETROOT_SOUP) ? new BeetrootSoupTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.DRAGON_BREATH) ? new DragonBreathTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.EXPERIENCE) ? new ExperienceTank(liquidTank.getLocation(), n, feature)
+                : (tankType.equals(TankType.HONEY) ? new HoneyTank(liquidTank.getLocation(), n, feature)
                 : new EmptyTank(liquidTank.getLocation(), feature)))))))));
         this.tankList.remove(liquidTank);
         this.tankList.add(liquidTank2);
@@ -201,7 +207,7 @@ public class LiquidTankManager implements Listener {
     public int quickSave(boolean bl, boolean bl2) {
         Location object;
         if (bl) {
-            Bukkit.getScheduler().runTaskAsynchronously(LiquidTanks.instance, () -> this.quickSave(false, bl2));
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->  this.quickSave(false, bl2));
             return 0;
         }
         int n = 0;
@@ -253,7 +259,7 @@ public class LiquidTankManager implements Listener {
                 continue;
             ++n;
         }
-        return n < LiquidTanks.settings.getMaxAmountTanksPerChunk();
+        return n < this.maxAmountPerChunk;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -262,18 +268,19 @@ public class LiquidTankManager implements Listener {
             return;
         }
         try {
-            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER || !blockPlaceEvent.getItemInHand().getItemMeta().getDisplayName().equals(LiquidTanks.settings.getItemName())) {
+            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER || !blockPlaceEvent.getItemInHand().getItemMeta().getDisplayName().equals(this.itemName)) {
                 return;
             }
             if (blockPlaceEvent.getPlayer().hasPermission("liquidtanks.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {
                 if (blockPlaceEvent.getPlayer().hasPermission("liquidtanks.limit.bypass") || this.canPlaceTank(blockPlaceEvent.getBlock().getLocation())) {
                     this.createLiquidTank(blockPlaceEvent.getBlock().getLocation());
-                    if (LiquidTanks.settings.isEnableItems()) {
+
+                    if (this.enableItems) {
                         this.addItems(blockPlaceEvent.getBlock());
                     }
                 } else {
                     MessageUtils.sendTitle(blockPlaceEvent.getPlayer(),
-                            "&cYou can only place down " + LiquidTanks.settings.getMaxAmountTanksPerChunk() + " per chunk!");
+                            "&cYou can only place down " + this.maxAmountPerChunk + " per chunk!");
                     blockPlaceEvent.setCancelled(true);
                 }
             } else {
@@ -322,7 +329,7 @@ public class LiquidTankManager implements Listener {
             hopper.getInventory().clear();
             if (!blockBreakEvent.getPlayer().getGameMode().equals(GameMode.CREATIVE)) {
                 blockBreakEvent.getBlock().getWorld().dropItemNaturally(blockBreakEvent.getBlock().getLocation().clone().add(0.5, 0.5, 0.5),
-                        ItemCreator.newItem(Material.HOPPER, 1, LiquidTanks.settings.getItemName(), ""));
+                        ItemCreator.newItem(Material.HOPPER, 1, this.itemName, ""));
             }
             blockBreakEvent.getBlock().setType(Material.AIR);
         }
@@ -342,7 +349,7 @@ public class LiquidTankManager implements Listener {
                 playerInteractEvent.setCancelled(true);
             }
         }
-        Bukkit.getScheduler().runTaskAsynchronously(LiquidTanks.instance, () -> {
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->  {
             try {
                 AbstractTank liquidTank = this.getTank(Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getLocation());
                 if (liquidTank != null) {
@@ -350,14 +357,13 @@ public class LiquidTankManager implements Listener {
                     if (!player.hasPermission("liquidtanks.use") && (boolean) feature.getConfigHandler().getSetting("enable-permission")) {
                         return;
                     }
-                    Bukkit.getScheduler().runTask(LiquidTanks.instance, () -> {
-                        liquidTank.onInteract(player);
-                    });
+                    feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->  liquidTank.onInteract(player));
                 }
             } catch (Exception exception) {
                 // empty catch block
             }
         });
+
     }
 
     @EventHandler
@@ -381,7 +387,7 @@ public class LiquidTankManager implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent playerJoinEvent) {
-        Bukkit.getScheduler().runTaskLater(LiquidTanks.instance, () -> {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             this.loadUnloadedTankList(playerJoinEvent.getPlayer().getWorld());
             for (AbstractTank liquidTank : this.tankList) {
                 liquidTank.updatePlayerView(playerJoinEvent.getPlayer());
@@ -424,7 +430,7 @@ public class LiquidTankManager implements Listener {
     }
 
     public void addItems(Block block) {
-        Bukkit.getScheduler().runTaskLater(LiquidTanks.instance, () -> {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             if (block.getType() == Material.HOPPER) {
                 Hopper hopper = (Hopper) block.getState();
                 hopper.getInventory().setItem(3, new ItemStack(Material.GLASS, 7));
@@ -444,7 +450,7 @@ public class LiquidTankManager implements Listener {
             liquidTank = this.getTank(hopper.getLocation());
             if (!hopper.getBlock().isBlockIndirectlyPowered() && !hopper.getBlock().isBlockPowered() && liquidTank != null) {
                 InventoryHolder inventoryHolder2;
-                if (!LiquidTanks.settings.isEnableItems()) {
+                if (!this.enableItems) {
                     hopper.getInventory().clear();
                 }
                 inventoryMoveItemEvent.setCancelled(true);
@@ -453,7 +459,7 @@ public class LiquidTankManager implements Listener {
                     Hopper hopper2 = (Hopper) inventoryHolder2;
                     AbstractTank liquidTank2 = this.getTank(hopper2.getLocation());
                     if (!hopper2.getBlock().isBlockIndirectlyPowered() && !hopper2.getBlock().isBlockPowered() && liquidTank2 != null) {
-                        if (!LiquidTanks.settings.isEnableItems()) {
+                        if (!this.enableItems) {
                             hopper2.getInventory().clear();
                         }
                         if (!(liquidTank2.isOnCooldown() || liquidTank.isOnCooldown() || liquidTank.getTankType().equals(TankType.EMPTY))) {
@@ -499,7 +505,7 @@ public class LiquidTankManager implements Listener {
                 && (inventoryHolder = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder instanceof Hopper
                 && (liquidTank = this.getTank((hopper = (Hopper) inventoryHolder).getLocation())) != null) {
             inventoryMoveItemEvent.setCancelled(true);
-            if (!LiquidTanks.settings.isEnableItems()) {
+            if (!this.enableItems) {
                 hopper.getInventory().clear();
             }
         }

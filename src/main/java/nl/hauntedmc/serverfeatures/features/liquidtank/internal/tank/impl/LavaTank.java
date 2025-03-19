@@ -1,59 +1,44 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.*;
 import org.bukkit.block.*;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.MagmaCube;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import java.util.ArrayList;
-import java.util.Random;
 
 public class LavaTank extends AbstractTank {
 	private static final TankType type = TankType.LAVA;
 
 	private static final ChatColor chatColor = ChatColor.RED;
 
-	private static int maxAmount = 30;
+	private static int maxAmount = 128;
 
 	private static final long delay = 100L;
 
-	private static final long delayFill = 6000L;
-
-	public LavaTank(Location location, int amount) {
-		super(location, amount);
+	public LavaTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, feature);
 	}
 
 	public static TankType getType() {
 		return type;
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 3)
-			paramInt = 3;
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+	public static void gameLoop(LiquidTank feature) {
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
-				gameTick();
+				gameTick(feature);
 			} catch (Exception exception) {
 			}
 		}, delay, delay);
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
-			try {
-				fillTick();
-			} catch (Exception exception) {
-			}
-		}, delayFill, delayFill);
 	}
 
-	private static void gameTick() {
-		for (AbstractTank abstractTank : LiquidTanks.tankManager.getTankList()) {
+	private static void gameTick(LiquidTank feature) {
+		for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
 			if (abstractTank instanceof LavaTank || abstractTank instanceof EmptyTank) {
 				if (abstractTank instanceof LavaTank &&
 						BlockUtils.isLoaded(abstractTank.getLocation())) {
@@ -80,7 +65,7 @@ public class LavaTank extends AbstractTank {
 									abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 									abstractTank.updateVisuals();
 								} else if (abstractTank.getQuantity() == 1) {
-									LiquidTanks.tankManager.emptyTank(abstractTank);
+									feature.getTankManager().emptyTank(abstractTank);
 									break;
 								}
 							}
@@ -98,7 +83,7 @@ public class LavaTank extends AbstractTank {
 									abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 									abstractTank.updateVisuals();
 								} else if (abstractTank.getQuantity() == 1) {
-									LiquidTanks.tankManager.emptyTank(abstractTank);
+									feature.getTankManager().emptyTank(abstractTank);
 									break;
 								}
 							}
@@ -119,7 +104,7 @@ public class LavaTank extends AbstractTank {
 									continue;
 								}
 								if (abstractTank.getQuantity() == 1) {
-									LiquidTanks.tankManager.emptyTank(abstractTank);
+									feature.getTankManager().emptyTank(abstractTank);
 									break;
 								}
 							}
@@ -132,7 +117,7 @@ public class LavaTank extends AbstractTank {
 					if (isFullLava(block)) {
 						block.setType(Material.AIR);
 						if (abstractTank instanceof EmptyTank) {
-							LiquidTanks.tankManager.changeTankType(abstractTank, TankType.LAVA, 3);
+							feature.getTankManager().changeTankType(abstractTank, TankType.LAVA, 3);
 							continue;
 						}
 						abstractTank.setQuantity(Math.min(abstractTank.getQuantity() + 3, abstractTank.getMaxQuantity()));
@@ -141,52 +126,6 @@ public class LavaTank extends AbstractTank {
 				}
 			}
 		}
-	}
-
-	private static void fillTick() {
-		for (World world : Bukkit.getWorlds()) {
-			for (Entity entity : world.getEntities()) {
-				if (entity.getType().equals(EntityType.MAGMA_CUBE) &&
-						BlockUtils.isLoaded(entity.getLocation())) {
-					MagmaCube magmaCube = (MagmaCube) entity;
-					if (magmaCube.getSize() == 2 && entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getType() == Material.HOPPER) {
-						Location location = entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getLocation();
-						Random random = new Random();
-						if (random.nextInt(3) == 0) {
-							AbstractTank abstractTank = LiquidTanks.tankManager.getTank(location);
-							addLava(abstractTank);
-						}
-					}
-					if (magmaCube.getSize() == 4) {
-						ArrayList<Block> arrayList = new ArrayList<>();
-						arrayList.add(entity.getLocation().add(0.5D, -1.0D, 0.5D).getBlock());
-						arrayList.add(entity.getLocation().add(-0.5D, -1.0D, 0.5D).getBlock());
-						arrayList.add(entity.getLocation().add(-0.5D, -1.0D, -0.5D).getBlock());
-						arrayList.add(entity.getLocation().add(0.5D, -1.0D, -0.5D).getBlock());
-						for (Block block : arrayList) {
-							if (block.getType() == Material.HOPPER) {
-								Random random = new Random();
-								if (random.nextInt(3) == 0) {
-									AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
-									addLava(abstractTank);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	private static void addLava(AbstractTank paramAbstractTank) {
-		if (paramAbstractTank != null)
-			if (paramAbstractTank instanceof LavaTank && paramAbstractTank.getQuantity() + 1 <= paramAbstractTank.getMaxQuantity()) {
-				paramAbstractTank.setQuantity(paramAbstractTank.getQuantity() + 1);
-				paramAbstractTank.updateVisuals();
-			} else if (paramAbstractTank instanceof EmptyTank) {
-				AbstractTank abstractTank = LiquidTanks.tankManager.changeTankType(paramAbstractTank, TankType.LAVA, 1);
-				abstractTank.updateVisuals();
-			}
 	}
 
 	private static boolean isFullLava(Block block) {
@@ -209,7 +148,7 @@ public class LavaTank extends AbstractTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BUCKET) {
 			if (getQuantity() == 3) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.LAVA_BUCKET));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;

@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 import static org.bukkit.Material.NETHER_WART_BLOCK;
 import static org.bukkit.Material.RED_NETHER_BRICKS;
@@ -15,27 +15,13 @@ import static org.bukkit.Material.RED_NETHER_BRICKS;
 public class BeetrootSoupTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.DARK_RED;
 
-	private static int maxAmount = 10;
-
-	private static final long delay = 20L;
-
-	public BeetrootSoupTank(Location location, int amount) {
-		super(location, amount, 5);
+    public BeetrootSoupTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, 5, feature);
 	}
 
-	public static void setMaxAmount(int maxAmount) {
-		if (maxAmount < 1)
-			maxAmount = 1;
-		BeetrootSoupTank.maxAmount = maxAmount;
+	public static void gameLoop(LiquidTank feature) {
 	}
 
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, BeetrootSoupTank::gameTick, delay, delay);
-	}
-
-	private static void gameTick() {
-		//
-	}
 
 	@Override
 	protected String getLiquidHeadUrl() {
@@ -53,7 +39,7 @@ public class BeetrootSoupTank extends FoodTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BOWL) {
 			if (getQuantity() == 1) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.BEETROOT_SOUP));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;
@@ -79,7 +65,7 @@ public class BeetrootSoupTank extends FoodTank {
 
 	@Override
 	public int getMaxQuantity() {
-		return maxAmount;
+        return 128;
 	}
 
 	@Override

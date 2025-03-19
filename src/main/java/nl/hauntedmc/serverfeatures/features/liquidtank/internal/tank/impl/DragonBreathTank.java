@@ -1,42 +1,28 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import org.bukkit.Bukkit;
+import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.Plugin;
 
 public class DragonBreathTank extends AbstractTank {
 	private static final TankType type = TankType.DRAGON_BREATH;
 
 	private static final ChatColor chatColor = ChatColor.LIGHT_PURPLE;
 
-	private static int maxAmount = 30;
-
-	private static final long delay = 100L;
-
-	public DragonBreathTank(Location location, int amount) {
-		super(location, amount);
+    public DragonBreathTank(Location location, int amount, LiquidTank feature) {
+		super(location, amount, feature);
 	}
 
 	public static TankType getType() {
 		return type;
 	}
 
-	public static void setMaxAmount(int paramInt) {
-		if (paramInt < 1)
-			paramInt = 1;
-		maxAmount = paramInt;
-	}
-
-	public static void gameLoop(Plugin paramPlugin) {
-		Bukkit.getScheduler().runTaskTimer(paramPlugin, DragonBreathTank::gameTick, delay, delay);
-	}
-
-	private static void gameTick() {
-		//
+	public static void gameLoop(LiquidTank feature) {
 	}
 
 	@Override
@@ -55,7 +41,7 @@ public class DragonBreathTank extends AbstractTank {
 		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
 			if (getQuantity() == 1) {
 				changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
-				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
 				abstractTank.playTitle(paramPlayer);
 				abstractTank.updateVisuals();
 				return;
@@ -81,7 +67,7 @@ public class DragonBreathTank extends AbstractTank {
 
 	@Override
 	public int getMaxQuantity() {
-		return maxAmount;
+        return 128;
 	}
 
 	@Override
