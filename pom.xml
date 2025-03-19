@@ -67,6 +67,7 @@
                             <artifactSet>
                                 <includes>
                                     <include>io.github.classgraph:classgraph</include>
+                                    <include>org.apache.commons:commons-text</include>
                                 </includes>
                             </artifactSet>
                         </configuration>

@@ -1,0 +1,210 @@
+package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
+
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
+import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
+
+import static org.bukkit.Material.LIME_WOOL;
+import static org.bukkit.Material.YELLOW_WOOL;
+
+public class ExperienceTank extends AbstractTank {
+	private static final TankType type = TankType.EXPERIENCE;
+
+	private static final ChatColor chatColor = ChatColor.GREEN;
+
+	private static final long delay = 20L;
+
+	private static int maxAmount = 1395;
+
+	public ExperienceTank(Location location, int amount) {
+		super(location, amount);
+	}
+
+	public static TankType getType() {
+		return type;
+	}
+
+	public static void setMaxAmount(int paramInt) {
+		maxAmount = paramInt;
+	}
+
+	public static void gameLoop(Plugin paramPlugin) {
+		Bukkit.getScheduler().runTaskTimer(paramPlugin, () -> {
+			try {
+				gameTick();
+			} catch (Exception exception) {
+			}
+		}, delay, delay);
+	}
+
+	private static void gameTick() {
+		for (Player player : Bukkit.getOnlinePlayers()) {
+			Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
+			if (block.getType() == Material.HOPPER && (!LiquidTanks.settings.isPowerRequired() || block.isBlockPowered() || block.isBlockIndirectlyPowered())) {
+				AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
+				if (abstractTank != null && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE)) && abstractTank instanceof ExperienceTank)
+					if (abstractTank.getQuantity() > 100) {
+						ExperienceUtil.addExp(player, 100);
+						abstractTank.setQuantity(abstractTank.getQuantity() - 100);
+						abstractTank.updateVisuals();
+						abstractTank.showParticles();
+					} else if (abstractTank.getQuantity() <= 100) {
+						ExperienceUtil.addExp(player, abstractTank.getQuantity());
+						AbstractTank abstractTank1 = LiquidTanks.tankManager.emptyTank(abstractTank);
+						abstractTank1.updateVisuals();
+						abstractTank.showParticles();
+					}
+			}
+			if (player.isSneaking()) {
+				int i = ExperienceUtil.totalExp(player);
+				if (i != 0 && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode()
+						.equals(GameMode.ADVENTURE))) {
+					block = player.getLocation().add(0.0D, -0.1D, 0.0D).getBlock();
+					if (block.getType() == Material.HOPPER) {
+						AbstractTank abstractTank = LiquidTanks.tankManager.getTank(block.getLocation());
+						if (abstractTank != null) {
+							if (abstractTank instanceof ExperienceTank && abstractTank.getQuantity() < abstractTank
+									.getMaxQuantity()) {
+								if (abstractTank.getQuantity() + 100 <= abstractTank.getMaxQuantity() && i >= 100) {
+									ExperienceUtil.removeExp(player, 100);
+									abstractTank.setQuantity(abstractTank.getQuantity() + 100);
+									abstractTank.updateVisuals();
+									abstractTank.playTitle(player);
+									continue;
+								}
+								if (i < 100 && abstractTank
+										.getMaxQuantity() - abstractTank.getQuantity() <= i) {
+									ExperienceUtil.removeExp(player, abstractTank.getMaxQuantity() - abstractTank.getQuantity());
+									abstractTank.setQuantity(abstractTank.getMaxQuantity());
+									abstractTank.updateVisuals();
+									abstractTank.playTitle(player);
+									continue;
+								}
+								if (i >= 100 && abstractTank
+										.getMaxQuantity() - abstractTank.getQuantity() <= 100) {
+									ExperienceUtil.removeExp(player, abstractTank.getMaxQuantity() - abstractTank.getQuantity());
+									abstractTank.setQuantity(abstractTank.getMaxQuantity());
+									abstractTank.updateVisuals();
+									abstractTank.playTitle(player);
+									continue;
+								}
+								if (i < 100 && abstractTank
+										.getMaxQuantity() - abstractTank.getQuantity() > i) {
+									ExperienceUtil.removeExp(player, i);
+									abstractTank.setQuantity(abstractTank.getQuantity() + i);
+									abstractTank.updateVisuals();
+									abstractTank.playTitle(player);
+								}
+								continue;
+							}
+							if (abstractTank instanceof EmptyTank) {
+								if (i >= 100) {
+									ExperienceUtil.removeExp(player, 100);
+									abstractTank = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.EXPERIENCE, 100);
+									abstractTank.updateVisuals();
+									abstractTank.playTitle(player);
+									continue;
+								}
+								ExperienceUtil.removeExp(player, i);
+								abstractTank = LiquidTanks.tankManager.changeTankType(abstractTank, TankType.EXPERIENCE, i);
+								abstractTank.updateVisuals();
+								player.updateInventory();
+								abstractTank.playTitle(player);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	@Override
+	protected void updateLiquidLevel() {
+		double d1 = -0.025D;
+		double d2 = 0.35D;
+		double d3 = (d2 - d1) * getAmount() / maxAmount;
+		setPacketArmorstandLiquid(new PacketHandler(getLocation().clone().add(0.5D, 0.35D - d2 + d3, 0.5D)));
+		getPacketArmorstandLiquid().setHead(HeadURL.create(getLiquidHeadUrl()));
+	}
+
+	@Override
+	protected String getLiquidHeadUrl() {
+		return HeadURL.experienceB64;
+	}
+
+	@Override
+	public void onInteract(Player paramPlayer) {
+		if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.EXPERIENCE_BOTTLE) {
+			if (getQuantity() + 1 <= getMaxQuantity()) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.GLASS_BOTTLE));
+				setQuantity(getQuantity() + 7);
+				updateVisuals();
+			}
+		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
+			if (getQuantity() < 14) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.EXPERIENCE_BOTTLE));
+				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				abstractTank.playTitle(paramPlayer);
+				abstractTank.updateVisuals();
+				return;
+			}
+			if (getQuantity() > 7) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.EXPERIENCE_BOTTLE));
+				setQuantity(getQuantity() - 7);
+				updateVisuals();
+			}
+		}
+		playTitle(paramPlayer);
+	}
+
+	@Override
+	public void playTitle(Player paramPlayer) {
+		StringBuilder stringBuilder = new StringBuilder("&7[");
+		stringBuilder.append(getChatColor()).append(ChatColor.BOLD);
+		int i = ExperienceUtil.getLevel(getMaxQuantity());
+		int j = ExperienceUtil.getLevel(getQuantity());
+		double d = (i / 41 + 1);
+		for (byte b = 0; b < i / d; b++) {
+			if (b == i / d / 2.0D && j / d <= i / d / 2.0D)
+				stringBuilder.append("&7 Lvl. ").append(ChatColor.BOLD).append(j).append(" &8")
+						.append(ChatColor.BOLD);
+			if (b == i / d / 2.0D && j / d > i / d / 2.0D)
+				stringBuilder.append("&7 Lvl. ").append(ChatColor.BOLD).append(j).append(" ")
+						.append(getChatColor()).append(ChatColor.BOLD);
+			if (b < j / d)
+				stringBuilder.append("|");
+			if (b == j / d)
+				stringBuilder.append("&8").append(ChatColor.BOLD);
+			if (b >= j / d)
+				stringBuilder.append("|");
+		}
+		stringBuilder.append("&7]");
+		MessageUtils.sendTitle(paramPlayer, stringBuilder.toString());
+	}
+
+	@Override
+	public ChatColor getChatColor() {
+		return chatColor;
+	}
+
+	@Override
+	public TankType getTankType() {
+		return TankType.EXPERIENCE;
+	}
+
+	@Override
+	public int getMaxQuantity() {
+		return maxAmount;
+	}
+
+	@Override
+	protected void showParticles() {
+		Location location = getLocation().clone().add(0.5D, 0.0D, 0.5D);
+		AbstractTank.spawnFallingDust(location, 10, 0.05F, 0.1F, LIME_WOOL);
+		AbstractTank.spawnFallingDust(location, 10, 0.05F, 0.1F, YELLOW_WOOL);
+	}
+}

@@ -28,7 +28,7 @@ public class ItemEdit extends BaseFeature<Meta> {
                 "godverdomme"
                 )
         );
-        defaults.put("blockedAnvilItems", List.of("CHEST"));
+        defaults.put("blockedAnvilItems", List.of("CHEST", "HOPPER"));
         return defaults;
     }
 

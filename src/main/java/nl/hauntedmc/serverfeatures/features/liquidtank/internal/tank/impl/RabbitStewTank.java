@@ -1,0 +1,89 @@
+package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
+
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
+
+import static org.bukkit.Material.*;
+
+public class RabbitStewTank extends FoodTank {
+	private static final ChatColor chatColor = ChatColor.YELLOW;
+
+	private static int maxAmount = 10;
+
+	private static final long delay = 20L;
+
+	public RabbitStewTank(Location location, int amount) {
+		super(location, amount, 12);
+	}
+
+	public static void setMaxAmount(int paramInt) {
+		if (paramInt < 1)
+			paramInt = 1;
+		maxAmount = paramInt;
+	}
+
+	public static void gameLoop(Plugin paramPlugin) {
+		Bukkit.getScheduler().runTaskTimer(paramPlugin, RabbitStewTank::gameTick, delay, delay);
+	}
+
+	private static void gameTick() {
+	}
+
+	@Override
+	protected String getLiquidHeadUrl() {
+		return HeadURL.rabbitStewB64;
+	}
+
+	@Override
+	public void onInteract(Player paramPlayer) {
+		if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.RABBIT_STEW) {
+			if (getQuantity() + 1 <= getMaxQuantity()) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.BOWL));
+				setQuantity(getQuantity() + 1);
+				updateVisuals();
+			}
+		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.BOWL) {
+			if (getQuantity() == 1) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.RABBIT_STEW));
+				AbstractTank abstractTank = LiquidTanks.tankManager.emptyTank(this);
+				abstractTank.playTitle(paramPlayer);
+				abstractTank.updateVisuals();
+				return;
+			}
+			if (getQuantity() > 1) {
+				changeItemFromPlayer(paramPlayer, new ItemStack(Material.RABBIT_STEW));
+				setQuantity(getQuantity() - 1);
+				updateVisuals();
+			}
+		}
+		playTitle(paramPlayer);
+	}
+
+	@Override
+	public ChatColor getChatColor() {
+		return chatColor;
+	}
+
+	@Override
+	public TankType getTankType() {
+		return TankType.RABBIT_STEW;
+	}
+
+	@Override
+	public int getMaxQuantity() {
+		return maxAmount;
+	}
+
+	@Override
+	protected void showParticles() {
+		Location location = getLocation().clone().add(0.5D, 0.0D, 0.5D);
+		AbstractTank.spawnFallingDust(location, 10, 0.05F, 0.1F, ORANGE_TERRACOTTA);
+		AbstractTank.spawnFallingDust(location, 10, 0.05F, 0.1F, TERRACOTTA);
+		AbstractTank.spawnFallingDust(location, 10, 0.05F, 0.1F, LIGHT_GRAY_TERRACOTTA);
+	}
+}
