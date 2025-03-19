@@ -16,7 +16,6 @@ public class ResourceHandler {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), fileName);
         if (!file.exists()) {
-            // Saves the resource from the jar if it doesn't exist.
             plugin.saveResource(fileName, false);
         }
         load();

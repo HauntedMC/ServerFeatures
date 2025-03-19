@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BaseFeature;
 import nl.hauntedmc.serverfeatures.features.liquidtank.command.LiquidTankCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.LiquidTankManager;
+import nl.hauntedmc.serverfeatures.features.liquidtank.listener.LiquidTankListener;
 import nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta;
 import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
@@ -40,7 +41,8 @@ public class LiquidTank extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         this.tankManager = new LiquidTankManager(this);
-        getLifecycleManager().getListenerManager().registerListener(this.tankManager);
+        this.tankManager.initialize();
+        getLifecycleManager().getListenerManager().registerListener(new LiquidTankListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new LiquidTankCommand(this));
     }
 
