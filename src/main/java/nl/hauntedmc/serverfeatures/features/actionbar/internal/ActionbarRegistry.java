@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 
 import java.util.ArrayList;
@@ -21,13 +23,17 @@ public class ActionbarRegistry {
         if (raw instanceof List<?> messageList) {
             for (Object obj : messageList) {
                 if (obj instanceof Map<?, ?> map) {
-                    String text = map.get("text").toString();
+                    String key = map.get("message_key").toString();
+                    Component textComponent = getLocalizedText(key);
+                    String text = LegacyComponentSerializer.legacyAmpersand().serialize(textComponent);
+
                     long duration;
                     try {
                         duration = Long.parseLong(map.get("duration").toString());
                     } catch (NumberFormatException e) {
                         duration = 100L;
                     }
+
                     ActionbarMessage message = new ActionbarMessage.Builder()
                             .text(text)
                             .duration(duration)
@@ -36,6 +42,10 @@ public class ActionbarRegistry {
                 }
             }
         }
+    }
+
+    private Component getLocalizedText(String key) {
+        return feature.getLocalizationHandler().getSystemMessage("actionbar." + key, null);
     }
 
     public List<ActionbarMessage> getMessages() {

@@ -28,7 +28,7 @@ public class Bossbars extends BaseFeature<Meta> {
         List<Map<String, Object>> messages = new ArrayList<>();
 
         Map<String, Object> msg1 = new HashMap<>();
-        msg1.put("text", "&6Welcome to HauntedMC!");
+        msg1.put("message_key", "text1");
         msg1.put("duration", 100);
         msg1.put("color", "YELLOW");
         msg1.put("style", "SOLID");
@@ -36,7 +36,7 @@ public class Bossbars extends BaseFeature<Meta> {
         messages.add(msg1);
 
         Map<String, Object> msg2 = new HashMap<>();
-        msg2.put("text", "&aEnjoy your stay!");
+        msg2.put("message_key", "text2");
         msg2.put("duration", 100);
         msg2.put("color", "GREEN");
         msg2.put("style", "SEGMENTED_6");
@@ -54,7 +54,10 @@ public class Bossbars extends BaseFeature<Meta> {
 
     @Override
     public MessageMap getDefaultMessages() {
-        return new MessageMap();
+        MessageMap map = new MessageMap();
+        map.add("bossbar.text1", "Bossbar text1");
+        map.add("bossbar.text2", "Bossbar text2");
+        return map;
     }
 
     @Override

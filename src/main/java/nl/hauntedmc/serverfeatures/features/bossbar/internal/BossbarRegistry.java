@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
-import nl.hauntedmc.serverfeatures.common.util.TextUtils;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -12,7 +13,6 @@ import java.util.Map;
 public class BossbarRegistry {
 
     private final Bossbars feature;
-
     private final List<BossbarMessage> messages = new ArrayList<>();
 
     public BossbarRegistry(Bossbars feature) {
@@ -25,8 +25,10 @@ public class BossbarRegistry {
         if (raw instanceof List<?> messageList) {
             for (Object obj : messageList) {
                 if (obj instanceof Map<?, ?> map) {
-                    String text = map.get("text").toString();
-                    text = TextUtils.parseLegacyColors(text);
+                    String key = map.get("message_key").toString();
+                    Component textComponent = getLocalizedText(key);
+                    String text = LegacyComponentSerializer.legacyAmpersand().serialize(textComponent);
+
                     long duration;
                     try {
                         duration = Long.parseLong(map.get("duration").toString());
@@ -49,6 +51,7 @@ public class BossbarRegistry {
                     }
 
                     boolean autoFade = Boolean.parseBoolean(map.get("autoFade").toString());
+
                     BossbarMessage message = new BossbarMessage.Builder()
                             .text(text)
                             .durationTicks(duration)
@@ -63,6 +66,9 @@ public class BossbarRegistry {
         }
     }
 
+    private Component getLocalizedText(String key) {
+        return feature.getLocalizationHandler().getSystemMessage("bossbar." + key, null);
+    }
 
     public List<BossbarMessage> getMessages() {
         return messages;
