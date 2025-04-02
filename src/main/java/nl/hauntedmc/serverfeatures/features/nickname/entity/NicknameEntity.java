@@ -11,8 +11,9 @@ public class NicknameEntity {
     @Column(name = "player_id")
     private Long playerId; // Primary Key (Also FK to PlayerEntity)
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id", referencedColumnName = "id", nullable = false, unique = true)
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "player_id")
     private PlayerEntity player;
 
     @Column(name = "nickname", nullable = false)
