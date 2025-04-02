@@ -29,7 +29,7 @@ public class ChatLayout extends BaseFeature<Meta> {
         Map<String, Object> defaultFormat = new HashMap<>();
         defaultFormat.put("priority", 100);
         defaultFormat.put("prefix", "&f%vault_rankprefix%");
-        defaultFormat.put("name", "&7%hexnicks_nick%");
+        defaultFormat.put("name", "&7%serverfeatures_nickname%");
         defaultFormat.put("suffix", "&f: ");
         defaultFormat.put("prefix_tooltip", List.of(
                 "&6Rank: %vault_rankprefix%",
@@ -45,10 +45,7 @@ public class ChatLayout extends BaseFeature<Meta> {
         ));
         defaultFormat.put("name_tooltip", List.of(
                 "&6Naam: &f%player_name%",
-                "",
                 "&bPing: &7%player_ping%ms",
-                "&bGlobaltime: &7%networkmanager_playtime_h% uur",
-                "&bLid sinds: &7%networkmanager_firstlogin%",
                 "",
                 "&bKlik om &a%player_name% &bte msg-en."
         ));
