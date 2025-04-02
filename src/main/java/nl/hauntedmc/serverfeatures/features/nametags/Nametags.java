@@ -22,6 +22,8 @@ public class Nametags extends BaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
+        defaults.put("update_interval_ticks", 2);
+        defaults.put("viewer_update_delay_ticks", 10);
         return defaults;
 
     }

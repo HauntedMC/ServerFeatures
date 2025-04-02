@@ -8,10 +8,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerResourcePackStatusEvent;
+import org.bukkit.event.player.*;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -26,9 +23,7 @@ public class NametagListener implements Listener {
     @EventHandler
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> {
-            this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build());
-        }, 10L);
+        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), 10L);
     }
 
     @EventHandler

@@ -7,9 +7,7 @@ import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNamet
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.VisibilityManager;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -114,7 +112,7 @@ public class NametagUpdater {
             PacketManager.sendMulticast(viewersToAdd, createPacket);
             PacketManager.sendMulticast(viewersToAdd, mountPacket);
             PacketManager.sendMulticast(viewersToAdd, new BundleDelimiterPacket());
-        }, delay);
+        }, delay + nametagManager.getViewerUpdateDelayTicks());
     }
 
     private void removeNametagEntity(Nametag nametag, List<Player> viewers) {

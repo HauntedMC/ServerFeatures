@@ -21,8 +21,6 @@ import java.util.Optional;
  */
 public class NametagManager {
 
-    private static final long UPDATE_INTERVAL_TICKS = 5L;
-
     private final NametagRegistry registry;
     private final NametagUpdater updater;
     private final Nametags feature;
@@ -30,11 +28,16 @@ public class NametagManager {
     private final PassengerHandler passengerHandler;
 
     private final VisibilityManager visibilityManager;
+    private final int updateIntervalTicks;
+    private final int viewerUpdateDelayTicks;
+
     public NametagManager(Nametags feature) {
         this.feature = feature;
         this.registry = new NametagRegistry();
         this.passengerHandler = new PassengerHandler();
         this.visibilityManager = new VisibilityManager();
+        this.updateIntervalTicks = (int) feature.getConfigHandler().getSetting("update_interval_ticks");
+        this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().getSetting("viewer_update_delay_ticks");
 
         this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
         scheduleRepeatingUpdate();
@@ -48,7 +51,7 @@ public class NametagManager {
             for (Nametag nametag : registry.getAllNametags()) {
                 updater.update(nametag, new UpdateProperties.Builder().build());
             }
-        }, 0L, UPDATE_INTERVAL_TICKS);
+        }, 0L, updateIntervalTicks);
     }
 
     /**
@@ -138,6 +141,10 @@ public class NametagManager {
 
     public VisibilityManager getVisibilityManager() {
         return visibilityManager;
+    }
+
+    public int getViewerUpdateDelayTicks() {
+        return viewerUpdateDelayTicks;
     }
 }
 
