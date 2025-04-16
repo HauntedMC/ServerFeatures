@@ -1,7 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 
 import java.util.ArrayList;
@@ -24,8 +22,6 @@ public class ActionbarRegistry {
             for (Object obj : messageList) {
                 if (obj instanceof Map<?, ?> map) {
                     String key = map.get("message_key").toString();
-                    Component textComponent = getLocalizedText(key);
-                    String text = LegacyComponentSerializer.legacyAmpersand().serialize(textComponent);
 
                     long duration;
                     try {
@@ -35,7 +31,7 @@ public class ActionbarRegistry {
                     }
 
                     ActionbarMessage message = new ActionbarMessage.Builder()
-                            .text(text)
+                            .messageKey(key)
                             .duration(duration)
                             .build();
                     messages.add(message);
@@ -44,21 +40,13 @@ public class ActionbarRegistry {
         }
     }
 
-    private Component getLocalizedText(String key) {
-        return feature.getLocalizationHandler().getSystemMessage("actionbar." + key, null);
-    }
-
     public List<ActionbarMessage> getMessages() {
         return messages;
     }
 
     public ActionbarMessage get(int currentMessageIndex) {
         if (messages.isEmpty()) {
-            return new ActionbarMessage.Builder().text("Default Actionbar").duration(100).build();
-        }
-
-        if (currentMessageIndex >= getTotalMessages()) {
-            return new ActionbarMessage.Builder().text("INTERNAL ERROR").duration(100).build();
+            return new ActionbarMessage.Builder().messageKey("default").duration(100).build();
         }
 
         return messages.get(currentMessageIndex);

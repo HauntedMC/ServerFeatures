@@ -80,7 +80,7 @@ public class TPSMonitorService {
 
     private void notifyStaff(String avgTps) {
         String serverName = (String) feature.getConfigHandler().getSetting("server");
-        Component lagMessage = feature.getLocalizationHandler().getSystemMessage("lagmonitor.notify_lag", Map.of("tps", avgTps, "server", serverName));
+        Component lagMessage = feature.getLocalizationHandler().getMessage("lagmonitor.notify_lag").withPlaceholders(Map.of("tps", avgTps, "server", serverName)).build();
         Bukkit.getOnlinePlayers().stream()
                 .filter(player -> player.hasPermission("serverfeatures.feature.lagmonitor.notify"))
                 .forEach(player -> player.sendMessage(lagMessage));

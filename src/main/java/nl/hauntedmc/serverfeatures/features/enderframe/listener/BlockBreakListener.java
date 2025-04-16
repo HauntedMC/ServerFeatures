@@ -48,7 +48,7 @@ public class BlockBreakListener implements Listener {
             if (claim != null && claim.allowBreak(player, block.getType()) != null) {
                 // The player doesn't have trust/permission in this claim
                 event.setCancelled(true);
-                player.sendMessage(feature.getLocalizationHandler().getMessage("enderframe.claim_restricted", player));
+                player.sendMessage(feature.getLocalizationHandler().getMessage("enderframe.claim_restricted").forAudience(player).build());
                 return;
             }
         }
@@ -58,7 +58,7 @@ public class BlockBreakListener implements Listener {
         Location dropLocation = block.getLocation().clone().add(0, 1, 0);
         block.getWorld().dropItemNaturally(dropLocation, new ItemStack(Material.END_PORTAL_FRAME));
 
-        player.sendMessage(feature.getLocalizationHandler().getMessage("enderframe.pickup_success", player));
+        player.sendMessage(feature.getLocalizationHandler().getMessage("enderframe.pickup_success").forAudience(player).build());
 
         // Remove any END_PORTAL blocks within a certain radius (on the same Y-level):
         int radius = (int) feature.getConfigHandler().getSetting("pickup_radius");

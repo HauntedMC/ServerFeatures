@@ -70,8 +70,8 @@ public class TablistHandler {
      * Update the header/footer and tab list name for the given player.
      */
     public void updateTablist(Player player) {
-        Component header = feature.getLocalizationHandler().getMessage("tablist.header", player);
-        Component footer = feature.getLocalizationHandler().getMessage("tablist.footer", player);
+        Component header = feature.getLocalizationHandler().getMessage("tablist.header").forAudience(player).build();
+        Component footer = feature.getLocalizationHandler().getMessage("tablist.footer").forAudience(player).build();
         player.sendPlayerListHeaderAndFooter(header, footer);
         updateTablistName(player);
     }
@@ -102,9 +102,9 @@ public class TablistHandler {
      * Combines localized prefix, player name, and suffix into a custom tablist name component.
      */
     public Component getTablistName(Player player) {
-        Component prefix = feature.getLocalizationHandler().getMessage("tablist.prefix", player);
-        Component playerName = feature.getLocalizationHandler().getMessage("tablist.playername", player);
-        Component suffix = feature.getLocalizationHandler().getMessage("tablist.suffix", player);
+        Component prefix = feature.getLocalizationHandler().getMessage("tablist.prefix").forAudience(player).build();
+        Component playerName = feature.getLocalizationHandler().getMessage("tablist.playername").forAudience(player).build();
+        Component suffix = feature.getLocalizationHandler().getMessage("tablist.suffix").forAudience(player).build();
 
         return Component.empty()
                 .append(prefix)

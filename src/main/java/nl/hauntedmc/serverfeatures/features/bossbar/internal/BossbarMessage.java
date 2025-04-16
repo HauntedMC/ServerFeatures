@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.Set;
 
 public class BossbarMessage {
-    private final String text;
+    private final String messageKey;
     private final long durationTicks;
     private final BarColor color;
     private final BarStyle style;
@@ -17,7 +17,7 @@ public class BossbarMessage {
     private final Set<BarFlag> flags;
 
     private BossbarMessage(Builder builder) {
-        this.text = builder.text;
+        this.messageKey = builder.messageKey;
         this.durationTicks = builder.durationTicks;
         this.color = builder.color;
         this.style = builder.style;
@@ -26,8 +26,8 @@ public class BossbarMessage {
         this.flags = builder.flags;
     }
 
-    public String getText() {
-        return text;
+    public String getMessageKey() {
+        return messageKey;
     }
 
     public long getDurationTicks() {
@@ -55,7 +55,7 @@ public class BossbarMessage {
     }
 
     public static class Builder {
-        private String text;
+        private String messageKey;
         private long durationTicks = 100L;
         private BarColor color = BarColor.WHITE;
         private BarStyle style = BarStyle.SOLID;
@@ -63,8 +63,8 @@ public class BossbarMessage {
         private boolean autoFade = false;
         private Set<BarFlag> flags = Collections.emptySet();
 
-        public Builder text(String text) {
-            this.text = text;
+        public Builder messageKey(String messageKey) {
+            this.messageKey = messageKey;
             return this;
         }
 

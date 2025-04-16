@@ -25,24 +25,24 @@ public class NightVisionCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player", sender));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player").forAudience(sender).build());
             return true;
         }
 
         // Check if the player has permission to use /nv.
         if (!player.hasPermission("serverfeatures.feature.nightvision.command.nv")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank", player, Map.of("rank", "&3Supreme")));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank").forAudience(player).withPlaceholders(Map.of("rank", "&3Supreme")).build());
             return true;
         }
 
         // Toggle the Night Vision effect.
         if (player.hasPotionEffect(PotionEffectType.NIGHT_VISION) && Objects.requireNonNull(player.getPotionEffect(PotionEffectType.NIGHT_VISION)).getDuration() == PotionEffect.INFINITE_DURATION) {
             player.removePotionEffect(PotionEffectType.NIGHT_VISION);
-            player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status", player, Map.of("status", "&cuitgeschakeld")));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status").forAudience(player).withPlaceholders(Map.of("status", "&cuitgeschakeld")).build());
         } else {
             PotionEffect nvEffect = new PotionEffect(PotionEffectType.NIGHT_VISION, PotionEffect.INFINITE_DURATION, 0, false, false);
             player.addPotionEffect(nvEffect);
-            player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status", player, Map.of("status", "&aingeschakeld")));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status").forAudience(player).withPlaceholders(Map.of("status", "&aingeschakeld")).build());
         }
         return true;
     }

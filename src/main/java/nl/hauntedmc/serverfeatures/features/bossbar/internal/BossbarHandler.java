@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -8,6 +10,7 @@ import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,7 +95,10 @@ public class BossbarHandler {
     }
 
     private void updateBossbar(BossBar bossBar, BossbarMessage message) {
-        bossBar.setTitle(message.getText());
+        String messageKey = message.getMessageKey();
+        String text = getMessage(bossBar.getPlayers().getFirst(), messageKey);
+
+        bossBar.setTitle(text);
         bossBar.setColor(message.getColor());
         bossBar.setStyle(message.getStyle());
         bossBar.setProgress(message.getInitialProgress());
@@ -105,9 +111,18 @@ public class BossbarHandler {
         }
     }
 
+    private @NotNull String getMessage(Player player, String messageKey) {
+        Component messageComponent = feature.getLocalizationHandler().getMessage("bossbar." + messageKey).forAudience(player).build();
+        String text = LegacyComponentSerializer.legacyAmpersand().serialize(messageComponent);
+        return text;
+    }
+
     public void showBossbar(Player player) {
         BossbarMessage currentMessage = messageRegistry.get(currentMessageIndex);
-        BossBar bossBar = Bukkit.createBossBar(currentMessage.getText(), currentMessage.getColor(), currentMessage.getStyle());
+        String messageKey = currentMessage.getMessageKey();
+        String text = getMessage(player, messageKey);
+
+        BossBar bossBar = Bukkit.createBossBar(text, currentMessage.getColor(), currentMessage.getStyle());
         bossBar.setProgress(currentMessage.getInitialProgress());
         for (BarFlag flag : currentMessage.getFlags()) {
             bossBar.addFlag(flag);

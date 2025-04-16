@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.util.TextUtils;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
@@ -13,6 +14,7 @@ public class ActionbarHandler {
     private final FeatureTaskManager taskManager;
     private final ActionbarRegistry messageRegistry;
     private final int messageInterval;
+    private final Actionbar feature;
 
     // References to the currently running tasks
     private BukkitTask currentRepeatingTask = null;
@@ -23,6 +25,7 @@ public class ActionbarHandler {
     private boolean running = false;
 
     public ActionbarHandler(Actionbar feature) {
+        this.feature = feature;
         this.taskManager = feature.getLifecycleManager().getTaskManager();
         this.messageRegistry = new ActionbarRegistry(feature);
         this.messageInterval = (int) feature.getConfigHandler().getSetting("message_interval");
@@ -64,7 +67,9 @@ public class ActionbarHandler {
 
         currentRepeatingTask = taskManager.scheduleRepeatingTask(() -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
-                sendActionbar(player, currentMessage.getText());
+                String messageKey = currentMessage.getMessageKey();
+                Component message = feature.getLocalizationHandler().getMessage("actionbar." + messageKey).forAudience(player).build();
+                player.sendActionBar(message);
             }
         }, 20L);
 
@@ -80,13 +85,6 @@ public class ActionbarHandler {
             }, messageInterval);
 
         }, durationTicks);
-    }
-
-    private void sendActionbar(Player player, String message) {
-        message = TextUtils.parseWithPAPI(message, player);
-        message = TextUtils.parseLegacyColors(message);
-        Component messageComponent = TextUtils.serializeComponent(message);
-        player.sendActionBar(messageComponent);
     }
 
     public void sendManualActionbar(String text, int timeSeconds) {
@@ -116,6 +114,13 @@ public class ActionbarHandler {
         if (wasRunning) {
             taskManager.scheduleDelayedTask(this::startMessageCycle, durationTicks + 3 * 20L);
         }
+    }
+
+    private void sendActionbar(Player player, String message) {
+        message = TextUtils.parseWithPAPI(message, player);
+        message = TextUtils.parseLegacyColors(message);
+        Component messageComponent = TextUtils.deserializeComponent(message);
+        player.sendActionBar(messageComponent);
     }
 
     public boolean messageCycleRunning() {

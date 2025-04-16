@@ -22,18 +22,18 @@ public class ChatReportCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!sender.hasPermission("serverfeatures.feature.chatlog.use")) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", sender));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
             return true;
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command", sender));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
             return true;
         }
 
         // Display usage/help if no arguments are provided.
         if (args.length < 1) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.help", sender));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.help").forAudience(sender).build());
             return true;
         }
 
@@ -51,7 +51,7 @@ public class ChatReportCommand extends FeatureCommand {
                 if (count >= 1) {
                     reportedPlayers.add(playerName);
                 } else {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.error", sender, Map.of("name", playerName)));
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.error").forAudience(sender).withPlaceholders(Map.of("name", playerName)).build());
                 }
             }
         }
@@ -64,12 +64,12 @@ public class ChatReportCommand extends FeatureCommand {
             String fullUrl = baseUrl + reportId;
 
             // Build a clickable component with the report URL.
-            Component clickableUrl = feature.getLocalizationHandler().getMessage("chatlog.url", sender, Map.of("url", fullUrl))
+            Component clickableUrl = feature.getLocalizationHandler().getMessage("chatlog.url").forAudience(sender).withPlaceholders(Map.of("url", fullUrl)).build()
                     .clickEvent(ClickEvent.openUrl(fullUrl));
             player.sendMessage(clickableUrl);
             feature.getReportHandler().sendDiscordNotifaction(player.getName(), reportedPlayers, serverName, fullUrl);
         } else {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.errorNotSaved", sender));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.errorNotSaved").forAudience(sender).build());
         }
 
         return true;

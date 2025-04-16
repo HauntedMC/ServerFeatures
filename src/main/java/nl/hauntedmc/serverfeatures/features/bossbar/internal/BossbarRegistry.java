@@ -1,7 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -26,8 +24,6 @@ public class BossbarRegistry {
             for (Object obj : messageList) {
                 if (obj instanceof Map<?, ?> map) {
                     String key = map.get("message_key").toString();
-                    Component textComponent = getLocalizedText(key);
-                    String text = LegacyComponentSerializer.legacyAmpersand().serialize(textComponent);
 
                     long duration;
                     try {
@@ -53,7 +49,7 @@ public class BossbarRegistry {
                     boolean autoFade = Boolean.parseBoolean(map.get("autoFade").toString());
 
                     BossbarMessage message = new BossbarMessage.Builder()
-                            .text(text)
+                            .messageKey(key)
                             .durationTicks(duration)
                             .color(color)
                             .style(style)
@@ -66,23 +62,14 @@ public class BossbarRegistry {
         }
     }
 
-    private Component getLocalizedText(String key) {
-        return feature.getLocalizationHandler().getSystemMessage("bossbar." + key, null);
-    }
-
     public List<BossbarMessage> getMessages() {
         return messages;
     }
 
     public BossbarMessage get(int currentMessageIndex) {
         if (messages.isEmpty()) {
-            return new BossbarMessage.Builder().text("Default Bossbar").durationTicks(100)
+            return new BossbarMessage.Builder().messageKey("default").durationTicks(100)
                     .color(BarColor.WHITE).style(BarStyle.SOLID).build();
-        }
-
-        if (currentMessageIndex >= getTotalMessages()) {
-            return new BossbarMessage.Builder().text("INTERNAL ERROR").durationTicks(100)
-                    .color(BarColor.RED).style(BarStyle.SOLID).build();
         }
 
         return messages.get(currentMessageIndex);

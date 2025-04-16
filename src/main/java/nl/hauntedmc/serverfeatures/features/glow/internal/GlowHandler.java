@@ -28,12 +28,12 @@ public class GlowHandler {
      */
     public boolean setGlow(Player player, NamedTextColor glowColor) {
         if (!player.hasPermission("serverfeatures.feature.glow.use")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(player).build());
             return false;
         }
         String colorPerm = "serverfeatures.feature.glow.color." + glowColor.toString().toLowerCase();
         if (!player.hasPermission(colorPerm)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_reason", player, Map.of("reason", "&fJe hebt deze glow kleur nog niet unlocked")));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_reason").forAudience(player).withPlaceholders(Map.of("reason", "&fJe hebt deze glow kleur nog niet unlocked")).build());
             return false;
         }
         player.setGlowing(true);
@@ -52,7 +52,7 @@ public class GlowHandler {
      */
     public boolean removeGlow(Player player) {
         if (!player.hasPermission("serverfeatures.feature.glow.use")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(player).build());
             return false;
         }
         player.setGlowing(false);

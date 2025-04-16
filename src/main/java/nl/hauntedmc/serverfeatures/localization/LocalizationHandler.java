@@ -15,13 +15,12 @@ import java.util.Map;
 public class LocalizationHandler {
 
     private final ServerFeatures plugin;
-
     private final ResourceHandler defaultMessagesResource;
     private final EnumMap<Language, ResourceHandler> languageResources = new EnumMap<>(Language.class);
 
     public LocalizationHandler(ServerFeatures plugin) {
         this.plugin = plugin;
-        defaultMessagesResource = new ResourceHandler(plugin, "messages.yml");
+        this.defaultMessagesResource = new ResourceHandler(plugin, "messages.yml");
         loadLanguageFiles();
     }
 
@@ -67,46 +66,85 @@ public class LocalizationHandler {
         }
     }
 
+    // --- Fluent Builder API ---
 
-    public Component getMessage(String key, Audience targetPlayer, Map<String, String> placeholders) {
-        if (targetPlayer instanceof Player) {
-            return getPlayerMessage(key, (Player) targetPlayer, placeholders);
-        } else {
-            return getSystemMessage(key, placeholders);
+    /**
+     * Entry point for retrieving a localized message.
+     *
+     * Example usage:
+     *
+     *     Component comp = localizationHandler
+     *                           .getMessage("welcome.message")
+     *                           .forAudience(someAudience)
+     *                           .ofType(MessageType.MiniMessage)
+     *                           .withPlaceholders(somePlaceholders)
+     *                           .build();
+     */
+    public MessageBuilder getMessage(String key) {
+        return new MessageBuilder(key);
+    }
+
+    public class MessageBuilder {
+        private final String key;
+        private Audience audience;
+        private MessageType messageType = MessageType.Legacy;
+        private Map<String, String> placeholders;
+
+        private MessageBuilder(String key) {
+            this.key = key;
+        }
+
+        /**
+         * Set the target audience (for example, a Player).
+         * If no audience is provided, a system (default) message is assumed.
+         */
+        public MessageBuilder forAudience(Audience audience) {
+            this.audience = audience;
+            return this;
+        }
+
+        /**
+         * Specify the deserialization method: Legacy or MiniMessage.
+         * Defaults to MessageType.Legacy.
+         */
+        public MessageBuilder ofType(MessageType messageType) {
+            this.messageType = messageType;
+            return this;
+        }
+
+        /**
+         * Set the placeholders to apply to the message.
+         */
+        public MessageBuilder withPlaceholders(Map<String, String> placeholders) {
+            this.placeholders = placeholders;
+            return this;
+        }
+
+        /**
+         * Build and return the configured message component.
+         */
+        public Component build() {
+            String rawMessage;
+            // If audience is a Player, use translated (localized) version.
+            if (audience instanceof Player) {
+                rawMessage = getTranslateMessage(key, (Player) audience);
+            } else {
+                // Otherwise, use the default message.
+                rawMessage = defaultMessagesResource.getConfig()
+                        .getString(key, "&cMessage not found: " + key);
+            }
+            return parseAndSerialize(rawMessage, messageType, placeholders, audience);
         }
     }
 
-    public Component getMessage(String key, Audience targetPlayer) {
-        if (targetPlayer instanceof Player) {
-            return getPlayerMessage(key, (Player) targetPlayer, null);
-        } else {
-            return getSystemMessage(key, null);
-        }
-    }
+    // --- Private Helper Methods ---
 
-    private Component getPlayerMessage(String key, Player targetPlayer, Map<String, String> placeholders) {
-        String message = getTranslateMessage(key, targetPlayer);
-        if (placeholders != null) {
-            message = TextUtils.parsePlaceholders(message, placeholders);
-        }
-        if (targetPlayer != null) {
-            message = TextUtils.parseWithPAPI(message, targetPlayer);
-        }
-        message = TextUtils.parseLegacyColors(message);
-        return TextUtils.serializeComponent(message);
-    }
-
-    public Component getSystemMessage(String key, Map<String, String> placeholders) {
-        String message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
-        if (placeholders != null) {
-            message = TextUtils.parsePlaceholders(message, placeholders);
-        }
-        message = TextUtils.parseLegacyColors(message);
-        return TextUtils.serializeComponent(message);
-    }
-
-    private @NotNull String getTranslateMessage(String key, Player targetPlayer) {
-        Language language = getPlayerLanguage(targetPlayer);
+    /**
+     * Retrieves a translated message for a player based on their language.
+     * Falls back to the default message if no localized version is found.
+     */
+    private @NotNull String getTranslateMessage(String key, Player player) {
+        Language language = getPlayerLanguage(player);
         String message = null;
         if (language != null) {
             ResourceHandler resource = languageResources.get(language);
@@ -115,16 +153,35 @@ public class LocalizationHandler {
             }
         }
         if (message == null) {
-            message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
+            message = defaultMessagesResource.getConfig()
+                    .getString(key, "&cMessage not found: " + key);
         }
         return message;
     }
 
     /**
-     * Retrieve the player's language.
-     * Modify this as needed to get the correct language for your player.
+     * Default method for detecting the player's language.
+     * Modify this as needed to reflect a player's actual language.
      */
     private Language getPlayerLanguage(Player player) {
         return Language.NL;
+    }
+
+    /**
+     * Applies placeholder processing, color parsing, and then serializes the message string to a Component.
+     * If MessageType is MiniMessage, an alternate serialization is applied.
+     */
+    private Component parseAndSerialize(String message, MessageType messageType,
+                                        Map<String, String> placeholders, Audience audience) {
+        if (placeholders != null) {
+            message = TextUtils.parsePlaceholders(message, placeholders);
+        }
+        if (audience instanceof Player) {
+            message = TextUtils.parseWithPAPI(message, (Player) audience);
+        }
+        message = TextUtils.parseLegacyColors(message);
+        return (messageType == MessageType.MiniMessage)
+                ? TextUtils.deserializeMMComponent(message)
+                : TextUtils.deserializeComponent(message);
     }
 }

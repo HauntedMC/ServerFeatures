@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 public class ActionbarMessage {
-    private final String text;
+    private final String messageKey;
     private final long duration;
     private ActionbarMessage(Builder builder) {
-        this.text = builder.text;
+        this.messageKey = builder.messageKey;
         this.duration = builder.duration;
     }
 
-    public String getText() {
-        return text;
+    public String getMessageKey() {
+        return messageKey;
     }
 
     public long getDuration() {
@@ -17,11 +17,11 @@ public class ActionbarMessage {
     }
 
     public static class Builder {
-        private String text;
+        private String messageKey;
         private long duration = 100L;
 
-        public Builder text(String text) {
-            this.text = text;
+        public Builder messageKey(String messageKey) {
+            this.messageKey = messageKey;
             return this;
         }
 

@@ -96,7 +96,7 @@ public class ScoreboardHandler implements Listener {
             objective = scoreboard.registerNewObjective(
                     OBJECTIVE_NAME,
                     OBJECTIVE_CRITERIA,
-                    localizationHandler.getMessage("scoreboard.title", player)
+                    localizationHandler.getMessage("scoreboard.title").forAudience(player).build()
             );
             objective.setDisplaySlot(DisplaySlot.SIDEBAR);
         }
@@ -110,7 +110,7 @@ public class ScoreboardHandler implements Listener {
      * @param player    the player for which the title should be localized
      */
     private void updateObjectiveTitle(Objective objective, Player player) {
-        Component title = localizationHandler.getMessage("scoreboard.title", player);
+        Component title = localizationHandler.getMessage("scoreboard.title").forAudience(player).build();
         objective.displayName(title);
     }
 
@@ -161,7 +161,7 @@ public class ScoreboardHandler implements Listener {
     private List<Component> getProcessedScoreboardLines(Player player) {
         List<Component> processedLines = new ArrayList<>(MAX_LINES);
         for (int i = 1; i <= MAX_LINES; i++) {
-            Component message = localizationHandler.getMessage("scoreboard.line" + i, player);
+            Component message = localizationHandler.getMessage("scoreboard.line" + i).forAudience(player).build();
             String msg = serializer.serialize(message);
 
             if (msg.startsWith("<end>")) {

@@ -65,14 +65,14 @@ public class SpawnerToggle extends BaseFeature<Meta> {
 
         if (spawner.getRequiredPlayerRange() == defaultRange) {
             spawner.setRequiredPlayerRange(0);
-            Component status_off = getLocalizationHandler().getMessage("spawner_toggle.status_off", player);
+            Component status_off = getLocalizationHandler().getMessage("spawner_toggle.status_off").forAudience(player).build();
             String status_off_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_off);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", player, Map.of("status", status_off_str)));
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message").forAudience(player).withPlaceholders(Map.of("status", status_off_str)).build());
         } else {
             spawner.setRequiredPlayerRange(defaultRange);
-            Component status_on = getLocalizationHandler().getMessage("spawner_toggle.status_on", player);
+            Component status_on = getLocalizationHandler().getMessage("spawner_toggle.status_on").forAudience(player).build();
             String status_on_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_on);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message", player, Map.of("status", status_on_str)));
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message").forAudience(player).withPlaceholders(Map.of("status", status_on_str)).build());
         }
 
         blockState.update();
