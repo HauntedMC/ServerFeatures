@@ -26,7 +26,7 @@ public class VisibilityManager {
         playerConditions.add(new DeathCondition());
         playerConditions.add(new GsitCondition());
         playerConditions.add(new WorldCondition());
-        playerConditions.add(new DistanceCondition(64)); // 64 blocks
+        playerConditions.add(new DistanceCondition(56)); // 64 blocks
         playerConditions.add(new VanishCondition());
         playerConditions.add(new SpectatorCondition());
     }

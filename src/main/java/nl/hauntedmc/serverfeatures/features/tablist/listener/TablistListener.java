@@ -16,7 +16,7 @@ public class TablistListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        feature.getHandler().initTablist(event.getPlayer());
+        feature.getHandler().forceRefreshTablist(event.getPlayer());
     }
 
     @EventHandler

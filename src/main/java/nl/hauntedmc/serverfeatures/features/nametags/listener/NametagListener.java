@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -34,7 +35,7 @@ public class NametagListener implements Listener {
 
     @EventHandler
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
+        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).delay(10L).build());
     }
 
     @EventHandler
@@ -47,6 +48,17 @@ public class NametagListener implements Listener {
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
+    }
+
+    @EventHandler
+    public void onPlayerTeleport(PlayerTeleportEvent event) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        double distance = from.distance(to);
+
+        if (distance > 80) {
+            this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().ownerOnly(true).build()), 5L);
+        }
     }
 
     @EventHandler

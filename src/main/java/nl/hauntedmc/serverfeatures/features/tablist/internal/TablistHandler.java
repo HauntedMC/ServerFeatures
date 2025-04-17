@@ -93,9 +93,9 @@ public class TablistHandler {
     /**
      * Convenience method: clears then updates the player's tablist.
      */
-    public void initTablist(Player player) {
+    public void forceRefreshTablist(Player player) {
         clearTablist(player);
-        updateTablist(player);
+        refreshAllPlayers();
     }
 
     /**
