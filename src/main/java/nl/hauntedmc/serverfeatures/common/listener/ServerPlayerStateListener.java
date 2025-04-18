@@ -19,18 +19,12 @@ public class ServerPlayerStateListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
-        boolean success = ScoreboardManager.addPlayerToTeam(event.getPlayer());
-        if (!success) {
-            plugin.getLogger().warning("Failed to add player to team.");
-        }
+        ScoreboardManager.onPlayerJoin(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerQuit(@NotNull PlayerQuitEvent event) {
-        boolean success = ScoreboardManager.removePlayerFromTeam(event.getPlayer());
-        if (!success) {
-            plugin.getLogger().warning("Failed to remove player from team.");
-        }
+        ScoreboardManager.onPlayerQuit(event.getPlayer());
     }
 
 }

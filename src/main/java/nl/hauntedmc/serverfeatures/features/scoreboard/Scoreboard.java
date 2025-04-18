@@ -53,11 +53,11 @@ public class Scoreboard extends BaseFeature<Meta> {
     @Override
     public void initialize() {
         scoreboardHandler = new ScoreboardHandler(this);
-        scoreboardHandler.startUpdateTask();
+        scoreboardHandler.startUpdater();
         getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(scoreboardHandler));
 
         // Initialize the scoreboard for all currently online players.
-        Bukkit.getOnlinePlayers().forEach(scoreboardHandler::updateScoreboard);
+        Bukkit.getOnlinePlayers().forEach(scoreboardHandler::updateScoreboardContent);
     }
 
     @Override
