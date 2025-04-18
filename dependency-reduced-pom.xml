@@ -91,6 +91,10 @@
       <id>codemc-snapshots</id>
       <url>https://repo.codemc.io/repository/maven-snapshots/</url>
     </repository>
+    <repository>
+      <id>md_5-public</id>
+      <url>https://repo.md-5.net/content/groups/public/</url>
+    </repository>
   </repositories>
   <dependencies>
     <dependency>
@@ -145,6 +149,12 @@
       <groupId>net.luckperms</groupId>
       <artifactId>api</artifactId>
       <version>5.4</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>me.libraryaddict.disguises</groupId>
+      <artifactId>libsdisguises</artifactId>
+      <version>11.0.0</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
