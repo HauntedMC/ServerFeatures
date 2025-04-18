@@ -56,9 +56,8 @@ public class GlowCommand extends FeatureCommand {
         } else {
             // Attempt to parse color
             NamedTextColor color;
-            try {
-                color = NamedTextColor.NAMES.value(arg.toLowerCase());
-            } catch (IllegalArgumentException e) {
+            color = NamedTextColor.NAMES.value(arg.toLowerCase());
+            if (color == null) {
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("glow.invalid_color").forAudience(sender).build());
                 return true;
             }
