@@ -39,7 +39,11 @@ public class NightVisionCommand extends FeatureCommand {
         if (player.hasPotionEffect(PotionEffectType.NIGHT_VISION) && Objects.requireNonNull(player.getPotionEffect(PotionEffectType.NIGHT_VISION)).getDuration() == PotionEffect.INFINITE_DURATION) {
             player.removePotionEffect(PotionEffectType.NIGHT_VISION);
             player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status").forAudience(player).withPlaceholders(Map.of("status", "&cuitgeschakeld")).build());
-        } else {
+        }
+        else {
+            if (player.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
+                player.removePotionEffect(PotionEffectType.NIGHT_VISION);
+            }
             PotionEffect nvEffect = new PotionEffect(PotionEffectType.NIGHT_VISION, PotionEffect.INFINITE_DURATION, 0, false, false);
             player.addPotionEffect(nvEffect);
             player.sendMessage(feature.getLocalizationHandler().getMessage("nightvision.status").forAudience(player).withPlaceholders(Map.of("status", "&aingeschakeld")).build());
