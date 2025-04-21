@@ -35,11 +35,10 @@ public class Glow extends BaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-        // Using MiniMessage-style tags for modern formatting.
-        messages.add("glow.invalid_color", "<red>Ongeldige kleur optie.");
-        messages.add("glow.usage", "<yellow>Usage: /glow <color|remove>");
-        messages.add("glow.glow_set", "<green>Je hebt nu een <gray>{color} <green>glow effect.");
-        messages.add("glow.glow_removed", "<green>Glow effect is verwijderd.");
+        messages.add("glow.invalid_color", "&cOngeldige kleur optie.");
+        messages.add("glow.usage", "&cUsage: /glow <color|remove>");
+        messages.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
+        messages.add("glow.glow_removed", "&7Glow effect is verwijderd.");
         return messages;
     }
 

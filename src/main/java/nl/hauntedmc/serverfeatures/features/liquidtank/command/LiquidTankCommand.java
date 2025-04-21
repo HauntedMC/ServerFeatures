@@ -26,26 +26,26 @@ public class LiquidTankCommand extends FeatureCommand {
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         // Only players may use this command.
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player", sender));
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player").forAudience(sender).build());
             return true;
         }
 
         // Check staff permission.
         if (!player.hasPermission("serverfeatures.feature.liquidtank.command.give")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(player).build());
             return true;
         }
 
         // Usage: /liquidtank give <player> [amount]
         if (args.length < 1 || !args[0].equalsIgnoreCase("give") || args.length < 2) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.usage", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.usage").forAudience(player).build());
             return true;
         }
 
         String targetName = args[1];
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.player_offline", player, Map.of("player", targetName)));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.player_offline").forAudience(player).withPlaceholders(Map.of("player", targetName)).build());
             return true;
         }
 
@@ -54,18 +54,18 @@ public class LiquidTankCommand extends FeatureCommand {
             try {
                 amount = Integer.parseInt(args[2]);
                 if (amount < 1) {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.invalid_amount", player));
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.invalid_amount").forAudience(player).build());
                     return true;
                 }
             } catch (NumberFormatException e) {
-                player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.invalid_amount", player));
+                player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.invalid_amount").forAudience(player).build());
                 return true;
             }
         }
 
         // Give the target the liquid tank item.
         target.getInventory().addItem(getTankItem(amount));
-        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given", player, Map.of("{player}", target.getName(), "{amount}", String.valueOf(amount))));
+        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given").forAudience(player).withPlaceholders(Map.of("{player}", target.getName(), "{amount}", String.valueOf(amount))).build());
         return true;
     }
 

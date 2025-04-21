@@ -61,12 +61,12 @@ public class NicknameHandler {
         String nickname = translateColours(unformattedNickname);
 
         if (!hasValidNicknameLength(nickname)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.max_length_exceeded", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.max_length_exceeded").forAudience(player).build());
             return false;
         }
 
         if (!hasValidNicknameCharacters(nickname)) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.invalid_characters", player));
+            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.invalid_characters").forAudience(player).build());
             return false;
         }
 

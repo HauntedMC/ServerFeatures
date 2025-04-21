@@ -28,14 +28,9 @@ public class Actionbar extends BaseFeature<Meta> {
         List<Map<String, Object>> messages = new ArrayList<>();
 
         Map<String, Object> msg1 = new HashMap<>();
-        msg1.put("text", "&6Welcome to HauntedMC Actionbar!");
+        msg1.put("message_key", "default");
         msg1.put("duration", 100);
         messages.add(msg1);
-
-        Map<String, Object> msg2 = new HashMap<>();
-        msg2.put("text", "&aEnjoy your stay with Actionbars!");
-        msg2.put("duration", 100);
-        messages.add(msg2);
 
         defaults.put("messages", messages);
         defaults.put("message_interval", 0);
@@ -56,7 +51,7 @@ public class Actionbar extends BaseFeature<Meta> {
         messages.add("actionbar.sent_timer", "&7ActionBar bericht verzonden voor {time} seconden: {message}");
         messages.add("actionbar.already_running", "&cDe ActionBar cyclus is al actief.");
         messages.add("actionbar.not_running", "&cEr is op dit moment geen ActionBar cyclus actief.");
-
+        messages.add("actionbar.default", "&6Example Actionbar");
         return messages;
     }
 

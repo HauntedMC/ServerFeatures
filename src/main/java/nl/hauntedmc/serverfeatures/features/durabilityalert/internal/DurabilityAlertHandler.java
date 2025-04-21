@@ -63,10 +63,10 @@ public class DurabilityAlertHandler {
         Component message;
 
         if (durabilityRemaining == 0) {
-            message = feature.getLocalizationHandler().getMessage("durabilityalert.no_durability", player, Map.of("item", itemName));
+            message = feature.getLocalizationHandler().getMessage("durabilityalert.no_durability").forAudience(player).withPlaceholders(Map.of("item", itemName)).build();
         } else {
-            Component lowMsg = feature.getLocalizationHandler().getMessage("durabilityalert.low_durability", player, Map.of("item", itemName));
-            Component durMsg = feature.getLocalizationHandler().getMessage("durabilityalert.durability_left", player, Map.of("durability", String.valueOf(durabilityRemaining)));
+            Component lowMsg = feature.getLocalizationHandler().getMessage("durabilityalert.low_durability").forAudience(player).withPlaceholders(Map.of("item", itemName)).build();
+            Component durMsg = feature.getLocalizationHandler().getMessage("durabilityalert.durability_left").forAudience(player).withPlaceholders(Map.of("durability", String.valueOf(durabilityRemaining))).build();
             message = lowMsg.append(durMsg);
         }
 

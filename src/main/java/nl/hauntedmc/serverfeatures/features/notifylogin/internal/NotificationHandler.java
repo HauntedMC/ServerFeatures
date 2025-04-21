@@ -21,7 +21,7 @@ public class NotificationHandler {
             if (isPlayerVanished(player)) {
                 return;
             }
-            Component joinMessage = feature.getLocalizationHandler().getMessage("notifylogin.supremeplus", player, Map.of("name", player.getName()));
+            Component joinMessage = feature.getLocalizationHandler().getMessage("notifylogin.supremeplus").forAudience(player).withPlaceholders(Map.of("name", player.getName())).build();
             Bukkit.broadcast(joinMessage);
         }
     }

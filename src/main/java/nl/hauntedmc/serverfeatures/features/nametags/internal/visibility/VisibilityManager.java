@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.nametag.NametagVisibilityCondition;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player.GsitCondition;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player.*;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -26,7 +27,10 @@ public class VisibilityManager {
         playerConditions.add(new DeathCondition());
         playerConditions.add(new GsitCondition());
         playerConditions.add(new WorldCondition());
-        playerConditions.add(new DistanceCondition(64)); // 64 blocks
+        playerConditions.add(new DistanceCondition(56)); // 64 blocks
+        if (Bukkit.getPluginManager().isPluginEnabled("LibsDisguises")) {
+            playerConditions.add(new DisguiseCondition());
+        }
         playerConditions.add(new VanishCondition());
         playerConditions.add(new SpectatorCondition());
     }

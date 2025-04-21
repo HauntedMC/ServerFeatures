@@ -58,10 +58,6 @@ public class NametagManager {
      * Creates a nametag for the given player.
      */
     private void createNametag(Player player) {
-        if (!ScoreboardManager.hasValidTeam(player)) {
-            return;
-        }
-
         Nametag nametag = new Nametag(player);
         registry.register(nametag);
         updater.update(nametag, new UpdateProperties.Builder().build());
