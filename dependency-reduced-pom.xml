@@ -50,8 +50,27 @@
               <goal>shade</goal>
             </goals>
             <configuration>
+              <relocations>
+                <relocation>
+                  <pattern>nl.hauntedmc.commonlib</pattern>
+                  <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commonlib</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>io.github.classgraph</pattern>
+                  <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.commons.text</pattern>
+                  <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_text</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>nonapi.io.github.classgraph</pattern>
+                  <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nonapi.classgraph</shadedPattern>
+                </relocation>
+              </relocations>
               <artifactSet>
                 <includes>
+                  <include>nl.hauntedmc.commonlib:commonlib</include>
                   <include>io.github.classgraph:classgraph</include>
                   <include>org.apache.commons:commons-text</include>
                 </includes>

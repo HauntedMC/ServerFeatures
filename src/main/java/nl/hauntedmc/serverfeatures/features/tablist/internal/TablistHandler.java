@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.tablist.internal;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.util.CastUtils;
+import nl.hauntedmc.commonlib.util.CastUtils;
 import nl.hauntedmc.serverfeatures.features.tablist.Tablist;
 import net.milkbowl.vault.permission.Permission;
 import org.bukkit.Bukkit;

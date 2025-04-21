@@ -6,7 +6,7 @@
 
     <groupId>nl.hauntedmc.serverfeatures</groupId>
     <artifactId>serverfeatures</artifactId>
-    <version>1.8.3</version>
+    <version>1.8.4</version>
     <packaging>jar</packaging>
     <name>ServerFeatures</name>
     <url>http://maven.apache.org</url>
@@ -64,8 +64,33 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <relocations>
+                                <!-- Relocate your internal commonlib -->
+                                <relocation>
+                                    <pattern>nl.hauntedmc.commonlib</pattern>
+                                    <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commonlib</shadedPattern>
+                                </relocation>
+
+                                <!-- Relocate ClassGraph -->
+                                <relocation>
+                                    <pattern>io.github.classgraph</pattern>
+                                    <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>
+                                </relocation>
+
+                                <!-- Relocate Apache Commons Text -->
+                                <relocation>
+                                    <pattern>org.apache.commons.text</pattern>
+                                    <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_text</shadedPattern>
+                                </relocation>
+
+                                <relocation>
+                                    <pattern>nonapi.io.github.classgraph</pattern>
+                                    <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nonapi.classgraph</shadedPattern>
+                                </relocation>
+                            </relocations>
                             <artifactSet>
                                 <includes>
+                                    <include>nl.hauntedmc.commonlib:commonlib</include>
                                     <include>io.github.classgraph:classgraph</include>
                                     <include>org.apache.commons:commons-text</include>
                                 </includes>
@@ -135,6 +160,11 @@
             <artifactId>dataprovider</artifactId>
             <version>1.19.0</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.commonlib</groupId>
+            <artifactId>commonlib</artifactId>
+            <version>1.0.0</version>
         </dependency>
         <dependency>
             <groupId>me.clip</groupId>
