@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
-import nl.hauntedmc.serverfeatures.common.util.TextUtils;
+import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -73,7 +73,7 @@ public class LiquidTankCommand extends FeatureCommand {
         org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.HOPPER, amount);
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
         String displayName = (String) feature.getConfigHandler().getSetting("item-name");
-        meta.displayName(Component.text(TextUtils.parseLegacyColors(displayName)));
+        meta.displayName(Component.text(BukkitUtils.parseLegacyColors(displayName)));
         item.setItemMeta(meta);
         return item;
     }

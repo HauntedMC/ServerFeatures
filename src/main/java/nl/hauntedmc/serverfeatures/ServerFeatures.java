@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
-import nl.hauntedmc.serverfeatures.common.listener.ServerPlayerStateListener;
+import nl.hauntedmc.serverfeatures.common.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
@@ -12,7 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
 
-public class ServerFeatures extends JavaPlugin {
+public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
 
     private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;
@@ -51,7 +51,7 @@ public class ServerFeatures extends JavaPlugin {
 
     private void registerCommonListeners() {
         PluginManager pm = Bukkit.getPluginManager();
-        pm.registerEvents(new ServerPlayerStateListener(this), this);
+        pm.registerEvents(new PlayerListener(this), this);
     }
 
     public FeatureLoadManager getFeatureLoadManager() {

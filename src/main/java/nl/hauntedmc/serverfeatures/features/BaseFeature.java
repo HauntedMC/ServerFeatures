@@ -9,7 +9,7 @@ import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import java.util.List;
 import java.util.Map;
 
-public abstract class BaseFeature<T extends BaseMeta> {
+public abstract class BaseFeature<T extends BaseMeta> implements Feature {
 
     private final ServerFeatures plugin;
     private final T meta;

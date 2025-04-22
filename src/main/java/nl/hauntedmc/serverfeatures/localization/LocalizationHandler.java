@@ -1,8 +1,11 @@
 package nl.hauntedmc.serverfeatures.localization;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
-import nl.hauntedmc.serverfeatures.common.util.TextUtils;
+import nl.hauntedmc.serverfeatures.common.util.ComponentUtils;
+import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
+import nl.hauntedmc.serverfeatures.common.util.PlaceholderUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -174,14 +177,14 @@ public class LocalizationHandler {
     private Component parseAndSerialize(String message, MessageType messageType,
                                         Map<String, String> placeholders, Audience audience) {
         if (placeholders != null) {
-            message = TextUtils.parsePlaceholders(message, placeholders);
+            message = PlaceholderUtils.parsePlaceholders(message, placeholders);
         }
         if (audience instanceof Player) {
-            message = TextUtils.parseWithPAPI(message, (Player) audience);
+            message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
         }
-        message = TextUtils.parseLegacyColors(message);
+        message = BukkitUtils.parseLegacyColors(message);
         return (messageType == MessageType.MiniMessage)
-                ? TextUtils.deserializeMMComponent(message)
-                : TextUtils.deserializeComponent(message);
+                ? ComponentUtils.deserializeMMComponent(message)
+                : ComponentUtils.deserializeComponent(message);
     }
 }

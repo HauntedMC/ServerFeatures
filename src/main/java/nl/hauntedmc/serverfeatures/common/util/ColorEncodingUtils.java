@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 import java.util.Map;
 import java.util.HashMap;
 
-public class ColorUtils {
+public class ColorEncodingUtils {
 
     // Pattern to detect various hex formats
     private static final Pattern HEX_PATTERN = Pattern.compile(

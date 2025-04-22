@@ -57,6 +57,6 @@ public class DiscordService {
                 + "    }"
                 + "}]"
                 + "}";
-        DiscordUtils.sendPayload(webhookUrl, payload, feature);
+        DiscordUtils.sendPayload(webhookUrl, payload);
     }
 }

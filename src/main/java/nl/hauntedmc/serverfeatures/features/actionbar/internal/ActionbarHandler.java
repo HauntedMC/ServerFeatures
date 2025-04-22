@@ -1,8 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import nl.hauntedmc.serverfeatures.common.util.TextUtils;
+import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.common.util.ComponentUtils;
+import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -117,9 +118,9 @@ public class ActionbarHandler {
     }
 
     private void sendActionbar(Player player, String message) {
-        message = TextUtils.parseWithPAPI(message, player);
-        message = TextUtils.parseLegacyColors(message);
-        Component messageComponent = TextUtils.deserializeComponent(message);
+        message = PlaceholderAPIHook.parseWithPAPI(message, player);
+        message = BukkitUtils.parseLegacyColors(message);
+        Component messageComponent = ComponentUtils.deserializeComponent(message);
         player.sendActionBar(messageComponent);
     }
 

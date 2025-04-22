@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nickname.internal;
 
 import nl.hauntedmc.commonlib.util.CastUtils;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.serverfeatures.common.util.ColorUtils;
+import nl.hauntedmc.serverfeatures.common.util.ColorEncodingUtils;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.service.NicknameService;
 import org.bukkit.OfflinePlayer;
@@ -80,9 +80,9 @@ public class NicknameHandler {
     }
 
     private static @NotNull String translateColours(String unformattedNickname) {
-        String nickname = ColorUtils.translateHexColors(unformattedNickname);
-        nickname = ColorUtils.translateAmpersandColors(nickname);
-        nickname = ColorUtils.translateMiniMessageColors(nickname);
+        String nickname = ColorEncodingUtils.translateHexColors(unformattedNickname);
+        nickname = ColorEncodingUtils.translateAmpersandColors(nickname);
+        nickname = ColorEncodingUtils.translateMiniMessageColors(nickname);
         return nickname;
     }
 
