@@ -8,7 +8,7 @@ import nl.hauntedmc.commonlib.util.PlaceholderUtils;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
-import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
+import nl.hauntedmc.serverfeatures.common.util.PlayerUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -150,7 +150,7 @@ public class LocalizationHandler {
      * Falls back to the default message if no localized version is found.
      */
     private @NotNull String getTranslateMessage(String key, Player player) {
-        Language language = getPlayerLanguage(player);
+        Language language = PlayerUtils.getPlayerLanguage(player);
         String message = null;
         if (language != null) {
             ResourceHandler resource = languageResources.get(language);
@@ -165,13 +165,6 @@ public class LocalizationHandler {
         return message;
     }
 
-    /**
-     * Default method for detecting the player's language.
-     * Modify this as needed to reflect a player's actual language.
-     */
-    private Language getPlayerLanguage(Player player) {
-        return Language.NL;
-    }
 
     /**
      * Applies placeholder processing, color parsing, and then serializes the message string to a Component.
@@ -185,7 +178,7 @@ public class LocalizationHandler {
         if (audience instanceof Player) {
             message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
         }
-        message = BukkitUtils.parseLegacyColors(message);
+        message = ComponentUtils.serializeLegacyString(message);
         return (messageType == MessageType.MiniMessage)
                 ? ComponentUtils.deserializeMMComponent(message)
                 : ComponentUtils.deserializeComponent(message);
