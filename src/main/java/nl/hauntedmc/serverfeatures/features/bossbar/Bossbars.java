@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.bossbar;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.bossbar.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.bossbar.internal.BossbarHandler;
 import nl.hauntedmc.serverfeatures.features.bossbar.listener.BossbarListener;
 
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Bossbars extends BaseFeature<Meta> {
+public class Bossbars extends BukkitBaseFeature<Meta> {
 
     private BossbarHandler bossbarHandler;
 

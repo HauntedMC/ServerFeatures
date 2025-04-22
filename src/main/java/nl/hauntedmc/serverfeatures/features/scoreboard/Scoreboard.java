@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.scoreboard.internal.ScoreboardHandler;
 import nl.hauntedmc.serverfeatures.features.scoreboard.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.scoreboard.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 
 import java.util.*;
 
-public class Scoreboard extends BaseFeature<Meta> {
+public class Scoreboard extends BukkitBaseFeature<Meta> {
 
     private ScoreboardHandler scoreboardHandler;
 

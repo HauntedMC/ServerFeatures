@@ -1,18 +1,18 @@
 package nl.hauntedmc.serverfeatures.internal;
 
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 
 import java.util.*;
 
 public class FeatureRegistry {
-    private final Map<String, BaseFeature<?>> loadedFeatures = new HashMap<>();
-    private final Map<String, Class<? extends BaseFeature<?>>> availableFeatures = new HashMap<>();
+    private final Map<String, BukkitBaseFeature<?>> loadedFeatures = new HashMap<>();
+    private final Map<String, Class<? extends BukkitBaseFeature<?>>> availableFeatures = new HashMap<>();
 
-    public void registerAvailableFeature(String featureName, Class<? extends BaseFeature<?>> featureClass) {
+    public void registerAvailableFeature(String featureName, Class<? extends BukkitBaseFeature<?>> featureClass) {
         availableFeatures.put(featureName, featureClass);
     }
 
-    public void registerLoadedFeature(String featureName, BaseFeature<?> feature) {
+    public void registerLoadedFeature(String featureName, BukkitBaseFeature<?> feature) {
         loadedFeatures.put(featureName, feature);
     }
 
@@ -20,7 +20,7 @@ public class FeatureRegistry {
         loadedFeatures.remove(featureName);
     }
 
-    public BaseFeature<?> getLoadedFeature(String featureName) {
+    public BukkitBaseFeature<?> getLoadedFeature(String featureName) {
         return loadedFeatures.get(featureName);
     }
 
@@ -32,11 +32,11 @@ public class FeatureRegistry {
         return loadedFeatures.containsKey(featureName);
     }
 
-    public Map<String, Class<? extends BaseFeature<?>>> getAvailableFeatures() {
+    public Map<String, Class<? extends BukkitBaseFeature<?>>> getAvailableFeatures() {
         return availableFeatures;
     }
 
-    public List<BaseFeature<?>> getLoadedFeatures() {
+    public List<BukkitBaseFeature<?>> getLoadedFeatures() {
         return new ArrayList<>(loadedFeatures.values());
     }
 

@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHandler;
 import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.*;
 
-public class NotifyLogin extends BaseFeature<Meta> {
+public class NotifyLogin extends BukkitBaseFeature<Meta> {
 
     private NotificationHandler notificationHandler;
 

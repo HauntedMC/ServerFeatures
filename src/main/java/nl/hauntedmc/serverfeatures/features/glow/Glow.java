@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.glow;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand;
 import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;
 import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -15,7 +15,7 @@ import java.util.Map;
  * Main Glow feature class. Holds configuration, messages, and references
  * to the {@link GlowHandler}, which actually performs the glow logic.
  */
-public class Glow extends BaseFeature<Meta> {
+public class Glow extends BukkitBaseFeature<Meta> {
 
     private final GlowHandler glowHandler;
 

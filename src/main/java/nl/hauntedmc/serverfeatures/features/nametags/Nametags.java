@@ -1,17 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.nametags;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.LuckPermsHook;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.nametags.listener.NametagListener;
 import nl.hauntedmc.serverfeatures.features.nametags.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.*;
 
-public class Nametags extends BaseFeature<Meta> {
+public class Nametags extends BukkitBaseFeature<Meta> {
     private NametagManager nametagManager;
 
     public Nametags(ServerFeatures plugin) {

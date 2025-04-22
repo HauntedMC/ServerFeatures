@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.internal.LagMonitorHandler;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class LagMonitor extends BaseFeature<Meta> {
+public class LagMonitor extends BukkitBaseFeature<Meta> {
 
     private LagMonitorHandler lagMonitorHandler;
 

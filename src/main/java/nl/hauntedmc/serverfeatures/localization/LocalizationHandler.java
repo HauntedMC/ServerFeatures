@@ -1,11 +1,14 @@
 package nl.hauntedmc.serverfeatures.localization;
 
+import nl.hauntedmc.commonlib.localization.Language;
+import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.commonlib.localization.MessageType;
+import nl.hauntedmc.commonlib.util.ComponentUtils;
+import nl.hauntedmc.commonlib.util.PlaceholderUtils;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
-import nl.hauntedmc.serverfeatures.common.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
-import nl.hauntedmc.serverfeatures.common.util.PlaceholderUtils;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;

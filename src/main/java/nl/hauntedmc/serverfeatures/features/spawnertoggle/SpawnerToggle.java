@@ -4,11 +4,11 @@ import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -20,7 +20,7 @@ import org.bukkit.entity.Player;
 import java.util.HashMap;
 import java.util.Map;
 
-public class SpawnerToggle extends BaseFeature<Meta> {
+public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     private boolean griefPreventionEnabled;
 

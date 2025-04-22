@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.nightvision;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.nightvision.command.NightVisionCommand;
 import nl.hauntedmc.serverfeatures.features.nightvision.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class NightVision extends BaseFeature<Meta> {
+public class NightVision extends BukkitBaseFeature<Meta> {
 
     public NightVision(ServerFeatures plugin) {
         super(plugin, new Meta());

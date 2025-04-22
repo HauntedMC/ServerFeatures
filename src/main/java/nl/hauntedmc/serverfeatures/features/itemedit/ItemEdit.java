@@ -1,17 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.itemedit;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.itemedit.internal.ItemHandler;
 import nl.hauntedmc.serverfeatures.features.itemedit.listener.AnvilListener;
 import nl.hauntedmc.serverfeatures.features.itemedit.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ItemEdit extends BaseFeature<Meta> {
+public class ItemEdit extends BukkitBaseFeature<Meta> {
 
     private ItemHandler itemHandler;
 

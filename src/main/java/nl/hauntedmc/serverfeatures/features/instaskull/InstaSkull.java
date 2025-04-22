@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.instaskull;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.instaskull.listener.SkullBreakListener;
 import nl.hauntedmc.serverfeatures.features.instaskull.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class InstaSkull extends BaseFeature<Meta> {
+public class InstaSkull extends BukkitBaseFeature<Meta> {
 
     public InstaSkull(ServerFeatures plugin) {
         super(plugin, new Meta());

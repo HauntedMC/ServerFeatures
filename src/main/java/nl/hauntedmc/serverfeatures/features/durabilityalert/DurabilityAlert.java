@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.internal.DurabilityAlertHandler;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.listener.DurabilityAlertListener;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class DurabilityAlert extends BaseFeature<Meta> {
+public class DurabilityAlert extends BukkitBaseFeature<Meta> {
 
     public DurabilityAlert(ServerFeatures plugin) {
         super(plugin, new Meta());

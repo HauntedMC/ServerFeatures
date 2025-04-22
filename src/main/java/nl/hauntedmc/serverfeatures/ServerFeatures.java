@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import nl.hauntedmc.commonlib.featureapi.FeaturePlugin;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.common.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;

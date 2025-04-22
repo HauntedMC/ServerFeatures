@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.deephaste;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.deephaste.listener.BeaconEffectListener;
 import nl.hauntedmc.serverfeatures.features.deephaste.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class DeepHaste extends BaseFeature<Meta> {
+public class DeepHaste extends BukkitBaseFeature<Meta> {
 
     public DeepHaste(ServerFeatures plugin) {
         super(plugin, new Meta());

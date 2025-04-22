@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.redistest;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.redistest.internal.ChatMessage;
 import nl.hauntedmc.serverfeatures.features.redistest.internal.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.redistest.listener.ChatListener;
 import nl.hauntedmc.serverfeatures.features.redistest.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +19,7 @@ import java.util.Optional;
 /**
  * RedisTest feature → implements global chat via your new MessagingDataAccess API.
  */
-public class RedisTest extends BaseFeature<Meta> {
+public class RedisTest extends BukkitBaseFeature<Meta> {
 
 
     private final ServerFeatures plugin;

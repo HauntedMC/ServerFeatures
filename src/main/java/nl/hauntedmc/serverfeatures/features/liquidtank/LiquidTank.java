@@ -1,17 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.liquidtank.command.LiquidTankCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.LiquidTankManager;
 import nl.hauntedmc.serverfeatures.features.liquidtank.listener.LiquidTankListener;
 import nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class LiquidTank extends BaseFeature<Meta> {
+public class LiquidTank extends BukkitBaseFeature<Meta> {
 
     private LiquidTankManager tankManager;
 

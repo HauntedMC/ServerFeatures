@@ -4,7 +4,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 
 public class FeatureFactory {
 
-    public static BaseFeature<?> createFeature(Class<? extends BaseFeature<?>> featureClass, ServerFeatures plugin) {
+    public static BukkitBaseFeature<?> createFeature(Class<? extends BukkitBaseFeature<?>> featureClass, ServerFeatures plugin) {
         try {
             return featureClass.getDeclaredConstructor(ServerFeatures.class).newInstance(plugin);
         } catch (Exception e) {

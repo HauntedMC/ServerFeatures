@@ -1,17 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.chatfilter.internal.services;
 
-import nl.hauntedmc.serverfeatures.common.util.DiscordUtils;
-import nl.hauntedmc.serverfeatures.common.util.JsonUtils;
+import nl.hauntedmc.commonlib.util.DiscordUtils;
+import nl.hauntedmc.commonlib.util.JsonUtils;
 import nl.hauntedmc.serverfeatures.features.chatfilter.ChatFilter;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.List;
 
 public class DiscordService {
     private final ChatFilter feature;

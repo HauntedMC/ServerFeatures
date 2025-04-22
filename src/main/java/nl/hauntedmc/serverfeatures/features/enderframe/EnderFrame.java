@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.enderframe;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.enderframe.listener.BlockBreakListener;
 import nl.hauntedmc.serverfeatures.features.enderframe.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class EnderFrame extends BaseFeature<Meta> {
+public class EnderFrame extends BukkitBaseFeature<Meta> {
 
     private boolean griefPreventionEnabled;
 

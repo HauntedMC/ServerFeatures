@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.events.FeatureDisabledEvent;
 import nl.hauntedmc.serverfeatures.internal.events.FeatureLoadedEvent;
@@ -37,12 +37,12 @@ public class FeatureLoadManager {
                 .enableClassInfo()
                 .acceptPackages("nl.hauntedmc.serverfeatures.features")
                 .scan()) {
-            scanResult.getSubclasses(BaseFeature.class.getName()).forEach(classInfo -> {
+            scanResult.getSubclasses(BukkitBaseFeature.class.getName()).forEach(classInfo -> {
                 try {
                     Class<?> clazz = Class.forName(classInfo.getName());
-                    if (BaseFeature.class.isAssignableFrom(clazz)) {
+                    if (BukkitBaseFeature.class.isAssignableFrom(clazz)) {
                         @SuppressWarnings("unchecked")
-                        Class<? extends BaseFeature<?>> featureClass = (Class<? extends BaseFeature<?>>) clazz;
+                        Class<? extends BukkitBaseFeature<?>> featureClass = (Class<? extends BukkitBaseFeature<?>>) clazz;
                         featureRegistry.registerAvailableFeature(classInfo.getSimpleName(), featureClass);
                     }
                 } catch (ClassNotFoundException e) {
@@ -85,7 +85,7 @@ public class FeatureLoadManager {
         stack.add(featureName);
         visited.add(featureName);
 
-        BaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
+        BukkitBaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
         if (feature != null) {
             for (String dependency : feature.getDependencies()) {
                 if (!resolveFeatureLoadOrder(dependency, stack, visited, loadOrder)) {
@@ -122,7 +122,7 @@ public class FeatureLoadManager {
             return false;
         }
 
-        BaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
+        BukkitBaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
         if (feature == null) return false;
 
         mainConfigHandler.registerFeature(featureName);
@@ -149,7 +149,7 @@ public class FeatureLoadManager {
      * Disables and unloads a feature dynamically.
      */
     public boolean disableFeature(String featureName) {
-        BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
         if (feature == null) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
             return false;
@@ -173,7 +173,7 @@ public class FeatureLoadManager {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
             return false;
         }
-        BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
         feature.getConfigHandler().reloadConfig();
         feature.getLocalizationHandler().reloadLocalization();
         plugin.getLogger().info("Feature " + featureName + " soft reloaded.");
@@ -191,7 +191,7 @@ public class FeatureLoadManager {
 
         mainConfigHandler.reloadConfig();
         localizationHandler.reloadLocalization();
-        BaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
         feature.cleanup();
         featureRegistry.deregisterLoadedFeature(featureName);
 
@@ -223,9 +223,9 @@ public class FeatureLoadManager {
     public void unloadAllFeatures() {
         plugin.getLogger().info("Unloading all loaded features...");
 
-        List<BaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
+        List<BukkitBaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
 
-        for (BaseFeature<?> feature : loadedFeatures) {
+        for (BukkitBaseFeature<?> feature : loadedFeatures) {
             feature.cleanup();
         }
 

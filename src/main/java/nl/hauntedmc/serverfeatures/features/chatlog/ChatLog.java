@@ -1,22 +1,22 @@
 package nl.hauntedmc.serverfeatures.features.chatlog;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.chatlog.command.ChatReportCommand;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ReportedChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.internal.ReportHandler;
 import nl.hauntedmc.serverfeatures.features.chatlog.listener.ChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlog.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class ChatLog extends BaseFeature<Meta> {
+public class ChatLog extends BukkitBaseFeature<Meta> {
 
 
     private ReportHandler reportHandler;

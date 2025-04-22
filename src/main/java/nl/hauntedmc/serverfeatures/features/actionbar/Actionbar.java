@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.actionbar;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarHandler;
 import nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta;
 
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Actionbar extends BaseFeature<Meta> {
+public class Actionbar extends BukkitBaseFeature<Meta> {
 
     private ActionbarHandler actionbarHandler;
 

@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.titles;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.titles.internal.TitleHandler;
 import nl.hauntedmc.serverfeatures.features.titles.listener.PlayerLoginListener;
 import nl.hauntedmc.serverfeatures.features.titles.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class Titles extends BaseFeature<Meta> {
+public class Titles extends BukkitBaseFeature<Meta> {
 
     private TitleHandler titleHandler;
 

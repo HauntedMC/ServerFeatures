@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
@@ -26,14 +26,14 @@ public class FeatureDependencyManager {
     /**
      * Ensures that all dependencies of a feature are enabled before loading.
      */
-    public boolean areDependenciesMet(BaseFeature<?> feature) {
+    public boolean areDependenciesMet(BukkitBaseFeature<?> feature) {
         return checkDependencies(feature, new HashSet<>()) && arePluginDependenciesMet(feature);
     }
 
     /**
      * Recursively checks dependencies and ensures they are enabled.
      */
-    private boolean checkDependencies(BaseFeature<?> feature, Set<String> visited) {
+    private boolean checkDependencies(BukkitBaseFeature<?> feature, Set<String> visited) {
         String featureName = feature.getFeatureName();
 
         // 🔹 Prevent circular dependencies
@@ -49,7 +49,7 @@ public class FeatureDependencyManager {
             if (!featureLoadManager.getFeatureRegistry().isFeatureLoaded(dependency)) {
                 logger.info("Enabling dependency " + dependency + " for " + featureName);
 
-                BaseFeature<?> dependencyFeature = FeatureFactory.createFeature(
+                BukkitBaseFeature<?> dependencyFeature = FeatureFactory.createFeature(
                         featureLoadManager.getFeatureRegistry().getAvailableFeatures().get(dependency),
                         this.plugin
                 );
@@ -76,7 +76,7 @@ public class FeatureDependencyManager {
     /**
      * Checks if all required external plugins are loaded.
      */
-    public boolean arePluginDependenciesMet(BaseFeature<?> feature) {
+    public boolean arePluginDependenciesMet(BukkitBaseFeature<?> feature) {
         List<String> requiredPlugins = feature.getPluginDependencies();
 
         for (String pluginName : requiredPlugins) {

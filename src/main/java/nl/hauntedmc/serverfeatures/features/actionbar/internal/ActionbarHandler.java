@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
-import nl.hauntedmc.serverfeatures.common.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.common.util.BukkitUtils;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;

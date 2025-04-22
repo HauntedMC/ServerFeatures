@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.ChatListener;
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ChatLayout extends BaseFeature<Meta> {
+public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     private ChatHandler chatHandler;
     private ChatFormatRegistry chatFormatRegistry;

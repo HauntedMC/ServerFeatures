@@ -1,23 +1,23 @@
 package nl.hauntedmc.serverfeatures.features.nickname;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.nickname.command.NickCommand;
 import nl.hauntedmc.serverfeatures.features.nickname.entity.NicknameEntity;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknameHandler;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknamePlaceholder;
 import nl.hauntedmc.serverfeatures.features.nickname.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.nickname.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Nickname extends BaseFeature<Meta> {
+public class Nickname extends BukkitBaseFeature<Meta> {
 
     private ORMContext ormContext;
     private NicknameHandler nicknameHandler;

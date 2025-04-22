@@ -1,22 +1,24 @@
 package nl.hauntedmc.serverfeatures.features;
 
+import nl.hauntedmc.commonlib.featureapi.Feature;
+import nl.hauntedmc.commonlib.featureapi.meta.BaseMeta;
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.internal.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 
 import java.util.List;
 import java.util.Map;
 
-public abstract class BaseFeature<T extends BaseMeta> implements Feature {
+public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
 
     private final ServerFeatures plugin;
     private final T meta;
     private final FeatureConfigHandler configHandler;
     private final FeatureLifecycleManager lifecycleManager;
 
-    protected BaseFeature(ServerFeatures plugin, T meta) {
+    protected BukkitBaseFeature(ServerFeatures plugin, T meta) {
         this.plugin = plugin;
         this.meta = meta;
         this.configHandler = new FeatureConfigHandler(plugin, getFeatureName());

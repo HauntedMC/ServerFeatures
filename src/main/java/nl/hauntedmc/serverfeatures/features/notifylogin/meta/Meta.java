@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin.meta;
 
-import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
+import nl.hauntedmc.commonlib.featureapi.meta.BaseMeta;
 
 public class Meta implements BaseMeta {
 

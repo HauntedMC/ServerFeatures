@@ -1,8 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor.meta;
 
-import nl.hauntedmc.serverfeatures.features.BaseMeta;
 
-import java.util.List;
+import nl.hauntedmc.commonlib.featureapi.meta.BaseMeta;
 
 public class Meta implements BaseMeta {
 

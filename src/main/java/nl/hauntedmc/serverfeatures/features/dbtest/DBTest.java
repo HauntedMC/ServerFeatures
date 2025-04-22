@@ -1,20 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.dbtest;
 
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.dataregistry.platform.bukkit.BukkitDataRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.dbtest.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 
 import java.util.HashMap;
 import java.util.Map;
 
-public class DBTest extends BaseFeature<Meta> {
+public class DBTest extends BukkitBaseFeature<Meta> {
 
 
     public DBTest(ServerFeatures plugin) {

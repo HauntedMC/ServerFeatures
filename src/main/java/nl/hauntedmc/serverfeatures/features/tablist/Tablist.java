@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.tablist;
 
+import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.tablist.internal.TablistHandler;
 import nl.hauntedmc.serverfeatures.features.tablist.listener.TablistListener;
 import nl.hauntedmc.serverfeatures.features.tablist.meta.Meta;
-import nl.hauntedmc.serverfeatures.localization.MessageMap;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Tablist extends BaseFeature<Meta> {
+public class Tablist extends BukkitBaseFeature<Meta> {
 
     private TablistHandler handler;
 

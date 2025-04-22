@@ -3,9 +3,8 @@ package nl.hauntedmc.serverfeatures.commands;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BaseFeature;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import org.bukkit.command.*;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -117,7 +116,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
     private void sendPluginStatus(@NotNull CommandSender sender) {
 
-        List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
+        List<BukkitBaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
         List<String> loadedCommands = new ArrayList<>();
         int loadedFeatureCount = loadedFeatures.size();
         int activeTaskCount = 0;
@@ -126,7 +125,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         int activeConnCount = 0;
 
 
-        for (BaseFeature<?> feature : loadedFeatures) {
+        for (BukkitBaseFeature<?> feature : loadedFeatures) {
             registeredCommandCount += feature.getLifecycleManager().getCommandManager().getRegisteredCommandCount();
             loadedCommands.addAll(feature.getLifecycleManager().getCommandManager().getRegisteredCommands().values().stream().map(Command::getName).toList());
             activeTaskCount += feature.getLifecycleManager().getTaskManager().getActiveTaskCount();
@@ -144,7 +143,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     }
 
     private void listLoadedFeatures(CommandSender sender) {
-        List<BaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
+        List<BukkitBaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
 
         if (loadedFeatures.isEmpty()) {
             sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.list.empty").forAudience(sender).build());
@@ -152,7 +151,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         }
 
         sender.sendMessage(plugin.getLocalizationHandler().getMessage("command.list.header").forAudience(sender).build());
-        for (BaseFeature<?> feature : loadedFeatures) {
+        for (BukkitBaseFeature<?> feature : loadedFeatures) {
             sender.sendMessage(plugin.getLocalizationHandler().getMessage(
                     "command.list.entry").forAudience(sender).withPlaceholders(
                     Map.of("feature", feature.getFeatureName(), "version", feature.getFeatureVersion())).build()
@@ -177,7 +176,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 case "softreload":
                 case "disable":
                     completions.addAll(plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
-                            .map(BaseFeature::getFeatureName)
+                            .map(BukkitBaseFeature::getFeatureName)
                             .toList());
                     break;
 
