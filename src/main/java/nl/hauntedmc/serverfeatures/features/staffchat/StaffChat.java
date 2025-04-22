@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.redistest;
+package nl.hauntedmc.serverfeatures.features.staffchat;
 
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
@@ -7,23 +7,22 @@ import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.redistest.internal.ChatMessage;
-import nl.hauntedmc.serverfeatures.features.redistest.internal.EventBusHandler;
-import nl.hauntedmc.serverfeatures.features.redistest.listener.ChatListener;
-import nl.hauntedmc.serverfeatures.features.redistest.meta.Meta;
+import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannelHandler;
+import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.EventBusHandler;
+import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.StaffChatMessage;
+import nl.hauntedmc.serverfeatures.features.staffchat.listener.ChatListener;
+import nl.hauntedmc.serverfeatures.features.staffchat.meta.Meta;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * RedisTest feature → implements global chat via your new MessagingDataAccess API.
- */
-public class RedisTest extends BukkitBaseFeature<Meta> {
+public class StaffChat extends BukkitBaseFeature<Meta> {
 
+    private ChatChannelHandler chatChannelHandler;
     private EventBusHandler eventBusHandler;
 
-    public RedisTest(ServerFeatures plugin) {
+    public StaffChat(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
 
@@ -31,7 +30,10 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
-        defaults.put("server", "");
+        defaults.put("staff_prefix", "!");
+        defaults.put("team_prefix", "@");
+        defaults.put("admin_prefix", "#");
+        defaults.put("server_name", "default");
         return defaults;
     }
 
@@ -55,7 +57,6 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
                 );
 
         if (opt.isEmpty()) {
-            getPlugin().getLogger().warning("RedisTest: no Redis provider available");
             return;
         }
 
@@ -64,27 +65,26 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
         try {
             redisBus = (MessagingDataAccess) dbp.getDataAccess();
         } catch (ClassCastException e) {
-            getPlugin().getLogger().severe("RedisTest: provider is not a MessagingDataAccess");
             return;
         }
 
-        MessageRegistry.register("chat", ChatMessage.class);
+        MessageRegistry.register("staffchat", StaffChatMessage.class);
 
         eventBusHandler = new EventBusHandler(this, redisBus);
-        eventBusHandler.subscribeChannel("mineserver.global");
 
-        getLifecycleManager()
-                .getListenerManager()
-                .registerListener(new ChatListener(this));
+        this.chatChannelHandler = new ChatChannelHandler(this);
+        getLifecycleManager().getListenerManager().registerListener(new ChatListener(this));
     }
 
     @Override
     public void disable() {
-        eventBusHandler.disable();
+    }
+
+    public ChatChannelHandler getChatChannelHandler() {
+        return chatChannelHandler;
     }
 
     public EventBusHandler getEventBusHandler() {
         return eventBusHandler;
     }
-
 }
