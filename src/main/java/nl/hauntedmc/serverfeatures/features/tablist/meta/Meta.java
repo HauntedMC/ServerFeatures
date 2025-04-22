@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.tablist.meta;
 
-import nl.hauntedmc.commonlib.featureapi.meta.BaseMeta;
+import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 
 import java.util.List;
 

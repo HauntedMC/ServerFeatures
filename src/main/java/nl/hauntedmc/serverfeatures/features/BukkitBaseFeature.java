@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features;
 
-import nl.hauntedmc.commonlib.featureapi.Feature;
-import nl.hauntedmc.commonlib.featureapi.meta.BaseMeta;
+import nl.hauntedmc.commonlib.featureapi.feature.Feature;
+import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
-import nl.hauntedmc.serverfeatures.internal.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 
 import java.util.List;
