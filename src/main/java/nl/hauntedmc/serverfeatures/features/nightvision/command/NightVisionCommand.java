@@ -25,7 +25,7 @@ public class NightVisionCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player").forAudience(sender).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
             return true;
         }
 

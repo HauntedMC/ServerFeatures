@@ -27,7 +27,7 @@ public class LiquidTankCommand extends FeatureCommand {
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         // Only players may use this command.
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.only_player").forAudience(sender).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
             return true;
         }
 
