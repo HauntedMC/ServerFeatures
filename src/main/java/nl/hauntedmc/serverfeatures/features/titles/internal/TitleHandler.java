@@ -27,7 +27,7 @@ public class TitleHandler {
 
     public void sendJoinTitle(Player player) {
         Component title = feature.getLocalizationHandler().getMessage("titles.join_title").forAudience(player).build();
-        String serverName = (String) feature.getConfigHandler().getSetting("server");
+        String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         Component subtitle = feature.getLocalizationHandler().getMessage("titles.join_subtitle").forAudience(player).withPlaceholders(Map.of("server", serverName)).build();
         Title.Times times = Title.Times.times(Duration.ofMillis(50L *fadeIn), Duration.ofMillis(50L * stay), Duration.ofMillis(50L * fadeOut));
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {

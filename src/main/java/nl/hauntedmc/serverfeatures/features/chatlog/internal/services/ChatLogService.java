@@ -10,20 +10,20 @@ import java.util.List;
 
 public class ChatLogService {
 
-    private final ChatLog chatLog;
+    private final ChatLog feature;
 
-    public ChatLogService(ChatLog chatLog) {
-        this.chatLog = chatLog;
+    public ChatLogService(ChatLog feature) {
+        this.feature = feature;
     }
 
     /**
      * Logs a chat message into the chat_messages table.
      */
     public void addMessage(Player player, String rawMessage) {
-        String serverName = (String) chatLog.getConfigHandler().getSetting("server");
+        String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         long timestamp = System.currentTimeMillis();
 
-        chatLog.getOrmContext().runInTransaction(session -> {
+        feature.getOrmContext().runInTransaction(session -> {
             // Retrieve the persistent PlayerEntity using the player's UUID.
             PlayerEntity playerEntity = session.createQuery(
                             "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
@@ -52,7 +52,7 @@ public class ChatLogService {
      * Counts the number of chat messages for a given server and player between two timestamps.
      */
     public int countMessages(String server, String playerName, Long start, Long end) {
-        return chatLog.getOrmContext().runInTransaction(session -> {
+        return feature.getOrmContext().runInTransaction(session -> {
             Long count = session.createQuery(
                             "SELECT COUNT(c) FROM ChatMessageEntity c WHERE c.server = :server AND c.player.username = :username AND c.timestamp BETWEEN :start AND :end",
                             Long.class)
@@ -69,7 +69,7 @@ public class ChatLogService {
      * Creates a report by copying chat messages into the reported_chat_messages table.
      */
     public void createReport(String server, List<String> players, Long start, Long end, String reportId) {
-        chatLog.getOrmContext().runInTransaction(session -> {
+        feature.getOrmContext().runInTransaction(session -> {
             for (String username : players) {
                 List<ChatMessageEntity> messages = session.createQuery(
                                 "SELECT c FROM ChatMessageEntity c WHERE c.server = :server AND c.player.username = :username AND c.timestamp BETWEEN :start AND :end",

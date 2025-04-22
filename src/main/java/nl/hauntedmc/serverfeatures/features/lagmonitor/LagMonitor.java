@@ -20,7 +20,6 @@ public class LagMonitor extends BukkitBaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
-        defaults.put("server", "default_server");
         defaults.put("tps_check_interval", 5);
         defaults.put("tps_monitor_duration", 120);
         defaults.put("tps_alert_interval", 600);

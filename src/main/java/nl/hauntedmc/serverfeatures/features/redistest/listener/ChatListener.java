@@ -14,7 +14,7 @@ public class ChatListener implements Listener {
 
     public ChatListener(RedisTest feature) {
         this.feature = feature;
-        this.serverName = (String) feature.getConfigHandler().getSetting("server");
+        this.serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
     }
     
     @EventHandler

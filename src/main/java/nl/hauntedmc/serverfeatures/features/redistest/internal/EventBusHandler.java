@@ -18,7 +18,7 @@ public class EventBusHandler {
     public EventBusHandler(RedisTest feature, MessagingDataAccess redisBus) {
         this.feature = feature;
         this.redisBus = redisBus;
-        this.serverName = (String) feature.getConfigHandler().getSetting("server");
+        this.serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
 
     }
 

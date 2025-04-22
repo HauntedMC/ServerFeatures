@@ -31,7 +31,6 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
-        defaults.put("server", "");
         return defaults;
     }
 

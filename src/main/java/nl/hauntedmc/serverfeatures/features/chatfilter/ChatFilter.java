@@ -116,7 +116,6 @@ public class ChatFilter extends BukkitBaseFeature<Meta> {
         // Spam filtering
         defaults.put("maxRecentMessages", 1);
         defaults.put("similarityThreshold", 0.95);
-        defaults.put("server", "default_server");
         defaults.put("discordWebhookURL", "https://discordhook.url");
         return defaults;
     }

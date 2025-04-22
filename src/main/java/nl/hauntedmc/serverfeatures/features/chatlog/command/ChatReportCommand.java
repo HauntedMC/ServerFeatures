@@ -41,7 +41,7 @@ public class ChatReportCommand extends FeatureCommand {
         long currentTime = System.currentTimeMillis();
         int timeframeMinutes = (int) feature.getConfigHandler().getSetting("reportTimeFrameMinutes");
         long reportStart = currentTime - timeframeMinutes * 60 * 1000L;
-        String serverName = (String) feature.getConfigHandler().getSetting("server");
+        String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
 
         // Check each provided player UUID argument.
         List<String> reportedPlayers = new ArrayList<>();

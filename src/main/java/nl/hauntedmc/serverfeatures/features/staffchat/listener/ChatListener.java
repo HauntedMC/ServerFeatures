@@ -21,7 +21,7 @@ public class ChatListener implements Listener {
     public ChatListener(StaffChat feature) {
         this.feature = feature;
         this.handler = feature.getChatChannelHandler();
-        this.serverName = (String) feature.getConfigHandler().getSetting("server_name");
+        this.serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

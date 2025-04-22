@@ -19,7 +19,7 @@ public class DiscordService {
      * @param avgTPS     The average TPS recorded.
      */
     public void sendNotification(String avgTPS) {
-        String serverName = (String) feature.getConfigHandler().getSetting("server");
+        String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");
         if (webhookUrl == null || webhookUrl.isEmpty()) {
             feature.getPlugin().getLogger().warning("Discord webhook URL not configured.");

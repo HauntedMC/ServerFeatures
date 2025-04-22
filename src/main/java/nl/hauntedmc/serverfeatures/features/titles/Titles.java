@@ -29,7 +29,6 @@ public class Titles extends BukkitBaseFeature<Meta> {
         defaults.put("stay", 30);
         defaults.put("fade-out", 30);
         defaults.put("delay", 15);
-        defaults.put("server", "default_server");
         return defaults;
     }
 

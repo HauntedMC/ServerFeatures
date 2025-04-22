@@ -30,7 +30,6 @@ public class ChatLog extends BukkitBaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", false);
-        defaults.put("server", "default_server"); // Set your default server name here
         defaults.put("URL", "https://hauntedmc.nl/chatlog/?report="); // Base URL for report links
         defaults.put("reportTimeFrameMinutes", 15); // Timeframe (in minutes) to include messages in a report
         defaults.put("discordWebhookURL", "https://discordhook.url");

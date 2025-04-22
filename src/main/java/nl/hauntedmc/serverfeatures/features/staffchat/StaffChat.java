@@ -33,7 +33,6 @@ public class StaffChat extends BukkitBaseFeature<Meta> {
         defaults.put("staff_prefix", "!");
         defaults.put("team_prefix", "@");
         defaults.put("admin_prefix", "#");
-        defaults.put("server_name", "default");
         return defaults;
     }
 
