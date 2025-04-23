@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.villageroptimizer.events;
+package nl.hauntedmc.serverfeatures.features.villageroptimizer.listener;
 
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
