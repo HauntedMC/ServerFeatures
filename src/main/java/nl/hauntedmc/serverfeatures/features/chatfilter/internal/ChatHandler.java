@@ -50,12 +50,10 @@ public class ChatHandler {
         // Apply anti-caps filter
         message = applyAntiCapsFilter(message);
 
-        String normalizedMessage = normalizeMessage(message);
-
         String finalMessage = message;
 
         // Check for disallowed words
-        if (containsDisallowedWords(normalizedMessage)) {
+        if (containsDisallowedWords(message)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word").forAudience(player).build());
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
             logBlockedMessage("[FILTERED] ", message, player);
@@ -82,7 +80,7 @@ public class ChatHandler {
         }
 
         // Check for spam (excessively similar recent messages)
-        if (isSpam(normalizedMessage, player)) {
+        if (isSpam(message, player)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_spam").forAudience(player).build());
             notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_spam").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
             logBlockedMessage("[SPAM] ", message, player);
@@ -170,25 +168,54 @@ public class ChatHandler {
         return 1.0 - (double) levenshtein.apply(s1, s2) / maxLength;
     }
 
-    private boolean containsDisallowedWords(String normalizedMessage) {
-        for (String word : disallowedWords) {
-            if (matchesPattern(normalizedMessage, word)) {
-                return true;
+    private boolean containsDisallowedWords(String message) {
+        // Lower-case and replace anything that isn’t a letter or digit with a space
+        String clean = message.toLowerCase().replaceAll("[^a-z0-9]", " ");
+        String[] tokens = clean.trim().split("\\s+");
+
+        for (String raw : disallowedWords) {
+            // Normalize the banned word too
+            String word = raw.toLowerCase().replaceAll("[^a-z0-9]", "");
+            int wlen = word.length();
+
+            // Span matching (standalone + split across tokens)
+            for (int span = 1; span <= wlen; span++) {
+                for (int i = 0; i + span <= tokens.length; i++) {
+                    // Skip if any token in this span is longer than the banned word
+                    boolean tooLong = false;
+                    for (int j = 0; j < span; j++) {
+                        if (tokens[i + j].length() > wlen) {
+                            tooLong = true;
+                            break;
+                        }
+                    }
+                    if (tooLong) continue;
+
+                    // Concatenate tokens[i]…tokens[i+span-1]
+                    StringBuilder sb = new StringBuilder(wlen);
+                    for (int j = 0; j < span; j++) {
+                        sb.append(tokens[i + j]);
+                    }
+
+                    if (sb.toString().equals(word)) {
+                        return true;
+                    }
+                }
+            }
+
+            // Prefix/suffix matching on individual tokens
+            for (String token : tokens) {
+                if (token.length() > wlen) {
+                    if (token.startsWith(word) || token.endsWith(word)) {
+                        return true;
+                    }
+                }
             }
         }
+
         return false;
     }
-
-    private boolean matchesPattern(String message, String word) {
-        String regex = word.replaceAll("([a-z])", "$1+");
-        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(message);
-        return matcher.find();
-    }
-
-    private String normalizeMessage(String message) {
-        return message.toLowerCase().replaceAll("[^a-z0-9]", "");
-    }
+    
 
     private void notifySender(Player sender, Component message) {
         Component notifyMessage = prefix.append(message);
