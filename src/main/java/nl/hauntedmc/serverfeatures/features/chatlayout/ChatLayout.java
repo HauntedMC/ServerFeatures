@@ -41,13 +41,15 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
                 "&7Bekijk onze winkel op",
                 "&astore.hauntedmc.nl",
                 "",
-                "&eKlik hier voor een link naar de Store."
+                "&eKlik voor een link",
+                "&enaar de Store."
         ));
         defaultFormat.put("name_tooltip", List.of(
-                "&6Naam: &f%player_name%",
+                "&bUsername: &7%player_name%",
                 "&bPing: &7%player_ping%ms",
                 "",
-                "&bKlik om &a%player_name% &bte msg-en."
+                "&eKlik om &a%player_name% &eeen",
+                "&ebericht te sturen."
         ));
         defaultFormat.put("suffix_tooltip", List.of(""));
 

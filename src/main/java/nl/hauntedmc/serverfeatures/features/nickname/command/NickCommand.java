@@ -65,7 +65,7 @@ public class NickCommand extends FeatureCommand {
                 boolean succes = feature.getNicknameHandler().setNickname(target, args[1]);
 
                 if (succes) {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set").forAudience(player).withPlaceholders(Map.of("nickname", args[1])).build());
+                    target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set").forAudience(player).withPlaceholders(Map.of("nickname", args[1])).build());
                     player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set_other").forAudience(player).withPlaceholders(Map.of("player", target.getName(), "nickname", args[1])).build());
                 }
             }

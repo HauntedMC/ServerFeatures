@@ -30,8 +30,20 @@ public class Nickname extends BukkitBaseFeature<Meta> {
     public Map<String, Object> getDefaultConfig() {
         Map<String, Object> defaults = new HashMap<>();
         defaults.put("enabled", true);
+        defaults.put("minNicknameLength", 3);
         defaults.put("maxNicknameLength", 16);
-        defaults.put("allowedCharacters", List.of("❤", "★", "☆", "♪", "♬", "✔", "✘"));
+        defaults.put("allowedCharacters", List.of(
+                "❤", "★", "☆", "♪", "♬", "✔", "✘",
+                "◆", "◇", "▲", "△", "▼", "▽", "▶",
+                "▷", "◀", "◁", "♠", "♣", "♦", "❣",
+                "❥", "✿", "❀", "❁", "✾", "✽", "❋",
+                "✵", "✶", "✷", "✸", "✹", "✺", "❂",
+                "☼", "☮", "☯", "♻", "✉", "➤", "➥",
+                "➦", "❖", "❊", "☾", "☽", "❦", "❧",
+                "✧", "✦", "✩", "✪", "✰", "❇", "❃",
+                "❄", "❅", "❆", "✻", "✼", "➰", "❈",
+                "❉", "♕", "♥", "♡"
+        ));
         return defaults;
     }
 

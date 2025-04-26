@@ -20,6 +20,7 @@ public class NicknameHandler {
     private final NicknameService nicknameService;
     private final Map<UUID, String> nicknameCache = new ConcurrentHashMap<>();
     private final Nickname feature;
+    private final int minNicknameLength;
     private final int maxNicknameLength;
     private final List<String> allowedCharacters;
 
@@ -27,6 +28,7 @@ public class NicknameHandler {
         this.feature = feature;
         this.nicknameService = new NicknameService(feature);
         this.maxNicknameLength = (int) feature.getConfigHandler().getSetting("maxNicknameLength");
+        this.minNicknameLength = (int) feature.getConfigHandler().getSetting("minNicknameLength");
         this.allowedCharacters = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("allowedCharacters"), String.class);
     }
 
@@ -88,7 +90,7 @@ public class NicknameHandler {
 
     private boolean hasValidNicknameLength(String formattedNickname) {
         String stripped = formattedNickname.replaceAll("§.", "");
-        return stripped.length() <= this.maxNicknameLength;
+        return stripped.length() <= this.maxNicknameLength && stripped.length() >= this.minNicknameLength;
     }
 
     private boolean hasValidNicknameCharacters(String formattedNickname) {
