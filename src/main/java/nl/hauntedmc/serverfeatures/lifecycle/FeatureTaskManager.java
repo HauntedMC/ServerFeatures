@@ -109,6 +109,20 @@ public class FeatureTaskManager {
     }
 
     /**
+     * Returns true if task is queued
+     */
+    public boolean isTaskQueued(int taskID) {
+        return Bukkit.getScheduler().isQueued(taskID);
+    }
+
+    /**
+     *  Returns true if task is running
+     */
+    public boolean isTaskRunning(int taskID) {
+        return Bukkit.getScheduler().isCurrentlyRunning(taskID);
+    }
+
+    /**
      * Cancels all scheduled tasks.
      */
     public void cancelAllTasks() {
