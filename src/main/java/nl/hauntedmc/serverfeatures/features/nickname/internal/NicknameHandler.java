@@ -23,6 +23,7 @@ public class NicknameHandler {
     private final int minNicknameLength;
     private final int maxNicknameLength;
     private final List<String> allowedCharacters;
+    private final List<String> disallowedFormatting;
 
     public NicknameHandler(Nickname feature) {
         this.feature = feature;
@@ -30,6 +31,7 @@ public class NicknameHandler {
         this.maxNicknameLength = (int) feature.getConfigHandler().getSetting("maxNicknameLength");
         this.minNicknameLength = (int) feature.getConfigHandler().getSetting("minNicknameLength");
         this.allowedCharacters = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("allowedCharacters"), String.class);
+        this.disallowedFormatting = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("disallowedFormatting"), String.class);
     }
 
     public Optional<String> getNickname(OfflinePlayer player) {
@@ -60,6 +62,13 @@ public class NicknameHandler {
     }
 
     public boolean setNickname(Player player, String unformattedNickname) {
+        for (String disallowed : disallowedFormatting) {
+            if (unformattedNickname.contains(disallowed)) {
+                player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.disallowed_formatting").forAudience(player).build());
+                return false;
+            }
+        }
+
         String nickname = translateColours(unformattedNickname);
 
         if (!hasValidNicknameLength(nickname)) {

@@ -44,6 +44,12 @@ public class Nickname extends BukkitBaseFeature<Meta> {
                 "❄", "❅", "❆", "✻", "✼", "➰", "❈",
                 "❉", "♕", "♥", "♡"
         ));
+        defaults.put("disallowedFormatting", List.of(
+                "&r", "§r", "<reset>",
+                "&n", "§n", "<underline>",
+                "&m", "§m", "<strikethrough>",
+                "&k", "§k", "<obfuscated>"
+                ));
         return defaults;
     }
 
@@ -52,6 +58,8 @@ public class Nickname extends BukkitBaseFeature<Meta> {
         MessageMap messages = new MessageMap();
         messages.add("nickname.set", "&eJouw nickname is veranderd naar {nickname}.");
         messages.add("nickname.removed", "&eJouw nickname is verwijderd.");
+        messages.add("nickname.one_word", "&cJe nickname mag geen spaties bevatten.");
+        messages.add("nickname.disallowed_formatting", "&cDeze nickname bevat formatting die niet is toegestaand: {format}");
         messages.add("nickname.max_length_exceeded", "&cDeze nickname is te lang, kies een kortere nickname.");
         messages.add("nickname.invalid_characters", "&cDeze nickname bevat characters die niet zijn toegestaan.");
         messages.add("nickname.set_other", "&eDe nickname van {player} is veranderd naar {nickname}.");

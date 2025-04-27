@@ -71,6 +71,10 @@ public class NickCommand extends FeatureCommand {
             }
         }
 
+        if (args.length > 2) {
+            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.one_word").forAudience(player).build());
+        }
+
         return true;
     }
 
