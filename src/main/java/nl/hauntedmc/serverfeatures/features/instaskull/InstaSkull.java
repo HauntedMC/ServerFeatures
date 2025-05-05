@@ -29,7 +29,7 @@ public class InstaSkull extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        getLifecycleManager().getListenerManager().registerListener(new SkullBreakListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new SkullBreakListener());
     }
 
     @Override

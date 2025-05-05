@@ -1,22 +1,19 @@
 package nl.hauntedmc.serverfeatures.features.instaskull.listener;
 
-import nl.hauntedmc.serverfeatures.features.instaskull.InstaSkull;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockDamageEvent;
 
 public class SkullBreakListener implements Listener {
 
-    private final InstaSkull feature;
-
-    public SkullBreakListener(InstaSkull feature) {
-        this.feature = feature;
+    public SkullBreakListener() {
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockDamage(BlockDamageEvent event) {
         Player player = event.getPlayer();
 
