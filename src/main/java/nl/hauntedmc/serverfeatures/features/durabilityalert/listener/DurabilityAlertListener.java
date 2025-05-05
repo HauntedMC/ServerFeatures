@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert.listener;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.internal.DurabilityAlertHandler;
-import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;

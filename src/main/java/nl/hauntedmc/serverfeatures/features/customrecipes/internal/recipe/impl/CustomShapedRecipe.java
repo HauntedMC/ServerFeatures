@@ -31,15 +31,14 @@ public class CustomShapedRecipe extends AbstractCustomRecipe {
         shaped.shape(shapeList.toArray(new String[0]));
 
         Object ingredientsObj = config.get("ingredients");
-        if (!(ingredientsObj instanceof Map)) {
-            plugin.getLogger().warning("Shaped recipe " + key.toString() + " missing ingredients mapping.");
+        if (!(ingredientsObj instanceof Map<?, ?> ingredientsMap)) {
+            plugin.getLogger().warning("Shaped recipe " + key + " missing ingredients mapping.");
             return null;
         }
-        Map<?, ?> ingredientsMap = (Map<?, ?>) ingredientsObj;
         for (Map.Entry<?, ?> entry : ingredientsMap.entrySet()) {
             String symbol = entry.getKey().toString().trim();
             if (symbol.length() != 1) {
-                plugin.getLogger().warning("Invalid ingredient key in shaped recipe " + key.toString() + ": " + symbol);
+                plugin.getLogger().warning("Invalid ingredient key in shaped recipe " + key + ": " + symbol);
                 continue;
             }
             char ch = symbol.charAt(0);
@@ -48,7 +47,7 @@ public class CustomShapedRecipe extends AbstractCustomRecipe {
                 Material material = Material.valueOf(materialStr.toUpperCase());
                 shaped.setIngredient(ch, new RecipeChoice.MaterialChoice(material));
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Unknown material for ingredient '" + ch + "' in recipe " + key.toString() + ": " + materialStr);
+                plugin.getLogger().warning("Unknown material for ingredient '" + ch + "' in recipe " + key + ": " + materialStr);
             }
         }
         return new RecipeData(key, shaped, RecipeType.SHAPED);

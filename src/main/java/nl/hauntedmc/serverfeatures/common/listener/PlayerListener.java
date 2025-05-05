@@ -11,10 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 public class PlayerListener implements Listener {
 
-    private final ServerFeatures plugin;
-
     public PlayerListener(ServerFeatures plugin) {
-        this.plugin = plugin;
     }
 
     @EventHandler(priority = EventPriority.LOWEST)

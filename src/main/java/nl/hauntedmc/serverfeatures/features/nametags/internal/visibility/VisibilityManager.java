@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility;
 
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.nametag.NametagVisibilityCondition;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player.GsitCondition;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player.*;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;

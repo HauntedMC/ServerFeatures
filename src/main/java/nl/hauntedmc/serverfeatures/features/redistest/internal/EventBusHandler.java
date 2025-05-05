@@ -30,8 +30,7 @@ public class EventBusHandler {
                 this::handleIncoming
         );
     } catch (Exception ex) {
-        feature.getPlugin().getLogger().severe("RedisTest: failed to subscribe to channel");
-        ex.printStackTrace();
+        feature.getPlugin().getLogger().severe("RedisTest: failed to subscribe to channel: " + ex.getMessage());
     }}
 
 

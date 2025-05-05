@@ -16,9 +16,7 @@ public class LavaTank extends AbstractTank {
 
 	private static final ChatColor chatColor = ChatColor.RED;
 
-	private static int maxAmount = 128;
-
-	private static final long delay = 100L;
+    private static final long delay = 100L;
 
 	public LavaTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, feature);
@@ -174,7 +172,7 @@ public class LavaTank extends AbstractTank {
 
 	@Override
 	public int getMaxQuantity() {
-		return maxAmount;
+        return 128;
 	}
 
 	@Override

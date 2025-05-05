@@ -27,9 +27,6 @@ public class BlockBreakListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockDamage(BlockDamageEvent event) {
-        if (event.isCancelled()) {
-            return;
-        }
 
         Block block = event.getBlock();
         if (block.getType() != Material.END_PORTAL_FRAME) {

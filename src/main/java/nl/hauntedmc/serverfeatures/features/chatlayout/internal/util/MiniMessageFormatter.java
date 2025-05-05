@@ -8,18 +8,18 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 
 public class MiniMessageFormatter {
 
-    static TagResolver urls = TagResolver.resolver("url", (args, context) -> {
+    public static final TagResolver urls = TagResolver.resolver("url", (args, context) -> {
         final String url = args.popOr("version expected").value();
         return Tag.styling(ClickEvent.openUrl(url));
     });
-    public static MiniMessage chatSerializer = MiniMessage.builder()
+    public static final MiniMessage chatSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
                     .build()
             )
             .build();
 
-    public static MiniMessage chatColorSerializer = MiniMessage.builder()
+    public static final MiniMessage chatColorSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
                     .resolver(StandardTags.color())
@@ -30,7 +30,7 @@ public class MiniMessageFormatter {
             )
             .build();
 
-    public static MiniMessage chatColorExtraSerializer = MiniMessage.builder()
+    public static final MiniMessage  chatColorExtraSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
                     .resolver(StandardTags.color())
@@ -42,7 +42,7 @@ public class MiniMessageFormatter {
             )
             .build();
 
-    public static MiniMessage chatColorAllSerializer = MiniMessage.builder()
+    public static final MiniMessage chatColorAllSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
                     .resolver(StandardTags.color())
@@ -56,7 +56,7 @@ public class MiniMessageFormatter {
             )
             .build();
 
-    public static MiniMessage prefixSerializer = MiniMessage.builder()
+    public static final MiniMessage prefixSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(StandardTags.color())
                     .resolver(StandardTags.reset())

@@ -25,7 +25,6 @@ public class RecipeFactory {
         CUSTOM_RECIPE_MAP.put(RecipeType.DISABLE, new CustomDisableRecipe());
     }
 
-    @SuppressWarnings("unchecked")
     public static RecipeData createRecipe(JavaPlugin plugin, Map<?, ?> config, int index) {
         // Determine a unique key for this recipe.
         String keyStr = config.containsKey("key")

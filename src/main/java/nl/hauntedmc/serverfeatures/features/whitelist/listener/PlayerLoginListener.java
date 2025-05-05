@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.whitelist.listener;
 
-import nl.hauntedmc.serverfeatures.features.whitelist.Whitelist;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

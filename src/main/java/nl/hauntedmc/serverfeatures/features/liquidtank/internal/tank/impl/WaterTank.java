@@ -26,9 +26,7 @@ public class WaterTank extends AbstractTank {
 
 	private static final ChatColor chatColor = ChatColor.AQUA;
 
-	private static int maxAmount = 128;
-
-	private static final long delay = 20L;
+    private static final long delay = 20L;
 
 	public WaterTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, feature);
@@ -170,7 +168,8 @@ public class WaterTank extends AbstractTank {
 
 	@Override
 	public int getMaxQuantity() {
-		return maxAmount;
+        int maxAmount = 128;
+        return maxAmount;
 	}
 
 	@Override
