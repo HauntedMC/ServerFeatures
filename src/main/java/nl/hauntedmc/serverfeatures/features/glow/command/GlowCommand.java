@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.glow.command;
 
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
@@ -34,11 +33,10 @@ public class GlowCommand extends FeatureCommand {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
-        if (!(sender instanceof Player)) {
+        if (!(sender instanceof Player player)) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
             return true;
         }
-        Player player = (Player) sender;
 
         // Basic usage check
         if (args.length != 1) {

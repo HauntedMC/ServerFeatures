@@ -1,14 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.internal.DurabilityAlertHandler;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.listener.DurabilityAlertListener;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.meta.Meta;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class DurabilityAlert extends BukkitBaseFeature<Meta> {
 
@@ -17,8 +15,8 @@ public class DurabilityAlert extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("defaultvalue", 10);
         return defaults;

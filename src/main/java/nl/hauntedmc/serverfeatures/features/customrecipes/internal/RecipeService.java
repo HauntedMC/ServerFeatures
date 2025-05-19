@@ -5,7 +5,6 @@ import nl.hauntedmc.serverfeatures.features.customrecipes.config.RecipeConfigHan
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.Recipe;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,24 +34,24 @@ public class RecipeService {
                 Recipe vanillaRecipe = Bukkit.getRecipe(key);
                 if (vanillaRecipe != null) {
                     if (Bukkit.removeRecipe(key)) {
-                        feature.getPlugin().getLogger().info("Disabled vanilla recipe with key: " + key.toString());
+                        feature.getPlugin().getLogger().info("Disabled vanilla recipe with key: " + key);
                         data.setRecipe(vanillaRecipe);
                     } else {
-                        feature.getPlugin().getLogger().warning("Could not disable vanilla recipe with key: " + key.toString());
+                        feature.getPlugin().getLogger().warning("Could not disable vanilla recipe with key: " + key);
                     }
                 } else {
-                    feature.getPlugin().getLogger().warning("Vanilla recipe not found for key: " + key.toString());
+                    feature.getPlugin().getLogger().warning("Vanilla recipe not found for key: " + key);
                 }
             } else {
                 if (Bukkit.getRecipe(key) != null) {
                     if (Bukkit.removeRecipe(key)) {
-                        feature.getPlugin().getLogger().info("Removed existing recipe with key: " + key.toString());
+                        feature.getPlugin().getLogger().info("Removed existing recipe with key: " + key);
                     } else {
-                        feature.getPlugin().getLogger().warning("Could not remove existing recipe with key: " + key.toString());
+                        feature.getPlugin().getLogger().warning("Could not remove existing recipe with key: " + key);
                     }
                 }
                 Bukkit.addRecipe(data.getRecipe());
-                feature.getPlugin().getLogger().info("Registered recipe with key: " + key.toString());
+                feature.getPlugin().getLogger().info("Registered recipe with key: " + key);
             }
             repository.registerRecipe(data);
         }
@@ -73,9 +72,9 @@ public class RecipeService {
                 } else {
                     if (Bukkit.getRecipe(key) != null) {
                         if (Bukkit.removeRecipe(key)) {
-                            feature.getPlugin().getLogger().info("Removed custom recipe with key: " + key.toString());
+                            feature.getPlugin().getLogger().info("Removed custom recipe with key: " + key);
                         } else {
-                            feature.getPlugin().getLogger().warning("Failed to remove custom recipe with key: " + key.toString());
+                            feature.getPlugin().getLogger().warning("Failed to remove custom recipe with key: " + key);
                         }
                     }
                 }

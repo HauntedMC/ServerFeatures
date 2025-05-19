@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.actionbar;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -21,8 +22,8 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
 
         List<Map<String, Object>> messages = new ArrayList<>();

@@ -20,7 +20,7 @@ import static org.bukkit.Material.*;
 public class HoneyTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.GOLD;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
 
@@ -39,18 +39,17 @@ public class HoneyTank extends FoodTank {
 
 	private static void gameTick(LiquidTank feature) {
 		try {
-			Method method1 = Block.class.getMethod("getBlockData", new Class[0]);
-			Method method2 = Block.class.getMethod("setBlockData", new Class[] { BlockData.class });
+			Method method1 = Block.class.getMethod("getBlockData");
+			Method method2 = Block.class.getMethod("setBlockData", BlockData.class);
 			for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
 				if ((abstractTank instanceof HoneyTank || abstractTank instanceof EmptyTank) &&
 						abstractTank.getQuantity() < abstractTank.getMaxQuantity() &&
 						BlockUtils.isLoaded(abstractTank.getLocation())) {
 					Block block = abstractTank.getLocation().clone().add(0.0D, 1.0D, 0.0D).getBlock();
-					if (method1.invoke(block, new Object[0]) instanceof Beehive) {
-						Beehive beehive = (Beehive) method1.invoke(block, new Object[0]);
-						if (beehive.getHoneyLevel() > 0) {
+					if (method1.invoke(block, new Object[0]) instanceof Beehive beehive) {
+                        if (beehive.getHoneyLevel() > 0) {
 							beehive.setHoneyLevel(beehive.getHoneyLevel() - 1);
-							method2.invoke(block, new Object[] { beehive });
+							method2.invoke(block, beehive);
 							if (abstractTank instanceof EmptyTank) {
 								feature.getTankManager().changeTankType(abstractTank, TankType.HONEY, 1);
 								continue;

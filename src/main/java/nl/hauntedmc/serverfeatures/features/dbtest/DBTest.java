@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.dbtest;
 
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
@@ -11,9 +12,6 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.dbtest.meta.Meta;
 import org.bukkit.Bukkit;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class DBTest extends BukkitBaseFeature<Meta> {
 
 
@@ -22,8 +20,8 @@ public class DBTest extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         return defaults;
     }

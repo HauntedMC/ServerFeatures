@@ -14,7 +14,7 @@ import static org.bukkit.Material.*;
 public class RabbitStewTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.YELLOW;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
 

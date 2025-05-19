@@ -1,12 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.config;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,7 +17,7 @@ public class LiquidTankDataHandler {
 
     private final LiquidTank feature;
     private final ResourceHandler resourceHandler;
-    private FileConfiguration config;
+    private final FileConfiguration config;
 
     // Lists to keep track of loaded tanks and tanks from unloaded worlds.
     private final List<AbstractTank> tankList = new ArrayList<>();

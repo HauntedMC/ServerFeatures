@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.featureapi.feature.Feature;
 import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 import nl.hauntedmc.commonlib.localization.MessageMap;
@@ -9,7 +10,6 @@ import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 
 import java.util.List;
-import java.util.Map;
 
 public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
 
@@ -60,7 +60,7 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
     /**
      * Each feature should define its default settings.
      */
-    public abstract Map<String, Object> getDefaultConfig();
+    public abstract ConfigMap getDefaultConfig();
 
     /**
      * Each feature should define its default messages.

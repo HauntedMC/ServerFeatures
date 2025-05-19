@@ -1,9 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.config.LiquidTankDataHandler;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.*;

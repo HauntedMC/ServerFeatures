@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
-import nl.hauntedmc.serverfeatures.common.util.PlayerUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;

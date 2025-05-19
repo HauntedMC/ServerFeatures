@@ -26,7 +26,7 @@ public class WaterTank extends AbstractTank {
 
 	private static final ChatColor chatColor = ChatColor.AQUA;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
 
@@ -45,9 +45,8 @@ public class WaterTank extends AbstractTank {
 
 	private static void gameTick(LiquidTank feature) {
 		for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
-			if (abstractTank instanceof WaterTank && BlockUtils.isLoaded(abstractTank.getLocation())) {
-				WaterTank tank = (WaterTank) abstractTank;
-				ArrayList<Block> arrayList1 = new ArrayList<>();
+			if (abstractTank instanceof WaterTank tank && BlockUtils.isLoaded(abstractTank.getLocation())) {
+                ArrayList<Block> arrayList1 = new ArrayList<>();
 				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.SOUTH));
 				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.NORTH));
 				arrayList1.add(abstractTank.getLocation().getBlock().getRelative(BlockFace.WEST));

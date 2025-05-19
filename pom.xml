@@ -6,7 +6,7 @@
 
     <groupId>nl.hauntedmc.serverfeatures</groupId>
     <artifactId>serverfeatures</artifactId>
-    <version>1.8.6</version>
+    <version>1.8.7</version>
     <packaging>jar</packaging>
     <name>ServerFeatures</name>
     <url>http://maven.apache.org</url>
@@ -164,7 +164,7 @@
         <dependency>
             <groupId>nl.hauntedmc.commonlib</groupId>
             <artifactId>commonlib</artifactId>
-            <version>1.0.8</version>
+            <version>1.1.0</version>
         </dependency>
         <dependency>
             <groupId>me.clip</groupId>

@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.repairnpc;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.trait.TraitInfo;
 import net.milkbowl.vault.economy.Economy;
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -22,8 +23,8 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
 
         // base-prices
         Map<String, Object> bp = new HashMap<>();

@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
-import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;

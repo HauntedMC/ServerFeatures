@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.config;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -42,7 +43,7 @@ public class MainConfigHandler {
     /**
      * Injects missing default settings for a specific feature.
      */
-    public void injectFeatureDefaults(String featureName, Map<String, Object> defaultValues) {
+    public void injectFeatureDefaults(String featureName, ConfigMap defaultValues) {
         String basePath = "features." + featureName;
         boolean updated = false;
 

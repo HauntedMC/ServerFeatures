@@ -20,11 +20,10 @@ public class CustomShapelessRecipe extends AbstractCustomRecipe {
             return null;
         }
         Object ingredientsObj = config.get("ingredients");
-        if (!(ingredientsObj instanceof List)) {
+        if (!(ingredientsObj instanceof List<?> ingredientsList)) {
             plugin.getLogger().warning("Shapeless recipe " + key.toString() + " missing ingredients list.");
             return null;
         }
-        List<?> ingredientsList = (List<?>) ingredientsObj;
         ShapelessRecipe shapeless = new ShapelessRecipe(key, output);
         for (Object ing : ingredientsList) {
             String materialStr = ing.toString().trim();
@@ -32,7 +31,7 @@ public class CustomShapelessRecipe extends AbstractCustomRecipe {
                 Material material = Material.valueOf(materialStr.toUpperCase());
                 shapeless.addIngredient(material);
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Unknown ingredient in shapeless recipe " + key.toString() + ": " + materialStr);
+                plugin.getLogger().warning("Unknown ingredient in shapeless recipe " + key + ": " + materialStr);
             }
         }
         return new RecipeData(key, shapeless, RecipeType.SHAPELESS);

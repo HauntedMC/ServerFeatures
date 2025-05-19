@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.villageroptimizer;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,9 +10,7 @@ import nl.hauntedmc.serverfeatures.features.villageroptimizer.internal.VillagerL
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.internal.VillagerRestockHandler;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.meta.Meta;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class VillagerOptimizer extends BukkitBaseFeature<Meta> {
 
@@ -25,8 +24,8 @@ public class VillagerOptimizer extends BukkitBaseFeature<Meta> {
      * Returns default config values for the Titles feature.
      */
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("cooldown", 600L);
         defaults.put("restockTimes", List.of(

@@ -16,7 +16,7 @@ public class LavaTank extends AbstractTank {
 
 	private static final ChatColor chatColor = ChatColor.RED;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 100L;
 
@@ -51,9 +51,8 @@ public class LavaTank extends AbstractTank {
 					for (Block block : arrayList) {
 						if (abstractTank.getQuantity() == 0)
 							return;
-						if (block.getState() instanceof BlastFurnace) {
-							BlastFurnace blastFurnace = (BlastFurnace) block.getState();
-							ItemStack itemStack = null;
+						if (block.getState() instanceof BlastFurnace blastFurnace) {
+                            ItemStack itemStack = null;
 							try {
 								itemStack = blastFurnace.getInventory().getItem(0);
 							} catch (Exception exception) {
@@ -69,9 +68,8 @@ public class LavaTank extends AbstractTank {
 									break;
 								}
 							}
-						} else if (block.getState() instanceof Smoker) {
-							Smoker smoker = (Smoker) block.getState();
-							ItemStack itemStack = null;
+						} else if (block.getState() instanceof Smoker smoker) {
+                            ItemStack itemStack = null;
 							try {
 								itemStack = smoker.getInventory().getItem(0);
 							} catch (Exception exception) {

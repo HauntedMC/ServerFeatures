@@ -14,7 +14,7 @@ import org.bukkit.inventory.ItemStack;
 public class EmptyTank extends AbstractTank {
 	private static final ChatColor chatColor = ChatColor.GRAY;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 100L;
 
