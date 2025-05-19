@@ -5,6 +5,8 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.votereward.meta.Meta;
+import nl.hauntedmc.serverfeatures.internal.cache.CacheFile;
+import nl.hauntedmc.serverfeatures.internal.cache.FeatureCache;
 
 public class VoteReward extends BukkitBaseFeature<Meta> {
 
@@ -31,6 +33,16 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        FeatureCache cache = getLifecycleManager()
+                .getCacheManager()
+                .createCache(getFeatureName(), "queue");
+        CacheFile playerFile = cache.getFile("test");
+        playerFile.cleanupExpiredEntries();
+        playerFile.setEntry(
+                "vote-" + System.currentTimeMillis(),
+                "MIEP",
+                60 * 1000L
+        );
     }
 
     @Override
