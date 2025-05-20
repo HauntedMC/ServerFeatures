@@ -25,7 +25,7 @@ public class LiquidTankDataHandler {
 
     public LiquidTankDataHandler(LiquidTank feature) {
         this.feature = feature;
-        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "liquidtanks.yml");
+        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "local/liquidtanks.yml");
         this.config = resourceHandler.getConfig();
     }
 

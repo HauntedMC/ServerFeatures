@@ -19,7 +19,7 @@ public class RecipeConfigHandler {
     public RecipeConfigHandler(CustomRecipes feature) {
         this.feature = feature;
         // Initialize the ResourceHandler for recipes.yml.
-        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "recipes.yml");
+        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "local/recipes.yml");
         this.config = resourceHandler.getConfig();
     }
 
