@@ -1,8 +1,8 @@
-// nl/hauntedmc/serverfeatures/internal/cache/impl/YamlCacheFile.java
 package nl.hauntedmc.serverfeatures.internal.cache.impl;
 
 import nl.hauntedmc.serverfeatures.internal.cache.CacheValue;
 import nl.hauntedmc.serverfeatures.internal.cache.FileCacheStore;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -11,9 +11,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/**
- * YAML-backed implementation: each key → list of { value:Map, expirationTimestamp:long }.
- */
 public class YamlCacheFile implements FileCacheStore {
     private static final String EXP_TS = "expirationTimestamp";
     private static final String VALUE  = "value";
@@ -27,9 +24,7 @@ public class YamlCacheFile implements FileCacheStore {
         load();
     }
 
-    @Override public File getUnderlyingFile() {
-        return file;
-    }
+    @Override public File getUnderlyingFile() { return file; }
 
     private void ensureFileExists() {
         if (!file.exists()) {
@@ -55,71 +50,77 @@ public class YamlCacheFile implements FileCacheStore {
     }
 
     @Override
-    public void setEntry(String key, Map<String, Object> data, long ttlMillis) {
+    public void put(String key, CacheValue value) {
         Objects.requireNonNull(key, "key");
-        Objects.requireNonNull(data, "data");
-        long expiresAt = System.currentTimeMillis() + ttlMillis;
-        Map<String, Object> entry = new LinkedHashMap<>();
-        entry.put(VALUE, data);
-        entry.put(EXP_TS, expiresAt);
-        config.set(key, List.of(entry));
+        Objects.requireNonNull(value, "value");
+        Map<String,Object> entry = new LinkedHashMap<>();
+        entry.put(VALUE, value.getData());
+        entry.put(EXP_TS, value.getExpirationTimestamp());
+        config.set(key, entry);
         save();
-    }
-
-    @Override
-    public CacheValue getEntry(String key) {
-        List<CacheValue> list = getEntries(key);
-        return list.isEmpty() ? null : list.get(0);
-    }
-
-    @Override
-    public List<CacheValue> getEntries(String key) {
-        List<Map<String, Object>> raws = purgeAndGetRawEntries(key);
-        List<CacheValue> out = new ArrayList<>(raws.size());
-        for (Map<String, Object> raw : raws) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = (Map<String, Object>) raw.get(VALUE);
-            long ts = ((Number) raw.getOrDefault(EXP_TS, -1)).longValue();
-            out.add(new CacheValue(data, ts));
-        }
-        return out;
-    }
-
-    @Override
-    public Map<String, List<CacheValue>> getAllEntries() {
-        Map<String, List<CacheValue>> result = new HashMap<>();
-        for (String key : config.getKeys(false)) {
-            List<CacheValue> entries = getEntries(key);
-            if (!entries.isEmpty()) result.put(key, entries);
-        }
-        return result;
-    }
-
-    @Override
-    public Map<String, List<CacheValue>> getMatchingEntries(String regex) {
-        Pattern pat = Pattern.compile(regex);
-        Map<String, List<CacheValue>> result = new HashMap<>();
-        for (String key : config.getKeys(false)) {
-            if (!pat.matcher(key).matches()) continue;
-            List<CacheValue> entries = getEntries(key);
-            if (!entries.isEmpty()) result.put(key, entries);
-        }
-        return result;
     }
 
     @Override
     public void cleanupExpired() {
-        // prune by key
+        long now = System.currentTimeMillis();
         for (String key : new HashSet<>(config.getKeys(false))) {
-            purgeAndGetRawEntries(key);
-        }
-        // remove any now-empty keys
-        for (String key : new HashSet<>(config.getKeys(false))) {
-            if (config.getMapList(key).isEmpty()) {
+            long ts = config.getLong(key + "." + EXP_TS, -1L);
+            if (ts >= 0 && now > ts) {
                 config.set(key, null);
             }
         }
-        save();
+        if (config.getKeys(false).isEmpty()) {
+            delete();
+        } else {
+            save();
+        }
+    }
+
+    @Override
+    public CacheValue get(String key) {
+        cleanupExpired();
+        // if the whole key is gone (or expired) we’re done
+        if (!config.contains(key)) return null;
+
+        // get the section for this key
+        ConfigurationSection sec = config.getConfigurationSection(key);
+        if (sec == null) return null;
+
+        // get the 'value' child as its own section
+        ConfigurationSection valueSection = sec.getConfigurationSection(VALUE);
+        if (valueSection == null) return null;
+
+        // now extract a plain Map<String,Object> from it
+        Map<String, Object> data = valueSection.getValues(false);
+
+        // pull the timestamp directly from the parent section
+        long ts = sec.getLong(EXP_TS, -1L);
+        return CacheValue.of(data, ts);
+    }
+
+    @Override
+    public Map<String, CacheValue> listAll() {
+        cleanupExpired();
+        Map<String, CacheValue> result = new LinkedHashMap<>();
+        for (String key : config.getKeys(false)) {
+            CacheValue cv = get(key);
+            if (cv != null) result.put(key, cv);
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, CacheValue> find(String regex) {
+        cleanupExpired();
+        Pattern pat = Pattern.compile(regex);
+        Map<String, CacheValue> result = new LinkedHashMap<>();
+        for (String key : config.getKeys(false)) {
+            if (pat.matcher(key).matches()) {
+                CacheValue cv = get(key);
+                if (cv != null) result.put(key, cv);
+            }
+        }
+        return result;
     }
 
     @Override
@@ -130,28 +131,5 @@ public class YamlCacheFile implements FileCacheStore {
     @Override
     public void delete() {
         if (!file.delete()) file.deleteOnExit();
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> purgeAndGetRawEntries(String key) {
-        List<Map<?, ?>> rawList = config.getMapList(key);
-        if (rawList.isEmpty()) return Collections.emptyList();
-
-        // cast to our expected type
-        List<Map<String, Object>> original = new ArrayList<>(rawList.size());
-        for (Map<?, ?> e : rawList) original.add((Map<String, Object>) e);
-
-        long now = System.currentTimeMillis();
-        List<Map<String, Object>> kept = new ArrayList<>();
-        for (Map<String, Object> entry : original) {
-            long ts = ((Number) entry.getOrDefault(EXP_TS, -1)).longValue();
-            if (ts < 0 || now <= ts) kept.add(entry);
-        }
-
-        if (kept.size() != original.size()) {
-            config.set(key, kept.isEmpty() ? null : kept);
-            save();
-        }
-        return kept;
     }
 }
