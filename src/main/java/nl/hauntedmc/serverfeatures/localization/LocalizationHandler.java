@@ -19,6 +19,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 public class LocalizationHandler {
+    public static final String LANG_DIR = "lang";
 
     private final ServerFeatures plugin;
     private final ResourceHandler defaultMessagesResource;
@@ -26,7 +27,7 @@ public class LocalizationHandler {
 
     public LocalizationHandler(ServerFeatures plugin) {
         this.plugin = plugin;
-        this.defaultMessagesResource = new ResourceHandler(plugin, "messages.yml");
+        this.defaultMessagesResource = new ResourceHandler(plugin, LANG_DIR + "/messages.yml");
         loadLanguageFiles();
     }
 
@@ -35,7 +36,8 @@ public class LocalizationHandler {
      */
     private void loadLanguageFiles() {
         for (Language lang : Language.values()) {
-            ResourceHandler resource = new ResourceHandler(plugin, lang.getFileName());
+            String resourcePath = LANG_DIR + "/" + lang.getFileName();
+            ResourceHandler resource = new ResourceHandler(plugin, resourcePath);
             if (resource.getConfig() == null) {
                 plugin.getLogger().warning("Language file " + lang.getFileName() + " not found. Please create it manually.");
                 continue;
