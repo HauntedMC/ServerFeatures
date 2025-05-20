@@ -30,7 +30,7 @@ public class EventBusHandler {
                 this::handleIncoming
         );
     } catch (Exception ex) {
-        feature.getPlugin().getLogger().severe("RedisTest: failed to subscribe to channel");
+        feature.getLogger().severe("RedisTest: failed to subscribe to channel");
         ex.printStackTrace();
     }}
 
@@ -56,7 +56,7 @@ public class EventBusHandler {
     public void publishMessage(ChatMessage chatMessage, String channel) {
         redisBus.publish(channel , chatMessage)
                     .exceptionally(ex -> {
-                        feature.getPlugin().getLogger().severe("RedisTest: failed to publish chat");
+                        feature.getLogger().severe("RedisTest: failed to publish chat");
                         return null;
                     });
         }

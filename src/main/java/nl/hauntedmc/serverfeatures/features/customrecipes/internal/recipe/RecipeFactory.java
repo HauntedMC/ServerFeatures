@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe;
 
+import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeType;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.impl.*;
 import org.bukkit.NamespacedKey;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +26,7 @@ public class RecipeFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public static RecipeData createRecipe(JavaPlugin plugin, Map<?, ?> config, int index) {
+    public static RecipeData createRecipe(CustomRecipes feature, Map<?, ?> config, int index) {
         // Determine a unique key for this recipe.
         String keyStr = config.containsKey("key")
                 ? config.get("key").toString().toLowerCase()
@@ -36,7 +36,7 @@ public class RecipeFactory {
             String[] parts = keyStr.split(":", 2);
             key = new NamespacedKey(parts[0], parts[1]);
         } else {
-            key = new NamespacedKey(plugin, keyStr);
+            key = new NamespacedKey(feature.getPlugin(), keyStr);
         }
 
         // Determine the recipe type (default to "shaped" if not provided).
@@ -47,15 +47,15 @@ public class RecipeFactory {
         try {
             type = RecipeType.valueOf(typeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Invalid recipe type for key " + keyStr + ": " + typeStr);
+            feature.getLogger().warning("Invalid recipe type for key " + keyStr + ": " + typeStr);
             return null;
         }
 
         CustomRecipe customRecipe = CUSTOM_RECIPE_MAP.get(type);
         if (customRecipe == null) {
-            plugin.getLogger().warning("No implementation for recipe type: " + typeStr);
+            feature.getLogger().warning("No implementation for recipe type: " + typeStr);
             return null;
         }
-        return customRecipe.createRecipe(plugin, key, config);
+        return customRecipe.createRecipe(feature, key, config);
     }
 }

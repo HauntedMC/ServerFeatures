@@ -26,7 +26,7 @@ public class DiscordService {
     public void sendNotification(String creator, List<String> reportedPlayers, String server, String chatlogLink) {
         String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");
         if (webhookUrl == null || webhookUrl.isEmpty()) {
-            feature.getPlugin().getLogger().warning("Discord webhook URL not configured.");
+            feature.getLogger().warning("Discord webhook URL not configured.");
             return;
         }
 

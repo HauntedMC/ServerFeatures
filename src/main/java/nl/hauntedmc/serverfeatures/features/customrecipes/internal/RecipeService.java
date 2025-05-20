@@ -34,24 +34,24 @@ public class RecipeService {
                 Recipe vanillaRecipe = Bukkit.getRecipe(key);
                 if (vanillaRecipe != null) {
                     if (Bukkit.removeRecipe(key)) {
-                        feature.getPlugin().getLogger().info("Disabled vanilla recipe with key: " + key);
+                        feature.getLogger().info("Disabled vanilla recipe with key: " + key);
                         data.setRecipe(vanillaRecipe);
                     } else {
-                        feature.getPlugin().getLogger().warning("Could not disable vanilla recipe with key: " + key);
+                        feature.getLogger().warning("Could not disable vanilla recipe with key: " + key);
                     }
                 } else {
-                    feature.getPlugin().getLogger().warning("Vanilla recipe not found for key: " + key);
+                    feature.getLogger().warning("Vanilla recipe not found for key: " + key);
                 }
             } else {
                 if (Bukkit.getRecipe(key) != null) {
                     if (Bukkit.removeRecipe(key)) {
-                        feature.getPlugin().getLogger().info("Removed existing recipe with key: " + key);
+                        feature.getLogger().info("Removed existing recipe with key: " + key);
                     } else {
-                        feature.getPlugin().getLogger().warning("Could not remove existing recipe with key: " + key);
+                        feature.getLogger().warning("Could not remove existing recipe with key: " + key);
                     }
                 }
                 Bukkit.addRecipe(data.getRecipe());
-                feature.getPlugin().getLogger().info("Registered recipe with key: " + key);
+                feature.getLogger().info("Registered recipe with key: " + key);
             }
             repository.registerRecipe(data);
         }
@@ -67,14 +67,14 @@ public class RecipeService {
                 if (data.getType() == RecipeType.DISABLE) {
                     if (data.getRecipe() != null) {
                         Bukkit.addRecipe(data.getRecipe());
-                        feature.getPlugin().getLogger().info("Restored vanilla recipe with key: " + key.toString());
+                        feature.getLogger().info("Restored vanilla recipe with key: " + key.toString());
                     }
                 } else {
                     if (Bukkit.getRecipe(key) != null) {
                         if (Bukkit.removeRecipe(key)) {
-                            feature.getPlugin().getLogger().info("Removed custom recipe with key: " + key);
+                            feature.getLogger().info("Removed custom recipe with key: " + key);
                         } else {
-                            feature.getPlugin().getLogger().warning("Failed to remove custom recipe with key: " + key);
+                            feature.getLogger().warning("Failed to remove custom recipe with key: " + key);
                         }
                     }
                 }

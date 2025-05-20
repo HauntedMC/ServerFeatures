@@ -95,7 +95,7 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
         if (registration != null) {
             economy = registration.getProvider();
         } else {
-            getPlugin().getLogger()
+            getLogger()
                     .severe("Failed to load Vault economy; RepairNPC will not function.");
         }
     }

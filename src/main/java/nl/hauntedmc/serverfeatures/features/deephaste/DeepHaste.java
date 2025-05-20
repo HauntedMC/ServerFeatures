@@ -39,7 +39,7 @@ public class DeepHaste extends BukkitBaseFeature<Meta> {
     public void initialize() {
         // Make sure we are running on Paper, since BeaconEffectEvent is Paper-only
         if (!isPaperServer()) {
-            getPlugin().getLogger().warning("DeepHaste feature requires Paper (BeaconEffectEvent). Disabling this feature.");
+            getLogger().warning("DeepHaste feature requires Paper (BeaconEffectEvent). Disabling this feature.");
             return;
         }
         getLifecycleManager().getListenerManager().registerListener(new BeaconEffectListener(this));

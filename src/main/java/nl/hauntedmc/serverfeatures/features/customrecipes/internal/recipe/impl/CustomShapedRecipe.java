@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.impl;
 
+import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeType;
 import org.bukkit.Material;
@@ -15,8 +16,8 @@ import java.util.Map;
 public class CustomShapedRecipe extends AbstractCustomRecipe {
 
     @Override
-    public RecipeData createRecipe(JavaPlugin plugin, NamespacedKey key, Map<?, ?> config) {
-        ItemStack output = getOutput(plugin, config, key);
+    public RecipeData createRecipe(CustomRecipes feature, NamespacedKey key, Map<?, ?> config) {
+        ItemStack output = getOutput(feature, config, key);
         if (output == null) {
             return null;
         }
@@ -32,13 +33,13 @@ public class CustomShapedRecipe extends AbstractCustomRecipe {
 
         Object ingredientsObj = config.get("ingredients");
         if (!(ingredientsObj instanceof Map<?, ?> ingredientsMap)) {
-            plugin.getLogger().warning("Shaped recipe " + key + " missing ingredients mapping.");
+            feature.getLogger().warning("Shaped recipe " + key + " missing ingredients mapping.");
             return null;
         }
         for (Map.Entry<?, ?> entry : ingredientsMap.entrySet()) {
             String symbol = entry.getKey().toString().trim();
             if (symbol.length() != 1) {
-                plugin.getLogger().warning("Invalid ingredient key in shaped recipe " + key + ": " + symbol);
+                feature.getLogger().warning("Invalid ingredient key in shaped recipe " + key + ": " + symbol);
                 continue;
             }
             char ch = symbol.charAt(0);
@@ -47,7 +48,7 @@ public class CustomShapedRecipe extends AbstractCustomRecipe {
                 Material material = Material.valueOf(materialStr.toUpperCase());
                 shaped.setIngredient(ch, new RecipeChoice.MaterialChoice(material));
             } catch (IllegalArgumentException e) {
-                plugin.getLogger().warning("Unknown material for ingredient '" + ch + "' in recipe " + key + ": " + materialStr);
+                feature.getLogger().warning("Unknown material for ingredient '" + ch + "' in recipe " + key + ": " + materialStr);
             }
         }
         return new RecipeData(key, shaped, RecipeType.SHAPED);

@@ -36,7 +36,7 @@ public class TestListener implements Listener {
                 .build();
         cache.put("lastLogin", cv);
 
-        feature.getPlugin().getLogger()
+        feature.getLogger()
                 .info("Recorded lastLogin for " + p.getName());
     }
 
@@ -50,14 +50,14 @@ public class TestListener implements Listener {
             Object tsObj = cv.getData().get("loginTs");
             if (tsObj instanceof Number loginTs) {
                 long session = System.currentTimeMillis() - loginTs.longValue();
-                feature.getPlugin().getLogger()
+                feature.getLogger()
                         .info(p.getName() + " session length: " + session + " ms");
             } else {
-                feature.getPlugin().getLogger()
+                feature.getLogger()
                         .warning(p.getName() + " had malformed lastLogin data.");
             }
         } else {
-            feature.getPlugin().getLogger()
+            feature.getLogger()
                     .info(p.getName() + " had no valid lastLogin (expired or missing).");
         }
 

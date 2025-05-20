@@ -5,6 +5,7 @@ import nl.hauntedmc.commonlib.featureapi.feature.Feature;
 import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
@@ -17,12 +18,14 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
     private final T meta;
     private final FeatureConfigHandler configHandler;
     private final FeatureLifecycleManager lifecycleManager;
+    private final FeatureLogger logger;
 
     protected BukkitBaseFeature(ServerFeatures plugin, T meta) {
         this.plugin = plugin;
         this.meta = meta;
         this.configHandler = new FeatureConfigHandler(plugin, getFeatureName());
         this.lifecycleManager = new FeatureLifecycleManager(plugin);
+        this.logger = new FeatureLogger(plugin.getLogger(), getFeatureName());
     }
 
     public String getFeatureName() {
@@ -39,6 +42,10 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
 
     public List<String> getPluginDependencies() {
         return meta.getPluginDependencies();
+    }
+
+    public FeatureLogger getLogger() {
+        return logger;
     }
 
     public ServerFeatures getPlugin() {

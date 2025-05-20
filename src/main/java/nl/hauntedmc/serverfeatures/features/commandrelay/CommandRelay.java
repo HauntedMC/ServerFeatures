@@ -85,7 +85,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         if (listen) {
             String channel = serverName + ".commandrelay.command";
             eventBusHandler.subscribe(channel);
-            getPlugin().getLogger()
+            getLogger()
                     .info("CommandRelay: listening on Redis channel “" + channel + "”");
         }
 
@@ -94,7 +94,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
             getLifecycleManager()
                     .getCommandManager()
                     .registerFeatureCommand(new CommandRelayCommand(this));
-            getPlugin().getLogger()
+            getLogger()
                     .info("CommandRelay: /commandrelay command registered");
         }
     }

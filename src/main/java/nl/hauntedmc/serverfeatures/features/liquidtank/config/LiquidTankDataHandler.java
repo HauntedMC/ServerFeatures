@@ -82,16 +82,16 @@ public class LiquidTankDataHandler {
         } catch (Exception e) {
             // Optionally log error.
         }
-        feature.getPlugin().getLogger().info("Loaded " + count + " Liquid tanks!");
+        feature.getLogger().info("Loaded " + count + " Liquid tanks!");
     }
 
     /**
      * Saves the current tank data to storage.
      */
     public void save() {
-        feature.getPlugin().getLogger().info("Saving Liquid Tanks!");
+        feature.getLogger().info("Saving Liquid Tanks!");
         int savedCount = quickSave(false, true);
-        feature.getPlugin().getLogger().info("Saved " + savedCount + " Liquid Tanks!");
+        feature.getLogger().info("Saved " + savedCount + " Liquid Tanks!");
     }
 
     /**

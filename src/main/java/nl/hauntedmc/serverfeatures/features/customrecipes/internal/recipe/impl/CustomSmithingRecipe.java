@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.impl;
 
+import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeType;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.CustomRecipe;
@@ -16,9 +17,9 @@ import java.util.Map;
 public class CustomSmithingRecipe implements CustomRecipe {
 
     @Override
-    public RecipeData createRecipe(JavaPlugin plugin, NamespacedKey key, Map<?, ?> config) {
+    public RecipeData createRecipe(CustomRecipes feature, NamespacedKey key, Map<?, ?> config) {
         if (!config.containsKey("base") || !config.containsKey("addition") || !config.containsKey("result")) {
-            plugin.getLogger().warning("Smithing recipe " + key.toString() + " missing base, addition, or result.");
+            feature.getLogger().warning("Smithing recipe " + key.toString() + " missing base, addition, or result.");
             return null;
         }
         String baseStr = config.get("base").toString().trim();
@@ -26,7 +27,7 @@ public class CustomSmithingRecipe implements CustomRecipe {
         try {
             baseMaterial = Material.valueOf(baseStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Unknown base material in smithing recipe " + key.toString() + ": " + baseStr);
+            feature.getLogger().warning("Unknown base material in smithing recipe " + key.toString() + ": " + baseStr);
             return null;
         }
         String additionStr = config.get("addition").toString().trim();
@@ -34,12 +35,12 @@ public class CustomSmithingRecipe implements CustomRecipe {
         try {
             additionMaterial = Material.valueOf(additionStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Unknown addition material in smithing recipe " + key.toString() + ": " + additionStr);
+            feature.getLogger().warning("Unknown addition material in smithing recipe " + key.toString() + ": " + additionStr);
             return null;
         }
-        ItemStack result = ParseUtils.parseItemStack(config.get("result").toString(), plugin);
+        ItemStack result = ParseUtils.parseItemStack(config.get("result").toString());
         if (result == null) {
-            plugin.getLogger().warning("Failed to parse result for smithing recipe " + key.toString());
+            feature.getLogger().warning("Failed to parse result for smithing recipe " + key.toString());
             return null;
         }
         SmithingRecipe recipe = new SmithingRecipe(key, result,

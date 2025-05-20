@@ -53,7 +53,7 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
                 );
 
         if (opt.isEmpty()) {
-            getPlugin().getLogger().warning("RedisTest: no Redis provider available");
+            getLogger().warning("RedisTest: no Redis provider available");
             return;
         }
 
@@ -62,7 +62,7 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
         try {
             redisBus = (MessagingDataAccess) dbp.getDataAccess();
         } catch (ClassCastException e) {
-            getPlugin().getLogger().severe("RedisTest: provider is not a MessagingDataAccess");
+            getLogger().severe("RedisTest: provider is not a MessagingDataAccess");
             return;
         }
 

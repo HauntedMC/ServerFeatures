@@ -31,13 +31,13 @@ public class RecipeConfigHandler {
     public List<RecipeData> loadRecipes() {
         List<RecipeData> recipes = new ArrayList<>();
         if (!config.contains("recipes")) {
-            feature.getPlugin().getLogger().severe("recipes.yml does not contain a 'recipes' section!");
+            feature.getLogger().severe("recipes.yml does not contain a 'recipes' section!");
             return recipes;
         }
         List<Map<?, ?>> recipesList = config.getMapList("recipes");
         int index = 0;
         for (Map<?, ?> recipeConfig : recipesList) {
-            RecipeData recipeData = RecipeFactory.createRecipe(feature.getPlugin(), recipeConfig, index);
+            RecipeData recipeData = RecipeFactory.createRecipe(feature, recipeConfig, index);
             if (recipeData != null) {
                 recipes.add(recipeData);
             }

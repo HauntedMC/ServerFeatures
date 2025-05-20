@@ -1,25 +1,25 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.impl;
 
+import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeType;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.BlastingRecipe;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 
 public class CustomBlastingRecipe extends AbstractCustomRecipe {
 
     @Override
-    public RecipeData createRecipe(JavaPlugin plugin, NamespacedKey key, Map<?, ?> config) {
-        ItemStack output = getOutput(plugin, config, key);
+    public RecipeData createRecipe(CustomRecipes feature, NamespacedKey key, Map<?, ?> config) {
+        ItemStack output = getOutput(feature, config, key);
         if (output == null) {
             return null;
         }
         if (!config.containsKey("input")) {
-            plugin.getLogger().warning("Blasting recipe " + key.toString() + " missing input.");
+            feature.getLogger().warning("Blasting recipe " + key.toString() + " missing input.");
             return null;
         }
         String inputStr = config.get("input").toString().trim();
@@ -27,7 +27,7 @@ public class CustomBlastingRecipe extends AbstractCustomRecipe {
         try {
             inputMaterial = Material.valueOf(inputStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            plugin.getLogger().warning("Unknown input material in blasting recipe " + key.toString() + ": " + inputStr);
+            feature.getLogger().warning("Unknown input material in blasting recipe " + key.toString() + ": " + inputStr);
             return null;
         }
         float experience = config.containsKey("experience")
