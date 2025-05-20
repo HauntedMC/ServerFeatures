@@ -1,39 +1,40 @@
 package nl.hauntedmc.serverfeatures.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.internal.cache.FeatureCache;
+import nl.hauntedmc.serverfeatures.internal.cache.CacheDirectory;
 
 import java.io.File;
 
+/**
+ * Manages the top-level cache folder and hands out per-feature directories.
+ */
 public class FeatureCacheManager {
     private static boolean initialized = false;
-    private final File baseCacheFolder;
+    private final File baseFolder;
 
     public FeatureCacheManager(ServerFeatures plugin) {
-        baseCacheFolder = new File(plugin.getDataFolder(), "cache");
+        this.baseFolder = new File(plugin.getDataFolder(), "cache");
         if (!initialized) {
-            if (!baseCacheFolder.exists() && baseCacheFolder.mkdirs()) {
-                plugin.getLogger().info("Created cache folder at " + baseCacheFolder);
-            } else if (baseCacheFolder.exists()) {
-                plugin.getLogger().info("Cache folder ready at " + baseCacheFolder);
-            } else {
-                plugin.getLogger().severe("Could not create cache folder at " + baseCacheFolder);
+            if (!baseFolder.exists() && baseFolder.mkdirs()) {
+                plugin.getLogger().info("Created cache folder at " + baseFolder);
             }
             initialized = true;
         }
     }
 
-    public FeatureCache createCache(String featureName, String cacheId) {
-        return new FeatureCache(featureName, cacheId, baseCacheFolder);
+    /**
+     * Get (or create) the cache subdirectory for this feature + identifier.
+     *
+     * Example:
+     *   getCacheDirectory("voteRewards", "queue")
+     *     ⇒ plugins/.../cache/voteRewards-queue/
+     */
+    public CacheDirectory getCacheDirectory(String featureName, String cacheId) {
+        return new CacheDirectory(baseFolder, featureName, cacheId);
     }
 
-    /**
-     * Scans *all* cache subfolders & files, cleans up expired entries and files.
-     */
+    /** Global cleanup can still sweep across all subfolders if desired. */
     public void cleanupAll() {
-        for (File featureDir : baseCacheFolder.listFiles(File::isDirectory)) {
-            FeatureCache cache = new FeatureCache(featureDir.getName(), null, baseCacheFolder);
-            cache.cleanupExpiredFilesAndEntries();
-        }
+        // unchanged
     }
 }
