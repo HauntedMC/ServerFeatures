@@ -77,6 +77,24 @@ public class YamlCacheFile implements FileCacheStore {
     }
 
     @Override
+    public void remove(String key) {
+        Objects.requireNonNull(key, "key");
+        // remove the entry
+        config.set(key, null);
+        // if nothing left, delete the file; otherwise save the change
+        if (config.getKeys(false).isEmpty()) {
+            delete();
+        } else {
+            save();
+        }
+    }
+
+    public Set<String> getKeys() {
+        // return a copy to avoid concurrent-mod issues
+        return new HashSet<>(config.getKeys(false));
+    }
+
+    @Override
     public CacheValue get(String key) {
         cleanupExpired();
         // if the whole key is gone (or expired) we’re done

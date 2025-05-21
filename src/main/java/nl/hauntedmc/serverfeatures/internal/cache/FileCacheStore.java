@@ -12,6 +12,9 @@ public interface FileCacheStore extends CacheStore {
     /** First live entry under the key, or null. */
     CacheValue get(String key);
 
+    /** Delete given entry */
+    void remove(String key);
+
     /** All live entries in the store, keyed by name. */
     Map<String, CacheValue> listAll();
 

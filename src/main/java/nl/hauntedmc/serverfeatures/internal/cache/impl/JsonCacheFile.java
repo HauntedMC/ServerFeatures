@@ -107,6 +107,24 @@ public class JsonCacheFile implements FileCacheStore {
     }
 
     @Override
+    public void remove(String key) {
+        Objects.requireNonNull(key, "key");
+        // remove the entry
+        if (rawMap.remove(key) != null) {
+            // if nothing left, delete the file; otherwise save the change
+            if (rawMap.isEmpty()) {
+                delete();
+            } else {
+                save();
+            }
+        }
+    }
+
+    public Set<String> getKeys() {
+        return new LinkedHashSet<>(rawMap.keySet());
+    }
+
+    @Override
     public Map<String, CacheValue> find(String regex) {
         cleanupExpired();
         Pattern pat = Pattern.compile(regex);
