@@ -28,7 +28,7 @@ import java.util.Optional;
  */
 public class NametagProperties {
 
-    private final List<EntityData> metadata;
+    private final List<EntityData<?>> metadata;
 
     public NametagProperties() {
         metadata = new ArrayList<>();
@@ -69,7 +69,7 @@ public class NametagProperties {
 
     // --- Internal helper methods for metadata management ---
 
-    private Optional<EntityData> getEntityData(int index) {
+    private Optional<EntityData<?>> getEntityData(int index) {
         return metadata.stream()
                 .filter(data -> data.getIndex() == index)
                 .findFirst();
@@ -84,7 +84,7 @@ public class NametagProperties {
         metadata.removeIf(data -> data.getIndex() == index);
     }
 
-    public List<EntityData> getMetadata() {
+    public List<EntityData<?>> getMetadata() {
         return metadata;
     }
 

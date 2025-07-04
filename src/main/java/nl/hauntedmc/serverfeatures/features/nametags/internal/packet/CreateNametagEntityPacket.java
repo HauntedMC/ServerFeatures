@@ -20,7 +20,7 @@ public class CreateNametagEntityPacket implements Packet {
     private final WrapperPlayServerSpawnEntity spawnPacket;
     private final WrapperPlayServerEntityMetadata metaPacket;
 
-    public CreateNametagEntityPacket(Player player, int entityID, List<EntityData> metaData) {
+    public CreateNametagEntityPacket(Player player, int entityID, List<EntityData<?>> metaData) {
         Location spawnLocation = SpigotConversionUtil.fromBukkitLocation(player.getLocation().add(0, 1.8, 0));
         this.spawnPacket = new WrapperPlayServerSpawnEntity(
                 entityID,

@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
@@ -65,14 +66,14 @@ public class LiquidTankCommand extends FeatureCommand {
 
         // Give the target the liquid tank item.
         target.getInventory().addItem(getTankItem(amount));
-        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given").forAudience(player).withPlaceholders(Map.of("{player}", target.getName(), "{amount}", String.valueOf(amount))).build());
+        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given").forAudience(player).withPlaceholders(Map.of("player", target.getName(), "amount", String.valueOf(amount))).build());
         return true;
     }
 
     private org.bukkit.inventory.ItemStack getTankItem(int amount) {
         org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.HOPPER, amount);
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        String displayName = (String) feature.getConfigHandler().getSetting("item-name");
+        String displayName = ((String) feature.getConfigHandler().getSetting("item-name")).replace("&", "§");
         meta.displayName(Component.text(ComponentUtils.serializeLegacyString(displayName)));
         item.setItemMeta(meta);
         return item;
