@@ -231,6 +231,6 @@ public class ChatHandler {
     }
 
     private void logBlockedMessage(String tag, String message, Player player) {
-        feature.getPlugin().getLogger().info(tag + player.getName()+": "+ message);
+        feature.getLogger().info(tag + player.getName()+": "+ message);
     }
 }

@@ -1,13 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHandler;
 import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta;
-
-import java.util.*;
 
 public class NotifyLogin extends BukkitBaseFeature<Meta> {
 
@@ -18,8 +17,8 @@ public class NotifyLogin extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         return defaults;
 

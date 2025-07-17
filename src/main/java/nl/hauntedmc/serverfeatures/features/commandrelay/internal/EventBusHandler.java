@@ -32,7 +32,7 @@ public class EventBusHandler {
                     this::handleIncoming
             );
         } catch (Exception ex) {
-            feature.getPlugin().getLogger()
+            feature.getLogger()
                     .severe("CommandRelay: failed to subscribe to “" + channel + "”");
         }
     }
@@ -60,7 +60,7 @@ public class EventBusHandler {
 
         if (!whitelist.stream().map(String::toLowerCase).toList()
                 .contains(main.toLowerCase())) {
-            feature.getPlugin().getLogger()
+            feature.getLogger()
                     .warning("CommandRelay: received forbidden “" + main +
                             "” from " + origin + " – ignoring");
             return;
@@ -71,7 +71,7 @@ public class EventBusHandler {
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
             boolean dispatched = Bukkit.getServer().dispatchCommand(console, sendingCommand);
-            feature.getPlugin().getLogger()
+            feature.getLogger()
                     .info("CommandRelay: dispatched “/" + sendingCommand +
                             "” from " + origin + ": success=" + dispatched);
         });
@@ -96,7 +96,7 @@ public class EventBusHandler {
         String origin = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         redisBus.publish(channel, new CommandRelayMessage(command, origin))
                 .exceptionally(ex -> {
-                    feature.getPlugin().getLogger()
+                    feature.getLogger()
                             .severe("CommandRelay: failed to publish to “" + channel + "”");
                     return null;
                 });

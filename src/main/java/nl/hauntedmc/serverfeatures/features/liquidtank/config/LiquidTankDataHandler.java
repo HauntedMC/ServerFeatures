@@ -1,12 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.config;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -19,7 +17,7 @@ public class LiquidTankDataHandler {
 
     private final LiquidTank feature;
     private final ResourceHandler resourceHandler;
-    private FileConfiguration config;
+    private final FileConfiguration config;
 
     // Lists to keep track of loaded tanks and tanks from unloaded worlds.
     private final List<AbstractTank> tankList = new ArrayList<>();
@@ -27,7 +25,7 @@ public class LiquidTankDataHandler {
 
     public LiquidTankDataHandler(LiquidTank feature) {
         this.feature = feature;
-        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "liquidtanks.yml");
+        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "local/liquidtanks.yml");
         this.config = resourceHandler.getConfig();
     }
 
@@ -84,16 +82,16 @@ public class LiquidTankDataHandler {
         } catch (Exception e) {
             // Optionally log error.
         }
-        feature.getPlugin().getLogger().info("Loaded " + count + " Liquid tanks!");
+        feature.getLogger().info("Loaded " + count + " Liquid tanks!");
     }
 
     /**
      * Saves the current tank data to storage.
      */
     public void save() {
-        feature.getPlugin().getLogger().info("Saving Liquid Tanks!");
+        feature.getLogger().info("Saving Liquid Tanks!");
         int savedCount = quickSave(false, true);
-        feature.getPlugin().getLogger().info("Saved " + savedCount + " Liquid Tanks!");
+        feature.getLogger().info("Saved " + savedCount + " Liquid Tanks!");
     }
 
     /**

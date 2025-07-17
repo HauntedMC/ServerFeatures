@@ -14,7 +14,9 @@ import static org.bukkit.Material.*;
 public class RabbitStewTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.YELLOW;
 
-    private static final long delay = 20L;
+	private static final int maxAmount = 128;
+
+	private static final long delay = 20L;
 
 	public RabbitStewTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, 12, feature);
@@ -66,8 +68,7 @@ public class RabbitStewTank extends FoodTank {
 
 	@Override
 	public int getMaxQuantity() {
-        int maxAmount = 128;
-        return maxAmount;
+		return maxAmount;
 	}
 
 	@Override

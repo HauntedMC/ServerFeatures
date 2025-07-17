@@ -14,7 +14,9 @@ import org.bukkit.inventory.ItemStack;
 public class EmptyTank extends AbstractTank {
 	private static final ChatColor chatColor = ChatColor.GRAY;
 
-    private static final long delay = 100L;
+	private static final int maxAmount = 128;
+
+	private static final long delay = 100L;
 
 	public EmptyTank(Location location, LiquidTank feature) {
 		super(location, 0, feature);
@@ -125,7 +127,7 @@ public class EmptyTank extends AbstractTank {
 
 	@Override
 	public int getMaxQuantity() {
-        return 128;
+		return maxAmount;
 	}
 
 	@Override

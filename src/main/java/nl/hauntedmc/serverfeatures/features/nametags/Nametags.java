@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,8 +10,6 @@ import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHo
 import nl.hauntedmc.serverfeatures.features.nametags.listener.NametagListener;
 import nl.hauntedmc.serverfeatures.features.nametags.meta.Meta;
 
-import java.util.*;
-
 public class Nametags extends BukkitBaseFeature<Meta> {
     private NametagManager nametagManager;
 
@@ -19,8 +18,8 @@ public class Nametags extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("update_interval_ticks", 2);
         defaults.put("viewer_update_delay_ticks", 10);

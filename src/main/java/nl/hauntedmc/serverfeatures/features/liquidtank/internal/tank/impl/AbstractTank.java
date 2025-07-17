@@ -230,7 +230,7 @@ public abstract class AbstractTank {
 			if (paramPlayer.getInventory().getItemInMainHand().getAmount() > 1) {
 				paramPlayer.getInventory().getItemInMainHand()
 						.setAmount(paramPlayer.getInventory().getItemInMainHand().getAmount() - 1);
-				HashMap<Integer, ItemStack> hashMap = paramPlayer.getInventory().addItem(new ItemStack[] { paramItemStack });
+				HashMap<Integer, ItemStack> hashMap = paramPlayer.getInventory().addItem(paramItemStack);
 				if (!hashMap.isEmpty())
 					for (ItemStack itemStack : hashMap.values())
 						feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> paramPlayer.getWorld().dropItem(paramPlayer.getLocation(), paramItemStack));

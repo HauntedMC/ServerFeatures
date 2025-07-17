@@ -237,8 +237,7 @@ public class LiquidTankListener implements Listener {
                 }
                 inventoryMoveItemEvent.setCancelled(true);
                 if (inventoryMoveItemEvent.getDestination().getType().equals(InventoryType.HOPPER)
-                        && (inventoryHolder2 = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder2 instanceof Hopper) {
-                    Hopper hopper2 = (Hopper) inventoryHolder2;
+                        && (inventoryHolder2 = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder2 instanceof Hopper hopper2) {
                     AbstractTank liquidTank2 = feature.getTankManager().getTank(hopper2.getLocation());
                     if (!hopper2.getBlock().isBlockIndirectlyPowered() && !hopper2.getBlock().isBlockPowered() && liquidTank2 != null) {
                         if (!feature.getTankManager().isEnableItems()) {

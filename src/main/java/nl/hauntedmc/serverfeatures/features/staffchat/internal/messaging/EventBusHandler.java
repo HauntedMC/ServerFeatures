@@ -17,7 +17,7 @@ public class EventBusHandler {
     public void publishMessage(StaffChatMessage chatMessage, String channel) {
         redisBus.publish(channel , chatMessage)
                     .exceptionally(ex -> {
-                        feature.getPlugin().getLogger().severe("Failed to publish staffchat message.");
+                        feature.getLogger().severe("Failed to publish staffchat message.");
                         return null;
                     });
         }

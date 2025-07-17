@@ -23,7 +23,7 @@ public class DiscordService {
         String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");
         String server = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         if (webhookUrl == null || webhookUrl.isEmpty()) {
-            feature.getPlugin().getLogger().warning("Discord webhook URL not configured.");
+            feature.getLogger().warning("Discord webhook URL not configured.");
             return;
         }
 

@@ -1,13 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.whitelist;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.whitelist.listener.PlayerLoginListener;
 import nl.hauntedmc.serverfeatures.features.whitelist.meta.Meta;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class Whitelist extends BukkitBaseFeature<Meta> {
 
@@ -19,8 +17,8 @@ public class Whitelist extends BukkitBaseFeature<Meta> {
      * Returns default config values for the Titles feature.
      */
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         return defaults;
     }

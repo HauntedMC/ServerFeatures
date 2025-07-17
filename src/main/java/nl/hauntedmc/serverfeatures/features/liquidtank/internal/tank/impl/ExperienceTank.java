@@ -21,7 +21,7 @@ public class ExperienceTank extends AbstractTank {
 
 	private static final long delay = 20L;
 
-	private static int maxAmount = 1395;
+	private static final int maxAmount = 1395;
 
 	public ExperienceTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, feature);

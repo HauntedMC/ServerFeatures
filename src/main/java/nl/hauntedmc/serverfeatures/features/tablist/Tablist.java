@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.tablist;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,9 +10,7 @@ import nl.hauntedmc.serverfeatures.features.tablist.meta.Meta;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Tablist extends BukkitBaseFeature<Meta> {
 
@@ -25,8 +24,8 @@ public class Tablist extends BukkitBaseFeature<Meta> {
      * Returns default config values for the Tablist feature.
      */
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("refresh_interval", 5);
         defaults.put("rank_order", List.of(

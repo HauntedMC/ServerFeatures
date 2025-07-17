@@ -1,13 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.internal.LagMonitorHandler;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.meta.Meta;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class LagMonitor extends BukkitBaseFeature<Meta> {
 
@@ -17,8 +15,9 @@ public class LagMonitor extends BukkitBaseFeature<Meta> {
         super(plugin, new Meta());
     }
 
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    @Override
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("tps_check_interval", 5);
         defaults.put("tps_monitor_duration", 120);

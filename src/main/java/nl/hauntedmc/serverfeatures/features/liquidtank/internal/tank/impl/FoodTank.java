@@ -11,7 +11,7 @@ import org.bukkit.potion.PotionEffectType;
 public abstract class FoodTank extends AbstractTank {
 	private static final ChatColor chatColor = ChatColor.DARK_GRAY;
 
-	private static int maxAmount = 128;
+	private static final int maxAmount = 128;
 
 	private static final long delay = 30L;
 
@@ -37,9 +37,8 @@ public abstract class FoodTank extends AbstractTank {
 				Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
 				if (block.getType() == Material.HOPPER) {
 					AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-					if (abstractTank != null && abstractTank instanceof FoodTank) {
-						FoodTank foodTank = (FoodTank) abstractTank;
-						foodTank.saturatePlayer(player);
+					if (abstractTank != null && abstractTank instanceof FoodTank foodTank) {
+                        foodTank.saturatePlayer(player);
 						abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 						if (abstractTank.getQuantity() == 0) {
 							feature.getTankManager().emptyTank(abstractTank);

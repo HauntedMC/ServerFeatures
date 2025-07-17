@@ -1,14 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.titles;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.titles.internal.TitleHandler;
 import nl.hauntedmc.serverfeatures.features.titles.listener.PlayerLoginListener;
 import nl.hauntedmc.serverfeatures.features.titles.meta.Meta;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class Titles extends BukkitBaseFeature<Meta> {
 
@@ -22,8 +20,8 @@ public class Titles extends BukkitBaseFeature<Meta> {
      * Returns default config values for the Titles feature.
      */
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("fade-in", 10);
         defaults.put("stay", 30);

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.redistest;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
@@ -12,8 +13,6 @@ import nl.hauntedmc.serverfeatures.features.redistest.internal.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.redistest.listener.ChatListener;
 import nl.hauntedmc.serverfeatures.features.redistest.meta.Meta;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -28,8 +27,8 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         return defaults;
     }
@@ -54,7 +53,7 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
                 );
 
         if (opt.isEmpty()) {
-            getPlugin().getLogger().warning("RedisTest: no Redis provider available");
+            getLogger().warning("RedisTest: no Redis provider available");
             return;
         }
 
@@ -63,7 +62,7 @@ public class RedisTest extends BukkitBaseFeature<Meta> {
         try {
             redisBus = (MessagingDataAccess) dbp.getDataAccess();
         } catch (ClassCastException e) {
-            getPlugin().getLogger().severe("RedisTest: provider is not a MessagingDataAccess");
+            getLogger().severe("RedisTest: provider is not a MessagingDataAccess");
             return;
         }
 

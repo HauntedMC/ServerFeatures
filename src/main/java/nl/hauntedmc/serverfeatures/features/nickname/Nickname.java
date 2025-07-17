@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
@@ -13,9 +14,7 @@ import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknamePlaceholde
 import nl.hauntedmc.serverfeatures.features.nickname.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.nickname.meta.Meta;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Nickname extends BukkitBaseFeature<Meta> {
 
@@ -27,8 +26,8 @@ public class Nickname extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", true);
         defaults.put("minNicknameLength", 3);
         defaults.put("maxNicknameLength", 16);

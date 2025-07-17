@@ -19,7 +19,9 @@ import static org.bukkit.Material.TERRACOTTA;
 public class MushroomStewTank extends FoodTank {
 	private static final ChatColor chatColor = ChatColor.YELLOW;
 
-    private static final long delay = 1200L;
+	private static final int maxAmount = 128;
+
+	private static final long delay = 1200L;
 
 	public MushroomStewTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, 5, feature);
@@ -133,8 +135,7 @@ public class MushroomStewTank extends FoodTank {
 
 	@Override
 	public int getMaxQuantity() {
-        int maxAmount = 128;
-        return maxAmount;
+		return maxAmount;
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlog;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
@@ -13,9 +14,6 @@ import nl.hauntedmc.serverfeatures.features.chatlog.internal.ReportHandler;
 import nl.hauntedmc.serverfeatures.features.chatlog.listener.ChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlog.meta.Meta;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class ChatLog extends BukkitBaseFeature<Meta> {
 
 
@@ -27,8 +25,8 @@ public class ChatLog extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("URL", "https://hauntedmc.nl/chatlog/?report="); // Base URL for report links
         defaults.put("reportTimeFrameMinutes", 15); // Timeframe (in minutes) to include messages in a report

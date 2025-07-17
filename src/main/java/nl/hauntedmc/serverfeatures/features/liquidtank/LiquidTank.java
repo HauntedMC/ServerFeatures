@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank;
 
+import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -7,9 +8,6 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.command.LiquidTankCommand
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.LiquidTankManager;
 import nl.hauntedmc.serverfeatures.features.liquidtank.listener.LiquidTankListener;
 import nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class LiquidTank extends BukkitBaseFeature<Meta> {
 
@@ -20,8 +18,8 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public Map<String, Object> getDefaultConfig() {
-        Map<String, Object> defaults = new HashMap<>();
+    public ConfigMap getDefaultConfig() {
+        ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", true);
         defaults.put("item-name", "&bLiquid Tank");
         defaults.put("enable-items", true);
