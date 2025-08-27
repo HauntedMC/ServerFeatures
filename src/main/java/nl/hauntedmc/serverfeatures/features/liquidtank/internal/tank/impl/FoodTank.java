@@ -26,8 +26,7 @@ public abstract class FoodTank extends AbstractTank {
 		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
-				exception.printStackTrace();
+			} catch (Exception ignored) {
 			}
 		}, delay, delay);
 	}

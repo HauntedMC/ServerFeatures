@@ -78,9 +78,7 @@ public class LocalizationHandler {
 
     /**
      * Entry point for retrieving a localized message.
-     *
      * Example usage:
-     *
      *     Component comp = localizationHandler
      *                           .getMessage("welcome.message")
      *                           .forAudience(someAudience)
