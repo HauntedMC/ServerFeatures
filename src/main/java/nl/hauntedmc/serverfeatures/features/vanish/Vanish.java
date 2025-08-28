@@ -44,7 +44,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         cfg.put("prevent_entity_targeting", true);
         cfg.put("filter_tab_completion", true);
         cfg.put("actionbar_interval_ticks", 40);
-        cfg.put("silent_container_open", false);
         return cfg;
     }
 
