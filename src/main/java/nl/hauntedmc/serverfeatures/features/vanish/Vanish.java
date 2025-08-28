@@ -9,13 +9,13 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.vanish.command.VanishCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishPlaceholder;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishRepository;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishService;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.InteractionListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.TabListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
-import org.bukkit.Bukkit;
 import org.bukkit.scheduler.BukkitTask;
 
 public class Vanish extends BukkitBaseFeature<Meta> {
@@ -44,6 +44,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         cfg.put("prevent_entity_targeting", true);
         cfg.put("filter_tab_completion", true);
         cfg.put("actionbar_interval_ticks", 40);
+        cfg.put("silent_container_open", false);
         return cfg;
     }
 
@@ -95,9 +96,14 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
         // Actionbar loop
         int interval = Math.max(5, (int) getConfigHandler().getSetting("actionbar_interval_ticks"));
-        this.actionBarTask = Bukkit.getScheduler().runTaskTimer(getPlugin(), () -> {
+        this.actionBarTask = getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask(() -> {
             try { service.tickActionBars(); } catch (Throwable t) { getLogger().warning("Actionbar tick error: " + t.getMessage()); }
         }, interval, interval);
+
+        // Register PlaceholderAPI expansion
+        if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new VanishPlaceholder(this).register();
+        }
     }
 
     @Override

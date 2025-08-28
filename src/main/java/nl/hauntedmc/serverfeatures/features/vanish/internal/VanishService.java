@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.vanish.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.potion.PotionEffectType;
@@ -17,7 +18,6 @@ import java.util.concurrent.ConcurrentHashMap;
 public class VanishService {
 
     public static final String PERM_TOGGLE_SELF   = "serverfeatures.feature.vanish.command.vanish.toggle";
-    public static final String PERM_TOGGLE_OTHERS = "serverfeatures.feature.vanish.command.vanish.others";
     public static final String PERM_SEE           = "serverfeatures.feature.vanish.see";
 
     private final Vanish feature;
@@ -34,6 +34,7 @@ public class VanishService {
     public boolean isVanished(UUID id) { return vanished.contains(id); }
     public boolean isPlayerVanished(Player p) { return p != null && isVanished(p.getUniqueId()); }
     public Set<UUID> allVanished() { return Collections.unmodifiableSet(vanished); }
+    public int countVanished() { return vanished.size(); }
 
     /* ------------------------ Public API ------------------------ */
 
@@ -42,7 +43,7 @@ public class VanishService {
 
         // Enforce main thread
         if (!Bukkit.isPrimaryThread()) {
-            Bukkit.getScheduler().runTask(feature.getPlugin(), () -> setVanished(target, value));
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> setVanished(target, value));
             return;
         }
 
@@ -72,6 +73,7 @@ public class VanishService {
 
     /**
      * Called on PlayerJoinEvent to apply persisted state and notify staff.
+     * Also re-enforces spectator gamemode shortly after join in case the server forces a default.
      */
     public void handleJoin(PlayerJoinEvent e) {
         final Player p = e.getPlayer();
@@ -86,6 +88,13 @@ public class VanishService {
         if (persistedVanished) {
             // Apply vanish silently on join
             setVanished(p, true);
+
+            // In case default gamemode is re-applied by the server after join, enforce spectator shortly after
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+                if (p.isOnline() && isPlayerVanished(p)) {
+                    try { p.setGameMode(GameMode.SPECTATOR); } catch (Throwable ignored) {}
+                }
+            }, 2L);
 
             // Notify staff that this person joined vanished (only staff with toggle perm)
             broadcastToVanishingStaff(
@@ -123,6 +132,9 @@ public class VanishService {
                 weSetInvisible.put(p.getUniqueId(), true);
             }
         }
+
+        // Force spectator gamemode while vanished
+        try { p.setGameMode(GameMode.SPECTATOR); } catch (Throwable ignored) {}
     }
 
     private void removeVanish(Player p) {
@@ -146,6 +158,9 @@ public class VanishService {
                 try { p.setInvisible(false); } catch (Throwable ignored) {}
             }
         }
+
+        // Force survival gamemode on unvanish (per requirement)
+        try { p.setGameMode(GameMode.SURVIVAL); } catch (Throwable ignored) {}
     }
 
     public void applyToNewViewer(Player viewer) {
