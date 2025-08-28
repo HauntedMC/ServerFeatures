@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures;
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.commonlib.featureapi.FeaturePlugin;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
+import nl.hauntedmc.serverfeatures.common.CommonInitializer;
 import nl.hauntedmc.serverfeatures.common.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
@@ -34,9 +35,12 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
         registerBaseCommand();
         registerCommonListeners();
 
+        // Common bootstrapping that must run BEFORE features are loaded
+        CommonInitializer commonInitializer = new CommonInitializer(this);
+        commonInitializer.runPreFeatureInitialization();
+
         // Feature specific initialization
         featureLoadManager.initializeFeatures();
-
     }
 
     @Override
@@ -46,8 +50,9 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
     }
 
     private void registerBaseCommand() {
-        Objects.requireNonNull(getCommand("serverfeatures")).setExecutor(new ServerFeaturesCommand(this));
-        Objects.requireNonNull(getCommand("serverfeatures")).setTabCompleter(new ServerFeaturesCommand(this));
+        ServerFeaturesCommand cmd = new ServerFeaturesCommand(this);
+        Objects.requireNonNull(getCommand("serverfeatures")).setExecutor(cmd);
+        Objects.requireNonNull(getCommand("serverfeatures")).setTabCompleter(cmd);
     }
 
     private void registerCommonListeners() {
@@ -66,5 +71,4 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
     public LocalizationHandler getLocalizationHandler() {
         return localizationHandler;
     }
-
 }
