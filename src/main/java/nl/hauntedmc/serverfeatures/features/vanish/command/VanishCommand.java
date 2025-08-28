@@ -93,6 +93,13 @@ public class VanishCommand extends FeatureCommand {
 
         feature.getService().setVanished(target, desired);
 
+        // Informeer de target zelf (alleen als online)
+        target.sendMessage(feature.getLocalizationHandler()
+                .getMessage(desired ? "vanish.target_enabled_by_other" : "vanish.target_disabled_by_other")
+                .withPlaceholders(Map.of("actor", sender.getName()))
+                .forAudience(target)
+                .build());
+
         sender.sendMessage(feature.getLocalizationHandler()
                 .getMessage(desired ? "vanish.enabled_other" : "vanish.disabled_other")
                 .withPlaceholders(Map.of("target", target.getName()))

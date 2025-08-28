@@ -52,22 +52,19 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
 
-        // Commands
+        m.add("vanish.enabled_self", "&7[&cVanish&7] &fJe zit nu in vanish mode.");
+        m.add("vanish.disabled_self", "&7[&cVanish&7] &fJe zit niet meer in vanish mode.");
         m.add("vanish.usage", "&eGebruik: /vanish [on|off|<speler>]");
-        m.add("vanish.enabled_self", "&aVanish ingeschakeld.");
-        m.add("vanish.disabled_self", "&eVanish uitgeschakeld.");
-        m.add("vanish.enabled_other", "&aVanish ingeschakeld voor &f{target}&a.");
-        m.add("vanish.disabled_other", "&eVanish uitgeschakeld voor &f{target}&e.");
-        m.add("vanish.already_state", "&cSpeler staat al in deze modus.");
+        m.add("vanish.already_state", "&cDeze speler zit al in deze modus.");
         m.add("vanish.not_online", "&cDie speler is niet online.");
-
-        // Staff notifications
-        m.add("vanish.staff_enabled", "&7[Vanish] &f{target}&7 is nu &aaan&7 (door &f{actor}&7).");
-        m.add("vanish.staff_disabled", "&7[Vanish] &f{target}&7 is nu &coff&7 (door &f{actor}&7).");
-        m.add("vanish.staff_joined_vanished", "&7[Vanish] &f{name}&7 heeft de server betreden in &aaan&7.");
-
-        // Actionbar
-        m.add("vanish.actionbar", "&aVanish actief");
+        m.add("vanish.enabled_other", "&7[&cVanish&7] &e{target}&f is nu onzichtbaar!");
+        m.add("vanish.disabled_other", "&7[&cVanish&7] &e{target}&f is nu weer zichtbaar!");
+        m.add("vanish.target_enabled_by_other", "&7[&cVanish&7] &f{actor} heeft je in vanish mode gezet.");
+        m.add("vanish.target_disabled_by_other", "&7[&cVanish&7] &f{actor} heeft je uit vanish mode gehaald.");
+        m.add("vanish.staff_enabled", "&7[&cVanish&7] &f{target} zit nu in vanish mode.");
+        m.add("vanish.staff_disabled", "&7[&cVanish&7] &f{target} zit niet meer in vanish mode.");
+        m.add("vanish.staff_joined_vanished", "&7[&cVanish&7] &f{name} heeft de gamemode in vanish mode gejoined.");
+        m.add("vanish.actionbar", "&eJe bent nu onzichtbaar voor anderen.");
 
         return m;
     }
