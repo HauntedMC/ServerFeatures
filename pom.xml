@@ -93,8 +93,17 @@
                                     <include>nl.hauntedmc.commonlib:commonlib</include>
                                     <include>io.github.classgraph:classgraph</include>
                                     <include>org.apache.commons:commons-text</include>
+                                    <include>nl.hauntedmc.proxyfeatures:proxyfeatures</include>
                                 </includes>
                             </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>nl.hauntedmc.proxyfeatures:proxyfeatures</artifact>
+                                    <includes>
+                                        <include>nl/hauntedmc/proxyfeatures/features/sanctions/entity/**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
@@ -165,6 +174,12 @@
             <groupId>nl.hauntedmc.commonlib</groupId>
             <artifactId>commonlib</artifactId>
             <version>1.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.proxyfeatures</groupId>
+            <artifactId>proxyfeatures</artifactId>
+            <version>1.5.0</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>me.clip</groupId>
