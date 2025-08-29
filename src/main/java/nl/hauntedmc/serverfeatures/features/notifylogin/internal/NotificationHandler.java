@@ -1,8 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
-import de.myzelyam.api.vanish.VanishAPI;
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.common.util.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -33,9 +34,6 @@ public class NotificationHandler {
      * @return True if the player is vanished, false otherwise.
      */
     private boolean isPlayerVanished(Player player) {
-        if (Bukkit.getPluginManager().isPluginEnabled("PremiumVanish")) {
-            return VanishAPI.isInvisible(player);
-        }
-        return false;
+        return APIRegistry.get(VanishAPI.class).map(api -> api.isVanished(player.getUniqueId())).orElse(false);
     }
 }

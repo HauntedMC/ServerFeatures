@@ -9,9 +9,11 @@ import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.util.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.vanish.command.VanishCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishPlaceholder;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishRepository;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishService;
@@ -35,15 +37,17 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     // Redis messaging (optional)
     private EventBusHandler eventBusHandler;
 
+    private VanishAPI api;
+
     public Vanish(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
 
     public VanishService getService() { return service; }
+
     public VanishRepository getRepository() { return repository; }
     public ORMContext getOrmContext() { return ormContext; }
     public EventBusHandler getEventBusHandler() { return eventBusHandler; }
-
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
@@ -95,6 +99,10 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
         // Service (runtime logic)
         this.service = new VanishService(this);
+
+        this.api = new VanishAPI(this);
+        APIRegistry.register(VanishAPI.class, this.api);
+
 
         // Commands
         getLifecycleManager().getCommandManager().registerFeatureCommand(new VanishCommand(this));
@@ -157,5 +165,11 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         if (service != null) {
             service.cleanupOnDisable();
         }
+
+        APIRegistry.unregister(VanishAPI.class);
+    }
+
+    public VanishAPI getApi() {
+        return api;
     }
 }
