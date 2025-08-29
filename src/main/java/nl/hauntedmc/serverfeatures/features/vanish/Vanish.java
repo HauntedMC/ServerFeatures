@@ -3,7 +3,10 @@ package nl.hauntedmc.serverfeatures.features.vanish;
 import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
+import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,11 +15,15 @@ import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishPlaceholder;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishRepository;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishService;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.VanishStateMessage;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.InteractionListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.TabListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
 import org.bukkit.scheduler.BukkitTask;
+
+import java.util.Optional;
 
 public class Vanish extends BukkitBaseFeature<Meta> {
 
@@ -25,6 +32,9 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     private ORMContext ormContext;
     private BukkitTask actionBarTask;
 
+    // Redis messaging (optional)
+    private EventBusHandler eventBusHandler;
+
     public Vanish(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
@@ -32,6 +42,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     public VanishService getService() { return service; }
     public VanishRepository getRepository() { return repository; }
     public ORMContext getOrmContext() { return ormContext; }
+    public EventBusHandler getEventBusHandler() { return eventBusHandler; }
 
     @Override
     public ConfigMap getDefaultConfig() {
@@ -44,6 +55,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         cfg.put("prevent_entity_targeting", true);
         cfg.put("filter_tab_completion", true);
         cfg.put("actionbar_interval_ticks", 40);
+        // No specific Redis settings here; uses global "server_name" and a shared "default" messaging connection.
         return cfg;
     }
 
@@ -70,9 +82,11 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        // --- Data layer (ORM) ---
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
-        ormContext = getLifecycleManager().getDataManager().createORMContext("ormConnection",
+        ormContext = getLifecycleManager().getDataManager().createORMContext(
+                "ormConnection",
                 PlayerEntity.class,
                 PlayerVanishEntity.class
         ).orElseThrow();
@@ -99,6 +113,36 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         // Register PlaceholderAPI expansion
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new VanishPlaceholder(this).register();
+        }
+
+        // --- Redis messaging (optional) ---
+        // We try to register a shared Redis messaging connection named "redis" using the "default" profile.
+        try {
+            Optional<DatabaseProvider> opt = getLifecycleManager()
+                    .getDataManager()
+                    .registerConnection("redis", DatabaseType.REDIS_MESSAGING, "default");
+
+            if (opt.isPresent()) {
+                DatabaseProvider dbp = opt.get();
+                MessagingDataAccess bus = (MessagingDataAccess) dbp.getDataAccess();
+
+                // Register message type for (de)vanish updates
+                MessageRegistry.register("vanish_update", VanishStateMessage.class);
+
+                String serverName = (String) getConfigHandler().getGlobalSetting("server_name");
+                if (serverName == null || serverName.isEmpty()) {
+                    getLogger().warning("Global setting 'server_name' is missing; vanish update messages will still publish but without server attribution.");
+                }
+
+                this.eventBusHandler = new EventBusHandler(this, bus, serverName);
+                getLogger().info("Redis messaging for Vanish initialized.");
+            } else {
+                getLogger().warning("Redis messaging connection 'redis' not available. Vanish updates will not be published to proxy.");
+            }
+        } catch (ClassCastException e) {
+            getLogger().warning("Registered 'redis' connection is not a messaging provider; skipping vanish Redis publishing.");
+        } catch (Throwable t) {
+            getLogger().warning("Failed to initialize Redis messaging for Vanish: " + t.getMessage());
         }
     }
 

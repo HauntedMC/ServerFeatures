@@ -14,8 +14,12 @@ public class VisibilityListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent e) {
-        // Apply DB-persisted state (if any) and notify staff about "joined vanished"
         feature.getService().handleJoin(e);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onLeave(PlayerQuitEvent e) {
+        feature.getService().handleLeave(e);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

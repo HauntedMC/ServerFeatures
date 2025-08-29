@@ -2,10 +2,12 @@ package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
@@ -14,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Core vanish logic: state, (un)apply, notifications, actionbar ticking.
  * Uses ORM-backed persistence via VanishRepository.
+ * Publishes Redis messages (if configured) on vanish state changes and on join with persisted vanish.
  */
 public class VanishService {
 
@@ -69,6 +72,8 @@ public class VanishService {
             feature.getLogger().warning("Kon vanish state niet opslaan: " + ex.getMessage());
         }
 
+        // Publish to Redis (best-effort)
+        publishVanishState(target, value);
     }
 
     /**
@@ -86,8 +91,7 @@ public class VanishService {
         }
 
         if (persistedVanished) {
-            // Apply vanish silently on join
-            setVanished(p, true);
+            setVanished(p, true); // will also publish redis update and persist
 
             // In case default gamemode is re-applied by the server after join, enforce spectator shortly after
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
@@ -235,5 +239,26 @@ public class VanishService {
         vanished.clear();
         preCollidable.clear();
         weSetInvisible.clear();
+    }
+
+    /* ---------------------- Redis publish ----------------------- */
+
+    private void publishVanishState(Player target, boolean vanished) {
+        // Best-effort publish; silently skip if not configured
+        EventBusHandler bus = feature.getEventBusHandler();
+        if (bus == null || target == null) return;
+        try {
+            bus.publishState(
+                    target.getUniqueId().toString(),
+                    target.getName(),
+                    vanished
+            );
+        } catch (Throwable t) {
+            feature.getLogger().warning("Failed to publish vanish update for " + target.getName() + ": " + t.getMessage());
+        }
+    }
+
+    public void handleLeave(PlayerQuitEvent e) {
+        vanished.remove(e.getPlayer().getUniqueId());
     }
 }
