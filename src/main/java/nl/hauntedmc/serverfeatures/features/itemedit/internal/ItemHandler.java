@@ -33,7 +33,7 @@ public class ItemHandler {
         }
         HumanEntity player = event.getView().getPlayer();
         if (!player.hasPermission("serverfeatures.feature.itemedit.anvilcolors")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank").forAudience(player).withPlaceholders(Map.of("rank", "&6Elite")).build());
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank").forAudience(player).withPlaceholders(Map.of("rank", "&2Legend")).build());
             return;
         }
 
