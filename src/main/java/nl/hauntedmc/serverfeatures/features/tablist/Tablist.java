@@ -66,10 +66,10 @@ public class Tablist extends BukkitBaseFeature<Meta> {
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
         messages.add("tablist.header",
-                "&8&l[&b&lHaunted&6&lMC&8&l]&r &e[%premiumvanish_bungeeplayercount%/100]\n" +
+                "&8&l[&b&lHaunted&6&lMC&8&l]\n" +
                         "&7www.hauntedmc.nl &f&l| &7%server_time_HH:mm dd-MM-yyyy%");
         messages.add("tablist.footer",
-                "&bServer: &7%server_name% &f&l| &bPing: &7%player_ping%ms &f&l| &bRanks: &7store.hauntedmc.nl");
+                "&b\uD83E\uDDED &7%server_name% (%vanish_playercount%/%server_max_players%) &f&l| &b\uD83D\uDCF6 &7%player_ping%ms &f&l| &b\uD83D\uDC8E &7store.hauntedmc.nl");
 
         messages.add("tablist.prefix", "%essentials_afk%%vault_prefix%");
         messages.add("tablist.playername", "&7%player_name%");

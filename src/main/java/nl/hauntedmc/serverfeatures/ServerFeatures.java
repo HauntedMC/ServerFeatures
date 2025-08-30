@@ -3,8 +3,7 @@ package nl.hauntedmc.serverfeatures;
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.commonlib.featureapi.FeaturePlugin;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
-import nl.hauntedmc.serverfeatures.common.CommonInitializer;
-import nl.hauntedmc.serverfeatures.common.listener.PlayerListener;
+import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
@@ -35,9 +34,11 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
         registerBaseCommand();
         registerCommonListeners();
 
-        // Common bootstrapping that must run BEFORE features are loaded
-        CommonInitializer commonInitializer = new CommonInitializer(this);
-        commonInitializer.runPreFeatureInitialization();
+        try {
+            ScoreboardManager.initializeOnlinePlayers(getLogger());
+        } catch (Throwable t) {
+            getLogger().warning("Scoreboard shutdown cleanup error: " + t.getMessage());
+        }
 
         // Feature specific initialization
         featureLoadManager.initializeFeatures();
@@ -46,6 +47,12 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
     @Override
     public void onDisable() {
         featureLoadManager.unloadAllFeatures();
+
+        try {
+            ScoreboardManager.cleanupOnlinePlayers(getLogger());
+        } catch (Throwable t) {
+            getLogger().warning("Scoreboard shutdown cleanup error: " + t.getMessage());
+        }
         getLogger().info("ServerFeatures is shutting down...");
     }
 
@@ -57,7 +64,7 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
 
     private void registerCommonListeners() {
         PluginManager pm = Bukkit.getPluginManager();
-        pm.registerEvents(new PlayerListener(this), this);
+        pm.registerEvents(new nl.hauntedmc.serverfeatures.common.listener.PlayerListener(this), this);
     }
 
     public FeatureLoadManager getFeatureLoadManager() {

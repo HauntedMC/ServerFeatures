@@ -1,12 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.internal;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.commonlib.util.CastUtils;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.ItemUtils;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.LegacyUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
@@ -14,11 +11,9 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Map;

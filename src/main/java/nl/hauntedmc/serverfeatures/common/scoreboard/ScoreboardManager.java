@@ -9,19 +9,21 @@ import org.bukkit.scoreboard.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 /**
- * Central manager for per-player scoreboards (sidebar), hide‑nametag teams, and glow teams.
+ * Central manager for per-player scoreboards (sidebar) and glow teams.
+ * Enforces one-team-per-entry-per-board. Nametags are hidden via the glow team itself.
  */
 public class ScoreboardManager {
-    private static final String HIDETAG_PREFIX = "sf_nametag_";
-    private static final String GLOW_PREFIX    = "sf_glow_";
-    private static final String OBJ_NAME       = "ServerSB";
-    private static final String OBJ_CRITERIA   = "dummy";
+
+    private static final String GLOW_PREFIX  = "sf_glow_";
+    private static final String OBJ_NAME     = "ServerSB";
+    private static final String OBJ_CRITERIA = "dummy";
 
     private static final Map<UUID, Scoreboard> boards = new ConcurrentHashMap<>();
     private static final Map<UUID, NamedTextColor> glowColors = new ConcurrentHashMap<>();
-
 
     /** Called on PlayerJoinEvent */
     public static void onPlayerJoin(Player player) {
@@ -29,95 +31,115 @@ public class ScoreboardManager {
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
         boards.put(player.getUniqueId(), board);
 
-        // Ensure hide‑nametag teams for *all* players on this board
-        for (Player other : Bukkit.getOnlinePlayers()) {
-            String hideTeamName = HIDETAG_PREFIX + other.getUniqueId();
-            Team hideTeam = board.getTeam(hideTeamName);
-            if (hideTeam == null) {
-                hideTeam = board.registerNewTeam(hideTeamName);
-                hideTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-            }
-            hideTeam.addEntry(other.getName());
-        }
+        // Purge any legacy per-player nametag teams (old builds)
+        purgeLegacyHideTeams(board);
 
-        // Pre‑register glow teams on this board
-        for (NamedTextColor color : NamedTextColor.NAMES.values()) {
-            String glowTeamName = GLOW_PREFIX + color.toString();
-            Team glowTeam = board.getTeam(glowTeamName);
-            if (glowTeam == null) {
-                glowTeam = board.registerNewTeam(glowTeamName);
-                glowTeam.color(color);
-                glowTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-            }
-        }
+        // Ensure all glow teams exist on this board
+        ensureGlowTeamsRegistered(board);
 
-        // Populate glow membership for existing players
+        // Put current online players into their glow team on THIS board
         for (Player other : Bukkit.getOnlinePlayers()) {
             NamedTextColor c = glowColors.getOrDefault(other.getUniqueId(), NamedTextColor.GRAY);
-            Team team = board.getTeam(GLOW_PREFIX + c.toString());
-            if (team != null) team.addEntry(other.getName());
+            moveEntryToGlowTeam(board, other.getName(), c, "populate on " + player.getName() + "'s board");
         }
 
-        // Give this board to the player
+        // Give this board to the joining player
         player.setScoreboard(board);
 
-        // Finally, inject *this* player into everyone else's hide & glow teams
+        // Now inject the joining player into EVERYONE ELSE'S boards
+        NamedTextColor myColor = glowColors.getOrDefault(player.getUniqueId(), NamedTextColor.GRAY);
         boards.forEach((uuid, otherBoard) -> {
             if (uuid.equals(player.getUniqueId())) return;
-            // hide team
-            String hideTeamName = HIDETAG_PREFIX + player.getUniqueId();
-            Team hide = otherBoard.getTeam(hideTeamName);
-            if (hide == null) {
-                hide = otherBoard.registerNewTeam(hideTeamName);
-                hide.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-            }
-            hide.addEntry(player.getName());
-
-            NamedTextColor c = glowColors.getOrDefault(player.getUniqueId(), NamedTextColor.GRAY);
-            Team glow = otherBoard.getTeam(GLOW_PREFIX + c.toString());
-            if (glow != null) glow.addEntry(player.getName());
+            ensureGlowTeamsRegistered(otherBoard);
+            purgeLegacyHideTeams(otherBoard);
+            moveEntryToGlowTeam(otherBoard, player.getName(), myColor, "inject into " + getName(uuid) + "'s board");
         });
     }
 
+
     /** Called on PlayerQuitEvent */
     public static void onPlayerQuit(Player player) {
-        boards.remove(player.getUniqueId());
+        internalQuitCleanup(player, /*resetSidebar=*/false);
+    }
 
-        boards.values().forEach(board -> {
-            String hideTeamName = HIDETAG_PREFIX + player.getUniqueId();
-            Team hide = board.getTeam(hideTeamName);
-
-            if (hide != null) {
-                hide.removeEntry(player.getName());
-                if (hide.getEntries().isEmpty()) hide.unregister();
+    /** Call during plugin enable to attach personal boards for players already online. */
+    public static void initializeOnlinePlayers(Logger logger) {
+        int initialized = 0;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            try {
+                onPlayerJoin(player);
+                initialized++;
+            } catch (Throwable t) {
+                if (logger != null) {
+                    logger.info("Failed to initialize scoreboard for " + player.getName() + ": " + t.getMessage());
+                }
             }
+        }
+        if (initialized > 0) {
+            if (logger != null) {
+                logger.info("Initialized scoreboards for " + initialized + " already online player(s).");
+            }
+        }
+    }
 
-            glowColors.remove(player.getUniqueId());
+    /**
+     * Force-run quit cleanup for every online player.
+     * Safe to call from onDisable(); also clears internal maps.
+     */
+    public static void cleanupOnlinePlayers(Logger logger) {
+        for (Player p : new ArrayList<>(Bukkit.getOnlinePlayers())) {
+            try {
+                internalQuitCleanup(p, /*resetSidebar=*/true);
+            } catch (Throwable t) {
+                if (logger != null) {
+                    logger.warning("[ScoreboardManager] Shutdown cleanup failed for " + p.getName() + ": " + t.getMessage());
+                }
+            }
+        }
+        boards.clear();
+        glowColors.clear();
+    }
+
+    /**
+     * Shared cleanup used by both real quits and plugin shutdown.
+     */
+    private static void internalQuitCleanup(Player player, boolean resetSidebar) {
+        String entry = player.getName();
+
+        // Remove this player's entry from OUR glow teams on ALL boards (defensive)
+        boards.values().forEach(board -> {
             board.getTeams().stream()
-                    .filter(t -> t.getName().startsWith(GLOW_PREFIX))
-                    .forEach(t -> t.removeEntry(player.getName()));
+                    .filter(t -> isGlowTeam(t.getName()))
+                    .filter(t -> t.getEntries().contains(entry))
+                    .forEach(t -> t.removeEntry(entry));
+
+            if (resetSidebar) {
+                Objective obj = board.getObjective(OBJ_NAME);
+                if (obj != null) obj.unregister();
+            }
         });
 
+        // Forget color and personal board
+        glowColors.remove(player.getUniqueId());
+        boards.remove(player.getUniqueId());
+
+        // Return to main board to avoid dangling personal boards
         player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     /**
      * Updates this player's sidebar lines.
-     *
-     * @param player   The target player
-     * @param title    Localized title
-     * @param newLines New lines
-     * @param oldLines Old lines
      */
     public static void updateSidebar(Player player, Component title, List<Component> newLines, List<Component> oldLines) {
         Scoreboard board = boards.get(player.getUniqueId());
         if (board == null) return;
 
         Objective obj = board.getObjective(OBJ_NAME);
-
         if (obj == null) {
             obj = board.registerNewObjective(OBJ_NAME, OBJ_CRITERIA, title);
             obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+            obj.displayName(title);
+        } else {
             obj.displayName(title);
         }
 
@@ -140,17 +162,13 @@ public class ScoreboardManager {
                 board.resetScores(lineKey);
             }
         }
-
     }
 
     public static void removeSidebar(Player player) {
         Scoreboard board = boards.get(player.getUniqueId());
         if (board == null) return;
-
         Objective obj = board.getObjective(OBJ_NAME);
-        if (obj != null) {
-            obj.unregister();
-        }
+        if (obj != null) obj.unregister();
     }
 
     /**
@@ -159,14 +177,11 @@ public class ScoreboardManager {
      */
     public static void setGlow(Player player, NamedTextColor color) {
         glowColors.put(player.getUniqueId(), color);
+        String entry = player.getName();
 
         boards.values().forEach(board -> {
-            board.getTeams().stream()
-                    .filter(t -> t.getName().startsWith(GLOW_PREFIX))
-                    .forEach(t -> t.removeEntry(player.getName()));
-
-            Team team = board.getTeam(GLOW_PREFIX + color.toString());
-            if (team != null) team.addEntry(player.getName());
+            ensureGlowTeamsRegistered(board);
+            moveEntryToGlowTeam(board, entry, color, "setGlow");
         });
 
         player.setGlowing(true);
@@ -176,5 +191,104 @@ public class ScoreboardManager {
     public static void removeGlow(Player player) {
         setGlow(player, NamedTextColor.GRAY);
         player.setGlowing(false);
+    }
+
+    /* ---------- helpers ---------- */
+
+    private static void ensureGlowTeamsRegistered(Scoreboard board) {
+        for (NamedTextColor color : NamedTextColor.NAMES.values()) {
+            String name = glowTeamName(color);
+            Team team = board.getTeam(name);
+            if (team == null) {
+                team = board.registerNewTeam(name);
+            }
+            // Keep settings consistent
+            team.color(color);
+            team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+        }
+    }
+
+    private static void moveEntryToGlowTeam(Scoreboard board, String entry, NamedTextColor targetColor, String context) {
+        // If entry sits in a non-our team on this board, don't fight it — skip to avoid conflicts
+        Set<String> otherTeams = board.getTeams().stream()
+                .filter(t -> !isGlowTeam(t.getName()))
+                .filter(t -> t.getEntries().contains(entry))
+                .map(Team::getName)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!otherTeams.isEmpty()) {
+            warn("Entry {} already in non-glow team(s) {} on this board during {}. Skipping our team change.",
+                    entry, otherTeams, context);
+            return;
+        }
+
+        // Remove from ALL our glow teams first — only if present (defensive)
+        board.getTeams().stream()
+                .filter(t -> isGlowTeam(t.getName()))
+                .filter(t -> t.getEntries().contains(entry))
+                .forEach(t -> t.removeEntry(entry));
+
+        // Add to the selected glow team
+        String teamName = glowTeamName(targetColor);
+        Team team = board.getTeam(teamName);
+        if (team == null) {
+            warn("Glow team {} missing on a board during {} for {}", teamName, context, entry);
+            return;
+        }
+        if (!team.getEntries().contains(entry)) {
+            team.addEntry(entry);
+        }
+
+        // After: verify exactly one of our glow teams contains the entry
+        int afterGlow = (int) board.getTeams().stream()
+                .filter(t -> isGlowTeam(t.getName()))
+                .filter(t -> t.getEntries().contains(entry))
+                .count();
+        if (afterGlow != 1) {
+            warn("After {}, {} is in {} glow team(s) on a board. Teams now: {}", context, entry, afterGlow,
+                    teamsContaining(board, entry));
+        }
+    }
+
+    private static String glowTeamName(NamedTextColor color) {
+        return GLOW_PREFIX + color.toString();
+    }
+
+    private static boolean isGlowTeam(String teamName) {
+        return teamName != null && teamName.startsWith(GLOW_PREFIX);
+    }
+
+    private static void purgeLegacyHideTeams(Scoreboard board) {
+        // Remove any old "sf_nametag_*" teams (from legacy versions)
+        List<Team> legacy = new ArrayList<>();
+        for (Team t : board.getTeams()) {
+            String n = t.getName();
+            if (n.startsWith("sf_nametag_")) {
+                legacy.add(t);
+            }
+        }
+        for (Team t : legacy) {
+            for (String e : new ArrayList<>(t.getEntries())) t.removeEntry(e);
+            t.unregister();
+        }
+    }
+
+    private static Set<String> teamsContaining(Scoreboard board, String entry) {
+        return board.getTeams().stream()
+                .filter(t -> t.getEntries().contains(entry))
+                .map(Team::getName)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private static void warn(String msg, Object... args) {
+        String out = msg;
+        for (Object a : args) {
+            out = out.replaceFirst("\\{}", java.util.regex.Matcher.quoteReplacement(String.valueOf(a)));
+        }
+        Bukkit.getLogger().warning("[ScoreboardManager] " + out);
+    }
+
+    private static String getName(UUID uuid) {
+        Player p = Bukkit.getPlayer(uuid);
+        return p != null ? p.getName() : uuid.toString();
     }
 }
