@@ -35,7 +35,7 @@ public class EventBusHandler {
         vote.setServiceName(msg.getServiceName());
         vote.setUsername(msg.getUsername());
         vote.setAddress(msg.getAddress() == null ? "-" : msg.getAddress());
-        vote.setTimeStamp(String.valueOf(msg.getTimestamp()));
+        vote.setTimeStamp(String.valueOf(msg.getVoteTimestamp()));
 
         // ensure main thread
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
