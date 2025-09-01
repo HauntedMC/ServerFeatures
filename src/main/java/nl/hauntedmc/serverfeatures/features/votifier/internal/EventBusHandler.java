@@ -22,9 +22,9 @@ public class EventBusHandler {
     public void subscribe(String channel) {
         try {
             this.subscription = redisBus.subscribe(channel, VoteMessage.class, this::handleIncoming);
-            feature.getLogger().info("Votifier: subscribed to channel “" + channel + "”.");
+            feature.getLogger().info("Subscribed to channel “" + channel + "”.");
         } catch (Exception ex) {
-            feature.getLogger().severe("Votifier: failed to subscribe to “" + channel + "”");
+            feature.getLogger().severe("Failed to subscribe to “" + channel + "”");
         }
     }
 

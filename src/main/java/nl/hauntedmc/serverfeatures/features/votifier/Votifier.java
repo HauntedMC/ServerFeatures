@@ -28,7 +28,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
         return cfg;
     }
 
@@ -47,7 +47,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
                 .registerConnection("redis", DatabaseType.REDIS_MESSAGING, CONNECTION);
 
         if (opt.isEmpty()) {
-            getLogger().warning("Votifier: Redis messaging provider not available; subscribe skipped.");
+            getLogger().warning("Redis messaging provider not available; subscribe skipped.");
             return;
         }
 
@@ -55,7 +55,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         try {
             redisBus = (MessagingDataAccess) opt.get().getDataAccess();
         } catch (ClassCastException e) {
-            getLogger().warning("Votifier: DataAccess is not MessagingDataAccess; subscribe skipped.");
+            getLogger().warning("DataAccess is not MessagingDataAccess; subscribe skipped.");
             return;
         }
 
