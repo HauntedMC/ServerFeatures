@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.skins.service;
 
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
+import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
+import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateType;
 import nl.hauntedmc.serverfeatures.features.skins.internal.SkinState;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -104,6 +106,8 @@ public class SkinService {
                     applyTexturesToPlayer(now, donor); // inject signed 'textures' + refresh clients
                     state.markCustomSkin(now.getUniqueId(), true);
 
+                    Bukkit.getPluginManager().callEvent(new SkinUpdateEvent(now, SkinUpdateType.SET, donor.name()));
+
                     if (isSelf) {
                         send(actor, "skins.applied.self", Map.of("skin", donor.name));
                     } else {
@@ -165,6 +169,7 @@ public class SkinService {
 
                     if (official != null && official.texturesProp != null) {
                         applyTexturesToPlayer(now, official);
+                        Bukkit.getPluginManager().callEvent(new SkinUpdateEvent(now, SkinUpdateType.REMOVE, official.name()));
                     } else {
                         feature.getLogger().warning("[Skins] Kon originele textures niet ophalen voor " + now.getName());
                     }

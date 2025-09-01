@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 
+import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -43,6 +44,11 @@ public class NametagListener implements Listener {
         if (event.getDismounted() instanceof Player player) {
             this.feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).delay(10L).build());
         }
+    }
+
+    @EventHandler
+    public void onSkinUpdate(SkinUpdateEvent event) {
+        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).delay(10L).build());
     }
 
     @EventHandler
