@@ -23,6 +23,7 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("update_interval_ticks", 2);
         defaults.put("viewer_update_delay_ticks", 10);
+        defaults.put("max_distance", 64);
         return defaults;
 
     }

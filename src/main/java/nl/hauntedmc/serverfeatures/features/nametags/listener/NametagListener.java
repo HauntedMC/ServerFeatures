@@ -52,9 +52,9 @@ public class NametagListener implements Listener {
 
     @EventHandler
     public void onPlayerTeleport(PlayerTeleportEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        double distance = from.distance(to);
+        if (event.getFrom().getWorld() != event.getTo().getWorld()) return;
+
+        double distance = event.getFrom().distance(event.getTo());
 
         if (distance > 80) {
             this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().ownerOnly(true).build()), 5L);

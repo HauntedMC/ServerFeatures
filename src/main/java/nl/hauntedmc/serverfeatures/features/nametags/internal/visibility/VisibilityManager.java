@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility;
 
+import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.nametag.NametagVisibilityCondition;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player.*;
@@ -12,8 +13,10 @@ import java.util.List;
 public class VisibilityManager {
     private final List<PlayerVisibilityCondition> playerConditions = new ArrayList<>();
     private final List<NametagVisibilityCondition> nametagConditions = new ArrayList<>();
+    private final Nametags feature;
 
-    public VisibilityManager() {
+    public VisibilityManager(Nametags feature) {
+        this.feature = feature;
         initializePlayerConditions();
         initializeNametagConditions();
     }
@@ -25,8 +28,7 @@ public class VisibilityManager {
         playerConditions.add(new OfflineCondition());
         playerConditions.add(new DeathCondition());
         playerConditions.add(new GsitCondition());
-        playerConditions.add(new WorldCondition());
-        playerConditions.add(new DistanceCondition(56)); // 64 blocks
+        playerConditions.add(new DistanceCondition((int) feature.getConfigHandler().getSetting("max_distance"))); // 64 blocks
         if (Bukkit.getPluginManager().isPluginEnabled("LibsDisguises")) {
             playerConditions.add(new DisguiseCondition());
         }

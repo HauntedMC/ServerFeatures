@@ -34,7 +34,7 @@ public class NametagManager {
         this.feature = feature;
         this.registry = new NametagRegistry();
         this.passengerHandler = new PassengerHandler();
-        this.visibilityManager = new VisibilityManager();
+        this.visibilityManager = new VisibilityManager(feature);
         this.updateIntervalTicks = (int) feature.getConfigHandler().getSetting("update_interval_ticks");
         this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().getSetting("viewer_update_delay_ticks");
 
