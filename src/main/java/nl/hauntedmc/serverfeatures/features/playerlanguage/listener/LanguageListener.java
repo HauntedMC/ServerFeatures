@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage.listener;
 
 import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -14,7 +15,7 @@ public class LanguageListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent e) {
         feature.getService().warm(e.getPlayer().getUniqueId()); // single DB read
     }

@@ -14,7 +14,7 @@ public class PlayerListener implements Listener {
     public PlayerListener(ServerFeatures plugin) {
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.LOW)
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         ScoreboardManager.onPlayerJoin(event.getPlayer());
     }
