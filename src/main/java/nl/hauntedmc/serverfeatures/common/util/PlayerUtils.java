@@ -1,17 +1,18 @@
 package nl.hauntedmc.serverfeatures.common.util;
 
 import nl.hauntedmc.commonlib.localization.Language;
+import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import org.bukkit.entity.Player;
 
 public class PlayerUtils {
 
     /**
-     * Default method for detecting the player's language.
-     * Modify this as needed to reflect a player's actual language.
+     * Resolve from the Language feature API if available (no DB hit here).
+     * Falls back to NL to keep previous behavior if the feature is disabled.
      */
     public static Language getPlayerLanguage(Player player) {
-        return Language.NL;
+        return APIRegistry.get(LanguageAPI.class)
+                .map(api -> api.get(player.getUniqueId()))
+                .orElse(Language.NL);
     }
-
-
 }

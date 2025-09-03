@@ -52,10 +52,15 @@ public class ChatCommand extends FeatureCommand {
             return;
         }
         feature.setChatLocked(true);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendMessage(
+                    feature.getLocalizationHandler()
+                            .getMessage("chattools.locked_broadcast")
+                            .forAudience(player)
+                            .build()
+            );
+        }
 
-        Bukkit.broadcast(feature.getLocalizationHandler()
-                        .getMessage("chattools.locked_broadcast")
-                        .build());
     }
 
     private void unlock(CommandSender sender) {
@@ -71,10 +76,14 @@ public class ChatCommand extends FeatureCommand {
             return;
         }
         feature.setChatLocked(false);
-
-        Bukkit.broadcast(feature.getLocalizationHandler()
-                        .getMessage("chattools.unlocked_broadcast")
-                        .build());
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendMessage(
+                    feature.getLocalizationHandler()
+                            .getMessage("chattools.unlocked_broadcast")
+                            .forAudience(player)
+                            .build()
+            );
+        }
     }
 
     private void clear(CommandSender sender) {
@@ -86,10 +95,14 @@ public class ChatCommand extends FeatureCommand {
         for (Player p : Bukkit.getOnlinePlayers()) {
             for (int i = 0; i < lines; i++) p.sendMessage("");
         }
-
-        Bukkit.broadcast(feature.getLocalizationHandler()
-                        .getMessage("chattools.cleared_broadcast")
-                        .build());
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendMessage(
+                    feature.getLocalizationHandler()
+                            .getMessage("chattools.cleared_broadcast")
+                            .forAudience(player)
+                            .build()
+            );
+        }
     }
 
     private void usage(CommandSender s) {

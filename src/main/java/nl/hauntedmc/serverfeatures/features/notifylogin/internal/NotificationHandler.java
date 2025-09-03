@@ -22,8 +22,9 @@ public class NotificationHandler {
             if (isPlayerVanished(player)) {
                 return;
             }
-            Component joinMessage = feature.getLocalizationHandler().getMessage("notifylogin.supremeplus").forAudience(player).withPlaceholders(Map.of("name", player.getName())).build();
-            Bukkit.broadcast(joinMessage);
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                p.sendMessage(feature.getLocalizationHandler().getMessage("notifylogin.supremeplus").forAudience(p).withPlaceholders(Map.of("name", player.getName())).build());
+            }
         }
     }
 

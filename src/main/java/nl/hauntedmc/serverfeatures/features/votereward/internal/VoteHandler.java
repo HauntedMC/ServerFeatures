@@ -61,13 +61,15 @@ public class VoteHandler {
     }
 
     private void broadcastVote(String name) {
-        Bukkit.broadcast(
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("votereward.vote_broadcast")
-                            .withPlaceholders(Map.of(
-                                    "player", name))
+                            .withPlaceholders(Map.of("player", name))
+                            .forAudience(player)
                             .build()
-        );
+            );
+        }
     }
 
     private void processVote(Player player) {
