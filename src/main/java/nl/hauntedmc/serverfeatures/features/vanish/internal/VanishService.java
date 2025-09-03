@@ -216,12 +216,11 @@ public class VanishService {
 
     public void tickActionBars() {
         // Send to vanished players only
-        Component bar = feature.getLocalizationHandler()
-                .getMessage("vanish.actionbar").build();
         for (UUID id : vanished) {
             Player p = Bukkit.getPlayer(id);
             if (p != null && p.isOnline()) {
-                try { p.sendActionBar(bar); } catch (Throwable ignored) {}
+                try { p.sendActionBar(feature.getLocalizationHandler()
+                        .getMessage("vanish.actionbar").forAudience(p).build()); } catch (Throwable ignored) {}
             }
         }
     }
