@@ -33,7 +33,7 @@ public class VillagerEventListener implements Listener {
     public void onCancelVillagerDamage(EntityDamageByEntityEvent event) {
         if (!(event.getEntity() instanceof Villager vil && event.getDamager() instanceof Zombie)) return;
 
-        if (villagerAIHandler.hasMarker(vil)) {
+        if (villagerAIHandler.getDisabledByBlock(vil)) {
             event.setCancelled(true);
         }
     }

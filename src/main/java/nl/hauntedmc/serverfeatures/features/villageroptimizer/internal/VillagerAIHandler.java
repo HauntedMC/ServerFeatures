@@ -21,7 +21,6 @@ public class VillagerAIHandler {
     private static final String COOLDOWN_KEY = "cooldown";
     private static final String TIME_KEY = "time";
     private static final String LEVEL_COOLDOWN_KEY = "levelCooldown";
-    private static final String MARKER_KEY = "Marker";
     private static final String DISABLED_BY_BLOCK_KEY = "disabledByBlock";
 
 
@@ -37,7 +36,6 @@ public class VillagerAIHandler {
             if(hasCooldown(vil, player))
                 return;
             vil.setAware(false);
-            setMarker(vil);
             setDisabledByBlock(vil, true);
             setNewCooldown(vil, cooldown);
             player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.AIdisabled")
@@ -45,15 +43,14 @@ public class VillagerAIHandler {
                     .build());
         } else {
             // Re-Enabling AI
-            if (!getDisabledByBlock(vil))
-                return;
+
+//          if (!getDisabledByBlock(vil))
+//              return;
             if(hasCooldown(vil, player))
                 return;
-            if (!hasMarker(vil)) return;
             vil.setAware(true);
             setNewCooldown(vil, cooldown);
             setDisabledByBlock(vil, false);
-            removeMarker(vil);
             player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.AIenabled")
                     .forAudience(player)
                     .build());
@@ -135,23 +132,6 @@ public class VillagerAIHandler {
         PersistentDataContainer container = v.getPersistentDataContainer();
         NamespacedKey key = new NamespacedKey(feature.getPlugin(), LEVEL_COOLDOWN_KEY);
         return container.get(key, PersistentDataType.LONG);
-    }
-
-    public void setMarker(Villager v) {
-        PersistentDataContainer container = v.getPersistentDataContainer();
-        NamespacedKey key = new NamespacedKey(feature.getPlugin(), MARKER_KEY);
-        container.set(key, PersistentDataType.STRING, ("VO"));
-    }
-    public boolean hasMarker(Villager v) {
-        PersistentDataContainer container = v.getPersistentDataContainer();
-        NamespacedKey key = new NamespacedKey(feature.getPlugin(), MARKER_KEY);
-        return container.has(key, PersistentDataType.STRING);
-    }
-
-    public void removeMarker(Villager v) {
-        PersistentDataContainer container = v.getPersistentDataContainer();
-        NamespacedKey key = new NamespacedKey(feature.getPlugin(), MARKER_KEY);
-        container.remove(key);
     }
 
     public void sanityChecks(Villager vil, long currentTime) {
