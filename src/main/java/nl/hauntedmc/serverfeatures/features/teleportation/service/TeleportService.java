@@ -26,13 +26,13 @@ public class TeleportService {
     public TeleportService(Teleportation feature) {
         this.feature = feature;
         this.state = feature.getState();
-        this.finder = new SafeLocationFinder(feature);
-        this.essentials = new EssentialsHook();
         this.bounds = new TeleportBounds(feature);
+        this.finder = new SafeLocationFinder(feature, bounds); // inject bounds for consistency
+        this.essentials = new EssentialsHook();
     }
 
     /* ----------------------------- */
-    /* Helpers                       */
+    /* Helpers */
     /* ----------------------------- */
 
     private boolean tryStartCooldown(Player p, TeleportAction action, CommandSender actor) {
@@ -49,11 +49,6 @@ public class TeleportService {
         return (v instanceof Boolean b) ? b : true;
     }
 
-    private boolean consoleMsgEnabled() {
-        Object v = feature.getConfigHandler().getSetting("console_msg");
-        return (v instanceof Boolean b) ? b : true;
-    }
-
     private void playEffects(Player p) {
         if (playSoundsEnabled()) {
             p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 10f, 1.5f);
@@ -62,7 +57,7 @@ public class TeleportService {
     }
 
     /* ----------------------------- */
-    /* Public API                    */
+    /* Public API */
     /* ----------------------------- */
 
     /** /randomtp */
@@ -88,20 +83,6 @@ public class TeleportService {
             playEffects(target);
 
             Msg.send(feature, actor, "teleportation.success.randomtp", Map.of());
-
-            if (consoleMsgEnabled()) {
-                var ground = to.clone().subtract(0, 1, 0).getBlock().getType().toString();
-                var placeholders = new HashMap<String, String>();
-                placeholders.put("player", target.getName());
-                placeholders.put("world", to.getWorld().getName());
-                placeholders.put("x", String.valueOf(to.getBlockX()));
-                placeholders.put("y", String.valueOf(to.getBlockY()));
-                placeholders.put("z", String.valueOf(to.getBlockZ()));
-                placeholders.put("block", ground);
-                feature.getLogger().info(feature.getLocalizationHandler()
-                        .getMessage("teleportation.console.randomtp")
-                        .withPlaceholders(placeholders).build().toString());
-            }
         });
     }
 
@@ -121,30 +102,23 @@ public class TeleportService {
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             World world = target.getWorld();
 
-            // Keep legacy behavior: base at highest block, then force Y to argument.
-            Location base = world.getHighestBlockAt(x, z).getLocation();
-            base.setX(x + 0.5);
-            base.setZ(z + 0.5);
-            base.setY(y);
+            // New: find a safe standing spot ON GROUND: above ground if y is above,
+            // otherwise nearest safe floor BELOW (if any). Else, fail with message.
+            Location safe = finder.findSafeForTpPos(world, x, y, z);
+
+            if (safe == null) {
+                state.reset(target.getUniqueId(), TeleportAction.TP_POS);
+                Msg.send(feature, actor, "teleportation.tppos.not_safe", Map.of());
+                return;
+            }
 
             essentials.setLastLocationIfAvailable(target); // for /back
-            target.setVelocity(new org.bukkit.util.Vector(0, 0, 0));
-            target.teleport(base);
+            target.setVelocity(new Vector(0, 0, 0));
+            target.teleport(safe);
             playEffects(target);
 
             Msg.send(feature, actor, "teleportation.success.tppos", Map.of());
 
-            if (consoleMsgEnabled()) {
-                var placeholders = new HashMap<String, String>();
-                placeholders.put("player", target.getName());
-                placeholders.put("world", world.getName());
-                placeholders.put("x", String.valueOf(base.getBlockX()));
-                placeholders.put("y", String.valueOf(base.getBlockY()));
-                placeholders.put("z", String.valueOf(base.getBlockZ()));
-                feature.getLogger().info(feature.getLocalizationHandler()
-                        .getMessage("teleportation.console.tppos")
-                        .withPlaceholders(placeholders).build().toString());
-            }
         });
     }
 }

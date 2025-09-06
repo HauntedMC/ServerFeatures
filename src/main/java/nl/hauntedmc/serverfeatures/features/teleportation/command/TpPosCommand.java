@@ -14,7 +14,6 @@ import java.util.Map;
 public class TpPosCommand extends FeatureCommand {
 
     private static final String PERM = "serverfeatures.feature.teleportation.command.tppos";
-
     private final Teleportation feature;
     private final TeleportService service;
 
@@ -52,7 +51,11 @@ public class TpPosCommand extends FeatureCommand {
     }
 
     private Integer parseInt(String s) {
-        try { return Integer.parseInt(s); } catch (NumberFormatException e) { return null; }
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Override

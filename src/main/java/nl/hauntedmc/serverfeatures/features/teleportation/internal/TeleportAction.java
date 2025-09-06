@@ -5,6 +5,12 @@ public enum TeleportAction {
     TP_POS("tppos");
 
     private final String configKey;
-    TeleportAction(String configKey) { this.configKey = configKey; }
-    public String configKey() { return configKey; }
+
+    TeleportAction(String configKey) {
+        this.configKey = configKey;
+    }
+
+    public String configKey() {
+        return configKey;
+    }
 }

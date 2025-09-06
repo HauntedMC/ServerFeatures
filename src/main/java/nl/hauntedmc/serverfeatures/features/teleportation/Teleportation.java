@@ -22,7 +22,6 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-
         cfg.put("enabled", true);
 
         // Outer bounds = WorldBorder (see TeleportBounds).
@@ -36,8 +35,6 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
         cfg.put("respect_world_border", true); // WorldBorder as outer bounds
         cfg.put("disabled_blocks", java.util.List.of("LAVA", "WATER", "LILY_PAD", "CACTUS"));
         cfg.put("play_sounds", true);
-        cfg.put("show_particles", true); // reserved for future
-        cfg.put("console_msg", true);
 
         // Attempts & offsets
         cfg.put("randomtp.max_attempts", 250);
@@ -71,19 +68,14 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
         m.add("teleportation.player_only", "&cNiet bruikbaar in de console.");
         m.add("teleportation.no_permission", "&cJe mag dit commando niet uitvoeren.");
         m.add("teleportation.outside_worldborder", "&cDeze locatie ligt buiten de &eWorldBorder&c.");
-        m.add("teleportation.inside_inner_bounds",
-                "&cJe kunt hier niet teleporteren: gereserveerd gebied binnen &bX &7tussen &c{min_x} &7en &c{max_x}&7, &bZ &7tussen &c{min_z} &7en &c{max_z}&7.");
+
         // Legacy, retained for compatibility (not used by new logic)
-        m.add("teleportation.out_of_bounds",
-                "&cJe kunt alleen teleporteren binnen: &bX &7tussen &c{min_x} &7en &c{max_x}&7, &bZ &7tussen &c{min_z} &7en &c{max_z}&7.");
+        m.add("teleportation.out_of_bounds", "&cJe kunt alleen teleporteren binnen: &bX &7tussen &c{min_x} &7en &c{max_x}&7, &bZ &7tussen &c{min_z} &7en &c{max_z}&7.");
         m.add("teleportation.randomtp.no_safe_found", "&cKon geen veilige plek vinden na &e{attempts} &cpogingen. Probeer het zo nog eens.");
         m.add("teleportation.coords.invalid", "&cOngeldige coördinaten. Gebruik gehele getallen voor X/Y/Z.");
 
-        // Console logging
-        m.add("teleportation.console.randomtp",
-                "[Teleportation] {player} geteleporteerd in wereld {world} naar {x}/{y}/{z} (ondergrond {block}).");
-        m.add("teleportation.console.tppos",
-                "[Teleportation] {player} tppos naar {x}/{y}/{z} in {world}.");
+        // /tppos safety
+        m.add("teleportation.tppos.not_safe", "&cGeen veilige plek gevonden op of onder deze coördinaat. &7Pas je &eY &7of &eX/Z &7aan en probeer opnieuw.");
 
         return m;
     }

@@ -68,10 +68,12 @@ public class TeleportState {
     private static final class CooldownKey {
         private final UUID playerId;
         private final TeleportAction action;
+
         private CooldownKey(UUID playerId, TeleportAction action) {
             this.playerId = playerId;
             this.action = action;
         }
+
         @Override public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof CooldownKey that)) return false;

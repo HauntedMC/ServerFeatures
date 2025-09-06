@@ -10,7 +10,7 @@ import java.util.Optional;
 /**
  * Boundary logic:
  * - Outer bounds: WorldBorder (recommended). Can be disabled via respect_world_border=false.
- * - Inner bounds: configured rectangle (min_x..max_x, min_z..max_z) as a *reserved/no-TP* region.
+ * - Inner bounds: configured rectangle (min_x..max_x, min_z..max_z) as a reserved/no-TP region.
  *   NOTE: Inner bounds are only used by RandomTP (not by direct /tppos).
  */
 public class TeleportBounds {

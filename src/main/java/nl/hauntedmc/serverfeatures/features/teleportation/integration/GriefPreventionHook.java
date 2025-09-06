@@ -19,6 +19,7 @@ public class GriefPreventionHook {
     public boolean isInClaim(Location loc) {
         if (gp == null) return false;
         try {
+            // Using static instance to match common API patterns across GP versions
             Claim claim = GriefPrevention.instance.dataStore.getClaimAt(loc, false, null);
             return claim != null;
         } catch (Throwable ignored) {

@@ -20,10 +20,10 @@ public class SafeLocationFinder {
     private final GriefPreventionHook gpHook;
     private final TeleportBounds bounds;
 
-    public SafeLocationFinder(Teleportation feature) {
+    public SafeLocationFinder(Teleportation feature, TeleportBounds bounds) {
         this.feature = feature;
         this.gpHook = new GriefPreventionHook();
-        this.bounds = new TeleportBounds(feature);
+        this.bounds = bounds;
     }
 
     public int maxAttempts() {
@@ -48,7 +48,12 @@ public class SafeLocationFinder {
         return Set.of(Material.LAVA, Material.WATER, Material.LILY_PAD, Material.CACTUS);
     }
 
-    /** Random safe location:
+    /* ----------------------------- */
+    /* Random safe location */
+    /* ----------------------------- */
+
+    /**
+     * Random safe location:
      * - Inside WorldBorder (outer)
      * - NOT inside inner reserved rect (if configured)
      * - NOT in GP claims
@@ -59,20 +64,19 @@ public class SafeLocationFinder {
         final int attempts = maxAttempts();
         final double yOffset = yOffsetAfterHighest();
         final ThreadLocalRandom r = ThreadLocalRandom.current();
+
         final TeleportBounds.Rect outer = bounds.outerRect(world);
         final Optional<TeleportBounds.Rect> innerOpt = bounds.innerRect();
 
         for (int i = 0; i < attempts; i++) {
             int x = randomInclusive(outer.minX(), outer.maxX(), r);
             int z = randomInclusive(outer.minZ(), outer.maxZ(), r);
-
             if (innerOpt.isPresent() && innerOpt.get().contains(x, z)) continue;
 
             Location loc = world.getHighestBlockAt(x, z).getLocation();
             Block ground = loc.getBlock();
 
-            if (disabled.contains(ground.getType()) ||
-                    disabled.contains(ground.getRelative(BlockFace.DOWN).getType())) {
+            if (disabled.contains(ground.getType()) || disabled.contains(ground.getRelative(BlockFace.DOWN).getType())) {
                 continue;
             }
 
@@ -83,7 +87,6 @@ public class SafeLocationFinder {
             tp.setY(clampedY);
             return tp;
         }
-
         return null;
     }
 
@@ -91,5 +94,76 @@ public class SafeLocationFinder {
         int bound = (max - min) + 1;
         if (bound <= 0) return min;
         return r.nextInt(bound) + min;
+    }
+
+    /* ----------------------------- */
+    /* /tppos safe resolution */
+    /* ----------------------------- */
+
+    /**
+     * Resolve a safe standing spot for /tppos at X/Z with a given Y:
+     *
+     * - If Y is above the current surface: place the player on top of the surface (if safe).
+     * - Otherwise: search downward from Y for the nearest safe floor.
+     * - "Safe" means: solid non-disabled ground below; feet and head are clear and non-liquid.
+     * - Returns null if none is found (caller should inform the user to adjust coordinates).
+     */
+    public Location findSafeForTpPos(World world, int x, int y, int z) {
+        final Set<Material> disabled = readDisabledMaterials();
+
+        final int minY = world.getMinHeight();
+        final int maxY = world.getMaxHeight() - 1; // feet must be <= max-1 (head at +1)
+
+        // Center on block
+        final double centerX = x + 0.5;
+        final double centerZ = z + 0.5;
+
+        // Current "surface" top (highest solid/fluid block), feet would stand at +1
+        final int surfaceFeetY = world.getHighestBlockYAt(x, z) + 1;
+
+        // Case 1: Above ground → put safely on the ground (if safe)
+        if (y >= surfaceFeetY) {
+            if (isSafeFeetY(world, x, surfaceFeetY, z, disabled)) {
+                return new Location(world, centerX, Math.clamp(surfaceFeetY, minY, maxY), centerZ);
+            } else {
+                return null;
+            }
+        }
+
+        // Case 2: Below/inside → search downward from y for nearest safe floor
+        int startFeetY = Math.clamp(y, minY + 1, maxY); // feet y; ground at feetY-1
+        for (int feetY = startFeetY; feetY >= minY + 1; feetY--) {
+            if (isSafeFeetY(world, x, feetY, z, disabled)) {
+                return new Location(world, centerX, feetY, centerZ);
+            }
+        }
+
+        return null;
+    }
+
+    private boolean isSafeFeetY(World world, int x, int feetY, int z, Set<Material> disabled) {
+        // Ensure head fits
+        if (feetY + 1 >= world.getMaxHeight()) return false;
+
+        Block ground = world.getBlockAt(x, feetY - 1, z);
+        Block feet   = world.getBlockAt(x, feetY, z);
+        Block head   = world.getBlockAt(x, feetY + 1, z);
+
+        // Ground must be solid and not passable, and not in disabled list
+        var groundType = ground.getType();
+        boolean solidGround = groundType.isSolid() && !ground.isPassable() && !disabled.contains(groundType);
+
+        // Feet & head must be clear and not liquid
+        boolean feetClear = isClearSpace(feet);
+        boolean headClear = isClearSpace(head);
+
+        return solidGround && feetClear && headClear;
+    }
+
+    private boolean isClearSpace(Block b) {
+        var t = b.getType();
+        if (t.isAir()) return true;
+        if (b.isLiquid()) return false;
+        return b.isPassable();
     }
 }

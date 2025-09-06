@@ -14,7 +14,6 @@ import java.util.Map;
 public class RandomTpCommand extends FeatureCommand {
 
     private static final String PERM = "serverfeatures.feature.teleportation.command.randomtp";
-
     private final Teleportation feature;
     private final TeleportService service;
 
