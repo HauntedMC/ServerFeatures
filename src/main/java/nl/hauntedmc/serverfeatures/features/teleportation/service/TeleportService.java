@@ -6,93 +6,73 @@ import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportActio
 import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportState;
 import nl.hauntedmc.serverfeatures.features.teleportation.util.Msg;
 import org.bukkit.Location;
-import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-import java.util.HashMap;
 import java.util.Map;
 
 public class TeleportService {
 
     private final Teleportation feature;
     private final TeleportState state;
-    private final SafeLocationFinder finder;
-    private final EssentialsHook essentials;
     private final TeleportBounds bounds;
+    private final SafeLocationFinder finder;
+    private final BackService backService;
+    private final TeleportEffects effects;
+    private final EssentialsHook essentials;
 
-    public TeleportService(Teleportation feature) {
+    public TeleportService(Teleportation feature,
+                           TeleportState state,
+                           TeleportBounds bounds,
+                           SafeLocationFinder finder,
+                           BackService backService,
+                           TeleportEffects effects) {
         this.feature = feature;
-        this.state = feature.getState();
-        this.bounds = new TeleportBounds(feature);
-        this.finder = new SafeLocationFinder(feature, bounds); // inject bounds for consistency
+        this.state = state;
+        this.bounds = bounds;
+        this.finder = finder;
+        this.backService = backService;
+        this.effects = effects;
         this.essentials = new EssentialsHook();
     }
 
     /* ----------------------------- */
-    /* Helpers */
-    /* ----------------------------- */
-
-    private boolean tryStartCooldown(Player p, TeleportAction action, CommandSender actor) {
-        long now = System.currentTimeMillis();
-        if (state.tryStart(p.getUniqueId(), action, now)) return true;
-
-        long remaining = state.remainingCooldownSeconds(p.getUniqueId(), action, now);
-        Msg.send(feature, actor, "teleportation.cooldown_active", Map.of("seconds", String.valueOf(remaining)));
-        return false;
-    }
-
-    private boolean playSoundsEnabled() {
-        Object v = feature.getConfigHandler().getSetting("play_sounds");
-        return (v instanceof Boolean b) ? b : true;
-    }
-
-    private void playEffects(Player p) {
-        if (playSoundsEnabled()) {
-            p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 10f, 1.5f);
-            p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_FLAP, 10f, 1.5f);
-        }
-    }
-
-    /* ----------------------------- */
-    /* Public API */
+    /* Public API - Commands         */
     /* ----------------------------- */
 
     /** /randomtp */
     public void randomTp(CommandSender actor, Player target) {
-        if (!tryStartCooldown(target, TeleportAction.RANDOM_TP, actor)) return;
+        if (!checkAndStartCooldown(actor, target, TeleportAction.RANDOM_TP)) return;
 
         Msg.send(feature, actor, "teleportation.working.randomtp", Map.of());
 
+        // Run synchronously (world access is not thread-safe)
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             World world = target.getWorld();
-            Location to = finder.findRandomSafeLocation(world); // respects outer WB + inner exclusion
 
+            Location to = finder.findRandomSafeLocation(world); // respects outer WB + inner exclusion + claims
             if (to == null) {
                 state.reset(target.getUniqueId(), TeleportAction.RANDOM_TP); // allow retry
                 int attempts = finder.maxAttempts();
-                Msg.send(feature, actor, "teleportation.randomtp.no_safe_found", Map.of("attempts", String.valueOf(attempts)));
+                Msg.send(feature, actor, "teleportation.randomtp.no_safe_found",
+                        Map.of("attempts", String.valueOf(attempts)));
                 return;
             }
 
-            essentials.setLastLocationIfAvailable(target); // for /back
-            target.setVelocity(new Vector(0, 0, 0));
-            target.teleport(to);
-            playEffects(target);
-
-            Msg.send(feature, actor, "teleportation.success.randomtp", Map.of());
+            performTeleport(actor, target, to, TeleportAction.RANDOM_TP,
+                    () -> Msg.send(feature, actor, "teleportation.success.randomtp", Map.of()));
         });
     }
 
     /** /tppos <x> <y> <z> */
     public void tpPos(CommandSender actor, Player target, int x, int y, int z) {
-        if (!tryStartCooldown(target, TeleportAction.TP_POS, actor)) return;
+        if (!checkAndStartCooldown(actor, target, TeleportAction.TP_POS)) return;
 
-        // Only outer (WorldBorder) check for /tppos
-        if (!bounds.withinOuter(target.getWorld(), x, z)) {
-            Msg.send(feature, actor, "teleportation.outside_worldborder", Map.of());
+        // Only outer (WorldBorder) check for /tppos unless actor has override
+        if (!actor.hasPermission("serverfeatures.feature.teleportation.bypass.worldborder") && !bounds.withinOuter(target.getWorld(), x, z)) {
+            Msg.send(feature, actor, "teleportation.tppos.outside_worldborder", Map.of());
             state.reset(target.getUniqueId(), TeleportAction.TP_POS);
             return;
         }
@@ -102,23 +82,64 @@ public class TeleportService {
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             World world = target.getWorld();
 
-            // New: find a safe standing spot ON GROUND: above ground if y is above,
-            // otherwise nearest safe floor BELOW (if any). Else, fail with message.
             Location safe = finder.findSafeForTpPos(world, x, y, z);
-
             if (safe == null) {
                 state.reset(target.getUniqueId(), TeleportAction.TP_POS);
                 Msg.send(feature, actor, "teleportation.tppos.not_safe", Map.of());
                 return;
             }
 
-            essentials.setLastLocationIfAvailable(target); // for /back
-            target.setVelocity(new Vector(0, 0, 0));
-            target.teleport(safe);
-            playEffects(target);
-
-            Msg.send(feature, actor, "teleportation.success.tppos", Map.of());
-
+            performTeleport(actor, target, safe, TeleportAction.TP_POS,
+                    () -> Msg.send(feature, actor, "teleportation.success.tppos", Map.of()));
         });
+    }
+
+    /* ----------------------------- */
+    /* Core flow                     */
+    /* ----------------------------- */
+
+    private void performTeleport(CommandSender actor,
+                                 Player target,
+                                 Location destination,
+                                 TeleportAction action,
+                                 Runnable onSuccessMessage) {
+
+        try {
+            // record /back with Essentials and local fallback
+            backService.recordBackLocation(target.getUniqueId(), target.getLocation());
+            essentials.setLastLocationIfAvailable(target);
+
+            // Stabilize motion and teleport
+            target.setVelocity(new Vector(0, 0, 0));
+            boolean ok = target.teleport(destination);
+
+            if (!ok) {
+                state.reset(target.getUniqueId(), action);
+                Msg.send(feature, actor, "teleportation.error.internal", Map.of());
+                return;
+            }
+
+            // FX
+            effects.playFor(target);
+
+            // Success message
+            onSuccessMessage.run();
+
+        } catch (Throwable t) {
+            state.reset(target.getUniqueId(), action);
+            Msg.send(feature, actor, "teleportation.error.internal", Map.of());
+        }
+    }
+
+    private boolean checkAndStartCooldown(CommandSender actor, Player target, TeleportAction action) {
+        if (actor.hasPermission("serverfeatures.feature.teleportation.bypass.cooldown")) return true;
+
+        long now = System.currentTimeMillis();
+        if (state.tryStart(target.getUniqueId(), action, now)) return true;
+
+        long remaining = state.remainingCooldownSeconds(target.getUniqueId(), action, now);
+        Msg.send(feature, actor, "teleportation.cooldown_active",
+                Map.of("seconds", String.valueOf(remaining)));
+        return false;
     }
 }

@@ -74,7 +74,7 @@ public class TeleportBounds {
         return new Rect(minX, maxX, minZ, maxZ);
     }
 
-    /** Outer-only check: used by /tppos. */
+    /** Outer-only check: used by /tppos (unless bypass). */
     public boolean withinOuter(World world, int x, int z) {
         return outerRect(world).contains(x, z);
     }

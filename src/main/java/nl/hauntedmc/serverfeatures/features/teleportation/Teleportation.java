@@ -8,7 +8,7 @@ import nl.hauntedmc.serverfeatures.features.teleportation.command.RandomTpComman
 import nl.hauntedmc.serverfeatures.features.teleportation.command.TpPosCommand;
 import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportState;
 import nl.hauntedmc.serverfeatures.features.teleportation.meta.Meta;
-import nl.hauntedmc.serverfeatures.features.teleportation.service.TeleportService;
+import nl.hauntedmc.serverfeatures.features.teleportation.service.*;
 
 public class Teleportation extends BukkitBaseFeature<Meta> {
 
@@ -64,17 +64,15 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
         m.add("teleportation.success.tppos", "&bJe bent naar de gewenste locatie geteleporteerd. &aBekijk ook onze Dynmap: &7www.hauntedmc.nl/dynmap");
 
         // Errors/validatie
-        m.add("teleportation.cooldown_active", "&cJe kunt dit nog niet doen. Wacht &e{seconds}s&c.");
-        m.add("teleportation.player_only", "&cNiet bruikbaar in de console.");
-        m.add("teleportation.no_permission", "&cJe mag dit commando niet uitvoeren.");
-        m.add("teleportation.outside_worldborder", "&cDeze locatie ligt buiten de &eWorldBorder&c.");
+        m.add("teleportation.cooldown_active", "&cJe kunt dit nog niet doen. Je moet nog &e{seconds}s&c wachten.");
+        m.add("teleportation.error.internal", "&cEr ging iets mis met teleporteren. Probeer het later opnieuw.");
 
-        // Legacy, retained for compatibility (not used by new logic)
-        m.add("teleportation.out_of_bounds", "&cJe kunt alleen teleporteren binnen: &bX &7tussen &c{min_x} &7en &c{max_x}&7, &bZ &7tussen &c{min_z} &7en &c{max_z}&7.");
+        // /randomtp safety
         m.add("teleportation.randomtp.no_safe_found", "&cKon geen veilige plek vinden na &e{attempts} &cpogingen. Probeer het zo nog eens.");
-        m.add("teleportation.coords.invalid", "&cOngeldige coördinaten. Gebruik gehele getallen voor X/Y/Z.");
 
         // /tppos safety
+        m.add("teleportation.tppos.coords_invalid", "&cOngeldige coördinaten. Gebruik gehele getallen voor X/Y/Z.");
+        m.add("teleportation.tppos.outside_worldborder", "&cDeze locatie ligt buiten de &eWorldBorder&c.");
         m.add("teleportation.tppos.not_safe", "&cGeen veilige plek gevonden op of onder deze coördinaat. &7Pas je &eY &7of &eX/Z &7aan en probeer opnieuw.");
 
         return m;
@@ -82,7 +80,14 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        this.service = new TeleportService(this);
+        // Compose service with small SRP helpers
+        TeleportBounds bounds = new TeleportBounds(this);
+        SafeLocationFinder finder = new SafeLocationFinder(this, bounds);
+        BackService backService = BackService.createWithEssentialsFallback();
+        TeleportEffects effects = new TeleportEffects(this);
+
+        this.service = new TeleportService(this, state, bounds, finder, backService, effects);
+
         getLifecycleManager().getCommandManager().registerFeatureCommand(new RandomTpCommand(this, service));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new TpPosCommand(this, service));
     }

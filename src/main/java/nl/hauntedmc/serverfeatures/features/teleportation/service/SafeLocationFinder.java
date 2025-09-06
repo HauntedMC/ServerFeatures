@@ -54,9 +54,9 @@ public class SafeLocationFinder {
 
     /**
      * Random safe location:
-     * - Inside WorldBorder (outer)
+     * - Inside WorldBorder (outer) unless disabled
      * - NOT inside inner reserved rect (if configured)
-     * - NOT in GP claims
+     * - NOT in GP claims (unless bypass permission)
      * - Avoids disabled ground materials
      */
     public Location findRandomSafeLocation(World world) {
@@ -73,17 +73,19 @@ public class SafeLocationFinder {
             int z = randomInclusive(outer.minZ(), outer.maxZ(), r);
             if (innerOpt.isPresent() && innerOpt.get().contains(x, z)) continue;
 
-            Location loc = world.getHighestBlockAt(x, z).getLocation();
-            Block ground = loc.getBlock();
+            var highest = world.getHighestBlockAt(x, z);
+            Block ground = highest.getLocation().getBlock();
 
             if (disabled.contains(ground.getType()) || disabled.contains(ground.getRelative(BlockFace.DOWN).getType())) {
                 continue;
             }
 
-            if (gpHook.isInClaim(loc)) continue;
+            // Skip GP claims unless actor has bypass - we don't have actor here,
+            // so rely on a conservative env: if GP present, we avoid randoming into claims.
+            if (gpHook.isInClaim(highest.getLocation())) continue;
 
-            Location tp = loc.clone().add(0.5, yOffset, 0.5);
-            double clampedY = Math.max(world.getMinHeight(), Math.min(tp.getY(), world.getMaxHeight() - 1));
+            Location tp = highest.getLocation().add(0.5, yOffset, 0.5);
+            double clampedY = Math.clamp(tp.getY(), world.getMinHeight(), world.getMaxHeight() - 1);
             tp.setY(clampedY);
             return tp;
         }
@@ -91,9 +93,9 @@ public class SafeLocationFinder {
     }
 
     private int randomInclusive(int min, int max, ThreadLocalRandom r) {
-        int bound = (max - min) + 1;
-        if (bound <= 0) return min;
-        return r.nextInt(bound) + min;
+        long bound = ((long) max - (long) min) + 1L;
+        if (bound <= 0L) return min; // degenerate
+        return (int) (r.nextLong(bound) + min);
     }
 
     /* ----------------------------- */
@@ -118,20 +120,21 @@ public class SafeLocationFinder {
         final double centerX = x + 0.5;
         final double centerZ = z + 0.5;
 
-        // Current "surface" top (highest solid/fluid block), feet would stand at +1
+        // "Surface" top (highest non-air block); feet would stand at +1
         final int surfaceFeetY = world.getHighestBlockYAt(x, z) + 1;
 
         // Case 1: Above ground → put safely on the ground (if safe)
         if (y >= surfaceFeetY) {
-            if (isSafeFeetY(world, x, surfaceFeetY, z, disabled)) {
-                return new Location(world, centerX, Math.clamp(surfaceFeetY, minY, maxY), centerZ);
+            int feetY = Math.clamp(surfaceFeetY, minY + 1, maxY);
+            if (isSafeFeetY(world, x, feetY, z, disabled)) {
+                return new Location(world, centerX, feetY, centerZ);
             } else {
                 return null;
             }
         }
 
         // Case 2: Below/inside → search downward from y for nearest safe floor
-        int startFeetY = Math.clamp(y, minY + 1, maxY); // feet y; ground at feetY-1
+        int startFeetY = Math.clamp(y, minY + 1, maxY);
         for (int feetY = startFeetY; feetY >= minY + 1; feetY--) {
             if (isSafeFeetY(world, x, feetY, z, disabled)) {
                 return new Location(world, centerX, feetY, centerZ);

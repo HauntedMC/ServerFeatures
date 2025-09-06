@@ -26,11 +26,11 @@ public class RandomTpCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player p)) {
-            Msg.send(feature, sender, "teleportation.player_only", Map.of());
+            Msg.send(feature, sender, "general.player_command", Map.of());
             return true;
         }
         if (!sender.hasPermission(PERM)) {
-            Msg.send(feature, sender, "teleportation.no_permission", Map.of());
+            Msg.send(feature, sender, "general.no_permission", Map.of());
             return true;
         }
         if (args.length != 0) {
