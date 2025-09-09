@@ -11,18 +11,32 @@ command:
     usage: '&cGebruik: /serverfeatures reload <feature>'
     success: '&7Feature &e{feature} &7is succesvol herladen.'
     fail: '&cDeze feature bestaat niet of is niet ingeschakeld.'
+    not_loaded: '&cFeature &e{feature}&c is niet geladen.'
+    success_with_dependents: '&7Feature &e{feature}&7 is herladen. Afhankelijkheden ook herladen: &e{dependents}&7.'
+    failed: '&cHerladen van feature &e{feature}&c is mislukt. Bekijk de console voor details.'
   softreload:
     usage: '&cGebruik: /serverfeatures softreload <feature>'
     success: '&7Feature configuratie &e{feature} &7is succesvol herladen.'
     fail: '&cDeze feature bestaat niet of is niet ingeschakeld.'
+    not_loaded: '&cFeature &e{feature}&c is niet geladen.'
+    failed: '&cSoft reload van feature &e{feature}&c is mislukt. Bekijk de console voor details.'
   enable:
     success: '&7Feature &e{feature} &7is &aingeschakeld&7.'
     fail: '&cDeze feature bestaat niet of is al ingeschakeld.'
+    not_found: '&cDeze feature &e{feature}&c bestaat niet.'
+    already_loaded: '&cFeature &e{feature}&c is al ingeschakeld.'
+    missing_plugin_dependency: '&cKan feature &e{feature}&c niet inschakelen: ontbrekende plugin-dependency(s): &e{plugins}&c.'
+    missing_feature_dependency: '&cKan feature &e{feature}&c niet inschakelen: ontbrekende feature-dependency(s): &e{features}&c.'
+    failed: '&cInschakelen van feature &e{feature}&c is mislukt. Bekijk de console voor details.'
   disable:
     success: '&7Feature &e{feature} &7is &cuitgeschakeld&7.'
     fail: '&cDeze feature bestaat niet of is al uitgeschakeld.'
+    not_loaded: '&cFeature &e{feature}&c is niet geladen.'
+    success_with_dependents: '&7Feature &e{feature}&7 is &cuitgeschakeld&7. Ook uitgeschakeld: &e{dependents}&7.'
+    failed: '&cUitschakelen van feature &e{feature}&c is mislukt. Bekijk de console voor details.'
   reloadlocal:
     success: '&7De localization is opnieuw geladen.'
+    fail: '&cHerladen van localization is mislukt. Bekijk de console voor details.'
   list:
     empty: '&7Er zijn momenteel geen ingeschakelde functies.'
     header: '&aIngeschakelde functies:'

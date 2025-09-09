@@ -4,11 +4,22 @@ import nl.hauntedmc.commonlib.featureapi.event.FeatureDisabledEvent;
 import nl.hauntedmc.commonlib.featureapi.event.FeatureEventManager;
 import nl.hauntedmc.commonlib.featureapi.event.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import nl.hauntedmc.serverfeatures.internal.action.disable.FeatureDisableResponse;
+import nl.hauntedmc.serverfeatures.internal.action.disable.FeatureDisableResult;
+import nl.hauntedmc.serverfeatures.internal.action.enable.FeatureEnableResponse;
+import nl.hauntedmc.serverfeatures.internal.action.enable.FeatureEnableResult;
+import nl.hauntedmc.serverfeatures.internal.action.reload.FeatureReloadResponse;
+import nl.hauntedmc.serverfeatures.internal.action.reload.FeatureReloadResult;
+import nl.hauntedmc.serverfeatures.internal.action.softreload.FeatureSoftReloadResponse;
+import nl.hauntedmc.serverfeatures.internal.action.softreload.FeatureSoftReloadResult;
+import nl.hauntedmc.serverfeatures.internal.dependency.DependencyCheckResult;
+import nl.hauntedmc.serverfeatures.internal.dependency.FeatureDependencyManager;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -29,9 +40,6 @@ public class FeatureLoadManager {
         discoverFeatures();
     }
 
-    /**
-     * Uses ClassGraph to dynamically discover all available features.
-     */
     private void discoverFeatures() {
         plugin.getLogger().info("[FeatureScanner] Scanning for features...");
         try (var scanResult = new io.github.classgraph.ClassGraph()
@@ -55,9 +63,6 @@ public class FeatureLoadManager {
         mainConfigHandler.cleanupUnusedFeatures(featureRegistry.getAvailableFeatures().keySet());
     }
 
-    /**
-     * Initializes all enabled features using topological sorting.
-     */
     public void initializeFeatures() {
         Set<String> visited = new HashSet<>();
         List<String> loadOrder = new ArrayList<>();
@@ -76,11 +81,8 @@ public class FeatureLoadManager {
         }
     }
 
-    /**
-     * Recursively determines the correct feature loading order.
-     */
     private boolean resolveFeatureLoadOrder(String featureName, Set<String> stack, Set<String> visited, List<String> loadOrder) {
-        if (stack.contains(featureName)) return false; // Cycle detected
+        if (stack.contains(featureName)) return false;
         if (visited.contains(featureName)) return true;
 
         stack.add(featureName);
@@ -100,23 +102,165 @@ public class FeatureLoadManager {
         return true;
     }
 
-
-    /**
-     * Enables and loads a feature dynamically.
-     */
-    public boolean enableFeature(String featureName) {
+    public FeatureEnableResponse enableFeature(String featureName) {
         if (!featureRegistry.getAvailableFeatures().containsKey(featureName)) {
             plugin.getLogger().warning("Feature not found: " + featureName);
-            return false;
+            return new FeatureEnableResponse(FeatureEnableResult.NOT_FOUND, Set.of(), Set.of());
         }
+        if (featureRegistry.isFeatureLoaded(featureName)) {
+            plugin.getLogger().warning("Feature already loaded: " + featureName);
+            return new FeatureEnableResponse(FeatureEnableResult.ALREADY_LOADED, Set.of(), Set.of());
+        }
+
+        BukkitBaseFeature<?> feature = FeatureFactory.createFeature(featureRegistry.getAvailableFeatures().get(featureName), plugin);
+        if (feature == null) {
+            return new FeatureEnableResponse(FeatureEnableResult.FAILED, Set.of(), Set.of());
+        }
+
+        DependencyCheckResult diag = diagnoseDependencies(feature);
+        if (!diag.ok()) {
+            if (!diag.missingPluginDependencies().isEmpty()) {
+                return new FeatureEnableResponse(FeatureEnableResult.MISSING_PLUGIN_DEPENDENCY, diag.missingPluginDependencies(), diag.missingFeatureDependencies());
+            }
+            return new FeatureEnableResponse(FeatureEnableResult.MISSING_FEATURE_DEPENDENCY, diag.missingPluginDependencies(), diag.missingFeatureDependencies());
+        }
+
+        boolean previousEnabled = mainConfigHandler.isFeatureEnabled(featureName);
         mainConfigHandler.setFeatureEnabled(featureName, true);
-        return loadFeature(featureName);
+
+        boolean loaded = loadFeature(featureName);
+        if (!loaded) {
+            mainConfigHandler.setFeatureEnabled(featureName, previousEnabled);
+            return new FeatureEnableResponse(FeatureEnableResult.FAILED, Set.of(), Set.of());
+        }
+
+        return new FeatureEnableResponse(FeatureEnableResult.SUCCESS, Set.of(), Set.of());
     }
 
+    public FeatureDisableResponse disableFeature(String featureName) {
+        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+        if (feature == null) {
+            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
+            return new FeatureDisableResponse(FeatureDisableResult.NOT_LOADED, featureName, Set.of());
+        }
 
-    /**
-     * Loads and initializes a feature.
-     */
+        // Determine and disable dependents first (to avoid dangling refs)
+        Set<String> dependents = new LinkedHashSet<>(dependencyManager.getDependentFeatures(featureName));
+        for (String dep : dependents) {
+            FeatureDisableResponse depResp = disableFeature(dep);
+            if (!depResp.success()) {
+                plugin.getLogger().warning("Failed to disable dependent feature: " + dep);
+            }
+        }
+
+        try {
+            feature.cleanup();
+            mainConfigHandler.setFeatureEnabled(featureName, false);
+            featureRegistry.deregisterLoadedFeature(featureName);
+            FeatureEventManager.triggerEvent(new FeatureDisabledEvent(featureName));
+            plugin.getLogger().info("Feature disabled: " + featureName);
+            return new FeatureDisableResponse(FeatureDisableResult.SUCCESS, featureName, dependents);
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.SEVERE, "Disable failed: " + featureName, t);
+            return new FeatureDisableResponse(FeatureDisableResult.FAILED, featureName, dependents);
+        }
+    }
+
+    public FeatureSoftReloadResponse softReloadFeature(String featureName) {
+        if (!featureRegistry.isFeatureLoaded(featureName)) {
+            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
+            return new FeatureSoftReloadResponse(FeatureSoftReloadResult.NOT_LOADED, featureName);
+        }
+        try {
+            BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+            feature.getConfigHandler().reloadConfig();
+            feature.getLocalizationHandler().reloadLocalization();
+            plugin.getLogger().info("Feature " + featureName + " soft reloaded.");
+            return new FeatureSoftReloadResponse(FeatureSoftReloadResult.SUCCESS, featureName);
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.SEVERE, "Soft reload failed for: " + featureName, t);
+            return new FeatureSoftReloadResponse(FeatureSoftReloadResult.FAILED, featureName);
+        }
+    }
+
+    public FeatureReloadResponse reloadFeature(String featureName) {
+        if (!featureRegistry.isFeatureLoaded(featureName)) {
+            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
+            return new FeatureReloadResponse(FeatureReloadResult.NOT_LOADED, featureName, Set.of());
+        }
+
+        Set<String> reloadedDependents = new LinkedHashSet<>();
+        try {
+            mainConfigHandler.reloadConfig();
+            localizationHandler.reloadLocalization();
+
+            BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
+            feature.cleanup();
+            featureRegistry.deregisterLoadedFeature(featureName);
+
+            boolean hasReloaded = loadFeature(featureName);
+            if (!hasReloaded) {
+                plugin.getLogger().severe("Reload failed for: " + featureName + " (feature did not load back)");
+                return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureName, reloadedDependents);
+            }
+
+            plugin.getLogger().info("Feature " + featureName + " reloaded.");
+
+            // Reload dependents automatically (best-effort)
+            for (String dependent : dependencyManager.getDependentFeatures(featureName)) {
+                plugin.getLogger().info("Reloading dependent feature: " + dependent);
+                FeatureReloadResponse depResp = reloadFeature(dependent);
+                if (depResp.success()) reloadedDependents.add(dependent);
+            }
+            return new FeatureReloadResponse(FeatureReloadResult.SUCCESS, featureName, reloadedDependents);
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.SEVERE, "Reload failed for: " + featureName, t);
+            return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureName, reloadedDependents);
+        }
+    }
+
+    public FeatureRegistry getFeatureRegistry() { return featureRegistry; }
+
+    public void unloadAllFeatures() {
+        plugin.getLogger().info("Unloading all loaded features...");
+        List<BukkitBaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
+        for (BukkitBaseFeature<?> feature : loadedFeatures) {
+            feature.cleanup();
+        }
+        plugin.getLogger().info("All features have been unloaded.");
+    }
+
+    private DependencyCheckResult diagnoseDependencies(BukkitBaseFeature<?> feature) {
+        Set<String> missingPlugins = new LinkedHashSet<>();
+        Set<String> missingFeatures = new LinkedHashSet<>();
+
+        // Optional: getPluginDependencies()
+        try {
+            Method m = feature.getClass().getMethod("getPluginDependencies");
+            Object o = m.invoke(feature);
+            if (o instanceof Collection<?> col) {
+                for (Object item : col) {
+                    String name = String.valueOf(item);
+                    var pl = plugin.getServer().getPluginManager().getPlugin(name);
+                    if (pl == null || !pl.isEnabled()) {
+                        missingPlugins.add(name);
+                    }
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+        } catch (Throwable t) {
+            plugin.getLogger().log(Level.WARNING, "Failed to read plugin dependencies for " + feature.getFeatureName(), t);
+        }
+
+        // Feature dependencies
+        for (String dep : feature.getDependencies()) {
+            if (!featureRegistry.isFeatureLoaded(dep)) {
+                missingFeatures.add(dep);
+            }
+        }
+        return new DependencyCheckResult(missingPlugins, missingFeatures);
+    }
+
     public boolean loadFeature(String featureName) {
         if (featureRegistry.isFeatureLoaded(featureName)) {
             plugin.getLogger().warning("Feature already loaded: " + featureName);
@@ -142,94 +286,6 @@ public class FeatureLoadManager {
             FeatureEventManager.triggerEvent(new FeatureLoadedEvent(featureName));
             return true;
         }
-
         return false;
-    }
-
-    /**
-     * Disables and unloads a feature dynamically.
-     */
-    public boolean disableFeature(String featureName) {
-        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-        if (feature == null) {
-            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
-            return false;
-        }
-        feature.cleanup();
-        mainConfigHandler.setFeatureEnabled(featureName, false);
-        plugin.getLogger().info("Feature disabled: " + featureName);
-        featureRegistry.deregisterLoadedFeature(featureName);
-        FeatureEventManager.triggerEvent(new FeatureDisabledEvent(featureName));
-
-        // Disable dependent features
-        for (String dependent : dependencyManager.getDependentFeatures(featureName)) {
-            disableFeature(dependent);
-        }
-
-        return true;
-    }
-
-    public boolean softReloadFeature(String featureName) {
-        if (!featureRegistry.isFeatureLoaded(featureName)) {
-            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
-            return false;
-        }
-        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-        feature.getConfigHandler().reloadConfig();
-        feature.getLocalizationHandler().reloadLocalization();
-        plugin.getLogger().info("Feature " + featureName + " soft reloaded.");
-        return true;
-    }
-
-    /**
-     * Reloads a feature dynamically, ensuring dependent features reload afterward.
-     */
-    public boolean reloadFeature(String featureName) {
-        if (!featureRegistry.isFeatureLoaded(featureName)) {
-            plugin.getLogger().warning("Feature not currently loaded: " + featureName);
-            return false;
-        }
-
-        mainConfigHandler.reloadConfig();
-        localizationHandler.reloadLocalization();
-        BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-        feature.cleanup();
-        featureRegistry.deregisterLoadedFeature(featureName);
-
-        boolean hasReloaded = loadFeature(featureName);
-
-        if (hasReloaded) {
-            plugin.getLogger().info("Feature " + featureName + " reloaded.");
-
-            // Reload dependent features automatically
-            for (String dependent : dependencyManager.getDependentFeatures(featureName)) {
-                plugin.getLogger().info("Reloading dependent feature: " + dependent);
-                reloadFeature(dependent);
-            }
-        }
-
-        return hasReloaded;
-    }
-
-    /**
-     * Returns the feature registry for tracking features.
-     */
-    public FeatureRegistry getFeatureRegistry() {
-        return featureRegistry;
-    }
-
-    /**
-     * Unload all currently loaded features.
-     */
-    public void unloadAllFeatures() {
-        plugin.getLogger().info("Unloading all loaded features...");
-
-        List<BukkitBaseFeature<?>> loadedFeatures = featureRegistry.getLoadedFeatures();
-
-        for (BukkitBaseFeature<?> feature : loadedFeatures) {
-            feature.cleanup();
-        }
-
-        plugin.getLogger().info("All features have been unloaded.");
     }
 }

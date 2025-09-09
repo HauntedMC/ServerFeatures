@@ -36,7 +36,7 @@ public final class VersionResolver {
         }
 
         // 4) Fallback — extremely unlikely
-        log.warning("[Sanitize] Could not resolve Minecraft version reliably; defaulting to Bukkit version raw.");
+        log.warning("Could not resolve Minecraft version reliably; defaulting to Bukkit version raw.");
         return bukkit;
     }
 }

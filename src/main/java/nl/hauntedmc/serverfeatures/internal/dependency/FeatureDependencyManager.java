@@ -1,8 +1,9 @@
-package nl.hauntedmc.serverfeatures.internal;
+package nl.hauntedmc.serverfeatures.internal.dependency;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 
