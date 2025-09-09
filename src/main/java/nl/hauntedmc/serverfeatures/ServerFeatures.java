@@ -25,7 +25,9 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
 
     @Override
     public void onEnable() {
-        PacketEvents.getAPI().init();
+        if (Bukkit.getPluginManager().getPlugin("packetevents") != null) {
+            PacketEvents.getAPI().init();
+        }
 
         // General plugin initialization
         mainConfigHandler = new MainConfigHandler(this);

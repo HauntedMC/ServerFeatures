@@ -39,7 +39,7 @@ public class ScoreboardManager {
 
         // Put current online players into their glow team on THIS board
         for (Player other : Bukkit.getOnlinePlayers()) {
-            NamedTextColor c = glowColors.getOrDefault(other.getUniqueId(), NamedTextColor.GRAY);
+            NamedTextColor c = glowColors.getOrDefault(other.getUniqueId(), NamedTextColor.WHITE);
             moveEntryToGlowTeam(board, other.getName(), c, "populate on " + player.getName() + "'s board");
         }
 
@@ -47,7 +47,7 @@ public class ScoreboardManager {
         player.setScoreboard(board);
 
         // Now inject the joining player into EVERYONE ELSE'S boards
-        NamedTextColor myColor = glowColors.getOrDefault(player.getUniqueId(), NamedTextColor.GRAY);
+        NamedTextColor myColor = glowColors.getOrDefault(player.getUniqueId(), NamedTextColor.WHITE);
         boards.forEach((uuid, otherBoard) -> {
             if (uuid.equals(player.getUniqueId())) return;
             ensureGlowTeamsRegistered(otherBoard);
@@ -187,9 +187,9 @@ public class ScoreboardManager {
         player.setGlowing(true);
     }
 
-    /** Disable glow (fall back to GRAY) */
+    /** Disable glow (fall back to WHITE) */
     public static void removeGlow(Player player) {
-        setGlow(player, NamedTextColor.GRAY);
+        setGlow(player, NamedTextColor.WHITE);
         player.setGlowing(false);
     }
 
