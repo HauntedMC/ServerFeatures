@@ -24,6 +24,8 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         cfg.put("clean_versions_on_startup", true);
         cfg.put("enforce_default_configs_on_startup", true);
         cfg.put("enforce_server_properties_on_startup", true);
+        cfg.put("enforce_bukkit_yml_on_startup", true);
+        cfg.put("enforce_spigot_yml_on_startup", true);
         cfg.put("clean_logs_on_startup", true);
         cfg.put("log_retention_days", 7);
         return cfg;
@@ -49,10 +51,17 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
             service.addTask(new DefaultConfigsSanitizeTask());
         }
 
-        if (getBoolean("enforce_server_properties_on_startup", true)) {
+        if (getBoolean("enforce_server_properties_on_startup", false)) {
             service.addTask(new ServerPropertiesSanitizeTask());
         }
 
+        if (getBoolean("enforce_bukkit_yml_on_startup", false)) {
+            service.addTask(new BukkitYmlSanitizeTask());
+        }
+
+        if (getBoolean("enforce_spigot_yml_on_startup", false)) {
+            service.addTask(new SpigotYmlSanitizeTask());
+        }
 
         if (getBoolean("clean_logs_on_startup", false)) {
             int days = getInt("log_retention_days", 7);
