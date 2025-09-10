@@ -28,7 +28,10 @@ public class Whitelist extends BukkitBaseFeature<Meta> {
      */
     @Override
     public MessageMap getDefaultMessages() {
-        return new MessageMap();
+        MessageMap msgs = new MessageMap();
+        msgs.add("whitelist.kick_message",
+                "Je hebt geen toestemming om deze server te joinen.");
+        return msgs;
     }
 
     /**
@@ -36,7 +39,7 @@ public class Whitelist extends BukkitBaseFeature<Meta> {
      */
     @Override
     public void initialize() {
-        getLifecycleManager().getListenerManager().registerListener(new PlayerLoginListener());
+        getLifecycleManager().getListenerManager().registerListener(new PlayerLoginListener(this));
     }
 
     /**
