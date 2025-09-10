@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.SanitizeService;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.CacheSanitizeTask;
+import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.LogSanitizeTask;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.VersionsSanitizeTask;
 import nl.hauntedmc.serverfeatures.features.sanitize.meta.Meta;
 
@@ -23,6 +24,8 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         cfg.put("enabled", false);
         cfg.put("clean_cache_on_startup", true);
         cfg.put("clean_versions_on_startup", true);
+        cfg.put("clean_logs_on_startup", true);
+        cfg.put("log_retention_days", 7);
         return cfg;
     }
 
@@ -42,6 +45,11 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         if (getBoolean("clean_versions_on_startup", false)) {
             service.addTask(new VersionsSanitizeTask());
         }
+        if (getBoolean("clean_logs_on_startup", true)) {
+            int days = getInt("log_retention_days", 7);
+            service.addTask(new LogSanitizeTask(days));
+        }
+
 
         // Kick off the sanitize pass on startup — run async to avoid ticking the main thread
         getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
@@ -62,5 +70,14 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
     private boolean getBoolean(String key, boolean def) {
         Object v = getConfigHandler().getSetting(key);
         return (v instanceof Boolean b) ? b : def;
+    }
+
+    private int getInt(String key, int def) {
+        Object v = getConfigHandler().getSetting(key);
+        if (v instanceof Number n) return n.intValue();
+        if (v instanceof String s) {
+            try { return Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {}
+        }
+        return def;
     }
 }
