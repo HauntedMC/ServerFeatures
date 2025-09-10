@@ -5,10 +5,7 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.SanitizeService;
-import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.CacheSanitizeTask;
-import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.DefaultConfigsSanitizeTask;
-import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.LogSanitizeTask;
-import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.VersionsSanitizeTask;
+import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl.*;
 import nl.hauntedmc.serverfeatures.features.sanitize.meta.Meta;
 
 public class Sanitize extends BukkitBaseFeature<Meta> {
@@ -26,6 +23,7 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         cfg.put("clean_cache_on_startup", true);
         cfg.put("clean_versions_on_startup", true);
         cfg.put("enforce_default_configs_on_startup", true);
+        cfg.put("enforce_server_properties_on_startup", true);
         cfg.put("clean_logs_on_startup", true);
         cfg.put("log_retention_days", 7);
         return cfg;
@@ -50,6 +48,11 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         if (getBoolean("enforce_default_configs_on_startup", false)) {
             service.addTask(new DefaultConfigsSanitizeTask());
         }
+
+        if (getBoolean("enforce_server_properties_on_startup", true)) {
+            service.addTask(new ServerPropertiesSanitizeTask());
+        }
+
 
         if (getBoolean("clean_logs_on_startup", false)) {
             int days = getInt("log_retention_days", 7);
