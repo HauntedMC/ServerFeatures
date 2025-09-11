@@ -5,11 +5,13 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.votereward.internal.VoteHandler;
+import nl.hauntedmc.serverfeatures.features.votereward.listener.NativeVoteListener;
 import nl.hauntedmc.serverfeatures.features.votereward.listener.VoteJoinListener;
-import nl.hauntedmc.serverfeatures.features.votereward.listener.VoteListener;
+import nl.hauntedmc.serverfeatures.features.votereward.listener.VotifierVoteListener;
 import nl.hauntedmc.serverfeatures.features.votereward.meta.Meta;
 import nl.hauntedmc.serverfeatures.internal.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureCacheManager;
+import org.bukkit.Bukkit;
 
 import java.util.List;
 
@@ -54,15 +56,32 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
 
         this.voteHandler = new VoteHandler(this);
 
-        // Listen for new votes
-        getLifecycleManager()
-                .getListenerManager()
-                .registerListener(new VoteListener(this));
+        boolean nativeVotifierAvailable = detectVotifierOnce();
 
-        // Replay offline votes on join
-        getLifecycleManager()
-                .getListenerManager()
-                .registerListener(new VoteJoinListener(this));
+        if (nativeVotifierAvailable) {
+            getLifecycleManager().getListenerManager().registerListener(new VotifierVoteListener(this));
+        } else {
+            getLifecycleManager().getListenerManager().registerListener(new NativeVoteListener(this));
+            getLogger().info("Votifier not available or incompatible; using native vote events.");
+        }
+
+        getLifecycleManager().getListenerManager().registerListener(
+                new VoteJoinListener(this)
+        );
+    }
+
+    private boolean detectVotifierOnce() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Votifier")) {
+            return false;
+        }
+
+        try {
+            Class.forName("com.vexsoftware.votifier.model.Vote", false, getClass().getClassLoader());
+            Class.forName("com.vexsoftware.votifier.model.VotifierEvent", false, getClass().getClassLoader());
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     @Override
@@ -70,11 +89,6 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
     }
 
     /** Used by listener to queue/replay votes */
-    public CacheDirectory getPlayerCacheDir() {
-        return playerCacheDir;
-    }
-
-    public VoteHandler getVoteHandler() {
-        return voteHandler;
-    }
+    public CacheDirectory getPlayerCacheDir() { return playerCacheDir; }
+    public VoteHandler getVoteHandler() { return voteHandler; }
 }
