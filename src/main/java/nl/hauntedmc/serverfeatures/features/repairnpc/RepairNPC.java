@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.repairnpc;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.trait.TraitInfo;
-import net.milkbowl.vault.economy.Economy;
 import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
@@ -15,7 +14,6 @@ import java.util.Map;
 
 public class RepairNPC extends BukkitBaseFeature<Meta> {
 
-    private static Economy economy;
     private static RepairNPC instance;
 
     public RepairNPC(ServerFeatures plugin) {
@@ -80,25 +78,13 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        setupVault();
         instance = this;
+        if (CitizensAPI.getTraitFactory().getTrait(RepairTrait.class) != null) {
         CitizensAPI.getTraitFactory()
                 .registerTrait(TraitInfo.create(RepairTrait.class).withName("repair"));
-    }
-
-    private void setupVault() {
-        var registration = getPlugin()
-                .getServer()
-                .getServicesManager()
-                .getRegistration(Economy.class);
-
-        if (registration != null) {
-            economy = registration.getProvider();
-        } else {
-            getLogger()
-                    .severe("Failed to load Vault economy; RepairNPC will not function.");
         }
     }
+
 
     @Override
     public void disable() {
@@ -107,5 +93,4 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     }
 
     public static RepairNPC getInstance() { return instance; }
-    public static Economy getEconomy()    { return economy;    }
 }

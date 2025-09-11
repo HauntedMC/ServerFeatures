@@ -27,7 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 
 public class RepairTrait extends Trait {
     private final RepairNPC feature = RepairNPC.getInstance();
-    private final Economy economy = RepairNPC.getEconomy();
+    private Economy economy;
 
     private final Map<String, Calendar> cooldowns = new HashMap<>();
 
@@ -43,6 +43,21 @@ public class RepairTrait extends Trait {
 
     public RepairTrait() {
         super("repair");
+        setupVault();
+    }
+
+    private void setupVault() {
+        var registration = feature.getPlugin()
+                .getServer()
+                .getServicesManager()
+                .getRegistration(Economy.class);
+
+        if (registration != null) {
+            economy = registration.getProvider();
+        } else {
+            feature.getLogger()
+                    .severe("Failed to load Vault economy; RepairNPC will not function.");
+        }
     }
 
     @Override
