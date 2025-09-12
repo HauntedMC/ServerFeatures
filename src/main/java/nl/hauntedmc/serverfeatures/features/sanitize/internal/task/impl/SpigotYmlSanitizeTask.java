@@ -90,19 +90,20 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
         setIfDifferent(attribute, "maxHealth", YamlSanitizeUtil.mapOf("max", 1024.0D));
         setIfDifferent(attribute, "movementSpeed", YamlSanitizeUtil.mapOf("max", 1024.0D));
 
-        String dumpedRaw = yaml.dump(root).trim() + "\n";
+        String dumped = yaml.dump(root).trim() + "\n"; // geen inline comments
 
-        // Build list of controlled paths to annotate inline
         LinkedHashSet<String> controlled = buildControlledPaths();
 
-        String dumped = YamlSanitizeUtil.appendControlComments(dumpedRaw, controlled);
-
-        String header = """
+        StringBuilder header = new StringBuilder();
+        header.append("""
 # Managed by HauntedMC Sanitize
 # Fixed sections: messages, commands, settings (incl. settings.attribute.*.max)
 # Other sections (advancements, stats, world-settings, players, etc.) are preserved untouched.
-# Note: Controlled entries are annotated inline with " # controlled by Sanitize".
-""";
+# NOTE: inline annotaties uitgeschakeld voor spigot.yml i.v.m. SnakeYAML/Bukkit comment-issue.
+# Controlled paths:
+""");
+        for (String p : controlled) header.append("# - ").append(p).append("\n");
+        header.append("\n");
 
         StringBuilder out = new StringBuilder();
         out.append(header).append(dumped);
