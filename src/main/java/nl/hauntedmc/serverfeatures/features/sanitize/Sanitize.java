@@ -27,6 +27,7 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         cfg.put("enforce_bukkit_yml_on_startup", true);
         cfg.put("enforce_spigot_yml_on_startup", true);
         cfg.put("enforce_paper_global_yml_on_startup", true);
+        cfg.put("check_gamerules_on_startup", true);
         cfg.put("clean_logs_on_startup", true);
         cfg.put("log_retention_days", 7);
         return cfg;
@@ -64,8 +65,12 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
             service.addTask(new SpigotYmlSanitizeTask());
         }
 
-        if (getBoolean("enforce_paper_global_yml_on_startup", true)) {
+        if (getBoolean("enforce_paper_global_yml_on_startup", false)) {
             service.addTask(new PaperGlobalYmlSanitizeTask());
+        }
+
+        if (getBoolean("check_gamerules_on_startup", false)) {
+            service.addTask(new GameRulesCheckTask(getLogger()));
         }
 
         if (getBoolean("clean_logs_on_startup", false)) {
