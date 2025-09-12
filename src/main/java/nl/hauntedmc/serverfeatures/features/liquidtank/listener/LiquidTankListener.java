@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.listener;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
@@ -174,7 +175,7 @@ public class LiquidTankListener implements Listener {
             for (AbstractTank liquidTank : feature.getTankManager().getTankList()) {
                 liquidTank.updatePlayerView(playerJoinEvent.getPlayer());
             }
-        }, 0L);
+        }, BukkitTime.ticks(0L));
     }
 
     @EventHandler
@@ -218,7 +219,7 @@ public class LiquidTankListener implements Listener {
                 hopper.getInventory().setItem(3, new ItemStack(Material.GLASS, 7));
                 hopper.getInventory().setItem(4, new ItemStack(Material.COMPARATOR, 1));
             }
-        }, 2L);
+        }, BukkitTime.ticks(2L));
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
@@ -77,12 +78,12 @@ public abstract class AbstractTank {
 	}
 
 	public static void gameLoop(LiquidTank feature) {
-		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask(() -> {
+		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
 			try {
 				gameTick(feature);
 			} catch (Exception ignored) {
 			}
-		}, delay, delay);
+		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
 
 	private static void gameTick(LiquidTank feature) {
@@ -100,7 +101,7 @@ public abstract class AbstractTank {
 
 	public void setOnCooldown() {
 		this.onCooldown = true;
-		feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() ->  this.onCooldown = false, cooldownTime);
+		feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() ->  this.onCooldown = false, BukkitTime.ticks(cooldownTime));
 	}
 
 	public boolean isOnCooldown() {

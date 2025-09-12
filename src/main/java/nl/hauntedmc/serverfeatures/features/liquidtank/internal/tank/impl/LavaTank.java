@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
@@ -29,12 +30,12 @@ public class LavaTank extends AbstractTank {
 	}
 
 	public static void gameLoop(LiquidTank feature) {
-		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
+		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
 			} catch (Exception exception) {
 			}
-		}, delay, delay);
+		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
 
 	private static void gameTick(LiquidTank feature) {

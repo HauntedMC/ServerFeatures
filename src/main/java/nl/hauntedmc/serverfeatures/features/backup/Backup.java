@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.backup;
 import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.backup.internal.BackupService;
 import nl.hauntedmc.serverfeatures.features.backup.meta.Meta;
@@ -53,13 +54,13 @@ public class Backup extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.service = new BackupService(this);
 
-        getPlugin().getServer().getScheduler().runTaskAsynchronously(getPlugin(), () -> {
+        getLifecycleManager().getTaskManager().scheduleAsyncDelayedTask(() -> {
             try {
                 service.runStartupBackup();
             } catch (Throwable t) {
                 getLogger().warning("Startup backup failed: " + (t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage()));
             }
-        });
+        }, BukkitTime.seconds(5));
     }
 
     @Override

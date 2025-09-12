@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -52,7 +53,7 @@ public class BossbarHandler {
         taskManager.scheduleDelayedTask(() -> {
             currentMessageIndex = (currentMessageIndex + 1) % messageRegistry.getTotalMessages();
             scheduleNextMessage();
-        }, currentMessage.getDurationTicks());
+        }, BukkitTime.ticks(currentMessage.getDurationTicks()));
     }
 
     private void startAutoFade(BossbarMessage message) {
@@ -89,9 +90,9 @@ public class BossbarHandler {
                 if (currentStep >= totalSteps) {
                     taskManager.cancelTask(taskRef.get());
                 }
-            }, timePerStep);
+            }, BukkitTime.seconds(0), BukkitTime.ticks(timePerStep));
             taskRef.set(task);
-        }, fadeDelay);
+        }, BukkitTime.ticks(fadeDelay));
     }
 
     private void updateBossbar(BossBar bossBar, BossbarMessage message) {

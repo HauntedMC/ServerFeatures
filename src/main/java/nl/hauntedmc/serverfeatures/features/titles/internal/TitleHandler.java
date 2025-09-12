@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.titles.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import net.kyori.adventure.title.TitlePart;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.titles.Titles;
 import org.bukkit.entity.Player;
 
@@ -34,6 +35,6 @@ public class TitleHandler {
                     player.sendTitlePart(TitlePart.TIMES, times);
                     player.sendTitlePart(TitlePart.SUBTITLE, subtitle);
                     player.sendTitlePart(TitlePart.TITLE, title);
-        }, delay);
+        }, BukkitTime.ticks(delay));
     }
 }

@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.tablist;
 import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.tablist.internal.TablistHandler;
 import nl.hauntedmc.serverfeatures.features.tablist.listener.TablistListener;
@@ -90,8 +91,8 @@ public class Tablist extends BukkitBaseFeature<Meta> {
 
         getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
                 () -> handler.refreshAllPlayers(),
-                0L,
-                refreshInterval
+                BukkitTime.ticks(0L),
+                BukkitTime.ticks(refreshInterval)
         );
     }
 

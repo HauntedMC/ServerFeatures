@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 
@@ -24,7 +25,7 @@ public class NametagListener implements Listener {
     @EventHandler
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), 10L);
+        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), BukkitTime.ticks(10L));
     }
 
     @EventHandler
@@ -62,7 +63,7 @@ public class NametagListener implements Listener {
         double distance = event.getFrom().distance(event.getTo());
 
         if (distance > 80) {
-            this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().ownerOnly(true).build()), 5L);
+            this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().ownerOnly(true).build()), BukkitTime.ticks(5L));
         }
     }
 

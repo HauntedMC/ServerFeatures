@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.update;
 
 import nl.hauntedmc.serverfeatures.common.packet.BundleDelimiterPacket;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNametagEntityPacket;
@@ -37,7 +38,7 @@ public class NametagUpdater {
 
         // Update the text if flagged
         if (updateProperties.getUpdateText()) {
-            taskManager.scheduleDelayedTask(nametag::updateNametagText, updateProperties.getDelay());
+            taskManager.scheduleDelayedTask(nametag::updateNametagText, BukkitTime.ticks(updateProperties.getDelay()));
         }
 
         // If owner only update, recreate the complete nametag entity
@@ -112,7 +113,7 @@ public class NametagUpdater {
             PacketManager.sendMulticast(viewersToAdd, createPacket);
             PacketManager.sendMulticast(viewersToAdd, mountPacket);
             PacketManager.sendMulticast(viewersToAdd, new BundleDelimiterPacket());
-        }, delay + nametagManager.getViewerUpdateDelayTicks());
+        }, BukkitTime.ticks(delay + nametagManager.getViewerUpdateDelayTicks()));
     }
 
     private void removeNametagEntity(Nametag nametag, List<Player> viewers) {

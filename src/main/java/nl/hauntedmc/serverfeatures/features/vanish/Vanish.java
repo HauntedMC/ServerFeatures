@@ -10,6 +10,7 @@ import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.util.APIRegistry;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.vanish.command.VanishCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
@@ -114,9 +115,9 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
         // Actionbar loop
         int interval = Math.max(5, (int) getConfigHandler().getSetting("actionbar_interval_ticks"));
-        this.actionBarTask = getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask(() -> {
+        this.actionBarTask = getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             try { service.tickActionBars(); } catch (Throwable t) { getLogger().warning("Actionbar tick error: " + t.getMessage()); }
-        }, interval, interval);
+        }, BukkitTime.ticks(interval), BukkitTime.ticks(interval));
 
         // Register PlaceholderAPI expansion
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {

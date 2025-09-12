@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
 import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
@@ -111,7 +112,7 @@ public class VoteHandler {
                                 .withPlaceholders(Map.of("count", String.valueOf(count)))
                                 .forAudience(player)
                                 .build()
-                ), msgDelay
+                ), BukkitTime.ticks(msgDelay)
         );
 
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
@@ -124,8 +125,8 @@ public class VoteHandler {
                         processVote(player);
                         cache.remove(key);
                     }
-                }, delay);
+                }, BukkitTime.ticks(delay));
             }
-        }, msgDelay + startDelay);
+        }, BukkitTime.ticks(msgDelay + startDelay));
     }
 }

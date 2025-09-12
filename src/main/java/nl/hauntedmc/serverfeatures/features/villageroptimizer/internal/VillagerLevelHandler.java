@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.villageroptimizer.internal;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.VillagerOptimizer;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
@@ -41,7 +42,7 @@ public class VillagerLevelHandler {
             vil.setAware(true);
         } else return;
 
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> vil.setAware(false), 100L);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> vil.setAware(false), BukkitTime.ticks(100L));
     }
 
     private long calculateVillagerLevel(Villager vil) {

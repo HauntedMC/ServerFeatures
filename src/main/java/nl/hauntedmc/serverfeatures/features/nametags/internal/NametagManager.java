@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
@@ -50,7 +51,7 @@ public class NametagManager {
             for (Nametag nametag : registry.getAllNametags()) {
                 updater.update(nametag, new UpdateProperties.Builder().build());
             }
-        }, 0L, updateIntervalTicks);
+        }, BukkitTime.ticks(0L), BukkitTime.ticks(updateIntervalTicks));
     }
 
     /**

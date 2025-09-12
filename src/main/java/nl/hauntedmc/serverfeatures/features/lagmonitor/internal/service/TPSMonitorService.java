@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor.internal.service;
 
-import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.LagMonitor;
 import org.bukkit.Bukkit;
 import java.util.ArrayDeque;
@@ -50,7 +50,7 @@ public class TPSMonitorService {
             } finally {
                 lock.unlock();
             }
-        }, 0, CHECK_INTERVAL * 20L);
+        }, BukkitTime.ticks(0), BukkitTime.ticks(CHECK_INTERVAL * 20L));
     }
 
     private void startTPSChecker() {
@@ -65,7 +65,7 @@ public class TPSMonitorService {
                     lastDiscordAlert = now;
                 }
             }
-        }, 0, TPS_CHECKER_INTERVAL * 20L);
+        }, BukkitTime.ticks(0), BukkitTime.ticks(TPS_CHECKER_INTERVAL * 20L));
     }
 
     private double calculateAverageTPS() {

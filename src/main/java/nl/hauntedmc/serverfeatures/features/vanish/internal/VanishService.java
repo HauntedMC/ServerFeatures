@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
 import org.bukkit.Bukkit;
@@ -98,7 +99,7 @@ public class VanishService {
                 if (p.isOnline() && isPlayerVanished(p)) {
                     try { p.setGameMode(GameMode.SPECTATOR); } catch (Throwable ignored) {}
                 }
-            }, 2L);
+            }, BukkitTime.ticks(2L));
 
             // Notify staff that this person joined vanished (only staff with toggle perm)
             broadcastToVanishingStaff(

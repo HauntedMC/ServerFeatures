@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -71,7 +72,7 @@ public class ActionbarHandler {
                 Component message = feature.getLocalizationHandler().getMessage("actionbar." + messageKey).forAudience(player).build();
                 player.sendActionBar(message);
             }
-        }, 20L);
+        }, BukkitTime.seconds(0), BukkitTime.seconds(1));
 
         currentDelayTask = taskManager.scheduleDelayedTask(() -> {
             if (currentRepeatingTask != null) {
@@ -82,9 +83,9 @@ public class ActionbarHandler {
                 // Move to the next message
                 currentMessageIndex = (currentMessageIndex + 1) % messageRegistry.getTotalMessages();
                 scheduleNextMessage();
-            }, messageInterval);
+            }, BukkitTime.ticks(messageInterval));
 
-        }, durationTicks);
+        }, BukkitTime.ticks(durationTicks));
     }
 
     public void sendManualActionbar(String text, int timeSeconds) {
@@ -102,17 +103,17 @@ public class ActionbarHandler {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     sendActionbar(player, text);
                 }
-            }, 20L);
+            }, BukkitTime.seconds(0), BukkitTime.seconds(1));
 
             taskManager.scheduleDelayedTask(() -> {
                 if (manualRepeatingTask != null) {
                     taskManager.cancelTask(manualRepeatingTask);
                 }
-            }, durationTicks);
+            }, BukkitTime.ticks(durationTicks));
         }
 
         if (wasRunning) {
-            taskManager.scheduleDelayedTask(this::startMessageCycle, durationTicks + 3 * 20L);
+            taskManager.scheduleDelayedTask(this::startMessageCycle, BukkitTime.ticks(durationTicks + 3));
         }
     }
 

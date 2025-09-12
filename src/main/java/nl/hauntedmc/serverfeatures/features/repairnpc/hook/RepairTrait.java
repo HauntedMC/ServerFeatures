@@ -13,6 +13,7 @@ import net.citizensnpcs.api.util.DataKey;
 
 import net.milkbowl.vault.economy.Economy;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import org.bukkit.Material;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.LivingEntity;
@@ -268,7 +269,7 @@ public class RepairTrait extends Trait {
             int ticks = noDelay ? 0
                     : ((new Random().nextInt(maxDelay - minDelay + 1) + minDelay) * 20);
 
-            taskId = feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(this, ticks).getTaskId();
+            taskId = feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(this, BukkitTime.ticks(ticks)).getTaskId();
         }
     }
 }

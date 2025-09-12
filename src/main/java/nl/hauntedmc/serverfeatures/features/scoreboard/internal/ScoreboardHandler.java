@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
 import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
 import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
 import net.kyori.adventure.text.Component;
@@ -53,9 +54,9 @@ public class ScoreboardHandler {
     /** Runs forceUpdate once every `refreshInterval` ticks for all online players */
     public void startUpdater() {
         feature.getLifecycleManager().getTaskManager()
-                .scheduleDelayedRepeatingTask(() ->
+                .scheduleRepeatingTask(() ->
                                 Bukkit.getOnlinePlayers().forEach(this::updateScoreboardContent),
-                        0, refreshInterval);
+                        BukkitTime.ticks(0L), BukkitTime.ticks(refreshInterval));
     }
 
     /**

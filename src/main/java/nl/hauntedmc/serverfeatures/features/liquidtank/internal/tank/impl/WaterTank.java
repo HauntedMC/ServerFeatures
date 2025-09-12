@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
@@ -35,12 +36,12 @@ public class WaterTank extends AbstractTank {
 	}
 
 	public static void gameLoop(LiquidTank feature) {
-		feature.getLifecycleManager().getTaskManager().scheduleDelayedRepeatingTask( () -> {
+		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
 			} catch (Exception exception) {
 			}
-		}, delay, delay);
+		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
 
 	private static void gameTick(LiquidTank feature) {
@@ -183,6 +184,6 @@ public class WaterTank extends AbstractTank {
 	private void showFountainParticles(Location location, double locationYOffset, int count, double offsetY) {
 		Location locationClone = location.clone().add(0.5D,locationYOffset, 0.5D);
 		for (byte b = 0; b < 4; b++)
-			feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> locationClone.getWorld().spawnParticle(SPLASH, locationClone, count * 10, 0.05F, offsetY, 0.05F, 0.01D),(b * 5));
+			feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> locationClone.getWorld().spawnParticle(SPLASH, locationClone, count * 10, 0.05F, offsetY, 0.05F, 0.01D), BukkitTime.ticks((b * 5)));
 	}
 }

@@ -7,6 +7,7 @@ import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.sanctions.listener.MuteListener;
 import nl.hauntedmc.serverfeatures.features.sanctions.meta.Meta;
@@ -81,7 +82,8 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
         seconds = Math.max(10, seconds); // guardrails
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 () -> muteRegistry.refreshAll(),
-                seconds * 20L
+                BukkitTime.seconds(0),
+                BukkitTime.ticks(seconds * 20L)
         );
     }
 
