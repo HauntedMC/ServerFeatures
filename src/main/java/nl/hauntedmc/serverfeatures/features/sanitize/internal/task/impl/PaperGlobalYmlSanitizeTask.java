@@ -176,7 +176,7 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         if (!normalize(current).equals(normalize(newContent))) {
             Files.writeString(file, newContent, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            return SanitizeResult.changed("paper-global.yml updated (SnakeYAML; enforced keys applied).");
+            return SanitizeResult.changed("paper-global.yml updated (enforced keys applied).");
         }
         return SanitizeResult.unchanged("paper-global.yml already compliant.");
     }

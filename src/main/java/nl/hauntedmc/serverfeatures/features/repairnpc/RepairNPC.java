@@ -15,6 +15,7 @@ import java.util.Map;
 public class RepairNPC extends BukkitBaseFeature<Meta> {
 
     private static RepairNPC instance;
+    private TraitInfo repairTrait;
 
     public RepairNPC(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -79,15 +80,18 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         instance = this;
+        repairTrait = TraitInfo.create(RepairTrait.class).withName("repair");
         if (CitizensAPI.getTraitFactory().getTrait("repair") == null){
-            CitizensAPI.getTraitFactory()
-                    .registerTrait(TraitInfo.create(RepairTrait.class).withName("repair"));
+            CitizensAPI.getTraitFactory().registerTrait(repairTrait);
         }
     }
 
 
     @Override
     public void disable() {
+        if (CitizensAPI.getTraitFactory().getTrait("repair") != null){
+            CitizensAPI.getTraitFactory().deregisterTrait(repairTrait);
+        }
     }
 
     public static RepairNPC getInstance() { return instance; }
