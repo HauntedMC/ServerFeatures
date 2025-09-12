@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.restart.command.RestartCommand;
 import nl.hauntedmc.serverfeatures.features.restart.internal.AutoRestartScheduler;
+import nl.hauntedmc.serverfeatures.features.restart.internal.CommandOverride;
 import nl.hauntedmc.serverfeatures.features.restart.internal.RestartService;
 import nl.hauntedmc.serverfeatures.features.restart.meta.Meta;
 
@@ -31,7 +32,7 @@ public class Restart extends BukkitBaseFeature<Meta> {
         c.put("title_fade_out", 20);
 
         // Announce schedule (seconds remaining)
-        c.put("announce.schedule", List.of(60, 30, 0));
+        c.put("announce.schedule", List.of(60, 30, 10, 0));
 
         // Auto restart
         c.put("auto.enabled", true);
@@ -46,18 +47,20 @@ public class Restart extends BukkitBaseFeature<Meta> {
         MessageMap m = new MessageMap();
         m.add("restart.in_progress", "&eEr is al een restart proces gestart.");
         m.add("restart.started", "&aRestart sequentie gestart.");
-        m.add("restart.countdown.title", "&cRestart over &f{mm}:{ss}");
-        m.add("restart.countdown.subtitle", "&7Bereid jezelf voor");
-        m.add("restart.countdown.chat", "&cRestart over &f{readable}");
-        m.add("restart.countdown.now.title", "&cDe server restart nu");
+        m.add("restart.countdown.title", "&cServer restart over &f{readable}");
+        m.add("restart.countdown.subtitle", "&7Bereid jezelf voor!");
+        m.add("restart.countdown.chat", "&f&l[RESTART] &cDe server gaat restarten over &f{readable}&c.");
+        m.add("restart.countdown.now.title", "&cServer Restart");
         m.add("restart.countdown.now.subtitle", "&7Tot straks!");
-        m.add("restart.countdown.now.chat", "&cDe server gaat nu restarten...");
+        m.add("restart.countdown.now.chat", "&f&l[RESTART] &cDe server gaat nu restarten...");
         m.add("restart.kick", "&cDe server wordt herstart. Je kunt zo weer joinen.");
         return m;
     }
 
     @Override
     public void initialize() {
+        CommandOverride.unregisterVanillaRestart(getPlugin().getServer(), getLogger());
+
         this.service = new RestartService(this);
 
         getLifecycleManager()

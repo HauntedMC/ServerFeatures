@@ -13,6 +13,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class RestartService {
 
+    private static final long TICK_MS = 50L;
+
     private final Restart feature;
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
     private final AtomicLong sequenceToken = new AtomicLong(0);
@@ -28,13 +30,12 @@ public class RestartService {
         int stayTicks    = feature.getInt("title_stay", 100);
         int fadeOutTicks = feature.getInt("title_fade_out", 20);
         this.titleTimes = Title.Times.times(
-                Duration.ofMillis(ticksToMillis(fadeInTicks)),
-                Duration.ofMillis(ticksToMillis(stayTicks)),
-                Duration.ofMillis(ticksToMillis(fadeOutTicks))
+                Duration.ofMillis(fadeInTicks * TICK_MS),
+                Duration.ofMillis(stayTicks * TICK_MS),
+                Duration.ofMillis(fadeOutTicks * TICK_MS)
         );
 
         this.waitAfterNowSeconds = feature.getInt("auto.wait_after_now_seconds", 5);
-
         this.scheduleDesc = parseSchedule();
     }
 
@@ -61,8 +62,6 @@ public class RestartService {
         inProgress.set(false);
     }
 
-    /* ---------------- sequence ---------------- */
-
     private void runSequence() {
         final long token = sequenceToken.incrementAndGet();
 
@@ -71,18 +70,16 @@ public class RestartService {
 
         announceRemaining(first);
 
-        int prev = first;
         for (int i = 1; i < scheduleDesc.size(); i++) {
             int remaining = scheduleDesc.get(i);
-            int delta = Math.max(0, prev - remaining);
-            scheduleInSeconds(delta, () -> {
+            int when = Math.max(0, first - remaining);
+            scheduleInSeconds(when, () -> {
                 if (!isTokenValid(token)) return;
                 announceRemaining(remaining);
             });
-            prev = remaining;
         }
 
-        int totalUntilZero = Math.max(0, first - last); // typ. == first
+        int totalUntilZero = Math.max(0, first - last);
         scheduleInSeconds(totalUntilZero + waitAfterNowSeconds, () -> {
             if (!isTokenValid(token)) return;
             saveKickShutdown();
@@ -116,11 +113,7 @@ public class RestartService {
                         .build();
             } else {
                 Map<String,String> ph = Map.of(
-                        "mm", t.mm,
-                        "ss", t.ss,
-                        "m",  String.valueOf(t.m),
-                        "s",  String.valueOf(t.s),
-                        "readable", t.readable
+                        "readable", t.readable()
                 );
                 title = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.title")
@@ -145,7 +138,6 @@ public class RestartService {
     }
 
     private void saveKickShutdown() {
-        // save-all flush (sync op main)
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             try {
                 feature.getPlugin().getServer().dispatchCommand(
@@ -155,7 +147,6 @@ public class RestartService {
             }
         });
 
-        // Kick en shutdown
         for (Player p : feature.getPlugin().getServer().getOnlinePlayers()) {
             Component kick = feature.getLocalizationHandler()
                     .getMessage("restart.kick")
@@ -176,17 +167,11 @@ public class RestartService {
                 .scheduleDelayedTask(action, nl.hauntedmc.serverfeatures.common.util.BukkitTime.ticks(ticks));
     }
 
-    private static long ticksToMillis(int ticks) {
-        return Math.max(0, ticks) * 50L;
-    }
-
-    /* --------------- schedule parsing (altijd lijst) --------------- */
-
     private List<Integer> parseSchedule() {
         Object raw = feature.getConfigHandler().getSetting("announce.schedule");
         List<Integer> out = new ArrayList<>();
 
-        List<?> items = (raw instanceof List<?> l) ? l : List.of(60, 30, 0); // fallback
+        List<?> items = (raw instanceof List<?> l) ? l : List.of(60, 30, 0);
         for (Object o : items) {
             if (o instanceof Number n) {
                 int v = n.intValue();
@@ -199,7 +184,6 @@ public class RestartService {
             }
         }
 
-        // Sort dalend, unieke waarden
         out.sort(Comparator.reverseOrder());
         List<Integer> uniqueDesc = new ArrayList<>();
         Integer last = null;
@@ -208,7 +192,6 @@ public class RestartService {
             last = v;
         }
 
-        // Zorg dat 0 er in zit (als laatste)
         if (uniqueDesc.isEmpty() || uniqueDesc.getLast() != 0) {
             uniqueDesc.add(0);
         }
@@ -216,30 +199,14 @@ public class RestartService {
         return uniqueDesc;
     }
 
-    /* --------------- tiny formatter helper --------------- */
-
-    private static final class TimeFmt {
-        final int m, s;
-        final String mm, ss, readable;
-
-        private TimeFmt(int m, int s) {
-            this.m = m;
-            this.s = s;
-            this.mm = String.format("%02d", m);
-            this.ss = String.format("%02d", s);
-            if (m > 0 && s > 0) {
-                this.readable = m + "m " + s + "s";
-            } else if (m > 0) {
-                this.readable = m + "m";
-            } else {
-                this.readable = s + "s";
-            }
-        }
-
+    private record TimeFmt(int m, int s, String mm, String ss, String readable) {
         static TimeFmt of(int totalSeconds) {
             int m = Math.max(0, totalSeconds) / 60;
             int s = Math.max(0, totalSeconds) % 60;
-            return new TimeFmt(m, s);
+            String mm = String.format("%02d", m);
+            String ss = String.format("%02d", s);
+            String readable = (m > 0 && s > 0) ? (m + "m " + s + "s") : (m > 0 ? (m + "m") : (s + "s"));
+            return new TimeFmt(m, s, mm, ss, readable);
         }
     }
 }
