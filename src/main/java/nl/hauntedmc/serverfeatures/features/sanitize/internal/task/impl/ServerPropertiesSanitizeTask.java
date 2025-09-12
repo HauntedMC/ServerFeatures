@@ -27,7 +27,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("enable-jmx-monitoring", "false");
         ENFORCED.put("enable-query", "false");
         ENFORCED.put("enable-rcon", "false");
-        ENFORCED.put("enable-status", "false");
+        ENFORCED.put("enable-status", "true");
         ENFORCED.put("enforce-secure-profile", "true");
         ENFORCED.put("enforce-whitelist", "false");
         ENFORCED.put("entity-broadcast-range-percentage", "100");

@@ -3,7 +3,8 @@ package nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeContext;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeResult;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
-import org.yaml.snakeyaml.DumperOptions;
+import nl.hauntedmc.serverfeatures.features.sanitize.internal.util.YamlSanitizeUtil;
+import org.jetbrains.annotations.NotNull;
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
@@ -70,38 +71,37 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
     public SanitizeResult run(SanitizeContext ctx) throws IOException {
         Path file = ctx.serverRoot().resolve("spigot.yml").normalize();
 
-        DumperOptions opts = new DumperOptions();
-        opts.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-        opts.setPrettyFlow(true);
-        opts.setIndent(2);
-        opts.setIndicatorIndent(1);
-        opts.setDefaultScalarStyle(DumperOptions.ScalarStyle.PLAIN);
-
-        Yaml yaml = new Yaml(opts);
+        Yaml yaml = YamlSanitizeUtil.newYaml();
 
         Map<String, Object> root = new LinkedHashMap<>();
         if (Files.exists(file)) {
             String raw = Files.readString(file, StandardCharsets.UTF_8);
             Object loaded = yaml.load(raw);
-            if (loaded instanceof Map<?, ?> m) root = toLinkedMap(m);
+            if (loaded instanceof Map<?, ?> m) root = YamlSanitizeUtil.toLinkedMap(m);
         }
 
-        ensureSectionWithValues(root, "messages", ENFORCED_MESSAGES);
-        ensureSectionWithValues(root, "commands", ENFORCED_COMMANDS);
-        ensureSectionWithValues(root, "settings", ENFORCED_SETTINGS);
+        YamlSanitizeUtil.ensureSectionWithValues(root, "messages", ENFORCED_MESSAGES);
+        YamlSanitizeUtil.ensureSectionWithValues(root, "commands", ENFORCED_COMMANDS);
+        YamlSanitizeUtil.ensureSectionWithValues(root, "settings", ENFORCED_SETTINGS);
 
-        Map<String, Object> settings = getOrCreateSection(root, "settings");
-        Map<String, Object> attribute = getOrCreateSection(settings, "attribute");
-        setIfDifferent(attribute, "maxAbsorption", mapOf("max", 2048.0D));
-        setIfDifferent(attribute, "maxHealth", mapOf("max", 1024.0D));
-        setIfDifferent(attribute, "movementSpeed", mapOf("max", 1024.0D));
+        Map<String, Object> settings = YamlSanitizeUtil.getOrCreateSection(root, "settings");
+        Map<String, Object> attribute = YamlSanitizeUtil.getOrCreateSection(settings, "attribute");
+        setIfDifferent(attribute, "maxAbsorption", YamlSanitizeUtil.mapOf("max", 2048.0D));
+        setIfDifferent(attribute, "maxHealth", YamlSanitizeUtil.mapOf("max", 1024.0D));
+        setIfDifferent(attribute, "movementSpeed", YamlSanitizeUtil.mapOf("max", 1024.0D));
 
-        String dumped = yaml.dump(root).trim() + "\n";
+        String dumpedRaw = yaml.dump(root).trim() + "\n";
+
+        // Build list of controlled paths to annotate inline
+        LinkedHashSet<String> controlled = buildControlledPaths();
+
+        String dumped = YamlSanitizeUtil.appendControlComments(dumpedRaw, controlled);
 
         String header = """
 # Managed by HauntedMC Sanitize
 # Fixed sections: messages, commands, settings (incl. settings.attribute.*.max)
 # Other sections (advancements, stats, world-settings, players, etc.) are preserved untouched.
+# Note: Controlled entries are annotated inline with " # controlled by Sanitize".
 """;
 
         StringBuilder out = new StringBuilder();
@@ -118,7 +118,7 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
         String newContent = out.toString();
         String current = Files.exists(file) ? Files.readString(file, StandardCharsets.UTF_8) : "";
 
-        if (!normalize(current).equals(normalize(newContent))) {
+        if (!YamlSanitizeUtil.normalize(current).equals(YamlSanitizeUtil.normalize(newContent))) {
             Files.createDirectories(file.getParent() == null ? Path.of(".") : file.getParent());
             Files.writeString(file, newContent, StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -127,64 +127,22 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
         return SanitizeResult.unchanged("spigot.yml already compliant.");
     }
 
-    private static void ensureSectionWithValues(Map<String, Object> root, String key, Map<String, Object> enforced) {
-        Map<String, Object> sec = getOrCreateSection(root, key);
-        for (Map.Entry<String, Object> e : enforced.entrySet()) {
-            Object cur = sec.get(e.getKey());
-            Object want = cloneForYaml(e.getValue());
-            if (!Objects.equals(cur, want)) {
-                sec.put(e.getKey(), want);
-            }
-        }
-    }
-
-    private static Map<String, Object> getOrCreateSection(Map<String, Object> parent, String key) {
-        Object o = parent.get(key);
-        if (o instanceof Map<?, ?> m) {
-            Map<String, Object> linked = toLinkedMap(m);
-            if (o != linked) parent.put(key, linked);
-            return linked;
-        }
-        Map<String, Object> created = new LinkedHashMap<>();
-        parent.put(key, created);
-        return created;
+    private static @NotNull LinkedHashSet<String> buildControlledPaths() {
+        LinkedHashSet<String> controlled = new LinkedHashSet<>();
+        for (String k : ENFORCED_MESSAGES.keySet()) controlled.add("messages." + k);
+        for (String k : ENFORCED_COMMANDS.keySet()) controlled.add("commands." + k);
+        for (String k : ENFORCED_SETTINGS.keySet()) controlled.add("settings." + k);
+        controlled.add("settings.attribute.maxAbsorption.max");
+        controlled.add("settings.attribute.maxHealth.max");
+        controlled.add("settings.attribute.movementSpeed.max");
+        return controlled;
     }
 
     private static void setIfDifferent(Map<String, Object> map, String key, Object want) {
-        Object w = cloneForYaml(want);
+        Object w = YamlSanitizeUtil.cloneForYaml(want);
         Object cur = map.get(key);
         if (!Objects.equals(cur, w)) {
             map.put(key, w);
         }
-    }
-
-    private static Map<String, Object> toLinkedMap(Map<?, ?> in) {
-        LinkedHashMap<String, Object> out = new LinkedHashMap<>();
-        for (Map.Entry<?, ?> e : in.entrySet()) {
-            String k = String.valueOf(e.getKey());
-            Object v = e.getValue();
-            if (v instanceof Map<?, ?> m) out.put(k, toLinkedMap(m));
-            else if (v instanceof List<?> l) out.put(k, new ArrayList<>(l));
-            else out.put(k, v);
-        }
-        return out;
-    }
-
-    private static Map<String, Object> mapOf(String k, Object v) {
-        LinkedHashMap<String, Object> m = new LinkedHashMap<>();
-        m.put(k, v);
-        return m;
-    }
-
-    private static Object cloneForYaml(Object v) {
-        if (v instanceof Map<?, ?> m) return toLinkedMap(m);
-        if (v instanceof List<?> l)  return new ArrayList<>(l);
-        return v;
-    }
-
-    private static String normalize(String s) {
-        if (s == null) return "";
-        String n = s.replace("\r\n", "\n").replace("\r", "\n");
-        return n.replaceAll("[\\s\\n\\r]+$", "");
     }
 }
