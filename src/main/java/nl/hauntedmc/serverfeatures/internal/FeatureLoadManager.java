@@ -1,8 +1,5 @@
 package nl.hauntedmc.serverfeatures.internal;
 
-import nl.hauntedmc.commonlib.featureapi.event.FeatureDisabledEvent;
-import nl.hauntedmc.commonlib.featureapi.event.FeatureEventManager;
-import nl.hauntedmc.commonlib.featureapi.event.FeatureLoadedEvent;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -157,7 +154,6 @@ public class FeatureLoadManager {
             feature.cleanup();
             mainConfigHandler.setFeatureEnabled(featureName, false);
             featureRegistry.deregisterLoadedFeature(featureName);
-            FeatureEventManager.triggerEvent(new FeatureDisabledEvent(featureName));
             plugin.getLogger().info("Feature disabled: " + featureName);
             return new FeatureDisableResponse(FeatureDisableResult.SUCCESS, featureName, dependents);
         } catch (Throwable t) {
@@ -283,7 +279,6 @@ public class FeatureLoadManager {
             feature.initialize();
             featureRegistry.registerLoadedFeature(featureName, feature);
             plugin.getLogger().info("Feature loaded: " + featureName);
-            FeatureEventManager.triggerEvent(new FeatureLoadedEvent(featureName));
             return true;
         }
         return false;

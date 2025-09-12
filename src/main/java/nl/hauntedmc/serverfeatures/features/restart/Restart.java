@@ -59,19 +59,31 @@ public class Restart extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        CommandOverride.unregisterVanillaRestart(getPlugin().getServer(), getLogger());
 
         this.service = new RestartService(this);
 
+        RestartCommand restartCmd = new RestartCommand(this, service);
+
         getLifecycleManager()
                 .getCommandManager()
-                .registerFeatureCommand(new RestartCommand(this, service));
+                .registerFeatureCommand(restartCmd);
+
+        CommandOverride.unregisterVanillaRestart(getPlugin().getServer(), getLogger());
+
+        // Aggressively take over restart bind from minecraft, bukkit, spigot and paper
+        CommandOverride.takeoverRestart(
+                getPlugin().getServer(),
+                getLogger(),
+                restartCmd,
+                getPlugin().getName()
+        );
 
         if (getBoolean("auto.enabled", false)) {
             String time = getString("auto.time", "04:00");
             this.auto = new AutoRestartScheduler(this, service, time);
             this.auto.scheduleNext();
         }
+
     }
 
     @Override

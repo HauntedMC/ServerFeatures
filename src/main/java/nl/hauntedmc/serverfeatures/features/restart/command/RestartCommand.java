@@ -33,14 +33,6 @@ public class RestartCommand extends FeatureCommand {
             return true;
         }
 
-        if (args.length > 0) {
-            sender.sendMessage(feature.getLocalizationHandler()
-                    .getMessage("restart.usage")
-                    .forAudience(sender)
-                    .build());
-            return true;
-        }
-
         if (!service.startCommanded(sender)) {
             sender.sendMessage(feature.getLocalizationHandler()
                     .getMessage("restart.in_progress")

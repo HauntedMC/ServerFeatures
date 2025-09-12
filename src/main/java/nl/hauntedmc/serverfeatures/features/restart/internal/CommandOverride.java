@@ -7,8 +7,8 @@ import org.bukkit.command.CommandMap;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public final class CommandOverride {
 
@@ -18,28 +18,82 @@ public final class CommandOverride {
         try {
             CommandMap map = obtainCommandMap(server);
             Map<String, Command> known = obtainKnownCommands(map);
-            if (map == null || known == null) return;
+            if (known == null) return;
 
-            String[] keys = {"restart", "bukkit:restart", "minecraft:restart", "spigot:restart", "paper:restart"};
-            for (String key : keys) {
+            Set<String> toRemove = known.keySet().stream()
+                    .filter(CommandOverride::isRestartKey)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+
+            for (String key : toRemove) {
                 Command cmd = known.get(key);
-                if (cmd == null) continue;
-                if (isDefaultRestart(cmd)) {
+                if (cmd != null && isDefaultRestart(cmd)) {
                     cmd.unregister(map);
                     known.remove(key);
                 }
             }
 
-            Iterator<Map.Entry<String, Command>> it = known.entrySet().iterator();
-            while (it.hasNext()) {
-                Map.Entry<String, Command> e = it.next();
-                if (isDefaultRestart(e.getValue())) {
-                    e.getValue().unregister(map);
-                    it.remove();
-                }
-            }
+            syncCommands(server, logger);
         } catch (Throwable t) {
             logger.warning("Could not unregister default /restart: " + t.getMessage());
+        }
+    }
+
+    /**
+     * Hard-takeover of all restart labels (restart, spigot:restart, etc) by your command.
+     * Call this AFTER you register your own RestartCommand with the CommandMap.
+     */
+    public static void takeoverRestart(Server server, FeatureLogger logger, Command yourRestartCommand, String pluginNamespace) {
+        try {
+            CommandMap map = obtainCommandMap(server);
+            Map<String, Command> known = obtainKnownCommands(map);
+            if (known == null) return;
+
+            String ns = (pluginNamespace == null ? "serverfeatures" : pluginNamespace).toLowerCase(Locale.ROOT);
+
+            // Collect all keys that look like restart commands (any namespace), plus canonical ones
+            Set<String> restartKeys = new LinkedHashSet<>();
+            restartKeys.add("restart");
+            restartKeys.add("bukkit:restart");
+            restartKeys.add("spigot:restart");
+            restartKeys.add("paper:restart");
+            restartKeys.add("minecraft:restart");
+            restartKeys.add(ns + ":restart");
+
+            for (String key : known.keySet()) {
+                if (isRestartKey(key)) restartKeys.add(key);
+            }
+
+            // Unregister any existing mapping that's not ours, then bind ALL to ours
+            for (String key : restartKeys) {
+                Command existing = known.get(key);
+                if (existing != null && existing != yourRestartCommand) {
+                    try { existing.unregister(map); } catch (Throwable ignored) {}
+                    known.remove(key);
+                }
+            }
+            for (String key : restartKeys) {
+                known.put(key, yourRestartCommand);
+            }
+
+            syncCommands(server, logger);
+        } catch (Throwable t) {
+            logger.warning("Could not takeover /restart: " + t.getMessage());
+        }
+    }
+
+    private static boolean isRestartKey(String key) {
+        if (key == null) return false;
+        String k = key.toLowerCase(Locale.ROOT);
+        return k.equals("restart") || k.endsWith(":restart");
+    }
+
+    private static void syncCommands(Server server, FeatureLogger logger) {
+        try {
+            Method m = server.getClass().getMethod("syncCommands");
+            m.setAccessible(true);
+            m.invoke(server);
+        } catch (Throwable t) {
+            logger.warning("Could not sync commands after rebind: " + t.getMessage());
         }
     }
 
