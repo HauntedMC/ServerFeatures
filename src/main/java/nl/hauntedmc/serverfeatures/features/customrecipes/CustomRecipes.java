@@ -49,9 +49,6 @@ public class CustomRecipes extends BukkitBaseFeature<Meta> {
      */
     @Override
     public void initialize() {
-        // Ensure the recipes.yml resource exists in the plugin folder.
-        getPlugin().saveResource("local/recipes.yml", false);
-
         // Initialize RecipeService (which internally uses RecipeConfigHandler).
         recipeService = new RecipeService(this);
         recipeService.loadRecipes();

@@ -79,17 +79,15 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         instance = this;
-        if (CitizensAPI.getTraitFactory().getTrait(RepairTrait.class) != null) {
-        CitizensAPI.getTraitFactory()
-                .registerTrait(TraitInfo.create(RepairTrait.class).withName("repair"));
+        if (CitizensAPI.getTraitFactory().getTrait("repair") == null){
+            CitizensAPI.getTraitFactory()
+                    .registerTrait(TraitInfo.create(RepairTrait.class).withName("repair"));
         }
     }
 
 
     @Override
     public void disable() {
-        CitizensAPI.getTraitFactory()
-                .deregisterTrait(TraitInfo.create(RepairTrait.class).withName("repair"));
     }
 
     public static RepairNPC getInstance() { return instance; }

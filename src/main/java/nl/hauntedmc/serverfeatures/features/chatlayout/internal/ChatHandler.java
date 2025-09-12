@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 
+import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.MiniMessageFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.StarTierModifier;
@@ -155,7 +155,7 @@ public class ChatHandler {
         int length = strings.size();
         int index = 0;
         for (String str : strings) {
-            String replacedString = PlaceholderAPI.setPlaceholders(player, str);
+            String replacedString = PlaceholderAPIHook.parseWithPAPI(str, player);
             concatenatedString.append(replacedString);
 
             if (index < length-1) {
@@ -172,20 +172,20 @@ public class ChatHandler {
         // Prefix (stars + rank)
         int starTier = StarTierModifier.getStarTier(player);
         String starTierFormat = StarTierModifier.getStarTierFormat(starTier);
-        String rank = PlaceholderAPI.setPlaceholders(player, playerFormat.getPrefix());
+        String rank = PlaceholderAPIHook.parseWithPAPI(playerFormat.getPrefix(), player);
         String prefix = starTierFormat + rank;
         String prefixCommand = playerFormat.getPreClickCmd();
         String prefixTooltip = formatTooltip(playerFormat.getPrefixTooltip(), player).replace("<star_tier>", String.valueOf(starTier));
         String processed_prefix =  "<click:run_command:'"+prefixCommand+"'><hover:show_text:'"+prefixTooltip+"'>"+prefix+"</hover></click>";
 
         // Name
-        String name = PlaceholderAPI.setPlaceholders(player, playerFormat.getName());
+        String name = PlaceholderAPIHook.parseWithPAPI(playerFormat.getName(), player);
         String nameCommand = playerFormat.getNameClickCmd();
         String nameTooltip = formatTooltip(playerFormat.getNameTooltip(), player);
         String processed_name =  "<click:suggest_command:'"+nameCommand+"'><hover:show_text:'"+nameTooltip+"'>"+name+"</hover></click>";
 
         // Suffix
-        String suffix = PlaceholderAPI.setPlaceholders(player, playerFormat.getSuffix());
+        String suffix = PlaceholderAPIHook.parseWithPAPI(playerFormat.getSuffix(), player);
 
         String chatLayout = processed_prefix + processed_name + suffix;
         chatLayout = translateMinecraftToMiniMessage(chatLayout, true);

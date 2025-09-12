@@ -19,7 +19,7 @@ public class Meta implements BaseMeta {
 
     @Override
     public List<String> getPluginDependencies() {
-        return List.of("Vault", "LuckPerms", "packetevents");
+        return List.of("LuckPerms", "packetevents");
     }
 
 }
