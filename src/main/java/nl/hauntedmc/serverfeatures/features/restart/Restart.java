@@ -25,13 +25,13 @@ public class Restart extends BukkitBaseFeature<Meta> {
         ConfigMap c = new ConfigMap();
         c.put("enabled", true);
 
-        // Title timings (ticks), same style as Broadcast
+        // Title timings (ticks)
         c.put("title_fade_in", 20);
         c.put("title_stay", 100);
         c.put("title_fade_out", 20);
 
         // Announce schedule (seconds remaining)
-        c.put("announce.schedule", List.of("60, 30, 0"));
+        c.put("announce.schedule", List.of(60, 30, 0));
 
         // Auto restart
         c.put("auto.enabled", true);
@@ -60,12 +60,10 @@ public class Restart extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.service = new RestartService(this);
 
-        // Register command via your lifecycle command manager
         getLifecycleManager()
                 .getCommandManager()
                 .registerFeatureCommand(new RestartCommand(this, service));
 
-        // Auto restart
         if (getBoolean("auto.enabled", false)) {
             String time = getString("auto.time", "04:00");
             this.auto = new AutoRestartScheduler(this, service, time);

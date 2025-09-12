@@ -1,13 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.restart.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.title.Title;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.player.PlayerKickEvent;
 
 import java.time.Duration;
 import java.util.*;
@@ -20,8 +17,25 @@ public class RestartService {
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
     private final AtomicLong sequenceToken = new AtomicLong(0);
 
+    private final Title.Times titleTimes;
+    private final int waitAfterNowSeconds;
+    private final List<Integer> scheduleDesc;
+
     public RestartService(Restart feature) {
         this.feature = feature;
+
+        int fadeInTicks  = feature.getInt("title_fade_in", 20);
+        int stayTicks    = feature.getInt("title_stay", 100);
+        int fadeOutTicks = feature.getInt("title_fade_out", 20);
+        this.titleTimes = Title.Times.times(
+                Duration.ofMillis(ticksToMillis(fadeInTicks)),
+                Duration.ofMillis(ticksToMillis(stayTicks)),
+                Duration.ofMillis(ticksToMillis(fadeOutTicks))
+        );
+
+        this.waitAfterNowSeconds = feature.getInt("auto.wait_after_now_seconds", 5);
+
+        this.scheduleDesc = parseSchedule();
     }
 
     public boolean startCommanded(CommandSender initiator) {
@@ -29,7 +43,7 @@ public class RestartService {
             return false;
         }
         feature.getLogger().info("Restart initiated by " + (initiator == null ? "system" : initiator.getName()));
-        runSequenceFromConfig();
+        runSequence();
         return true;
     }
 
@@ -39,47 +53,37 @@ public class RestartService {
             return;
         }
         feature.getLogger().info("Automatic daily restart starting…");
-        runSequenceFromConfig();
+        runSequence();
     }
 
     public void cancelIfRunning() {
-        sequenceToken.incrementAndGet(); // invalidate all pending steps
+        sequenceToken.incrementAndGet();
         inProgress.set(false);
     }
 
     /* ---------------- sequence ---------------- */
 
-    private void runSequenceFromConfig() {
+    private void runSequence() {
         final long token = sequenceToken.incrementAndGet();
 
-        final int fadeIn = feature.getInt("title_fade_in", 20);
-        final int stay = feature.getInt("title_stay", 100);
-        final int fadeOut = feature.getInt("title_fade_out", 20);
-        final int waitAfterNow = feature.getInt("auto.wait_after_now_seconds", 5);
+        int first = scheduleDesc.getFirst();
+        int last  = scheduleDesc.getLast();
 
-        // Parse schedule (seconds remaining), sanitize, ensure "0" exists
-        List<Integer> schedule = parseSchedule();
-        if (schedule.isEmpty() || schedule.getLast() != 0) {
-            schedule.add(0);
-        }
+        announceRemaining(first);
 
-        // We announce immediately at the first (largest) remaining time.
-        // Then schedule subsequent announcements after the delta from previous entry.
-        // Example: [120,60,30,0] => t=0 (announce 120), +60s (60), +30s (30), +30s (0), then +waitAfterNow => shutdown.
-        int prev = schedule.getFirst();
-        announceRemaining(prev, fadeIn, stay, fadeOut, waitAfterNow);
-        for (int i = 1; i < schedule.size(); i++) {
-            int remaining = schedule.get(i);
+        int prev = first;
+        for (int i = 1; i < scheduleDesc.size(); i++) {
+            int remaining = scheduleDesc.get(i);
             int delta = Math.max(0, prev - remaining);
             scheduleInSeconds(delta, () -> {
                 if (!isTokenValid(token)) return;
-                announceRemaining(remaining, fadeIn, stay, fadeOut, waitAfterNow);
+                announceRemaining(remaining);
             });
             prev = remaining;
         }
 
-        // After the final (remaining == 0) announcement, wait waitAfterNow seconds then save/kick/shutdown.
-        scheduleInSeconds(schedule.getFirst() - schedule.getLast() + waitAfterNow, () -> {
+        int totalUntilZero = Math.max(0, first - last); // typ. == first
+        scheduleInSeconds(totalUntilZero + waitAfterNowSeconds, () -> {
             if (!isTokenValid(token)) return;
             saveKickShutdown();
         });
@@ -89,49 +93,7 @@ public class RestartService {
         return sequenceToken.get() == token;
     }
 
-    private List<Integer> parseSchedule() {
-        Object raw = feature.getConfigHandler().getSetting("announce.schedule");
-        List<Integer> out = new ArrayList<>();
-        try {
-            if (raw instanceof Collection<?> c) {
-                for (Object o : c) pushIfValid(out, o);
-            } else if (raw != null) {
-                String s = String.valueOf(raw);
-                for (String part : s.split(",")) pushIfValid(out, part.trim());
-            }
-        } catch (Throwable ignored) {
-        }
-        // sort descending (largest remaining first), unique, non-negative
-        out.removeIf(v -> v == null || v < 0);
-        out.sort(Comparator.reverseOrder());
-        // de-dup
-        List<Integer> unique = new ArrayList<>();
-        Integer last = null;
-        for (Integer v : out) {
-            if (!Objects.equals(last, v)) unique.add(v);
-            last = v;
-        }
-        return unique;
-    }
-
-    private void pushIfValid(List<Integer> out, Object o) {
-        try {
-            int v = (o instanceof Number n) ? n.intValue() : Integer.parseInt(String.valueOf(o));
-            if (v >= 0) out.add(v);
-        } catch (Throwable ignored) {
-        }
-    }
-
-    private void announceRemaining(int remainingSeconds,
-                                   int fadeInTicks, int stayTicks, int fadeOutTicks,
-                                   int waitAfterNow) {
-
-        // Convert ticks (config) to durations for Adventure Title.Times
-        Duration in = Duration.ofSeconds(Math.max(0, fadeInTicks) / 20);
-        Duration st = Duration.ofSeconds(Math.max(0, stayTicks) / 20);
-        Duration out = Duration.ofSeconds(Math.max(0, fadeOutTicks) / 20);
-
-        // Precompute formatted placeholders
+    private void announceRemaining(int remainingSeconds) {
         TimeFmt t = TimeFmt.of(remainingSeconds);
 
         for (Player p : feature.getPlugin().getServer().getOnlinePlayers()) {
@@ -153,7 +115,6 @@ public class RestartService {
                         .forAudience(p)
                         .build();
             } else {
-                // Generic countdown — supply {mm},{ss},{m},{s},{readable}
                 Map<String,String> ph = Map.of(
                         "mm", t.mm,
                         "ss", t.ss,
@@ -178,14 +139,13 @@ public class RestartService {
                         .build();
             }
 
-            p.showTitle(Title.title(title, sub, Title.Times.times(in, st, out)));
+            p.showTitle(Title.title(title, sub, titleTimes));
             p.sendMessage(chat);
         }
     }
 
-
     private void saveKickShutdown() {
-        // save-all flush (sync)
+        // save-all flush (sync op main)
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             try {
                 feature.getPlugin().getServer().dispatchCommand(
@@ -195,7 +155,7 @@ public class RestartService {
             }
         });
 
-        // Kick everyone (localized), then shutdown
+        // Kick en shutdown
         for (Player p : feature.getPlugin().getServer().getOnlinePlayers()) {
             Component kick = feature.getLocalizationHandler()
                     .getMessage("restart.kick")
@@ -213,7 +173,47 @@ public class RestartService {
     private void scheduleInSeconds(int delaySeconds, Runnable action) {
         long ticks = Math.max(0, delaySeconds) * 20L;
         feature.getLifecycleManager().getTaskManager()
-                .scheduleDelayedTask(action, BukkitTime.ticks(ticks));
+                .scheduleDelayedTask(action, nl.hauntedmc.serverfeatures.common.util.BukkitTime.ticks(ticks));
+    }
+
+    private static long ticksToMillis(int ticks) {
+        return Math.max(0, ticks) * 50L;
+    }
+
+    /* --------------- schedule parsing (altijd lijst) --------------- */
+
+    private List<Integer> parseSchedule() {
+        Object raw = feature.getConfigHandler().getSetting("announce.schedule");
+        List<Integer> out = new ArrayList<>();
+
+        List<?> items = (raw instanceof List<?> l) ? l : List.of(60, 30, 0); // fallback
+        for (Object o : items) {
+            if (o instanceof Number n) {
+                int v = n.intValue();
+                if (v >= 0) out.add(v);
+            } else if (o != null) {
+                try {
+                    int v = Integer.parseInt(String.valueOf(o).trim());
+                    if (v >= 0) out.add(v);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // Sort dalend, unieke waarden
+        out.sort(Comparator.reverseOrder());
+        List<Integer> uniqueDesc = new ArrayList<>();
+        Integer last = null;
+        for (Integer v : out) {
+            if (!Objects.equals(last, v)) uniqueDesc.add(v);
+            last = v;
+        }
+
+        // Zorg dat 0 er in zit (als laatste)
+        if (uniqueDesc.isEmpty() || uniqueDesc.getLast() != 0) {
+            uniqueDesc.add(0);
+        }
+
+        return uniqueDesc;
     }
 
     /* --------------- tiny formatter helper --------------- */

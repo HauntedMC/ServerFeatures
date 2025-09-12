@@ -28,7 +28,7 @@ public class AutoRestartScheduler {
         long ticksDelay = computeDelayTicks(hhmm);
         feature.getLifecycleManager().getTaskManager()
                 .scheduleDelayedTask(() -> {
-                    if (scheduleToken.get() != token) return; // canceled/replaced
+                    if (scheduleToken.get() != token) return;
                     feature.getLogger().info("Automatic restart trigger reached (" + hhmm + ").");
                     service.startAutomatic();
                 }, BukkitTime.ticks(ticksDelay));
@@ -41,30 +41,26 @@ public class AutoRestartScheduler {
     }
 
     private long computeDelayTicks(String hhmm) {
-        try {
-            LocalTime target = LocalTime.parse(hhmm, DateTimeFormatter.ofPattern("H:mm"));
-            ZoneId zone = ZoneId.systemDefault();
-            ZonedDateTime now = ZonedDateTime.now(zone);
-            ZonedDateTime runAt = now.with(target);
-            if (!runAt.isAfter(now)) runAt = runAt.plusDays(1);
-            long seconds = Duration.between(now, runAt).getSeconds();
-            return Math.max(1, seconds) * 20L;
-        } catch (Throwable t) {
-            feature.getLogger().warning("Invalid auto.time '" + hhmm + "', defaulting to 04:00.");
-            return computeDelayTicks("04:00");
-        }
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+        ZonedDateTime runAt = nextRunAt(now, hhmm);
+        long seconds = Duration.between(now, runAt).getSeconds();
+        return Math.max(1, seconds) * 20L;
     }
 
     private String nextRunHuman(String hhmm) {
+        ZonedDateTime runAt = nextRunAt(ZonedDateTime.now(ZoneId.systemDefault()), hhmm);
+        return runAt.toString();
+    }
+
+    private ZonedDateTime nextRunAt(ZonedDateTime now, String hhmm) {
         try {
             LocalTime target = LocalTime.parse(hhmm, DateTimeFormatter.ofPattern("H:mm"));
-            ZoneId zone = ZoneId.systemDefault();
-            ZonedDateTime now = ZonedDateTime.now(zone);
             ZonedDateTime runAt = now.with(target);
             if (!runAt.isAfter(now)) runAt = runAt.plusDays(1);
-            return runAt.toString();
+            return runAt;
         } catch (Throwable t) {
-            return "unknown";
+            feature.getLogger().warning("Invalid auto.time '" + hhmm + "', defaulting to 04:00.");
+            return nextRunAt(now, "04:00");
         }
     }
 }
