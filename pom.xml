@@ -6,14 +6,14 @@
 
     <groupId>nl.hauntedmc.serverfeatures</groupId>
     <artifactId>serverfeatures</artifactId>
-    <version>1.14.0</version>
+    <version>1.15.0</version>
     <packaging>jar</packaging>
     <name>ServerFeatures</name>
     <url>https://maven.apache.org</url>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <paper.version>1.21.4-R0.1-SNAPSHOT</paper.version>
+        <paper.version>1.21.8-R0.1-SNAPSHOT</paper.version>
     </properties>
 
     <distributionManagement>

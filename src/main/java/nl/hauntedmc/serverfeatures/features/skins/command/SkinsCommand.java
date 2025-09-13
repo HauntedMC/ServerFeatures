@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.skins.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import nl.hauntedmc.serverfeatures.features.skins.service.SkinService;
@@ -20,7 +21,7 @@ public class SkinsCommand extends FeatureCommand {
     private final SkinService service;
 
     public SkinsCommand(Skins feature) {
-        super("skin");
+        super(new CommandSpec.Builder("skin").build());
         this.feature = feature;
         this.service = new SkinService(feature);
     }
@@ -117,7 +118,7 @@ public class SkinsCommand extends FeatureCommand {
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
                                              @NotNull String alias,
-                                             String[] args) {
+                                             String @NotNull [] args) {
 
         // /skin <name|remove>
         if (args.length == 1) {

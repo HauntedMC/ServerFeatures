@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import org.bukkit.Bukkit;
@@ -18,7 +19,7 @@ public class LiquidTankCommand extends FeatureCommand {
     private final LiquidTank feature;
 
     public LiquidTankCommand(LiquidTank feature) {
-        super("liquidtank");
+        super(new CommandSpec.Builder("liquidtank").build());
         this.feature = feature;
     }
 

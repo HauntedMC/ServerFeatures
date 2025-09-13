@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
@@ -11,7 +12,7 @@ public class ActionbarCommand extends FeatureCommand {
     private final Actionbar feature;
 
     public ActionbarCommand(Actionbar feature) {
-        super("actionbar");
+        super(new CommandSpec.Builder("actionbar").build());
         this.feature = feature;
     }
 

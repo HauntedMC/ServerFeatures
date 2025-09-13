@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
 import org.bukkit.command.CommandSender;
@@ -13,7 +14,7 @@ public class CommandRelayCommand extends FeatureCommand {
     private final CommandRelay feature;
 
     public CommandRelayCommand(CommandRelay feature) {
-        super("commandrelay");
+        super(new CommandSpec.Builder("commandrelay").build());
         this.feature = feature;
     }
 

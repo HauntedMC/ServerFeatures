@@ -4,7 +4,7 @@
   <groupId>nl.hauntedmc.serverfeatures</groupId>
   <artifactId>serverfeatures</artifactId>
   <name>ServerFeatures</name>
-  <version>1.14.0</version>
+  <version>1.15.0</version>
   <url>https://maven.apache.org</url>
   <build>
     <resources>
@@ -153,7 +153,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21.4-R0.1-SNAPSHOT</version>
+      <version>1.21.8-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -264,6 +264,6 @@
   </distributionManagement>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <paper.version>1.21.4-R0.1-SNAPSHOT</paper.version>
+    <paper.version>1.21.8-R0.1-SNAPSHOT</paper.version>
   </properties>
 </project>

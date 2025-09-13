@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chattools.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.chattools.ChatTools;
 import org.bukkit.Bukkit;
@@ -16,7 +17,7 @@ public class ChatCommand extends FeatureCommand {
     private final ChatTools feature;
 
     public ChatCommand(ChatTools feature) {
-        super("chat");
+        super(new CommandSpec.Builder("chat").build());
         this.feature = feature;
     }
 
@@ -121,7 +122,7 @@ public class ChatCommand extends FeatureCommand {
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
                                              @NotNull String alias,
-                                             String[] args) {
+                                             String @NotNull [] args) {
 
         if (args.length == 1) {
             return Stream.of("lock", "unlock", "clear")

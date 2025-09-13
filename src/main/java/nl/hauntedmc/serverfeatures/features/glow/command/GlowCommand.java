@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.glow.command;
 
 import net.kyori.adventure.text.format.NamedTextColor;
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import org.bukkit.command.CommandSender;
@@ -20,7 +21,7 @@ public class GlowCommand extends FeatureCommand {
     private final Glow feature;
 
     public GlowCommand(Glow feature) {
-        super("glow");
+        super(new CommandSpec.Builder("glow").build());
         this.feature = feature;
 
         // Initialize tab-complete options with all NamedTextColor names

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.restart.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import nl.hauntedmc.serverfeatures.features.restart.internal.RestartService;
@@ -15,7 +16,7 @@ public class RestartCommand extends FeatureCommand {
     private final RestartService service;
 
     public RestartCommand(Restart feature, RestartService service) {
-        super("restart");
+        super(new CommandSpec.Builder("restart").build());
         this.feature = feature;
         this.service = service;
     }

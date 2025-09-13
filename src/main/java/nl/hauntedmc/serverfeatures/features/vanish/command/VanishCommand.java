@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.vanish.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import org.bukkit.Bukkit;
@@ -16,7 +17,7 @@ public class VanishCommand extends FeatureCommand {
     private final Vanish feature;
 
     public VanishCommand(Vanish feature) {
-        super("vanish");
+        super(new CommandSpec.Builder("vanish").build());
         this.feature = feature;
     }
 
@@ -132,7 +133,7 @@ public class VanishCommand extends FeatureCommand {
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
                                              @NotNull String alias,
-                                             String[] args) {
+                                             String @NotNull [] args) {
         if (args.length == 1) {
             return Stream.concat(Stream.of("on", "off"),
                             Bukkit.getOnlinePlayers().stream().map(Player::getName))

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
 import nl.hauntedmc.serverfeatures.features.silkspawners.internal.SilkSpawnersHandler;
@@ -23,7 +24,7 @@ public class SilkSpawnerCommand extends FeatureCommand {
     private final SilkSpawners feature;
 
     public SilkSpawnerCommand(SilkSpawners feature) {
-        super("silkspawners");
+        super(new CommandSpec.Builder("silkspawners").build());
         this.feature = feature;
     }
 

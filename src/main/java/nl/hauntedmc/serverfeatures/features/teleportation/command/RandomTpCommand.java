@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.teleportation.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 import nl.hauntedmc.serverfeatures.features.teleportation.service.TeleportService;
@@ -18,7 +19,8 @@ public class RandomTpCommand extends FeatureCommand {
     private final TeleportService service;
 
     public RandomTpCommand(Teleportation feature, TeleportService service) {
-        super("randomtp");
+        super(new CommandSpec.Builder("randomtp").aliases(List.of("rtp")).build());
+
         this.feature = feature;
         this.service = service;
     }
@@ -43,7 +45,7 @@ public class RandomTpCommand extends FeatureCommand {
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String[] args) {
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String @NotNull [] args) {
         return List.of();
     }
 }

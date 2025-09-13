@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.Bukkit;
@@ -16,7 +17,7 @@ public class NickCommand extends FeatureCommand {
     private final Nickname feature;
 
     public NickCommand(Nickname feature) {
-        super("nickname");
+        super(new CommandSpec.Builder("nickname").build());
         this.feature = feature;
     }
 

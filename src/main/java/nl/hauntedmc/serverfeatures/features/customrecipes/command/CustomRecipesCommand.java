@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.command;
 
+import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
@@ -16,7 +17,7 @@ public class CustomRecipesCommand extends FeatureCommand {
     private final CustomRecipes feature;
 
     public CustomRecipesCommand(CustomRecipes feature) {
-        super("customrecipes");
+        super(new CommandSpec.Builder("customrecipes").build());
         this.feature = feature;
     }
 
