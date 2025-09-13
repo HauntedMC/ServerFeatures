@@ -47,6 +47,7 @@ public class Restart extends BukkitBaseFeature<Meta> {
         MessageMap m = new MessageMap();
         m.add("restart.in_progress", "&eEr is al een restart proces gestart.");
         m.add("restart.started", "&aRestart sequentie gestart.");
+        m.add("restart.forced", "&f&l[RESTART] &cRestart geforceerd. &7Opslaan en direct herstarten...");
         m.add("restart.countdown.title", "&cServer restart over &f{readable}");
         m.add("restart.countdown.subtitle", "&7Bereid jezelf voor!");
         m.add("restart.countdown.chat", "&f&l[RESTART] &cDe server gaat restarten over &f{readable}&c.");

@@ -39,6 +39,12 @@ public class RestartService {
         this.scheduleDesc = parseSchedule();
     }
 
+    public void forceImmediate(CommandSender initiator) {
+        feature.getLogger().warning("Forced restart initiated by " + (initiator == null ? "system" : initiator.getName()));
+        cancelIfRunning();
+        saveKickShutdown();
+    }
+
     public boolean startCommanded(CommandSender initiator) {
         if (!inProgress.compareAndSet(false, true)) {
             return false;
