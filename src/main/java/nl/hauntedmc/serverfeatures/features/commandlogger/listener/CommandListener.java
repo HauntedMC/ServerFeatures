@@ -10,12 +10,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.event.server.RemoteServerCommandEvent;
-import org.bukkit.entity.Player;
 
 import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
 
 import java.lang.reflect.Method;
-import java.util.Locale;
 
 public class CommandListener implements Listener {
 
@@ -59,14 +57,6 @@ public class CommandListener implements Listener {
         Command cmd = map.getCommand(alias);
         if (cmd == null) return;
         if (!cmd.testPermissionSilent(source)) return;
-
-        // Who
-        String who;
-        if (source instanceof Player p) {
-            who = p.getName() + " (" + p.getUniqueId() + ")";
-        } else {
-            who = source.getClass().getSimpleName().toLowerCase(Locale.ROOT);
-        }
 
         // Persist into DB (server read from global config)
         feature.getCommandLogService().logServerCommand(source, full);

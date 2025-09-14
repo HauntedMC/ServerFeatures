@@ -12,12 +12,12 @@ public class ItemCreator {
 		ItemStack itemStack = new ItemStack(paramMaterial);
 		itemStack.setAmount(paramInt);
 		ItemMeta itemMeta = itemStack.getItemMeta();
-		if (!paramString2.equals("")) {
+		if (!paramString2.isEmpty()) {
 			String[] arrayOfString = paramString2.split("||");
 			List<String> arrayList = Arrays.asList(arrayOfString);
 			itemMeta.setLore(arrayList);
 		}
-		if (!paramString1.equals(""))
+		if (!paramString1.isEmpty())
 			itemMeta.setDisplayName(paramString1);
 		itemStack.setItemMeta(itemMeta);
 		return itemStack;

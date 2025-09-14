@@ -24,7 +24,6 @@ public class FeatureCacheManager {
 
     /**
      * Get (or create) the cache subdirectory for this feature + identifier.
-     *
      * Example:
      *   getCacheDirectory("voteRewards", "queue")
      *     ⇒ plugins/.../cache/voteRewards-queue/

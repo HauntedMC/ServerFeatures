@@ -159,7 +159,7 @@ public final class YamlSanitizeUtil {
             String key = extractKeyToken(t);
             if (key != null) {
                 // fix stack to current level
-                while (stack.size() > level) stack.remove(stack.size() - 1);
+                while (stack.size() > level) stack.removeLast();
                 if (stack.size() < level) {
                     // malformed indent jump -> reset
                     stack.clear();
@@ -171,7 +171,7 @@ public final class YamlSanitizeUtil {
                 }
                 // if leaf "key: value" -> pop; otherwise "key:" keeps nested
                 if (isLeafKeyValue(t)) {
-                    stack.remove(stack.size() - 1);
+                    stack.removeLast();
                 }
             }
 

@@ -12,6 +12,7 @@ import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
@@ -209,8 +210,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             // Filter subcommands by the typed prefix
             String prefix = args[0].toLowerCase(L);
-            return List.of("list", "disable", "enable", "reload", "reloadlocal", "softreload", "status")
-                    .stream()
+            return Stream.of("list", "disable", "enable", "reload", "reloadlocal", "softreload", "status")
                     .filter(s -> s.toLowerCase(L).startsWith(prefix))
                     .sorted(String.CASE_INSENSITIVE_ORDER)
                     .toList();

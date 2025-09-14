@@ -40,7 +40,6 @@ public class JsonCacheFile implements FileCacheStore {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void load() {
         try (Reader r = new FileReader(file)) {
             rawMap = gson.fromJson(r, RAW_MAP_TYPE);

@@ -39,7 +39,7 @@ public class WaterTank extends AbstractTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
@@ -57,7 +57,7 @@ public class WaterTank extends AbstractTank {
 					if (block.getType() == Material.DISPENSER && ((Directional) block.getBlockData()).getFacing() == BlockFace.UP && (block.isBlockPowered() || block.isBlockIndirectlyPowered()))
 						arrayList2.add(block);
 				}
-				if (arrayList2.size() > 0 && arrayList2.size() < 3) {
+				if (!arrayList2.isEmpty() && arrayList2.size() < 3) {
 					for (Block block : arrayList2) {
 						if (arrayList2.size() > 1) {
 							tank.showFountainParticles(block.getLocation(), 1.5D, 5, 1.0F);

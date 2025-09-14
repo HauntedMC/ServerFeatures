@@ -43,9 +43,7 @@ public class VillagerAIHandler {
                     .build());
         } else {
             // Re-Enabling AI
-
-//          if (!getDisabledByBlock(vil))
-//              return;
+            
             if(hasCooldown(vil, player))
                 return;
             vil.setAware(true);

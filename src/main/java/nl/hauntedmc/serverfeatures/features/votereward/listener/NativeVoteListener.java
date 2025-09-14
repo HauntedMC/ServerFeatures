@@ -15,10 +15,10 @@ public class NativeVoteListener implements Listener {
     public void onHauntedVote(VoteEvent event) {
         var v = event.getVote();
         feature.getVoteHandler().handleVote(new IncomingVote(
-                v.getServiceName(),
-                v.getUsername(),
-                v.getAddress(),
-                v.getVoteTimestamp()
+                v.serviceName(),
+                v.username(),
+                v.address(),
+                v.voteTimestamp()
         ));
     }
 }

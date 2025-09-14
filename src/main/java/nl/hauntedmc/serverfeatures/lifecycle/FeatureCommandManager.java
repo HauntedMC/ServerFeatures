@@ -34,7 +34,7 @@ public class FeatureCommandManager {
             return;
         }
 
-        commandMap.register(plugin.getDescription().getName(), command);
+        commandMap.register(plugin.getName(), command);
         registeredCommands.put(commandName, command);
 
         plugin.getLogger().info("Registered command: " + commandName);

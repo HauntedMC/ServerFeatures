@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeContext;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeResult;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
+import nl.hauntedmc.serverfeatures.features.sanitize.internal.util.YamlSanitizeUtil;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -210,10 +211,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
     }
 
     private static String normalize(String s) {
-        if (s == null) return "";
-        // Canonicalize line endings and strip trailing whitespace/newlines
-        String n = s.replace("\r\n", "\n").replace("\r", "\n");
-        return n.replaceAll("[\\s\\n\\r]+$", "");
+        return YamlSanitizeUtil.normalize(s);
     }
 
     private static String ensureTrailingNewline(String s) {

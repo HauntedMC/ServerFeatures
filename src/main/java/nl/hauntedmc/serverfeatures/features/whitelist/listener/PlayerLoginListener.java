@@ -8,8 +8,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerLoginEvent;
 
-import java.util.Map;
-
 public class PlayerLoginListener implements Listener {
 
     private final Whitelist feature;

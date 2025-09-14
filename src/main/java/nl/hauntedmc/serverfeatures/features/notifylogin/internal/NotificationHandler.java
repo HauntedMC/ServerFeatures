@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.util.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;

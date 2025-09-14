@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -38,7 +37,7 @@ public abstract class FoodTank extends AbstractTank {
 				Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
 				if (block.getType() == Material.HOPPER) {
 					AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-					if (abstractTank != null && abstractTank instanceof FoodTank foodTank) {
+					if (abstractTank instanceof FoodTank foodTank) {
                         foodTank.saturatePlayer(player);
 						abstractTank.setQuantity(abstractTank.getQuantity() - 1);
 						if (abstractTank.getQuantity() == 0) {
@@ -67,12 +66,7 @@ public abstract class FoodTank extends AbstractTank {
 		return chatColor;
 	}
 
-	@Override
-	public TankType getTankType() {
-		return TankType.EMPTY;
-	}
-
-	@Override
+    @Override
 	public int getMaxQuantity() {
 		return maxAmount;
 	}

@@ -8,13 +8,13 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 import java.util.Map;
 
 public class CustomShapedRecipe extends AbstractCustomRecipe {
 
+    @SuppressWarnings("unchecked")
     @Override
     public RecipeData createRecipe(CustomRecipes feature, NamespacedKey key, Map<?, ?> config) {
         ItemStack output = getOutput(feature, config, key);

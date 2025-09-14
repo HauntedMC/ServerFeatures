@@ -36,7 +36,7 @@ public class ExperienceTank extends AbstractTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}

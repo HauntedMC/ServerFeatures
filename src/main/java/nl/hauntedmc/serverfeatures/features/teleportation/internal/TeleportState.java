@@ -65,22 +65,13 @@ public class TeleportState {
         return true;
     }
 
-    private static final class CooldownKey {
-        private final UUID playerId;
-        private final TeleportAction action;
+    private record CooldownKey(UUID playerId, TeleportAction action) {
 
-        private CooldownKey(UUID playerId, TeleportAction action) {
-            this.playerId = playerId;
-            this.action = action;
-        }
-
-        @Override public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof CooldownKey that)) return false;
-            return java.util.Objects.equals(playerId, that.playerId) && action == that.action;
-        }
-        @Override public int hashCode() {
-            return java.util.Objects.hash(playerId, action);
-        }
+        @Override
+        public boolean equals(Object o) {
+                if (this == o) return true;
+                if (!(o instanceof CooldownKey(UUID id, TeleportAction action1))) return false;
+                return java.util.Objects.equals(playerId, id) && action == action1;
+            }
     }
 }

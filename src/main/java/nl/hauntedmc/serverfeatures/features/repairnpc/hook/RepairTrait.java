@@ -1,9 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.repairnpc.hook;
 
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
@@ -176,7 +173,7 @@ public class RepairTrait extends Trait {
         if (ent instanceof Player npcPlayer) {
             npcPlayer.getInventory().setItemInMainHand(p.getInventory().getItemInMainHand());
         } else if (ent instanceof LivingEntity le) {
-            le.getEquipment().setItemInMainHand(p.getInventory().getItemInMainHand());
+            Objects.requireNonNull(le.getEquipment()).setItemInMainHand(p.getInventory().getItemInMainHand());
         }
         p.getInventory().setItemInMainHand(null);
     }
@@ -198,11 +195,9 @@ public class RepairTrait extends Trait {
 
         @Override
         public void run() {
-            boolean success = repairItem();
+            repairItem();
             player.sendMessage(feature.getLocalizationHandler()
-                    .getMessage(success
-                            ? "repairnpc.successful-reforge"
-                            : "repairnpc.fail-reforge")
+                    .getMessage("repairnpc.successful-reforge")
                     .forAudience(player).build());
 
             // clear NPC’s hand
@@ -210,7 +205,7 @@ public class RepairTrait extends Trait {
             if (ent instanceof Player np) {
                 np.getInventory().setItemInMainHand(null);
             } else if (ent instanceof LivingEntity le) {
-                le.getEquipment().setItemInMainHand(null);
+                Objects.requireNonNull(le.getEquipment()).setItemInMainHand(null);
             }
 
             // return or drop item
@@ -234,11 +229,10 @@ public class RepairTrait extends Trait {
             session = null;
         }
 
-        private boolean repairItem() {
+        private void repairItem() {
             ItemMeta itemMeta = repairingItem.getItemMeta();
             ((org.bukkit.inventory.meta.Damageable) itemMeta).setDamage(0);
             repairingItem.setItemMeta(itemMeta);
-            return true;
         }
 
         boolean handleClick() {

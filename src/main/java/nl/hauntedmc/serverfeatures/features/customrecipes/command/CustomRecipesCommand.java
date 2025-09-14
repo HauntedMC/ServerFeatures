@@ -35,7 +35,8 @@ public class CustomRecipesCommand extends FeatureCommand {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
                     return true;
                 }
-                return handleList(sender);
+                handleList(sender);
+                return true;
             case "disable":
                 if (!sender.hasPermission("serverfeatures.feature.customrecipes.command.disable")) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
@@ -45,7 +46,8 @@ public class CustomRecipesCommand extends FeatureCommand {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disable_usage").forAudience(sender).build());
                     return true;
                 }
-                return handleDisable(sender, args[1]);
+                handleDisable(sender, args[1]);
+                return true;
             case "enable":
                 if (!sender.hasPermission("serverfeatures.feature.customrecipes.command.enable")) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
@@ -55,14 +57,15 @@ public class CustomRecipesCommand extends FeatureCommand {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enable_usage").forAudience(sender).build());
                     return true;
                 }
-                return handleEnable(sender, args[1]);
+                handleEnable(sender, args[1]);
+                return true;
             default:
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("general.usage").forAudience(sender).build());
                 return true;
         }
     }
 
-    private boolean handleList(CommandSender sender) {
+    private void handleList(CommandSender sender) {
         sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.active_list_title").forAudience(sender).build());
         List<String> activeKeys = feature.getRecipeService().getActiveRecipeKeys();
         if (activeKeys.isEmpty()) {
@@ -74,35 +77,32 @@ public class CustomRecipesCommand extends FeatureCommand {
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.list_entry").forAudience(sender).withPlaceholders(Map.of("key", keyStr, "type", type)).build());
             }
         }
-        return true;
     }
 
-    private boolean handleDisable(CommandSender sender, String keyInput) {
+    private void handleDisable(CommandSender sender, String keyInput) {
         NamespacedKey key = NamespacedKey.fromString(keyInput);
         if (key == null) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key").forAudience(sender).withPlaceholders(Map.of("key", keyInput)).build());
-            return true;
+            return;
         }
         if (feature.getRecipeService().disableRecipe(key)) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disabled").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
         } else {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disable_fail").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
         }
-        return true;
     }
 
-    private boolean handleEnable(CommandSender sender, String keyInput) {
+    private void handleEnable(CommandSender sender, String keyInput) {
         NamespacedKey key = NamespacedKey.fromString(keyInput);
         if (key == null) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key").forAudience(sender).withPlaceholders(Map.of("key", keyInput)).build());
-            return true;
+            return;
         }
         if (feature.getRecipeService().enableRecipe(key)) {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enabled").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
         } else {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enable_fail").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
         }
-        return true;
     }
 
     @Override

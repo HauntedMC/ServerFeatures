@@ -80,7 +80,7 @@ public class RestartCommand extends FeatureCommand {
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
                                              @NotNull String alias,
-                                             @NotNull String[] args) {
+                                             @NotNull String @NotNull [] args) {
         if (args.length == 1) {
             String p = args[0].toLowerCase();
             boolean canForce = sender.hasPermission(PERM_FORCE) || sender.hasPermission(PERM);

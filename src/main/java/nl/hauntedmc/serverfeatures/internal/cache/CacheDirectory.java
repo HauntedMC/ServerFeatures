@@ -39,18 +39,19 @@ public class CacheDirectory {
      */
     public CacheStore getStore(String fileName, CacheType type) {
         File file;
-        switch (type) {
-            case YAML:
+        return switch (type) {
+            case YAML -> {
                 file = new File(dir, fileName + ".yml");
-                return new YamlCacheFile(file);
-            case JSON:
+                yield new YamlCacheFile(file);
+            }
+            case JSON -> {
                 file = new File(dir, fileName + ".json");
-                return new JsonCacheFile(file);
-            case SQLITE:
+                yield new JsonCacheFile(file);
+            }
+            case SQLITE -> {
                 file = new File(dir, fileName + ".db");
-                return new SqliteCacheFile(file);
-            default:
-                throw new IllegalArgumentException("Unsupported cache type: " + type);
-        }
+                yield new SqliteCacheFile(file);
+            }
+        };
     }
 }

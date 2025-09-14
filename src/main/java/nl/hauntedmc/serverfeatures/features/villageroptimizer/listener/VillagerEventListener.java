@@ -22,7 +22,7 @@ import java.util.Map;
 public class VillagerEventListener implements Listener {
 
     private final VillagerAIHandler villagerAIHandler;
-    public VillagerOptimizer feature;
+    public final VillagerOptimizer feature;
 
     public VillagerEventListener(VillagerOptimizer feature) {
         this.feature = feature;

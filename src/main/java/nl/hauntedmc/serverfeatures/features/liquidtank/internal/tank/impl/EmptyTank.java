@@ -16,17 +16,8 @@ public class EmptyTank extends AbstractTank {
 
 	private static final int maxAmount = 128;
 
-	private static final long delay = 100L;
-
-	public EmptyTank(Location location, LiquidTank feature) {
+    public EmptyTank(Location location, LiquidTank feature) {
 		super(location, 0, feature);
-	}
-
-	public static void gameLoop(LiquidTank feature) {
-	}
-
-	private static void gameTick() {
-		//
 	}
 
 	@Override
@@ -120,12 +111,7 @@ public class EmptyTank extends AbstractTank {
 		return chatColor;
 	}
 
-	@Override
-	public TankType getTankType() {
-		return TankType.EMPTY;
-	}
-
-	@Override
+    @Override
 	public int getMaxQuantity() {
 		return maxAmount;
 	}

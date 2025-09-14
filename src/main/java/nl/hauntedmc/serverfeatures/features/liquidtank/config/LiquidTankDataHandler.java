@@ -64,7 +64,7 @@ public class LiquidTankDataHandler {
                 if (loadedWorlds.contains(worldName)) {
                     World world = feature.getPlugin().getServer().getWorld(worldName);
                     if (config.getConfigurationSection("tanks." + key) != null) {
-                        for (String subKey : config.getConfigurationSection("tanks." + key).getKeys(false)) {
+                        for (String subKey : Objects.requireNonNull(config.getConfigurationSection("tanks." + key)).getKeys(false)) {
                             if (subKey.contains("tankType")) {
                                 tankTypeStr = config.getString("tanks." + key + "." + subKey);
                             }

@@ -18,27 +18,22 @@ public final class ServerRootResolver {
             // Preferred: derive from the plugin's data folder: .../plugins/<YourPlugin>/
             // Server root is parent of "plugins" if present.
             File dataFolder = plugin.getDataFolder();
-            if (dataFolder != null) {
-                File pluginsDir = dataFolder.getParentFile(); // .../plugins
-                if (pluginsDir != null) {
-                    File pluginsDirAbs = pluginsDir.getAbsoluteFile();
-                    File parent = pluginsDirAbs.getParentFile(); // server root if pluginsDir is truly ".../plugins"
-                    if (parent != null && ("plugins".equalsIgnoreCase(pluginsDirAbs.getName()) || parent.exists())) {
-                        return parent.getAbsoluteFile();
-                    }
-                    // If parent is null or name isn't "plugins", fall back to pluginsDir itself
-                    return pluginsDirAbs;
+            File pluginsDir = dataFolder.getParentFile(); // .../plugins
+            if (pluginsDir != null) {
+                File pluginsDirAbs = pluginsDir.getAbsoluteFile();
+                File parent = pluginsDirAbs.getParentFile(); // server root if pluginsDir is truly ".../plugins"
+                if (parent != null && ("plugins".equalsIgnoreCase(pluginsDirAbs.getName()) || parent.exists())) {
+                    return parent.getAbsoluteFile();
                 }
+                // If parent is null or name isn't "plugins", fall back to pluginsDir itself
+                return pluginsDirAbs;
             }
 
             // Fallback: Bukkit world container (usually server root or a sibling)
             File wc = plugin.getServer().getWorldContainer();
-            if (wc != null) {
-                return wc.getAbsoluteFile();
-            }
+            return wc.getAbsoluteFile();
 
             // Last resort: current working directory
-            return new File(".").getAbsoluteFile();
         } catch (Throwable t) {
             if (log != null) log.warning("Server root resolution failed: " + t.getMessage());
             return new File(".").getAbsoluteFile();

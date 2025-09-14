@@ -3,8 +3,6 @@ package nl.hauntedmc.serverfeatures.features.restart.meta;
 
 import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 
-import java.util.List;
-
 public class Meta implements BaseMeta {
 
     @Override

@@ -3,10 +3,8 @@ package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.impl;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.CustomRecipe;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.util.ParseUtils;
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 

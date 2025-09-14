@@ -22,10 +22,6 @@ public class RabbitStewTank extends FoodTank {
 		super(location, amount, 12, feature);
 	}
 
-	public static void gameLoop(LiquidTank feature) {
-	}
-
-
 	@Override
 	protected String getLiquidHeadUrl() {
 		return HeadURL.rabbitStewB64;

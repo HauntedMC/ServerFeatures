@@ -21,8 +21,7 @@ public class PassengerHandler {
         for (Entity passenger : player.getPassengers()) {
             passengerIds.add(passenger.getEntityId());
         }
-        int[] passengers = passengerIds.stream().mapToInt(Integer::intValue).toArray();
 
-        return passengers;
+        return passengerIds.stream().mapToInt(Integer::intValue).toArray();
     }
 }

@@ -1,17 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank;
 
 public class UnloadedTank {
-	String world;
+	final String world;
 
-	int x;
+	final int x;
 
-	int y;
+	final int y;
 
-	int z;
+	final int z;
 
-	int quantity;
+	final int quantity;
 
-	TankType tp;
+	final TankType tp;
 
 	public UnloadedTank(String paramString, int paramInt1, int paramInt2, int paramInt3, TankType paramTankType, int paramInt4) {
 		this.world = paramString;

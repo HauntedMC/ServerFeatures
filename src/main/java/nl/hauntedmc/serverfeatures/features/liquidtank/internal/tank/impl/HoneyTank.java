@@ -33,7 +33,7 @@ public class HoneyTank extends FoodTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
@@ -61,7 +61,7 @@ public class HoneyTank extends FoodTank {
 					}
 				}
 			}
-		} catch (Exception exception) {
+		} catch (Exception ignored) {
 		}
 	}
 

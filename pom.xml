@@ -174,12 +174,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>nl.hauntedmc.dataprovider</groupId>
-            <artifactId>dataprovider</artifactId>
-            <version>1.19.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>nl.hauntedmc.commonlib</groupId>
             <artifactId>commonlib</artifactId>
             <version>1.2.0</version>

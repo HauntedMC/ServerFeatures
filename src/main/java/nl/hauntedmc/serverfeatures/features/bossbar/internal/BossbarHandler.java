@@ -114,8 +114,7 @@ public class BossbarHandler {
 
     private @NotNull String getMessage(Player player, String messageKey) {
         Component messageComponent = feature.getLocalizationHandler().getMessage("bossbar." + messageKey).forAudience(player).build();
-        String text = LegacyComponentSerializer.legacyAmpersand().serialize(messageComponent);
-        return text;
+        return LegacyComponentSerializer.legacyAmpersand().serialize(messageComponent);
     }
 
     public void showBossbar(Player player) {

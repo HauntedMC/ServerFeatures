@@ -433,7 +433,7 @@ public class SkinService {
         boolean fresh() { return System.currentTimeMillis() < expiresAt; }
     }
 
-    private interface SupplierWithException<T> { T get() throws Exception; }
+    private interface SupplierWithException<T> { T get(); }
 
     private static <K, V> V cachedOr(Map<K, CacheEntry<V>> map, K key, long ttlMs, SupplierWithException<V> supplier) {
         try {

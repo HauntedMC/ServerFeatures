@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.skins.event;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Fired after a player's skin has been successfully updated (set or removed).
@@ -41,7 +42,7 @@ public class SkinUpdateEvent extends Event {
     }
 
     @Override
-    public HandlerList getHandlers() {
+    public @NotNull HandlerList getHandlers() {
         return HANDLERS;
     }
 

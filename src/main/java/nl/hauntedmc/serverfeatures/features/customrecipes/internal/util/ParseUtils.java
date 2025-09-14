@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.internal.util;
 
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 

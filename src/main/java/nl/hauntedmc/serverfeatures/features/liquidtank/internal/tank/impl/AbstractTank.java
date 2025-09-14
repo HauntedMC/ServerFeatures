@@ -38,7 +38,7 @@ public abstract class AbstractTank {
 	private final List<String> playersNearby = new ArrayList<>();
 
 	private boolean onCooldown = false;
-	protected LiquidTank feature;
+	protected final LiquidTank feature;
 
 	public AbstractTank(Location location, int amount, LiquidTank feature) {
 		this.feature = feature;

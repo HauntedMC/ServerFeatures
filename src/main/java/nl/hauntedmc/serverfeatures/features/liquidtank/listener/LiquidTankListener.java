@@ -124,7 +124,7 @@ public class LiquidTankListener implements Listener {
             return;
         }
         Player player = playerInteractEvent.getPlayer();
-        if (!(player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE) || player.getGameMode().equals(GameMode.CREATIVE) || playerInteractEvent.getAction().equals(Action.RIGHT_CLICK_BLOCK) && playerInteractEvent.getClickedBlock().getType() == Material.HOPPER)) {
+        if (!(player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE) || player.getGameMode().equals(GameMode.CREATIVE) || playerInteractEvent.getAction().equals(Action.RIGHT_CLICK_BLOCK) && Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getType() == Material.HOPPER)) {
             return;
         }
         if (player.isSneaking()) {
@@ -285,7 +285,7 @@ public class LiquidTankListener implements Listener {
         }
         if (inventoryMoveItemEvent.getDestination().getType().equals(InventoryType.HOPPER)
                 && (inventoryHolder = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder instanceof Hopper
-                && (liquidTank = feature.getTankManager().getTank((hopper = (Hopper) inventoryHolder).getLocation())) != null) {
+                && (feature.getTankManager().getTank((hopper = (Hopper) inventoryHolder).getLocation())) != null) {
             inventoryMoveItemEvent.setCancelled(true);
             if (!feature.getTankManager().isEnableItems()) {
                 hopper.getInventory().clear();

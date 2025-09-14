@@ -54,7 +54,15 @@ public class SilkSpawnersHandler {
 
         CreatureSpawner minedSpawner = (CreatureSpawner) block.getState();
         EntityType type = minedSpawner.getSpawnedType();
-        String typeName = type.name();
+        String typeName;
+
+        if (type != null) {
+            typeName = type.name();
+        } else {
+            event.setCancelled(true);
+            return;
+        }
+
 
         // check allowed types list (empty = no restriction)
         if (!allowed_spawners.isEmpty() && !allowed_spawners.contains(typeName)) {

@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeContext;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeResult;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
+import nl.hauntedmc.serverfeatures.features.sanitize.internal.util.YamlSanitizeUtil;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -30,7 +31,7 @@ public class DefaultConfigsSanitizeTask implements SanitizeTask {
     }
 
     @Override
-    public SanitizeResult run(SanitizeContext ctx) throws IOException {
+    public SanitizeResult run(SanitizeContext ctx) {
         Path root = ctx.serverRoot().normalize();
 
         List<String> created = new ArrayList<>();
@@ -86,9 +87,7 @@ public class DefaultConfigsSanitizeTask implements SanitizeTask {
     }
 
     private static String normalize(String s) {
-        if (s == null) return "";
-        String n = s.replace("\r\n", "\n").replace("\r", "\n");
-        return n.replaceAll("[\\s\\n\\r]+$", "");
+        return YamlSanitizeUtil.normalize(s);
     }
 
     private static void writeExact(Path p, String expected) throws IOException {

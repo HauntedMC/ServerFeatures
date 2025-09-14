@@ -19,10 +19,6 @@ public class BeetrootSoupTank extends FoodTank {
 		super(location, amount, 5, feature);
 	}
 
-	public static void gameLoop(LiquidTank feature) {
-	}
-
-
 	@Override
 	protected String getLiquidHeadUrl() {
 		return HeadURL.beetrootB64;

@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.chattools.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import nl.hauntedmc.serverfeatures.features.chattools.ChatTools;
-import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.jetbrains.annotations.NotNull;

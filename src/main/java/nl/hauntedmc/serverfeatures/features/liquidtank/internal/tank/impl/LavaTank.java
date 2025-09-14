@@ -33,7 +33,7 @@ public class LavaTank extends AbstractTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
@@ -56,7 +56,7 @@ public class LavaTank extends AbstractTank {
                             ItemStack itemStack = null;
 							try {
 								itemStack = blastFurnace.getInventory().getItem(0);
-							} catch (Exception exception) {
+							} catch (Exception ignored) {
 							}
 							if (itemStack != null && blastFurnace.getBurnTime() == 0) {
 								blastFurnace.setBurnTime((short) 6667);
@@ -73,7 +73,7 @@ public class LavaTank extends AbstractTank {
                             ItemStack itemStack = null;
 							try {
 								itemStack = smoker.getInventory().getItem(0);
-							} catch (Exception exception) {
+							} catch (Exception ignored) {
 							}
 							if (itemStack != null && smoker.getBurnTime() == 0) {
 								smoker.setBurnTime((short) 6667);
@@ -92,7 +92,7 @@ public class LavaTank extends AbstractTank {
 							ItemStack itemStack = null;
 							try {
 								itemStack = furnace.getInventory().getItem(0);
-							} catch (Exception exception) {
+							} catch (Exception ignored) {
 							}
 							if (itemStack != null && furnace.getBurnTime() == 0) {
 								furnace.setBurnTime((short) 6667);

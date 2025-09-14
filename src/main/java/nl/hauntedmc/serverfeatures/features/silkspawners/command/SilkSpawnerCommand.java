@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.silkspawners.command;
 import nl.hauntedmc.serverfeatures.commands.CommandSpec;
 import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
-import nl.hauntedmc.serverfeatures.features.silkspawners.internal.SilkSpawnersHandler;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.ItemUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;

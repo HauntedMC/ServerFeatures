@@ -27,7 +27,7 @@ public class MilkTank extends AbstractTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
@@ -39,7 +39,7 @@ public class MilkTank extends AbstractTank {
 				Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
 				if (block.getType() == Material.HOPPER) {
 					AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-					if (abstractTank != null && abstractTank instanceof MilkTank) {
+					if (abstractTank instanceof MilkTank) {
 						abstractTank.showParticles();
 						for (PotionEffect potionEffect : player.getActivePotionEffects())
 							player.removePotionEffect(potionEffect.getType());

@@ -6,8 +6,6 @@ import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeType;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.CustomRecipe;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 

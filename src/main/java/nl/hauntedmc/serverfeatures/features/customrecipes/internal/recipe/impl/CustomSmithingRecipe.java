@@ -10,7 +10,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.SmithingRecipe;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 

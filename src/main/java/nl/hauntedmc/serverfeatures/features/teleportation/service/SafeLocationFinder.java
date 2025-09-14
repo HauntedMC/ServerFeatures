@@ -104,7 +104,6 @@ public class SafeLocationFinder {
 
     /**
      * Resolve a safe standing spot for /tppos at X/Z with a given Y:
-     *
      * - If Y is above the current surface: place the player on top of the surface (if safe).
      * - Otherwise: search downward from Y for the nearest safe floor.
      * - "Safe" means: solid non-disabled ground below; feet and head are clear and non-liquid.

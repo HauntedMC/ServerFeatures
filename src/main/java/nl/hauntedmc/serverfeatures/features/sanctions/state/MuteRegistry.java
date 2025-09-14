@@ -39,10 +39,7 @@ public class MuteRegistry {
     }
 
     public void trackIfMuted(UUID uuid) {
-        service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> {
-            if (s == null) return; // expired and deactivated in service
-            muted.put(uuid, toState(s));
-        }, () -> muted.remove(uuid));
+        service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> muted.put(uuid, toState(s)), () -> muted.remove(uuid));
     }
 
     public boolean isMuted(UUID uuid) {
@@ -63,13 +60,7 @@ public class MuteRegistry {
     public void refreshAll() {
         if (muted.isEmpty()) return;
         for (UUID uuid : new ArrayList<>(muted.keySet())) {
-            service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> {
-                if (s == null) { // expired & deactivated
-                    muted.remove(uuid);
-                    return;
-                }
-                muted.put(uuid, toState(s));
-            }, () -> muted.remove(uuid));
+            service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> muted.put(uuid, toState(s)), () -> muted.remove(uuid));
         }
     }
 

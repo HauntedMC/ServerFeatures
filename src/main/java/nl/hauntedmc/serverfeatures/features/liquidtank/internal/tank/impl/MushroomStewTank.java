@@ -32,7 +32,7 @@ public class MushroomStewTank extends FoodTank {
 		feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask( () -> {
 			try {
 				gameTick(feature);
-			} catch (Exception exception) {
+			} catch (Exception ignored) {
 			}
 		}, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
 	}
@@ -48,23 +48,27 @@ public class MushroomStewTank extends FoodTank {
 						if (random.nextInt(5) == 0) {
 							AbstractTank abstractTank = feature.getTankManager().getTank(location);
 							if (abstractTank != null) {
-								if (abstractTank instanceof MilkTank && abstractTank.getQuantity() < abstractTank
-										.getMaxQuantity()) {
-									abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-									abstractTank.updateVisuals();
-									continue;
-								}
-								if (abstractTank instanceof MushroomStewTank && abstractTank
-										.getQuantity() < abstractTank.getMaxQuantity()) {
-									abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-									abstractTank.updateVisuals();
-									continue;
-								}
-								if (abstractTank instanceof EmptyTank) {
-									AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MUSHROOM_STEW, 1);
-									abstractTank1.updateVisuals();
-								}
-							}
+                                switch (abstractTank) {
+                                    case MilkTank ignored1 when abstractTank.getQuantity() < abstractTank
+                                            .getMaxQuantity() -> {
+                                        abstractTank.setQuantity(abstractTank.getQuantity() + 1);
+                                        abstractTank.updateVisuals();
+                                        continue;
+                                    }
+                                    case MushroomStewTank ignored when abstractTank
+                                            .getQuantity() < abstractTank.getMaxQuantity() -> {
+                                        abstractTank.setQuantity(abstractTank.getQuantity() + 1);
+                                        abstractTank.updateVisuals();
+                                        continue;
+                                    }
+                                    case EmptyTank ignored -> {
+                                        AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MUSHROOM_STEW, 1);
+                                        abstractTank1.updateVisuals();
+                                    }
+                                    default -> {
+                                    }
+                                }
+                            }
 						}
 					}
 					continue;

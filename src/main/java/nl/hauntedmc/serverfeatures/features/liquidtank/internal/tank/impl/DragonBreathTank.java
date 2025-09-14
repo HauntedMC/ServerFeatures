@@ -22,9 +22,6 @@ public class DragonBreathTank extends AbstractTank {
 		return type;
 	}
 
-	public static void gameLoop(LiquidTank feature) {
-	}
-
 	@Override
 	protected String getLiquidHeadUrl() {
 		return HeadURL.dragonBreathB64;
