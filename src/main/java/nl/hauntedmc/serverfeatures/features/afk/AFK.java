@@ -22,29 +22,20 @@ public class AFK extends BukkitBaseFeature<Meta> {
         super(plugin, new Meta());
     }
 
-    public AfkService getService() {
-        return service;
-    }
-
-    public AfkAPI getApi() {
-        return api;
-    }
+    public AfkService getService() { return service; }
+    public AfkAPI getApi() { return api; }
 
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", false);
+        cfg.put("enabled", true);
 
-        // Detection and un-AFK behavior
         cfg.put("afk_timeout_seconds", 600);
-        cfg.put("walk_interact_window_seconds", 10);
         cfg.put("movement_distance_threshold", 0.15D);
-        cfg.put("rotation_threshold_degrees", 15.0F);
+        cfg.put("rotation_threshold_degrees", 10.0F);
 
-        // State change broadcasting and decoration
         cfg.put("broadcast_on_state_change", false);
 
-        // Kick options
         cfg.put("kick_enabled", true);
         cfg.put("kick_timeout_seconds", 3600);
         return cfg;
@@ -66,29 +57,24 @@ public class AFK extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        // Service
         this.service = new AfkService(this);
 
-        // Public API
         this.api = new AfkAPI(this);
         APIRegistry.register(AfkAPI.class, this.api);
 
-        // Commands
         getLifecycleManager().getCommandManager().registerFeatureCommand(new AfkCommand(this));
-
-        // Listeners
         getLifecycleManager().getListenerManager().registerListener(new ActivityListener(this));
 
-        // Periodic AFK checks (every second)
-        getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try {
-                service.tickCheck();
-            } catch (Throwable t) {
-                getLogger().warning("AFK tick error: " + t.getMessage());
-            }
-        }, BukkitTime.ticks(20L), BukkitTime.ticks(20L));
+        getLifecycleManager().getTaskManager().scheduleRepeatingTask(
+                () -> {
+                    try { service.tickCheck(); } catch (Throwable t) {
+                        getLogger().warning("AFK tick error: " + t.getMessage());
+                    }
+                },
+                BukkitTime.ticks(20L),
+                BukkitTime.ticks(20L)
+        );
 
-        // Register PlaceholderAPI expansion
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new AfkPlaceholder(this).register();
         }
@@ -96,9 +82,7 @@ public class AFK extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        if (service != null) {
-            service.cleanupOnDisable();
-        }
+        if (service != null) service.cleanupOnDisable();
         APIRegistry.unregister(AfkAPI.class);
     }
 }

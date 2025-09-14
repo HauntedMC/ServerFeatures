@@ -23,15 +23,13 @@ public class AfkCommand extends FeatureCommand {
                            @NotNull String label,
                            String @NotNull [] args) {
         if (!(sender instanceof Player p)) { usage(sender); return true; }
-        if (!sender.hasPermission("serverfeatures.feature.afk.command.afk.toggle")) {
-            noPerm(sender); return true;
-        }
+        if (!sender.hasPermission("serverfeatures.feature.afk.command.afk.toggle")) { noPerm(sender); return true; }
 
-        boolean desired = !feature.getService().isAfk(p.getUniqueId());
-        feature.getService().setAfk(p, desired); // true = byCommand
+        boolean turnOn = !feature.getService().isAfk(p.getUniqueId());
+        feature.getService().setAfk(p, turnOn);
 
         sender.sendMessage(feature.getLocalizationHandler()
-                .getMessage(desired ? "afk.enabled_self" : "afk.disabled_self")
+                .getMessage(turnOn ? "afk.enabled_self" : "afk.disabled_self")
                 .forAudience(sender)
                 .build());
         return true;
@@ -43,16 +41,10 @@ public class AfkCommand extends FeatureCommand {
     }
 
     private void usage(CommandSender s) {
-        s.sendMessage(feature.getLocalizationHandler()
-                .getMessage("afk.usage")
-                .forAudience(s)
-                .build());
+        s.sendMessage(feature.getLocalizationHandler().getMessage("afk.usage").forAudience(s).build());
     }
 
     private void noPerm(CommandSender s) {
-        s.sendMessage(feature.getLocalizationHandler()
-                .getMessage("general.no_permission")
-                .forAudience(s)
-                .build());
+        s.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(s).build());
     }
 }
