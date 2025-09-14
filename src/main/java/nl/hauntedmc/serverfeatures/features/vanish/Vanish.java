@@ -33,7 +33,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     private VanishService service;
     private VanishRepository repository;
     private ORMContext ormContext;
-    private BukkitTask actionBarTask;
 
     // Redis messaging (optional)
     private EventBusHandler eventBusHandler;
@@ -115,7 +114,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
         // Actionbar loop
         int interval = Math.max(5, (int) getConfigHandler().getSetting("actionbar_interval_ticks"));
-        this.actionBarTask = getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+        getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             try { service.tickActionBars(); } catch (Throwable t) { getLogger().warning("Actionbar tick error: " + t.getMessage()); }
         }, BukkitTime.ticks(interval), BukkitTime.ticks(interval));
 
@@ -157,11 +156,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        // Cancel tasks
-        if (actionBarTask != null) {
-            try { actionBarTask.cancel(); } catch (Throwable ignored) {}
-            actionBarTask = null;
-        }
         // Restore player flags on shutdown
         if (service != null) {
             service.cleanupOnDisable();
