@@ -18,9 +18,7 @@ public class AFK extends BukkitBaseFeature<Meta> {
     private AfkService service;
     private AfkAPI api;
 
-    public AFK(ServerFeatures plugin) {
-        super(plugin, new Meta());
-    }
+    public AFK(ServerFeatures plugin) { super(plugin, new Meta()); }
 
     public AfkService getService() { return service; }
     public AfkAPI getApi() { return api; }
@@ -36,6 +34,10 @@ public class AFK extends BukkitBaseFeature<Meta> {
         cfg.put("kick_enabled", true);
         cfg.put("kick_timeout_seconds", 3600);
         cfg.put("combo_window_seconds", 30);
+        cfg.put("anti_afk.enabled", true);
+        cfg.put("anti_afk.lock_seconds", 60);
+        cfg.put("movement_vertical_epsilon", 0.05D);
+        cfg.put("anti_afk.track_window_seconds", 120);
         cfg.put("anti_afk.min_samples", 6);
         cfg.put("anti_afk.mean_min_ms", 800);
         cfg.put("anti_afk.mean_max_ms", 15000);
@@ -60,7 +62,6 @@ public class AFK extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         this.service = new AfkService(this);
-
         this.service.bootstrapOnlinePlayers();
 
         this.api = new AfkAPI(this);
