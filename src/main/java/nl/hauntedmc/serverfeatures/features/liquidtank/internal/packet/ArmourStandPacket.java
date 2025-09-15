@@ -32,10 +32,10 @@ public class ArmourStandPacket implements Packet {
                 entityID, uuid, EntityTypes.ARMOR_STAND, spawnLocation,
                 spawnLocation.getYaw(), 0, null);
 
-        List<EntityData> metadata = List.of(
-                new EntityData(0, EntityDataTypes.BYTE, (byte) 0x20),
-                new EntityData(5, EntityDataTypes.BOOLEAN, true),
-                new EntityData(15, EntityDataTypes.BYTE, (byte) (0x01 | 0x10))
+        List<EntityData<?>> metadata = List.of(
+                new EntityData<>(0, EntityDataTypes.BYTE, (byte) 0x20),
+                new EntityData<>(5, EntityDataTypes.BOOLEAN, true),
+                new EntityData<>(15, EntityDataTypes.BYTE, (byte) (0x01 | 0x10))
         );
 
         this.metaPacket = new WrapperPlayServerEntityMetadata(entityID, metadata);
