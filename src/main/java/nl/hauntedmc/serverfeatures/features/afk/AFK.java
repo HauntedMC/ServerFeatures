@@ -28,16 +28,18 @@ public class AFK extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
-
+        cfg.put("enabled", false);
         cfg.put("afk_timeout_seconds", 600);
         cfg.put("movement_distance_threshold", 0.15D);
         cfg.put("rotation_threshold_degrees", 10.0F);
-
         cfg.put("broadcast_on_state_change", false);
-
         cfg.put("kick_enabled", true);
         cfg.put("kick_timeout_seconds", 3600);
+        cfg.put("combo_window_seconds", 30);
+        cfg.put("anti_afk.min_samples", 6);
+        cfg.put("anti_afk.mean_min_ms", 800);
+        cfg.put("anti_afk.mean_max_ms", 15000);
+        cfg.put("anti_afk.stddev_max_ms", 120);
         return cfg;
     }
 
@@ -58,6 +60,8 @@ public class AFK extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         this.service = new AfkService(this);
+
+        this.service.bootstrapOnlinePlayers();
 
         this.api = new AfkAPI(this);
         APIRegistry.register(AfkAPI.class, this.api);

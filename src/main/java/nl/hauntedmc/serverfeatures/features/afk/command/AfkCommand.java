@@ -24,14 +24,8 @@ public class AfkCommand extends FeatureCommand {
                            String @NotNull [] args) {
         if (!(sender instanceof Player p)) { usage(sender); return true; }
         if (!sender.hasPermission("serverfeatures.feature.afk.command.afk.toggle")) { noPerm(sender); return true; }
-
         boolean turnOn = !feature.getService().isAfk(p.getUniqueId());
         feature.getService().setAfk(p, turnOn);
-
-        sender.sendMessage(feature.getLocalizationHandler()
-                .getMessage(turnOn ? "afk.enabled_self" : "afk.disabled_self")
-                .forAudience(sender)
-                .build());
         return true;
     }
 
