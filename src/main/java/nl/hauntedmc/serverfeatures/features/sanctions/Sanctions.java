@@ -28,7 +28,7 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         defaults.put("muteRefreshSeconds", 60); // how often to re-check DB for muted players
         return defaults;
     }

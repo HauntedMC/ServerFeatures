@@ -1,7 +1,7 @@
-package nl.hauntedmc.serverfeatures.common.gui;
+package nl.hauntedmc.serverfeatures.lifecycle;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityPickupItemEvent;
@@ -17,81 +17,52 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Central coordinator for GUI menus.
- * Responsibilities:
- * - Registers event listeners
- * - Tracks open menus per player and a back-stack of previous menus
- * - Opens root/child menus and supports reopen of the same menu
- * - Navigates back in history
- * - Cleans up on quit/kick
- * Anti-duplication hardening:
- * - Cancels all clicks when our GUI is open
- * - Cancels drags that target the top inventory
- * - Cancels creative interactions when our GUI is open
- * - Cancels item drops and pickups while a GUI is open
- * - Debounces click handling per player to avoid double execution
- * Threading:
- * - All inventory operations happen on the server main thread via TaskManager scheduling.
+ * Feature-scoped GUI manager.
+ * - Listener is registered by FeatureLifecycleManager.
+ * - Schedules work via FeatureTaskManager (main-thread).
  */
-public final class GuiManager implements Listener {
-    private static GuiManager INSTANCE;
+public final class FeatureGUIManager implements Listener {
+
+    private final Plugin plugin;
+    private final FeatureTaskManager taskManager;
 
     private final Map<UUID, Deque<GuiMenu>> backStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, GuiMenu> openMenus = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> clickDebounce = new ConcurrentHashMap<>();
-    private volatile BukkitBaseFeature<?> feature;
+    private final Map<UUID, GuiMenu> openMenus  = new ConcurrentHashMap<>();
+    private final Map<UUID, Long>    clickDebounce = new ConcurrentHashMap<>();
 
     private static final long CLICK_DEBOUNCE_MS = 120L;
 
-    private GuiManager() {}
-
-    public static GuiManager get() {
-        if (INSTANCE == null) INSTANCE = new GuiManager();
-        return INSTANCE;
+    public FeatureGUIManager(Plugin plugin, FeatureTaskManager taskManager) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.taskManager = Objects.requireNonNull(taskManager, "taskManager");
     }
 
-    /**
-     * Initialize and register event listeners.
-     * Must be called once during feature initialization.
-     */
-    public void init(BukkitBaseFeature<?> feature) {
-        this.feature = feature;
-        feature.getLifecycleManager().getListenerManager().registerListener(this);
-    }
-
-    /**
-     * Clear all in-memory state. Intended for plugin disable.
-     * Note: does not forcibly close player inventories; call closeAllAndClear() if desired.
-     */
+    /** Clear all in-memory state. Intended for feature unload. */
     public void shutdown() {
-        openMenus.clear();
-        backStacks.clear();
-        clickDebounce.clear();
-        this.feature = null;
+        try {
+            // Best effort: close any still-open inventories
+            for (UUID uuid : openMenus.keySet()) {
+                Player p = plugin.getServer().getPlayer(uuid);
+                if (p != null && p.isOnline()) {
+                    p.closeInventory(InventoryCloseEvent.Reason.PLUGIN);
+                }
+            }
+        } finally {
+            openMenus.clear();
+            backStacks.clear();
+            clickDebounce.clear();
+        }
     }
 
-    /** Feature reference that owns this manager. */
-    public BukkitBaseFeature<?> feature() { return feature; }
-
-    /** Owning plugin instance, useful for scheduling or logging. */
-    public Plugin plugin() { return feature.getPlugin(); }
-
-    /**
-     * Open a new root menu, clearing the back stack.
-     * Any existing open menu is replaced.
-     */
+    /** Open a new root menu, clearing the back stack. */
     public void openRoot(Player p, GuiMenu menu) {
-        ensureReady();
         if (!isUsable(p)) return;
         backStacks.computeIfAbsent(p.getUniqueId(), k -> new ArrayDeque<>()).clear();
         openInternal(p, menu, false, OpenSemantics.REPLACE);
     }
 
-    /**
-     * Open a child menu, pushing the current menu onto the back stack if present.
-     */
+    /** Open a child menu, pushing the current menu. */
     public void openChild(Player p, GuiMenu menu) {
-        ensureReady();
         if (!isUsable(p)) return;
         GuiMenu current = openMenus.get(p.getUniqueId());
         if (current != null) {
@@ -100,22 +71,15 @@ public final class GuiManager implements Listener {
         openInternal(p, menu, true, OpenSemantics.REPLACE);
     }
 
-    /**
-     * Reopen the same menu instance in place, without affecting the back stack.
-     * Useful for pagination or refreshes that change title or content.
-     */
+    /** Reopen same instance (pagination/refresh). */
     public void reopenSame(Player p, GuiMenu sameMenu) {
-        ensureReady();
         if (!isUsable(p)) return;
         GuiMenu current = openMenus.get(p.getUniqueId());
         if (current != sameMenu) return;
         openInternal(p, sameMenu, false, OpenSemantics.REOPEN);
     }
 
-    /**
-     * Navigate back to the previous menu for this player.
-     * Returns false if the back stack is empty.
-     */
+    /** Navigate back if possible. */
     public boolean goBack(Player p) {
         Deque<GuiMenu> stack = backStacks.get(p.getUniqueId());
         if (stack == null || stack.isEmpty()) return false;
@@ -124,34 +88,19 @@ public final class GuiManager implements Listener {
         return true;
     }
 
-    /** Whether any tracked menu is currently open for this player. */
     public boolean isMenuOpen(Player p) {
         return openMenus.containsKey(p.getUniqueId());
     }
 
-    /** Close all tracked GUIs and clear stacks. Use on disable if you need to force-close. */
-    public void closeAllAndClear() {
-        for (UUID uuid : openMenus.keySet()) {
-            Player p = plugin().getServer().getPlayer(uuid);
-            if (p != null && p.isOnline()) {
-                p.closeInventory(InventoryCloseEvent.Reason.PLUGIN);
-            }
-        }
-        shutdown();
-    }
-
     private enum OpenSemantics { REPLACE, REOPEN }
-
-    private void ensureReady() {
-        if (feature == null) throw new IllegalStateException("GuiManager not initialized");
-    }
 
     private boolean isUsable(Player p) {
         return p != null && p.isOnline() && !p.isDead();
     }
 
     private void openInternal(Player p, GuiMenu menu, boolean child, OpenSemantics sem) {
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> doOpen(p, menu, child, sem));
+        // Ensure on main thread via feature task manager
+        taskManager.scheduleOneTimeTask(() -> doOpen(p, menu, child, sem));
     }
 
     private void doOpen(Player p, GuiMenu menu, boolean child, OpenSemantics sem) {
@@ -170,7 +119,8 @@ public final class GuiManager implements Listener {
         menu.populate(p, inv);
 
         if (sem == OpenSemantics.REOPEN && previousTop != null) {
-            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+            // Defer the actual open to next tick to avoid race with current view
+            taskManager.scheduleOneTimeTask(() -> {
                 if (!isUsable(p)) return;
                 p.openInventory(inv);
                 openMenus.put(p.getUniqueId(), menu);
@@ -209,7 +159,7 @@ public final class GuiManager implements Listener {
         try {
             menu.handleClick(p, slot, e);
         } catch (Throwable t) {
-            feature.getLogger().severe("Error handling GUI click: " + t.getMessage());
+            plugin.getLogger().severe("Error handling GUI click: " + t.getMessage());
         }
     }
 
@@ -264,7 +214,7 @@ public final class GuiManager implements Listener {
         try {
             menu.onClose(p, e.getReason());
         } catch (Throwable t) {
-            feature.getLogger().severe("Error in onClose: " + t.getMessage());
+            plugin.getLogger().severe("Error in onClose: " + t.getMessage());
         }
 
         boolean reopen = menu.shouldReopen() && menu.allowReopenFor(e.getReason());

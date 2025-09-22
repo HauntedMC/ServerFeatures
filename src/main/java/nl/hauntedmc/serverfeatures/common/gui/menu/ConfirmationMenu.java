@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -11,7 +11,6 @@ import org.bukkit.inventory.Inventory;
 
 /**
  * Lightweight confirmation dialog with Yes/No buttons and optional back button.
- * Typical use: destructive actions, purchases, or irreversible changes.
  */
 public final class ConfirmationMenu extends GuiMenu {
     private final Component question;
@@ -21,6 +20,7 @@ public final class ConfirmationMenu extends GuiMenu {
     private final int noSlot;
 
     private ConfirmationMenu(
+            FeatureGUIManager gui,
             Component title,
             int size,
             org.bukkit.inventory.ItemStack filler,
@@ -32,7 +32,7 @@ public final class ConfirmationMenu extends GuiMenu {
             boolean addBackButton,
             int backSlot
     ) {
-        super(title, size, false, filler, java.util.Map.of(), addBackButton, backSlot);
+        super(gui, title, size, false, filler, java.util.Map.of(), addBackButton, backSlot);
         this.question = question;
         this.onConfirm = onConfirm;
         this.onCancel = onCancel;
@@ -40,7 +40,7 @@ public final class ConfirmationMenu extends GuiMenu {
         this.noSlot = noSlot;
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder(FeatureGUIManager gui) { return new Builder(gui); }
 
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
@@ -59,13 +59,14 @@ public final class ConfirmationMenu extends GuiMenu {
         }
         if (slot == noSlot) {
             if (onCancel != null) onCancel.run();
-            GuiManager.get().goBack(p);
+            gui.goBack(p);
             return;
         }
         super.handleClick(p, slot, e);
     }
 
     public static final class Builder {
+        private final FeatureGUIManager gui;
         private Component title = Component.text("Confirm");
         private Component question = Component.text("Are you sure?");
         private int size = 27;
@@ -75,6 +76,10 @@ public final class ConfirmationMenu extends GuiMenu {
         private int noSlot = 15;
         private boolean backButton = true;
         private int backSlot = 26;
+
+        public Builder(FeatureGUIManager gui) {
+            this.gui = java.util.Objects.requireNonNull(gui, "gui");
+        }
 
         public Builder title(Component t) { this.title = t; return this; }
         public Builder question(Component q) { this.question = q; return this; }
@@ -94,7 +99,7 @@ public final class ConfirmationMenu extends GuiMenu {
             }
             if (yesSlot == noSlot) throw new IllegalArgumentException("Yes/No slots must be distinct");
             validateNoCollisionsWithBackAndFixed(java.util.Map.of(), size, backButton, backSlot, java.util.Set.of(yesSlot, noSlot), "ConfirmationMenu");
-            return new ConfirmationMenu(title, size, filler, question, onConfirm, onCancel, yesSlot, noSlot, backButton, backSlot);
+            return new ConfirmationMenu(gui, title, size, filler, question, onConfirm, onCancel, yesSlot, noSlot, backButton, backSlot);
         }
     }
 }

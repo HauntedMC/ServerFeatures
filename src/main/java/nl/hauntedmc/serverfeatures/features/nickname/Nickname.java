@@ -28,7 +28,7 @@ public class Nickname extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         defaults.put("minNicknameLength", 3);
         defaults.put("maxNicknameLength", 16);
         defaults.put("allowedCharacters", List.of(

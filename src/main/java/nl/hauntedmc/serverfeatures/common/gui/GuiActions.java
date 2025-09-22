@@ -10,12 +10,6 @@ import java.util.function.Supplier;
 
 /**
  * Convenience actions for GuiItem click handlers.
- * Provided helpers:
- * - Run commands as player or console (supports %player%)
- * - Send a message
- * - Give an item (drops leftovers on ground)
- * - Open child/root menus via Supplier
- * - Play a sound
  */
 public final class GuiActions {
     private GuiActions() {}
@@ -55,12 +49,12 @@ public final class GuiActions {
     }
 
     /** Opens a child menu resolved from the supplier. */
-    public static Consumer<GuiClickContext> openChild(Supplier<nl.hauntedmc.serverfeatures.common.gui.GuiMenu> supplier) {
+    public static Consumer<GuiClickContext> openChild(Supplier<GuiMenu> supplier) {
         return ctx -> ctx.openChild(supplier.get());
     }
 
     /** Opens a root menu resolved from the supplier. */
-    public static Consumer<GuiClickContext> openRoot(Supplier<nl.hauntedmc.serverfeatures.common.gui.GuiMenu> supplier) {
+    public static Consumer<GuiClickContext> openRoot(Supplier<GuiMenu> supplier) {
         return ctx -> ctx.openRoot(supplier.get());
     }
 

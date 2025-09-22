@@ -9,6 +9,7 @@ public class FeatureLifecycleManager {
     private final FeatureListenerManager listenerManager;
     private final FeatureDataManager dataManager;
     private final FeatureCacheManager cacheManager;
+    private final FeatureGUIManager guiManager;
 
     public FeatureLifecycleManager(ServerFeatures plugin) {
         this.taskManager = new FeatureTaskManager(plugin);
@@ -16,6 +17,8 @@ public class FeatureLifecycleManager {
         this.listenerManager = new FeatureListenerManager(plugin);
         this.dataManager = new FeatureDataManager(plugin);
         this.cacheManager = new FeatureCacheManager(plugin);
+        this.guiManager = new FeatureGUIManager(plugin, taskManager);
+        this.listenerManager.registerListener(guiManager);
     }
 
     /**
@@ -51,10 +54,16 @@ public class FeatureLifecycleManager {
         return cacheManager;
     }
 
+    /** Per-feature GUI manager */
+    public FeatureGUIManager getGuiManager() {
+        return guiManager;
+    }
+
     /**
      * Cleans up all registered listeners, tasks, and commands.
      */
     public void cleanup() {
+        guiManager.shutdown();
         listenerManager.unregisterAllListeners();
         taskManager.cancelAllTasks();
         commandManager.unregisterAllCommands();

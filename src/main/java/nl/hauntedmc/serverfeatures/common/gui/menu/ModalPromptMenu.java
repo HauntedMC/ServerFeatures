@@ -3,11 +3,11 @@ package nl.hauntedmc.serverfeatures.common.gui.menu;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -23,14 +23,6 @@ import java.util.function.Consumer;
 
 /**
  * Minimal "modal" that captures one line of user input via chat while a GUI is open.
- * Behavior:
- * - Opens a one-row inventory with instructions and a Cancel button.
- * - Registers a one-off chat listener for the player while open.
- * - On chat message: invokes onSubmit with the plain text, then navigates back.
- * - On Cancel: invokes onCancel if provided and navigates back.
- * - Optional timeout closes the modal, calls onCancel, and navigates back.
- * Notes:
- * - This avoids anvil/sign UIs and works consistently on Paper 1.21.x.
  */
 public final class ModalPromptMenu extends GuiMenu implements Listener {
 
@@ -48,6 +40,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
 
     private ModalPromptMenu(
             BukkitBaseFeature<?> feature,
+            FeatureGUIManager gui,
             Component title,
             Component promptLine,
             Consumer<String> onSubmit,
@@ -60,7 +53,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
             int backSlot,
             int timeoutSeconds
     ) {
-        super(title, size, false, filler, Map.of(), addBackButton, backSlot);
+        super(gui, title, size, false, filler, Map.of(), addBackButton, backSlot);
         this.feature = feature;
         this.promptLine = promptLine;
         this.onSubmit = onSubmit;
@@ -90,7 +83,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
                 try {
                     if (onCancel != null) onCancel.run();
                 } finally {
-                    GuiManager.get().goBack(p);
+                    gui.goBack(p);
                 }
             }, BukkitTime.seconds(timeoutSeconds));
         }
@@ -108,7 +101,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
         if (slot == cancelSlot && !finished) {
             finished = true;
             if (onCancel != null) onCancel.run();
-            GuiManager.get().goBack(p);
+            gui.goBack(p);
             return;
         }
         super.handleClick(p, slot, e);
@@ -130,7 +123,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
             try {
                 if (onSubmit != null) onSubmit.accept(msg);
             } finally {
-                GuiManager.get().goBack(p);
+                gui.goBack(p);
             }
         });
     }
@@ -176,7 +169,9 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
             if (cancelSlot < 0 || cancelSlot >= size) throw new IllegalArgumentException("cancelSlot out of bounds");
             if (infoSlot == cancelSlot) throw new IllegalArgumentException("infoSlot and cancelSlot must differ");
             GuiMenu.validateNoCollisionsWithBackAndFixed(Map.of(), size, backButton, backSlot, java.util.Set.of(infoSlot, cancelSlot), "ModalPromptMenu");
-            return new ModalPromptMenu(feature, title, promptLine, onSubmit, onCancel, size, filler, infoSlot, cancelSlot, backButton, backSlot, timeoutSeconds);
+
+            FeatureGUIManager gui = feature.getLifecycleManager().getGuiManager();
+            return new ModalPromptMenu(feature, gui, title, promptLine, onSubmit, onCancel, size, filler, infoSlot, cancelSlot, backButton, backSlot, timeoutSeconds);
         }
     }
 }

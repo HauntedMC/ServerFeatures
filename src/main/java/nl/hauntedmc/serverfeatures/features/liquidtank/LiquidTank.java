@@ -20,7 +20,7 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         defaults.put("item-name", "&bLiquid Tank");
         defaults.put("enable-items", true);
         defaults.put("amount-per-chunk", 16);

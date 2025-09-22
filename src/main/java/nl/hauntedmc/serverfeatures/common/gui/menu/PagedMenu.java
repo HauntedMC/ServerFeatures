@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiClickContext;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -17,10 +17,6 @@ import java.util.function.Function;
 
 /**
  * Multi-page menu with prev/next navigation and optional page info.
- * Design:
- * - Content is rendered into contentSlots using a renderer function (T -> GuiItem).
- * - Prev/next slots are reserved; optional page info can be shown.
- * - Page changes call GuiManager#reopenSame to avoid back stack growth and client animation spam.
  */
 public final class PagedMenu<T> extends GuiMenu {
 
@@ -36,6 +32,7 @@ public final class PagedMenu<T> extends GuiMenu {
     private final Map<Integer, GuiItem> dynamicItems = new HashMap<>();
 
     private PagedMenu(
+            FeatureGUIManager gui,
             Component baseTitle,
             int size,
             boolean showPageInTitle,
@@ -50,7 +47,7 @@ public final class PagedMenu<T> extends GuiMenu {
             int nextSlot,
             Optional<Integer> pageInfoSlot
     ) {
-        super(baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
+        super(gui, baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
         this.entries = new ArrayList<>(entries);
         this.renderer = renderer;
         this.contentSlots = new ArrayList<>(contentSlots);
@@ -59,7 +56,7 @@ public final class PagedMenu<T> extends GuiMenu {
         this.pageInfoSlot = pageInfoSlot;
     }
 
-    public static <T> Builder<T> builder() { return new Builder<>(); }
+    public static <T> Builder<T> builder(FeatureGUIManager gui) { return new Builder<>(gui); }
 
     @Override
     public Component titleFor(Player p) {
@@ -107,7 +104,7 @@ public final class PagedMenu<T> extends GuiMenu {
         if (slot == prevSlot) {
             if (pageIndex > 0) {
                 pageIndex--;
-                GuiManager.get().reopenSame(p, this);
+                gui.reopenSame(p, this);
             }
             return;
         }
@@ -116,7 +113,7 @@ public final class PagedMenu<T> extends GuiMenu {
             int maxPage = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
             if (pageIndex < maxPage) {
                 pageIndex++;
-                GuiManager.get().reopenSame(p, this);
+                gui.reopenSame(p, this);
             }
             return;
         }
@@ -139,6 +136,7 @@ public final class PagedMenu<T> extends GuiMenu {
     }
 
     public static final class Builder<T> {
+        private final FeatureGUIManager gui;
         private Component title = Component.text("Menu");
         private int size = 9 * 6;
         private boolean pageInTitle = true;
@@ -153,6 +151,10 @@ public final class PagedMenu<T> extends GuiMenu {
         private int prevSlot = 45; // bottom-left
         private int nextSlot = 53; // bottom-right
         private Optional<Integer> pageInfoSlot = Optional.of(49);
+
+        private Builder(FeatureGUIManager gui) {
+            this.gui = Objects.requireNonNull(gui, "gui");
+        }
 
         public Builder<T> title(Component t) { this.title = t; return this; }
         public Builder<T> size(int s) { this.size = s; return this; }
@@ -196,7 +198,7 @@ public final class PagedMenu<T> extends GuiMenu {
                     throw new IllegalArgumentException("Fixed items cannot be placed in contentSlots");
             }
 
-            return new PagedMenu<>(title, size, pageInTitle, filler, items, backButton, backSlot,
+            return new PagedMenu<>(gui, title, size, pageInTitle, filler, items, backButton, backSlot,
                     entries, renderer, contentSlots, prevSlot, nextSlot, pageInfoSlot);
         }
 

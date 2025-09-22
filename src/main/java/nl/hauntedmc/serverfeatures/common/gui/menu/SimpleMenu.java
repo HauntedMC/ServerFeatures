@@ -3,22 +3,22 @@ package nl.hauntedmc.serverfeatures.common.gui.menu;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Simple single-page menu with a fluent builder.
- *
- * Use this for small menus where a single screen is enough.
- * For larger lists, see PagedMenu.
  */
 public final class SimpleMenu extends GuiMenu {
 
     private SimpleMenu(
+            FeatureGUIManager gui,
             Component baseTitle,
             int size,
             boolean showPageInTitle,
@@ -27,14 +27,15 @@ public final class SimpleMenu extends GuiMenu {
             boolean addBackButton,
             int backSlot
     ) {
-        super(baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
+        super(gui, baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder(FeatureGUIManager gui) { return new Builder(gui); }
 
     @Override protected void afterPopulate(Player p, Inventory inv) { /* no-op */ }
 
     public static final class Builder {
+        private final FeatureGUIManager gui;
         private Component title = Component.text("Menu");
         private int size = 9 * 3;
         private boolean pageInTitle = false;
@@ -42,6 +43,10 @@ public final class SimpleMenu extends GuiMenu {
         private final Map<Integer, GuiItem> items = new HashMap<>();
         private boolean backButton = false;
         private int backSlot = -1;
+
+        public Builder(FeatureGUIManager gui) {
+            this.gui = Objects.requireNonNull(gui, "gui");
+        }
 
         public Builder title(Component t) { this.title = t; return this; }
         public Builder size(int s) { this.size = s; return this; }
@@ -54,7 +59,7 @@ public final class SimpleMenu extends GuiMenu {
         public SimpleMenu build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");
             validateFixedItems(items, size, backButton, backSlot, "SimpleMenu");
-            return new SimpleMenu(title, size, pageInTitle, filler, items, backButton, backSlot);
+            return new SimpleMenu(gui, title, size, pageInTitle, filler, items, backButton, backSlot);
         }
     }
 }

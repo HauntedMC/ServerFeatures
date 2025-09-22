@@ -16,7 +16,7 @@ public class NightVision extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         return defaults;
     }
 

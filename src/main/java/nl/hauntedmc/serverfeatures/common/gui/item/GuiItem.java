@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.common.gui.item;
 
-import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
 import nl.hauntedmc.serverfeatures.common.gui.menu.ConfirmationMenu;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -14,21 +13,6 @@ import java.util.function.Predicate;
 
 /**
  * Item abstraction used by GUIs.
- * Behavior:
- * - Renders an ItemStack per player via factory
- * - Visibility is controlled by an arbitrary predicate and/or a permission string
- * - If not visible, an optional replacement ItemStack can be shown
- * - Clicks can be wrapped in a confirmation modal
- * - Supports "close menu on click" and per-item cooldown to suppress spam
- * Typical usage:
- * GuiItem.builder()
- *   .factory(p -> someItem)
- *   .permission("your.perm")
- *   .replacementIfNoPerm(p -> GuiItems.locked(Component.text("Unlock via ...")))
- *   .onClick(ctx -> { ... })
- *   .closeMenuOnClick(true)
- *   .cooldownMillis(200)
- *   .build();
  */
 public final class GuiItem {
     private final Function<Player, ItemStack> factory;
@@ -85,13 +69,11 @@ public final class GuiItem {
 
     /**
      * Handle a click on this item.
-     * Applies optional confirmation and cooldown, then runs the action.
-     * If closeOnClick is set, the player's inventory is closed after action.
      */
     public void click(Player p, GuiClickContext ctx) {
         if (requiresConfirmation && confirmationFactory != null) {
             ConfirmationMenu confirm = confirmationFactory.apply(p);
-            GuiManager.get().openChild(p, confirm);
+            ctx.openChild(confirm);
             return;
         }
         if (cooldownMillis > 0) {
@@ -104,8 +86,7 @@ public final class GuiItem {
         }
         try {
             if (onClick != null) onClick.accept(ctx);
-        } catch (Throwable t) {
-            // Swallow to avoid breaking the click pipeline; consider logging from the caller side if desired.
+        } catch (Throwable ignored) {
         }
         if (closeOnClick) {
             p.closeInventory();

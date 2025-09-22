@@ -15,46 +15,57 @@ import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
  */
 public class Glow extends BukkitBaseFeature<Meta> {
 
-    private final GlowHandler glowHandler;
+    private GlowHandler glowHandler;
 
     public Glow(ServerFeatures plugin) {
         super(plugin, new Meta());
-        // Initialize the handler with "this" so it can access feature methods.
-        this.glowHandler = new GlowHandler(this);
     }
 
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-        defaults.put("enabled", true);
+        defaults.put("enabled", false);
         return defaults;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
-        MessageMap messages = new MessageMap();
-        messages.add("glow.invalid_color", "&cOngeldige kleur optie.");
-        messages.add("glow.usage", "&cUsage: /glow <color|remove>");
-        messages.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
-        messages.add("glow.glow_removed", "&7Glow effect is verwijderd.");
-        return messages;
+        MessageMap m = new MessageMap();
+
+        // Legacy/compat
+        m.add("glow.invalid_color", "&cOngeldige kleur optie.");
+        m.add("glow.usage", "&cGebruik: /glow of /glow remove");
+        m.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
+        m.add("glow.glow_removed", "&7Glow effect is verwijderd.");
+        m.add("glow.no_active_glow", "&7Je had geen glow actief.");
+        m.add("glow.menu.title", "&eGlow Kleur Kiesmenu");
+        m.add("glow.menu.color.name", "&f{color}");
+        m.add("glow.menu.color.lore.allowed", "&7Klik om deze glow te activeren.");
+        m.add("glow.menu.color.lore.locked", "&cJe hebt deze glow kleur nog niet unlocked.");
+        m.add("glow.menu.remove.name", "&cVerwijder Glow");
+        m.add("glow.menu.remove.lore", "&7Klik om je huidige glow uit te zetten.");
+        m.add("glow.menu.close.name", "&7Sluiten");
+        m.add("glow.menu.close.lore", "&7Klik om dit menu te sluiten.");
+        m.add("glow.menu.status.active", "&aHuidige glow: &7{color}");
+        m.add("glow.menu.status.inactive", "&7Geen glow actief.");
+        m.add("glow.menu.status.lore", "&7Selecteer een kleur of verwijder je glow.");
+
+        return m;
     }
 
     @Override
     public void initialize() {
-        // Register listener and command
+        this.glowHandler = new GlowHandler(this);
         getLifecycleManager().getListenerManager().registerListener(new GlowListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
     }
 
     @Override
     public void disable() {
-        // Nothing specific to do on disable, but a placeholder is here for clarity.
+        // No special logic required on disable for this feature.
     }
 
-    /**
-     * Exposes the GlowHandler, so other classes (listener, commands) can perform glow operations.
-     */
+    /** Exposes the GlowHandler, so other classes (listener, commands) can perform glow operations. */
     public GlowHandler getGlowHandler() {
         return glowHandler;
     }
