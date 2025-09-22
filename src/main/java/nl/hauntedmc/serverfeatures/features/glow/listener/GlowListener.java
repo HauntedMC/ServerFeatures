@@ -4,10 +4,11 @@ import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 /**
- * Listener to remove glow effects when players log out.
+ * Listener to restore glow on join and remove transiently on quit.
  */
 public class GlowListener implements Listener {
 
@@ -18,8 +19,16 @@ public class GlowListener implements Listener {
     }
 
     @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player p = event.getPlayer();
+        // Load persisted state and, if enabled & valid, restore the glow.
+        feature.getGlowStateService().restoreGlowFor(p);
+    }
+
+    @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        feature.getGlowHandler().removeGlow(player);
+        // Remove from scoreboard / memory only; DO NOT persist disable on quit.
+        feature.getGlowHandler().removeGlowTransient(player);
     }
 }

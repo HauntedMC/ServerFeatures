@@ -2,13 +2,17 @@ package nl.hauntedmc.serverfeatures.features.glow;
 
 import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.dataprovider.api.orm.ORMContext;
+import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowRegistry;
+import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;
 import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;
 import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
+import nl.hauntedmc.serverfeatures.features.glow.service.GlowStateService;
 
 /**
  * Main Glow feature class. Holds configuration, messages, and references
@@ -18,6 +22,10 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     private GlowHandler glowHandler;
     private GlowRegistry registry;
+
+    // ORM / persistence
+    private ORMContext ormContext;
+    private GlowStateService glowStateService;
 
     public Glow(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -56,11 +64,21 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        getLifecycleManager().getDataManager().registerConnection("glowOrmConnection", DatabaseType.MYSQL, "player_data_rw");
+
+        ormContext = getLifecycleManager().getDataManager().createORMContext(
+                "glowOrmConnection",
+                PlayerEntity.class,
+                PlayerGlowStateEntity.class
+        ).orElseThrow();
+
         this.registry = new GlowRegistry();
-        this.glowHandler = new GlowHandler(this, registry);
+        this.glowHandler = new GlowHandler(this);
+        this.glowStateService = new GlowStateService(this);
 
         getLifecycleManager().getListenerManager().registerListener(new GlowListener(this));
-        getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
+        getLifecycleManager().getCommandManager().registerFeatureCommand(new nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand(this));
     }
 
     @Override
@@ -74,5 +92,13 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     public GlowRegistry getGlowRegistry() {
         return registry;
+    }
+
+    public ORMContext getOrmContext() {
+        return ormContext;
+    }
+
+    public GlowStateService getGlowStateService() {
+        return glowStateService;
     }
 }
