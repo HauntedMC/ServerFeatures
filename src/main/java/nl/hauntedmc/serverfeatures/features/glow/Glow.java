@@ -38,16 +38,16 @@ public class Glow extends BukkitBaseFeature<Meta> {
         m.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
         m.add("glow.glow_removed", "&7Glow effect is verwijderd.");
         m.add("glow.no_active_glow", "&7Je had geen glow actief.");
-        m.add("glow.menu.title", "&eGlow Kleur Kiesmenu");
-        m.add("glow.menu.color.name", "&f{color}");
-        m.add("glow.menu.color.lore.allowed", "&7Klik om deze glow te activeren.");
+        m.add("glow.menu.title", "&8&lGlow Effect Menu");
+        m.add("glow.menu.color.name", "&eGlow Effect: &f{color}");
+        m.add("glow.menu.color.lore.allowed", "&aKlik om deze glow te activeren.");
         m.add("glow.menu.color.lore.locked", "&cJe hebt deze glow kleur nog niet unlocked.");
-        m.add("glow.menu.remove.name", "&cVerwijder Glow");
+        m.add("glow.menu.remove.name", "&ct&lVerwijder Glow");
         m.add("glow.menu.remove.lore", "&7Klik om je huidige glow uit te zetten.");
-        m.add("glow.menu.close.name", "&7Sluiten");
+        m.add("glow.menu.close.name", "&c&lSluiten");
         m.add("glow.menu.close.lore", "&7Klik om dit menu te sluiten.");
-        m.add("glow.menu.status.active", "&aHuidige glow: &7{color}");
-        m.add("glow.menu.status.inactive", "&7Geen glow actief.");
+        m.add("glow.menu.status.active", "&6&lStatus: &r&f{color} &7Glow Effect actief.");
+        m.add("glow.menu.status.inactive", "&6&lStatus: &r&7Geen glow actief.");
         m.add("glow.menu.status.lore", "&7Selecteer een kleur of verwijder je glow.");
 
         return m;

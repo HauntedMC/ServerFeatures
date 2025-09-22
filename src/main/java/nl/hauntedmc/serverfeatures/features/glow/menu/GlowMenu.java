@@ -1,3 +1,4 @@
+// File: src/main/java/nl/hauntedmc/serverfeatures/features/glow/menu/GlowMenu.java
 package nl.hauntedmc.serverfeatures.features.glow.menu;
 
 import net.kyori.adventure.text.Component;
@@ -23,10 +24,15 @@ import java.util.*;
  *     - Slot (5,1) = Remove Glow button
  *     - Slot (5,4) = Current Glow status (center)
  *     - Slot (5,7) = Close button
+ *
+ * All lore lines are preceded by an empty line for nicer spacing.
  */
 public final class GlowMenu {
 
     private GlowMenu() {}
+
+    // Empty line component for lore spacing
+    private static final Component EMPTY_LORE = Component.text(" ");
 
     // Fixed order for readability
     private static final List<NamedTextColor> ORDERED_COLORS = List.of(
@@ -101,6 +107,7 @@ public final class GlowMenu {
                 .factory(p -> GuiItems.button(
                         Material.MILK_BUCKET,
                         feature.getLocalizationHandler().getMessage("glow.menu.remove.name").build(),
+                        EMPTY_LORE,
                         feature.getLocalizationHandler().getMessage("glow.menu.remove.lore").build()
                 ))
                 .onClick(ctx -> {
@@ -122,8 +129,7 @@ public final class GlowMenu {
     }
 
     private static GuiItem statusItem(Glow feature, Player viewer) {
-        // Snapshot render: the item itself is static once built. If dynamic updates are needed,
-        // one could re-open the same menu after actions (using the manager's reopen helper).
+        // Snapshot render of status
         Component title;
         var active = feature.getGlowHandler().getActiveGlow(viewer);
         if (active.isPresent()) {
@@ -140,7 +146,7 @@ public final class GlowMenu {
                 .getMessage("glow.menu.status.lore").build();
 
         return GuiItem.builder()
-                .factory(p -> GuiItems.info(title, lore))
+                .factory(p -> GuiItems.info(title, EMPTY_LORE, lore))
                 .build();
     }
 
@@ -149,6 +155,7 @@ public final class GlowMenu {
                 .factory(p -> GuiItems.button(
                         Material.BARRIER,
                         feature.getLocalizationHandler().getMessage("glow.menu.close.name").build(),
+                        EMPTY_LORE,
                         feature.getLocalizationHandler().getMessage("glow.menu.close.lore").build()
                 ))
                 .onClick(ctx -> ctx.player().closeInventory())
@@ -172,7 +179,7 @@ public final class GlowMenu {
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.allowed")
                             .build();
-                    return GuiItems.button(materialFor(color), name, lore);
+                    return GuiItems.button(materialFor(color), name, EMPTY_LORE, lore);
                 })
                 .replacementIfNoPerm(p -> {
                     Component name = feature.getLocalizationHandler()
@@ -182,7 +189,7 @@ public final class GlowMenu {
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.locked")
                             .build();
-                    return GuiItems.button(Material.BARRIER, name, lore);
+                    return GuiItems.button(Material.BARRIER, name, EMPTY_LORE, lore);
                 })
                 .onClick(ctx -> {
                     boolean ok = feature.getGlowHandler().setGlow(ctx.player(), color);
@@ -194,7 +201,7 @@ public final class GlowMenu {
                                         .forAudience(ctx.player())
                                         .build()
                         );
-                        // Optionally refresh status by re-opening same menu:
+                        // Optionally refresh status by re-opening the same menu:
                         // ctx.reopenSame();
                     }
                 })
