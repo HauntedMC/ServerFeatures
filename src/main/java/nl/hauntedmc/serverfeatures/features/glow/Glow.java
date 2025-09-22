@@ -5,17 +5,19 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand;
+import nl.hauntedmc.serverfeatures.features.glow.effect.GlowRegistry;
 import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;
 import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
 
 /**
  * Main Glow feature class. Holds configuration, messages, and references
- * to the {@link GlowHandler}, which actually performs the glow logic.
+ * to the {@link GlowHandler}, which performs the glow logic and ticking.
  */
 public class Glow extends BukkitBaseFeature<Meta> {
 
     private GlowHandler glowHandler;
+    private GlowRegistry registry;
 
     public Glow(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -32,7 +34,6 @@ public class Glow extends BukkitBaseFeature<Meta> {
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
 
-        // Legacy/compat
         m.add("glow.invalid_color", "&cOngeldige kleur optie.");
         m.add("glow.usage", "&cGebruik: /glow of /glow remove");
         m.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
@@ -55,7 +56,9 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        this.glowHandler = new GlowHandler(this);
+        this.registry = new GlowRegistry();
+        this.glowHandler = new GlowHandler(this, registry);
+
         getLifecycleManager().getListenerManager().registerListener(new GlowListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new GlowCommand(this));
     }
@@ -65,8 +68,11 @@ public class Glow extends BukkitBaseFeature<Meta> {
         // No special logic required on disable for this feature.
     }
 
-    /** Exposes the GlowHandler, so other classes (listener, commands) can perform glow operations. */
     public GlowHandler getGlowHandler() {
         return glowHandler;
+    }
+
+    public GlowRegistry getGlowRegistry() {
+        return registry;
     }
 }

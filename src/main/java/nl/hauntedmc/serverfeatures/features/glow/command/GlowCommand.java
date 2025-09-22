@@ -1,4 +1,3 @@
-// File: src/main/java/nl/hauntedmc/serverfeatures/features/glow/command/GlowCommand.java
 package nl.hauntedmc.serverfeatures.features.glow.command;
 
 import nl.hauntedmc.serverfeatures.commands.CommandSpec;
@@ -18,7 +17,6 @@ import java.util.stream.Stream;
  * Behavior:
  * - /glow           => opens the glow selection menu
  * - /glow remove    => removes current glow (notifies if none was active)
- * All color shorthands have been removed in favor of the GUI.
  */
 public class GlowCommand extends FeatureCommand {
 

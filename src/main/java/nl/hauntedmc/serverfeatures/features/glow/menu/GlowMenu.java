@@ -1,13 +1,13 @@
-// File: src/main/java/nl/hauntedmc/serverfeatures/features/glow/menu/GlowMenu.java
 package nl.hauntedmc.serverfeatures.features.glow.menu;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import nl.hauntedmc.serverfeatures.common.gui.menu.SimpleMenu;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
+import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
@@ -19,12 +19,11 @@ import java.util.*;
  * - Inventory size is 54 (6 rows).
  * - First row is intentionally empty for visual spacing.
  * - First and last column are always empty to create margins.
- * - Color options render in rows 2..5 (index 1..4), columns 2..8 (index 1..7), i.e., a 4 x 7 grid = 28 slots.
+ * - Options render in rows 2..5 (index 1..4), columns 2..8 (index 1..7), i.e., a 4 x 7 grid = 28 slots.
  * - Last row (row 6, index 5) contains:
  *     - Slot (5,1) = Remove Glow button
  *     - Slot (5,4) = Current Glow status (center)
  *     - Slot (5,7) = Close button
- *
  * All lore lines are preceded by an empty line for nicer spacing.
  */
 public final class GlowMenu {
@@ -33,26 +32,6 @@ public final class GlowMenu {
 
     // Empty line component for lore spacing
     private static final Component EMPTY_LORE = Component.text(" ");
-
-    // Fixed order for readability
-    private static final List<NamedTextColor> ORDERED_COLORS = List.of(
-            NamedTextColor.BLACK,
-            NamedTextColor.DARK_BLUE,
-            NamedTextColor.DARK_GREEN,
-            NamedTextColor.DARK_AQUA,
-            NamedTextColor.DARK_RED,
-            NamedTextColor.DARK_PURPLE,
-            NamedTextColor.GOLD,
-            NamedTextColor.GRAY,
-            NamedTextColor.DARK_GRAY,
-            NamedTextColor.BLUE,
-            NamedTextColor.GREEN,
-            NamedTextColor.AQUA,
-            NamedTextColor.RED,
-            NamedTextColor.LIGHT_PURPLE,
-            NamedTextColor.YELLOW,
-            NamedTextColor.WHITE
-    );
 
     public static void open(Glow feature, Player player) {
         var gui = feature.getLifecycleManager().getGuiManager();
@@ -65,12 +44,14 @@ public final class GlowMenu {
                 .backButton(false); // Root menu
 
         // Compute slot indices for a 4x7 grid (rows 1..4, cols 1..7)
-        List<Integer> colorSlots = computeColorSlots();
+        List<Integer> optionSlots = computeGridSlots(4, 7);
+        List<GlowEffect> effects = feature.getGlowRegistry().all();
+
         int i = 0;
-        for (NamedTextColor color : ORDERED_COLORS) {
-            if (i >= colorSlots.size()) break; // Safety
-            int slot = colorSlots.get(i++);
-            builder.item(slot, colorItem(feature, color));
+        for (GlowEffect effect : effects) {
+            if (i >= optionSlots.size()) break; // Safety
+            int slot = optionSlots.get(i++);
+            builder.item(slot, effectItem(feature, effect));
         }
 
         // Last row controls
@@ -86,11 +67,11 @@ public final class GlowMenu {
         gui.openRoot(player, menu);
     }
 
-    private static List<Integer> computeColorSlots() {
-        List<Integer> result = new ArrayList<>(28);
-        // rows 1 to 4 (inclusive), cols 1 to 7 (inclusive)
-        for (int row = 1; row <= 4; row++) {
-            for (int col = 1; col <= 7; col++) {
+    private static List<Integer> computeGridSlots(int rows, int cols) {
+        // rows 1..rows, cols 1..cols within a 9-wide inventory
+        List<Integer> result = new ArrayList<>(rows * cols);
+        for (int row = 1; row <= rows; row++) {
+            for (int col = 1; col <= cols; col++) {
                 result.add(slotIndex(row, col));
             }
         }
@@ -98,7 +79,6 @@ public final class GlowMenu {
     }
 
     private static int slotIndex(int row, int col) {
-        // row and col are 0-based; inventory is 9-wide
         return row * 9 + col;
     }
 
@@ -135,7 +115,7 @@ public final class GlowMenu {
         if (active.isPresent()) {
             title = feature.getLocalizationHandler()
                     .getMessage("glow.menu.status.active")
-                    .withPlaceholders(Map.of("color", pretty(active.get())))
+                    .withPlaceholders(Map.of("color", componentToString(active.get().displayName(viewer))))
                     .build();
         } else {
             title = feature.getLocalizationHandler()
@@ -164,27 +144,28 @@ public final class GlowMenu {
                 .build();
     }
 
-    private static GuiItem colorItem(Glow feature, NamedTextColor color) {
-        String perm = "serverfeatures.feature.glow.color." + color.toString().toLowerCase();
+    private static GuiItem effectItem(Glow feature, GlowEffect effect) {
+        String perm = effect.permission();
 
         return GuiItem.builder()
-                // Requires both general use permission and this color permission for visibility
+                // Requires general use permission; specific permission is declared with .permission()
                 .visibleWhen(p -> p.hasPermission("serverfeatures.feature.glow.use"))
                 .permission(perm)
                 .factory(p -> {
                     Component name = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.name")
-                            .withPlaceholders(Map.of("color", pretty(color)))
+                            .withPlaceholders(Map.of("color", componentToString(effect.displayName(p))))
                             .build();
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.allowed")
                             .build();
-                    return GuiItems.button(materialFor(color), name, EMPTY_LORE, lore);
+                    Material mat = effect.menuMaterial();
+                    return GuiItems.button(mat, name, EMPTY_LORE, lore);
                 })
                 .replacementIfNoPerm(p -> {
                     Component name = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.name")
-                            .withPlaceholders(Map.of("color", pretty(color)))
+                            .withPlaceholders(Map.of("color", componentToString(effect.displayName(p))))
                             .build();
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.locked")
@@ -192,17 +173,15 @@ public final class GlowMenu {
                     return GuiItems.button(Material.BARRIER, name, EMPTY_LORE, lore);
                 })
                 .onClick(ctx -> {
-                    boolean ok = feature.getGlowHandler().setGlow(ctx.player(), color);
+                    boolean ok = feature.getGlowHandler().setGlow(ctx.player(), effect);
                     if (ok) {
                         ctx.player().sendMessage(
                                 feature.getLocalizationHandler()
                                         .getMessage("glow.glow_set")
-                                        .withPlaceholders(Map.of("color", color.toString()))
+                                        .withPlaceholders(Map.of("color", componentToString(effect.displayName(ctx.player()))))
                                         .forAudience(ctx.player())
                                         .build()
                         );
-                        // Optionally refresh status by re-opening the same menu:
-                        // ctx.reopenSame();
                     }
                 })
                 .cooldownMillis(120)
@@ -210,41 +189,7 @@ public final class GlowMenu {
                 .build();
     }
 
-    private static String pretty(NamedTextColor c) {
-        String raw = c.toString().toLowerCase(Locale.ROOT).replace('_', ' ');
-        String[] parts = raw.split(" ");
-        StringBuilder sb = new StringBuilder();
-        for (String part : parts) {
-            if (part.isEmpty()) continue;
-            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1)).append(' ');
-        }
-        return sb.toString().trim();
-    }
-
-    private static final Map<NamedTextColor, Material> COLOR_MATERIALS = buildMaterialMap();
-
-    private static Map<NamedTextColor, Material> buildMaterialMap() {
-        Map<NamedTextColor, Material> m = new HashMap<>();
-        m.put(NamedTextColor.BLACK, Material.BLACK_CONCRETE);
-        m.put(NamedTextColor.DARK_BLUE, Material.BLUE_CONCRETE);
-        m.put(NamedTextColor.DARK_GREEN, Material.GREEN_CONCRETE);
-        m.put(NamedTextColor.DARK_AQUA, Material.CYAN_CONCRETE);
-        m.put(NamedTextColor.DARK_RED, Material.RED_CONCRETE);
-        m.put(NamedTextColor.DARK_PURPLE, Material.PURPLE_CONCRETE);
-        m.put(NamedTextColor.GOLD, Material.ORANGE_CONCRETE);
-        m.put(NamedTextColor.GRAY, Material.LIGHT_GRAY_CONCRETE);
-        m.put(NamedTextColor.DARK_GRAY, Material.GRAY_CONCRETE);
-        m.put(NamedTextColor.BLUE, Material.LIGHT_BLUE_CONCRETE);
-        m.put(NamedTextColor.GREEN, Material.LIME_CONCRETE);
-        m.put(NamedTextColor.AQUA, Material.LIGHT_BLUE_CONCRETE);
-        m.put(NamedTextColor.RED, Material.RED_CONCRETE);
-        m.put(NamedTextColor.LIGHT_PURPLE, Material.MAGENTA_CONCRETE);
-        m.put(NamedTextColor.YELLOW, Material.YELLOW_CONCRETE);
-        m.put(NamedTextColor.WHITE, Material.WHITE_CONCRETE);
-        return m;
-    }
-
-    private static Material materialFor(NamedTextColor color) {
-        return COLOR_MATERIALS.getOrDefault(color, Material.WHITE_CONCRETE);
+    private static String componentToString(Component c) {
+        return PlainTextComponentSerializer.plainText().serialize(c);
     }
 }

@@ -53,6 +53,16 @@ public class FeatureTaskManager {
         return scheduleOnce(r -> Bukkit.getScheduler().runTaskLater(plugin, r, d), task);
     }
 
+
+    /** Runs a repeating synchronous task with no initial delay (using Time for period). */
+    public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime period) {
+        Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(period, "period");
+        final long d = 0L;
+        final long p = clampPeriod(period);
+        return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimer(plugin, r, d, p), task);
+    }
+
     /** Runs a repeating synchronous task with no initial delay (using Time for period). */
     public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime delay, BukkitTime period) {
         Objects.requireNonNull(task, "task");
