@@ -1,12 +1,11 @@
-// File: nl/hauntedmc/serverfeatures/common/gui/menu/ModalPromptMenu.java
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import org.bukkit.Material;
@@ -23,16 +22,15 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * ModalPromptMenu
- * ---------------
- * A tiny "menu" to request a line of text input via chat, integrated with the GUI back stack:
- * - Shows a 1-row inventory with instructions and 'Cancel' button.
- * - When opened, it registers a one-off chat listener for that player.
- * - On chat message: invokes onSubmit, then goes back.
- * - On cancel: invokes onCancel (if any) and goes back.
+ * Minimal "modal" that captures one line of user input via chat while a GUI is open.
+ * Behavior:
+ * - Opens a one-row inventory with instructions and a Cancel button.
+ * - Registers a one-off chat listener for the player while open.
+ * - On chat message: invokes onSubmit with the plain text, then navigates back.
+ * - On Cancel: invokes onCancel if provided and navigates back.
+ * - Optional timeout closes the modal, calls onCancel, and navigates back.
  * Notes:
- * - This avoids Anvil/Sign complexity and works consistently on Paper 1.21.x.
- * - It times out automatically after a configurable number of seconds (optional).
+ * - This avoids anvil/sign UIs and works consistently on Paper 1.21.x.
  */
 public final class ModalPromptMenu extends GuiMenu implements Listener {
 
@@ -96,8 +94,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
                 }
             }, BukkitTime.seconds(timeoutSeconds));
         }
-        // Tell player what to do
-        p.sendMessage(Component.text("Type your response in chat. Use 'Cancel' button to abort."));
+        p.sendMessage(Component.text("Type your response in chat. Use the Cancel button to abort."));
     }
 
     @Override
@@ -129,7 +126,6 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
 
         String msg = PlainTextComponentSerializer.plainText().serialize(e.message());
 
-        // Back to main thread for callbacks and GUI navigation
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             try {
                 if (onSubmit != null) onSubmit.accept(msg);

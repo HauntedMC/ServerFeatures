@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/common/gui/item/GuiClickContext.java
 package nl.hauntedmc.serverfeatures.common.gui.item;
 
 import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
@@ -7,7 +6,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 
-/** Click context delivered to GuiItem actions. */
+/**
+ * Context for a GUI click, passed into GuiItem actions.
+ * Provides:
+ * - The originating menu
+ * - The clicked slot
+ * - Raw InventoryClickEvent
+ * - Helpers for common navigation and click type checks
+ */
 public final class GuiClickContext {
     private final GuiMenu menu;
     private final int slot;

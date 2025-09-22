@@ -1,16 +1,18 @@
-// File: nl/hauntedmc/serverfeatures/common/gui/menu/ConfirmationMenu.java
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 
-/** Lightweight confirmation modal with Yes/No buttons and optional back button. */
+/**
+ * Lightweight confirmation dialog with Yes/No buttons and optional back button.
+ * Typical use: destructive actions, purchases, or irreversible changes.
+ */
 public final class ConfirmationMenu extends GuiMenu {
     private final Component question;
     private final Runnable onConfirm;
@@ -42,7 +44,7 @@ public final class ConfirmationMenu extends GuiMenu {
 
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
-        int center = (size / 9) / 2 * 9 + 4; // center-ish slot for paper
+        int center = (size / 9) / 2 * 9 + 4;
         inv.setItem(center, GuiItems.info(question));
         inv.setItem(yesSlot, GuiItems.button(Material.LIME_CONCRETE, Component.text("Confirm")));
         inv.setItem(noSlot, GuiItems.button(Material.RED_CONCRETE, Component.text("Cancel")));

@@ -19,21 +19,26 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Abstract GUI base. Supports:
- * - Title rendering
- * - Filler + fixed items
- * - Back button (handled here)
- * - Reopen requests (auto re-open on close, with reason filter)
- * - Lifecycle hooks: prepare, onOpen, onClose(reason)
- * - Optional sounds on open/close/back
- * Builders in concrete classes call the static validation helpers to prevent slot collisions.
+ * Base class for inventory-based GUIs.
+ * Responsibilities:
+ * - Title calculation
+ * - Filler and fixed items placement
+ * - Optional back button placement and handling
+ * - Reopen control after closes (with reason filtering)
+ * - Lifecycle hooks: prepare(child), onOpen(player), onClose(player, reason)
+ * - Optional open/back/close sounds
+ * Usage pattern:
+ * - Build a concrete menu (SimpleMenu, PagedMenu, or your own subclass).
+ * - Use GuiManager to open this menu as root or child.
+ * - Define items with GuiItem for actions, visibility, and permission gates.
  * Notes:
- * - Actions for items are defined via GuiItem.onClick(...) or builder helpers (run commands).
- * - Use GuiItem#closeOnClick(true) to close the menu after pressing an item.
+ * - All slot validation helpers are provided here and intended for use by builders.
+ * - To close after a click, set GuiItem#closeMenuOnClick(true).
+ * - If an item is not visible for a player, a replacement icon can be supplied per GuiItem.
  */
 public abstract class GuiMenu implements InventoryHolder {
     protected final Component baseTitle;
-    protected final int size; // 9..54, multiple of 9
+    protected final int size; // must be a multiple of 9 in [9..54]
     protected final boolean showPageInTitle;
     protected final ItemStack filler;
     protected final Map<Integer, GuiItem> fixedItems = new HashMap<>();
@@ -47,7 +52,7 @@ public abstract class GuiMenu implements InventoryHolder {
     // Reopen control
     private boolean requestReopen = false;
 
-    // Optional UX
+    // Optional sounds
     protected Sound openSound = null;
     protected float openVol = 1f, openPitch = 1f;
     protected Sound backSound = null;
@@ -64,7 +69,9 @@ public abstract class GuiMenu implements InventoryHolder {
             boolean addBackButton,
             int backSlot
     ) {
-        if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid inventory size: " + size);
+        if (size <= 0 || size % 9 != 0 || size > 54) {
+            throw new IllegalArgumentException("Invalid inventory size: " + size);
+        }
         this.baseTitle = Objects.requireNonNull(baseTitle, "baseTitle");
         this.size = size;
         this.showPageInTitle = showPageInTitle;
@@ -74,37 +81,51 @@ public abstract class GuiMenu implements InventoryHolder {
         this.backSlot = backSlot;
     }
 
-    /** Internal hook called before (re)rendering; child indicates opened as nested. */
+    /**
+     * Called before rendering and before inventory creation.
+     * The flag indicates if this menu is opened as a child (with a back stack entry).
+     * Default behavior:
+     * - If child and addBackButton is true and backSlot < 0, default to last slot.
+     */
     public void prepare(boolean child) {
-        // If nested and no explicit back slot, default to last slot
         if (child && addBackButton && backSlot < 0) backSlot = size - 1;
     }
 
-    /** Called by manager after actual opening. */
+    /** Called after the menu has been opened for the player. */
     public void onOpen(Player p) {
         if (openSound != null) p.playSound(p.getLocation(), openSound, openVol, openPitch);
     }
 
-    /** Called by manager before reference is removed on close. */
+    /**
+     * Called when the menu closes.
+     * The manager will remove this menu from tracking before calling onClose,
+     * unless a reopen was requested and allowed by allowReopenFor(reason).
+     */
     public void onClose(Player p, InventoryCloseEvent.Reason reason) {
         if (closeSound != null) p.playSound(p.getLocation(), closeSound, closeVol, closePitch);
     }
 
-    /** Back button click UX hook. */
+    /**
+     * Called when the user taps the back button.
+     * Override to add extra UX behavior.
+     */
     protected void onBack(Player p) {
         if (backSound != null) p.playSound(p.getLocation(), backSound, backVol, backPitch);
     }
 
-    /** If true, the manager will reopen this same menu next tick after close. */
+    /** Whether the manager should reopen the same menu after a close. */
     public boolean shouldReopen() { return requestReopen; }
 
-    /** Request the manager to reopen this same menu on close. */
+    /** Request that the manager reopens the same menu next tick after close. */
     public void requestReopen() { this.requestReopen = true; }
 
-    /** Manager will call this after honoring the request. */
+    /** Internal: manager clears the reopen request after honoring it. */
     public void clearReopenRequest() { this.requestReopen = false; }
 
-    /** Filter: by default don't reopen on disconnect/kick/teleport/PLUGIN. */
+    /**
+     * Which close reasons are allowed to trigger a reopen.
+     * By default, opens caused by teleport, plugin, disconnect, etc. are not reopened.
+     */
     public boolean allowReopenFor(InventoryCloseEvent.Reason reason) {
         return switch (reason) {
             case UNLOADED, DISCONNECT, OPEN_NEW, TELEPORT, DEATH, PLUGIN -> false;
@@ -112,16 +133,28 @@ public abstract class GuiMenu implements InventoryHolder {
         };
     }
 
-    /** Exposed so manager can compute title BEFORE creating inventory. */
+    /**
+     * Calculate the title to use for this player. Called before the inventory is created.
+     * Subclasses may include page information or dynamic data.
+     */
     public Component titleFor(Player p) { return baseTitle; }
 
-    /** Create new inventory with the given title (Paper supports Component). */
+    /**
+     * Create a fresh inventory for this menu.
+     * Paper supports Component titles directly.
+     */
     public Inventory createInventory(Component title) {
         this.inventory = Bukkit.createInventory(this, size, title);
         return this.inventory;
     }
 
-    /** Populate the inventory: filler, fixed items, back button, and allow subclass additions. */
+    /**
+     * Populate items into the inventory:
+     * - Filler across all slots if provided
+     * - Fixed items (with per-player visibility and optional replacement)
+     * - Back button (if enabled)
+     * - afterPopulate hook for subclasses
+     */
     public void populate(Player p, Inventory inv) {
         if (filler != null) {
             for (int i = 0; i < size; i++) inv.setItem(i, filler);
@@ -131,9 +164,16 @@ public abstract class GuiMenu implements InventoryHolder {
         afterPopulate(p, inv);
     }
 
-    /** Subclass extension point after population. */
+    /**
+     * Extension point for subclasses after base population (filler/fixed/back).
+     * Use this to render dynamic content or special controls.
+     */
     protected void afterPopulate(Player p, Inventory inv) {}
 
+    /**
+     * Place all fixed items into their slots, respecting visibility and replacements.
+     * If an item is not visible, but a replacement is provided, the replacement is placed instead.
+     */
     protected void placeFixedItems(Player p, Inventory inv) {
         for (Map.Entry<Integer, GuiItem> e : fixedItems.entrySet()) {
             int slot = e.getKey();
@@ -148,12 +188,18 @@ public abstract class GuiMenu implements InventoryHolder {
         }
     }
 
+    /** Place the back button item into the configured backSlot, if valid. */
     protected void placeBackButton(Inventory inv) {
         if (backSlot < 0 || backSlot >= size) return;
-        inv.setItem(backSlot, GuiItems.button(org.bukkit.Material.ARROW, Component.text("Back")));
+        inv.setItem(backSlot, GuiItems.backArrow());
     }
 
-    /** Dispatch click to back button or fixed item; subclass may override. */
+    /**
+     * Handle a click inside this menu.
+     * Default behavior:
+     * - If back button is clicked, invoke onBack() and navigate back via GuiManager.
+     * - Otherwise dispatch into fixed item actions if present and visible.
+     */
     public void handleClick(Player p, int slot, org.bukkit.event.inventory.InventoryClickEvent e) {
         if (addBackButton && slot == backSlot) {
             onBack(p);
@@ -162,16 +208,16 @@ public abstract class GuiMenu implements InventoryHolder {
         }
         GuiItem gi = fixedItems.get(slot);
         if (gi == null) return;
-        if (!gi.visibleTo(p)) return; // ignore clicks on hidden items
+        if (!gi.visibleTo(p)) return;
         gi.click(p, new GuiClickContext(this, slot, e));
     }
 
     @Override public @NotNull Inventory getInventory() { return inventory; }
 
-    /** Ownership is by InventoryHolder identity. */
+    /** Ownership check by InventoryHolder identity. */
     public boolean owns(Inventory inv) { return inv != null && inv.getHolder() == this; }
 
-    /* ---------- Shared validation helpers for builders ---------- */
+    /* ---------- Validation helpers for builders ---------- */
 
     protected static void validateFixedItems(Map<Integer, GuiItem> items, int size, boolean backEnabled, int backSlot, String who) {
         for (int s : items.keySet()) {

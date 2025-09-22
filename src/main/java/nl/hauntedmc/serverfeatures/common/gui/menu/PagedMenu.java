@@ -1,8 +1,8 @@
-// File: nl/hauntedmc/serverfeatures/common/gui/menu/PagedMenu.java
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.*;
+import nl.hauntedmc.serverfeatures.common.gui.GuiManager;
+import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiClickContext;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
@@ -16,22 +16,24 @@ import java.util.*;
 import java.util.function.Function;
 
 /**
- * Paged menu with standard prev/next buttons and optional page info.
- * Uses reopen-in-place (no back-stack growth) when page changes.
- * Prevents collisions between content slots and nav/back/info.
+ * Multi-page menu with prev/next navigation and optional page info.
+ * Design:
+ * - Content is rendered into contentSlots using a renderer function (T -> GuiItem).
+ * - Prev/next slots are reserved; optional page info can be shown.
+ * - Page changes call GuiManager#reopenSame to avoid back stack growth and client animation spam.
  */
 public final class PagedMenu<T> extends GuiMenu {
 
     private final List<T> entries;
     private final Function<T, GuiItem> renderer;
-    private final List<Integer> contentSlots; // where entries render
+    private final List<Integer> contentSlots;
     private final int prevSlot;
     private final int nextSlot;
     private final Optional<Integer> pageInfoSlot;
 
     private int pageIndex = 0;
 
-    private final Map<Integer, GuiItem> dynamicItems = new HashMap<>(); // current page item mapping
+    private final Map<Integer, GuiItem> dynamicItems = new HashMap<>();
 
     private PagedMenu(
             Component baseTitle,
@@ -62,7 +64,8 @@ public final class PagedMenu<T> extends GuiMenu {
     @Override
     public Component titleFor(Player p) {
         if (!showPageInTitle) return baseTitle;
-        int total = Math.max(1, (int) Math.ceil(entries.size() / (double) contentSlots.size()));
+        int perPage = contentSlots.size();
+        int total = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));
         return baseTitle.append(Component.text(" (" + (pageIndex + 1) + "/" + total + ")"));
     }
 
@@ -72,7 +75,6 @@ public final class PagedMenu<T> extends GuiMenu {
     }
 
     private void renderPage(Player p, Inventory inv) {
-        // Clear previous page content
         for (int s : contentSlots) {
             inv.setItem(s, null);
             dynamicItems.remove(s);
@@ -90,11 +92,9 @@ public final class PagedMenu<T> extends GuiMenu {
             dynamicItems.put(slot, gi);
         }
 
-        // Nav buttons
         inv.setItem(prevSlot, GuiItems.button(Material.ARROW, Component.text("Previous")));
         inv.setItem(nextSlot, GuiItems.button(Material.ARROW, Component.text("Next")));
 
-        // Page info (optional)
         pageInfoSlot.ifPresent(s -> {
             int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));
             ItemStack info = GuiItems.info(Component.text("Page " + (pageIndex + 1) + "/" + totalPages));
@@ -120,17 +120,17 @@ public final class PagedMenu<T> extends GuiMenu {
             }
             return;
         }
-        // Delegate to dynamic page items first
         GuiItem gi = dynamicItems.get(slot);
         if (gi != null && gi.visibleTo(p)) {
             gi.click(p, new GuiClickContext(this, slot, e));
             return;
         }
-        // Then delegate to fixed items/back
         super.handleClick(p, slot, e);
     }
 
     public int pageIndex() { return pageIndex; }
+
+    /** Clamp and set the current page index. */
     public void setPageIndex(int page) {
         if (page < 0) page = 0;
         int perPage = contentSlots.size();
@@ -180,7 +180,6 @@ public final class PagedMenu<T> extends GuiMenu {
             });
             validateFixedItems(items, size, backButton, backSlot, "PagedMenu");
 
-            // Validate slot collisions: content vs nav/info/back
             Set<Integer> reserved = new HashSet<>(contentSlots);
             ensureSlotsInBounds(contentSlots, size, "contentSlots");
             if (reserved.contains(prevSlot) || reserved.contains(nextSlot) || pageInfoSlot.map(reserved::contains).orElse(false))
@@ -188,7 +187,6 @@ public final class PagedMenu<T> extends GuiMenu {
             if (backButton && backSlot >= 0 && (reserved.contains(backSlot)))
                 throw new IllegalArgumentException("contentSlots cannot include back slot");
 
-            // Prevent fixed items overriding nav/info/back
             for (int s : items.keySet()) {
                 if (s == prevSlot || s == nextSlot || pageInfoSlot.orElse(-1) == s)
                     throw new IllegalArgumentException("Fixed items cannot override prev/next/pageInfo slots");

@@ -1,9 +1,8 @@
-// File: nl/hauntedmc/serverfeatures/common/gui/menu/SimpleMenu.java
 package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -11,7 +10,12 @@ import org.bukkit.inventory.ItemStack;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Concrete single-page menu with a fluent Builder. */
+/**
+ * Simple single-page menu with a fluent builder.
+ *
+ * Use this for small menus where a single screen is enough.
+ * For larger lists, see PagedMenu.
+ */
 public final class SimpleMenu extends GuiMenu {
 
     private SimpleMenu(

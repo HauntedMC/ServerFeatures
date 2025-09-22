@@ -17,27 +17,30 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Central GUI coordinator:
- * - Registers listeners
- * - Tracks open menus and per-player back stacks
- * - Opens, reopens (title-safe), navigates back
+ * Central coordinator for GUI menus.
+ * Responsibilities:
+ * - Registers event listeners
+ * - Tracks open menus per player and a back-stack of previous menus
+ * - Opens root/child menus and supports reopen of the same menu
+ * - Navigates back in history
  * - Cleans up on quit/kick
- * - Prevents reopen loops on non-user closes
  * Anti-duplication hardening:
- * - Cancel ALL clicks when our GUI is the top inventory (already in place)
- * - Cancel drags targeting our top inventory (already in place)
- * - Cancel creative actions and drop events when a GUI is open
- * - Debounce clicks per-player to avoid double-execution spam
+ * - Cancels all clicks when our GUI is open
+ * - Cancels drags that target the top inventory
+ * - Cancels creative interactions when our GUI is open
+ * - Cancels item drops and pickups while a GUI is open
+ * - Debounces click handling per player to avoid double execution
+ * Threading:
+ * - All inventory operations happen on the server main thread via TaskManager scheduling.
  */
 public final class GuiManager implements Listener {
     private static GuiManager INSTANCE;
 
     private final Map<UUID, Deque<GuiMenu>> backStacks = new ConcurrentHashMap<>();
     private final Map<UUID, GuiMenu> openMenus = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> clickDebounce = new ConcurrentHashMap<>(); // ms timestamp
+    private final Map<UUID, Long> clickDebounce = new ConcurrentHashMap<>();
     private volatile BukkitBaseFeature<?> feature;
 
-    // Debounce window in milliseconds
     private static final long CLICK_DEBOUNCE_MS = 120L;
 
     private GuiManager() {}
@@ -47,11 +50,19 @@ public final class GuiManager implements Listener {
         return INSTANCE;
     }
 
+    /**
+     * Initialize and register event listeners.
+     * Must be called once during feature initialization.
+     */
     public void init(BukkitBaseFeature<?> feature) {
         this.feature = feature;
         feature.getLifecycleManager().getListenerManager().registerListener(this);
     }
 
+    /**
+     * Clear all in-memory state. Intended for plugin disable.
+     * Note: does not forcibly close player inventories; call closeAllAndClear() if desired.
+     */
     public void shutdown() {
         openMenus.clear();
         backStacks.clear();
@@ -59,11 +70,16 @@ public final class GuiManager implements Listener {
         this.feature = null;
     }
 
+    /** Feature reference that owns this manager. */
     public BukkitBaseFeature<?> feature() { return feature; }
 
+    /** Owning plugin instance, useful for scheduling or logging. */
     public Plugin plugin() { return feature.getPlugin(); }
 
-    /** Open a root menu; clears back stack. */
+    /**
+     * Open a new root menu, clearing the back stack.
+     * Any existing open menu is replaced.
+     */
     public void openRoot(Player p, GuiMenu menu) {
         ensureReady();
         if (!isUsable(p)) return;
@@ -71,7 +87,9 @@ public final class GuiManager implements Listener {
         openInternal(p, menu, false, OpenSemantics.REPLACE);
     }
 
-    /** Open a child menu; pushes current menu onto back stack. */
+    /**
+     * Open a child menu, pushing the current menu onto the back stack if present.
+     */
     public void openChild(Player p, GuiMenu menu) {
         ensureReady();
         if (!isUsable(p)) return;
@@ -82,17 +100,22 @@ public final class GuiManager implements Listener {
         openInternal(p, menu, true, OpenSemantics.REPLACE);
     }
 
-    /** Reopen the SAME menu without pushing to the back stack (used by paging/refresh). */
+    /**
+     * Reopen the same menu instance in place, without affecting the back stack.
+     * Useful for pagination or refreshes that change title or content.
+     */
     public void reopenSame(Player p, GuiMenu sameMenu) {
         ensureReady();
         if (!isUsable(p)) return;
-        // Only allow if same menu is indeed the open one
         GuiMenu current = openMenus.get(p.getUniqueId());
         if (current != sameMenu) return;
         openInternal(p, sameMenu, false, OpenSemantics.REOPEN);
     }
 
-    /** Navigate back; returns false if no previous menu. */
+    /**
+     * Navigate back to the previous menu for this player.
+     * Returns false if the back stack is empty.
+     */
     public boolean goBack(Player p) {
         Deque<GuiMenu> stack = backStacks.get(p.getUniqueId());
         if (stack == null || stack.isEmpty()) return false;
@@ -101,8 +124,20 @@ public final class GuiManager implements Listener {
         return true;
     }
 
+    /** Whether any tracked menu is currently open for this player. */
     public boolean isMenuOpen(Player p) {
         return openMenus.containsKey(p.getUniqueId());
+    }
+
+    /** Close all tracked GUIs and clear stacks. Use on disable if you need to force-close. */
+    public void closeAllAndClear() {
+        for (UUID uuid : openMenus.keySet()) {
+            Player p = plugin().getServer().getPlayer(uuid);
+            if (p != null && p.isOnline()) {
+                p.closeInventory(InventoryCloseEvent.Reason.PLUGIN);
+            }
+        }
+        shutdown();
     }
 
     private enum OpenSemantics { REPLACE, REOPEN }
@@ -122,23 +157,19 @@ public final class GuiManager implements Listener {
     private void doOpen(Player p, GuiMenu menu, boolean child, OpenSemantics sem) {
         if (!isUsable(p)) return;
 
-        // Prepare menu state before we compute title or create inventory
         menu.prepare(child);
 
         Component newTitle = menu.titleFor(p);
         Inventory previousTop = null;
         GuiMenu currentlyOpen = openMenus.get(p.getUniqueId());
         if (currentlyOpen == menu) {
-            p.getOpenInventory();
             previousTop = p.getOpenInventory().getTopInventory();
         }
 
-        // Always (re)create inventory because titles cannot be changed in-place
         Inventory inv = menu.createInventory(newTitle);
         menu.populate(p, inv);
 
         if (sem == OpenSemantics.REOPEN && previousTop != null) {
-            // Avoid extra client animations by reopening next tick
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                 if (!isUsable(p)) return;
                 p.openInventory(inv);
@@ -152,7 +183,7 @@ public final class GuiManager implements Listener {
         }
     }
 
-    // --------- Listeners ---------
+    /* ---------- Event handlers ---------- */
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onClick(InventoryClickEvent e) {
@@ -160,10 +191,8 @@ public final class GuiManager implements Listener {
         GuiMenu menu = openMenus.get(p.getUniqueId());
         if (menu == null) return;
 
-        // Only handle clicks where the TOP inventory is our menu; cancel broadly to prevent item movement.
         if (!menu.owns(e.getView().getTopInventory())) return;
 
-        // Anti-spam debounce: ignore if clicks fire too fast (prevents double-exec)
         long now = System.currentTimeMillis();
         Long prev = clickDebounce.put(p.getUniqueId(), now);
         if (prev != null && (now - prev) < CLICK_DEBOUNCE_MS) {
@@ -171,10 +200,8 @@ public final class GuiManager implements Listener {
             return;
         }
 
-        // GUIs are not for item moving by default — cancel everything
         e.setCancelled(true);
 
-        // Only dispatch clicks occurring inside the menu's top inventory
         if (e.getClickedInventory() == null) return;
         if (!menu.owns(e.getClickedInventory())) return;
 
@@ -192,12 +219,10 @@ public final class GuiManager implements Listener {
         GuiMenu menu = openMenus.get(p.getUniqueId());
         if (menu == null) return;
 
-        // Drag events can span both inventories. Cancel if ANY raw slot targets our top inventory.
         Inventory top = e.getView().getTopInventory();
         if (!menu.owns(top)) return;
 
         for (int rawSlot : e.getRawSlots()) {
-            // In an InventoryView, raw slots [0..top.size-1] map to top inventory.
             if (rawSlot < top.getSize()) {
                 e.setCancelled(true);
                 return;
@@ -205,7 +230,6 @@ public final class GuiManager implements Listener {
         }
     }
 
-    // Cancel creative inventory interactions when our GUI is open (extra hardening)
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onCreative(InventoryCreativeEvent e) {
         if (!(e.getWhoClicked() instanceof Player p)) return;
@@ -222,14 +246,11 @@ public final class GuiManager implements Listener {
         if (isMenuOpen(p)) e.setCancelled(true);
     }
 
-
-    // Prevent dropping items (Q) while GUI open — avoids edge-case dupes
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent e) {
         Player p = e.getPlayer();
         GuiMenu menu = openMenus.get(p.getUniqueId());
         if (menu == null) return;
-        // If any GUI is open for this player, disallow dropping to avoid state desyncs
         e.setCancelled(true);
     }
 
@@ -250,7 +271,6 @@ public final class GuiManager implements Listener {
         if (!reopen) {
             openMenus.remove(p.getUniqueId());
         } else {
-            // reset flag and reopen
             menu.clearReopenRequest();
             reopenSame(p, menu);
         }

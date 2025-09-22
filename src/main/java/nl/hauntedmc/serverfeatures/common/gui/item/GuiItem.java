@@ -13,13 +13,22 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
- * GUI item abstraction:
- * - Renders an ItemStack per player
- * - Permission-gated visibility (plus arbitrary predicate)
- * - Optional replacement icon if hidden
- * - Optional confirmation modal via factory
- * - Click action via Consumer<GuiClickContext>
- * - NEW: optional close-after-click, and per-item cooldown
+ * Item abstraction used by GUIs.
+ * Behavior:
+ * - Renders an ItemStack per player via factory
+ * - Visibility is controlled by an arbitrary predicate and/or a permission string
+ * - If not visible, an optional replacement ItemStack can be shown
+ * - Clicks can be wrapped in a confirmation modal
+ * - Supports "close menu on click" and per-item cooldown to suppress spam
+ * Typical usage:
+ * GuiItem.builder()
+ *   .factory(p -> someItem)
+ *   .permission("your.perm")
+ *   .replacementIfNoPerm(p -> GuiItems.locked(Component.text("Unlock via ...")))
+ *   .onClick(ctx -> { ... })
+ *   .closeMenuOnClick(true)
+ *   .cooldownMillis(200)
+ *   .build();
  */
 public final class GuiItem {
     private final Function<Player, ItemStack> factory;
@@ -58,19 +67,27 @@ public final class GuiItem {
 
     public static Builder builder() { return new Builder(); }
 
+    /** Whether this item is visible to the player, based on predicate and permission. */
     public boolean visibleTo(Player p) {
         boolean vis = visibility == null || visibility.test(p);
         boolean permOk = permission == null || permission.isBlank() || p.hasPermission(permission);
         return vis && permOk;
     }
 
+    /** Replacement to render when not visible. Returns null if no replacement configured. */
     public ItemStack replacementOrNull(Player p) {
         if (visibleTo(p)) return null;
         return replacementIfNoPerm != null ? replacementIfNoPerm.apply(p) : null;
     }
 
+    /** Render the ItemStack for this player. */
     public ItemStack renderFor(Player p) { return factory.apply(p); }
 
+    /**
+     * Handle a click on this item.
+     * Applies optional confirmation and cooldown, then runs the action.
+     * If closeOnClick is set, the player's inventory is closed after action.
+     */
     public void click(Player p, GuiClickContext ctx) {
         if (requiresConfirmation && confirmationFactory != null) {
             ConfirmationMenu confirm = confirmationFactory.apply(p);
@@ -81,11 +98,15 @@ public final class GuiItem {
             long now = System.currentTimeMillis();
             Long last = lastClick.get(p.getUniqueId());
             if (last != null && (now - last) < cooldownMillis) {
-                return; // swallow click during cooldown
+                return;
             }
             lastClick.put(p.getUniqueId(), now);
         }
-        if (onClick != null) onClick.accept(ctx);
+        try {
+            if (onClick != null) onClick.accept(ctx);
+        } catch (Throwable t) {
+            // Swallow to avoid breaking the click pipeline; consider logging from the caller side if desired.
+        }
         if (closeOnClick) {
             p.closeInventory();
         }
@@ -108,9 +129,9 @@ public final class GuiItem {
         public Builder onClick(Consumer<GuiClickContext> c) { this.onClick = c; return this; }
         public Builder replacementIfNoPerm(Function<Player, ItemStack> r) { this.replacementIfNoPerm = r; return this; }
         public Builder confirm(Function<Player, ConfirmationMenu> f) { this.requiresConfirmation = true; this.confirmationFactory = f; return this; }
-        /** Close the menu after the click action finishes. */
+        /** Close the menu after the click action completes. */
         public Builder closeMenuOnClick(boolean b) { this.closeOnClick = b; return this; }
-        /** Debounce spam-clicking (ms). */
+        /** Debounce spam-clicking of this item, in milliseconds. */
         public Builder cooldownMillis(long ms) { this.cooldownMillis = Math.max(0, ms); return this; }
 
         public GuiItem build() {

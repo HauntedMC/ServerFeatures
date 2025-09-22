@@ -2,7 +2,10 @@ package nl.hauntedmc.serverfeatures.common.gui.func;
 
 import org.bukkit.entity.Player;
 
-/** Tiny interface to expose an 'open' entrypoint from features/commands. */
+/**
+ * Small functional interface to expose a consistent "open" entry point.
+ * Useful for wiring commands or buttons that should open a particular menu.
+ */
 @FunctionalInterface
 public interface MenuOpener {
     void open(Player player);
