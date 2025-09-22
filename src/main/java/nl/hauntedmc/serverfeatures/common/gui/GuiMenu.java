@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.common.gui;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiClickContext;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
@@ -152,7 +152,7 @@ public abstract class GuiMenu implements InventoryHolder {
     /** Place the back button item into the configured backSlot, if valid. */
     protected void placeBackButton(Inventory inv) {
         if (backSlot < 0 || backSlot >= size) return;
-        inv.setItem(backSlot, GuiItems.backArrow());
+        inv.setItem(backSlot, GuiItemHelper.backArrow());
     }
 
     /**

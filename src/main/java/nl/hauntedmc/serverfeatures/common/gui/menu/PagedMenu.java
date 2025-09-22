@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiClickContext;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -89,12 +89,12 @@ public final class PagedMenu<T> extends GuiMenu {
             dynamicItems.put(slot, gi);
         }
 
-        inv.setItem(prevSlot, GuiItems.button(Material.ARROW, Component.text("Previous")));
-        inv.setItem(nextSlot, GuiItems.button(Material.ARROW, Component.text("Next")));
+        inv.setItem(prevSlot, GuiItemHelper.button(Material.ARROW, Component.text("Previous")));
+        inv.setItem(nextSlot, GuiItemHelper.button(Material.ARROW, Component.text("Next")));
 
         pageInfoSlot.ifPresent(s -> {
             int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));
-            ItemStack info = GuiItems.info(Component.text("Page " + (pageIndex + 1) + "/" + totalPages));
+            ItemStack info = GuiItemHelper.info(Component.text("Page " + (pageIndex + 1) + "/" + totalPages));
             inv.setItem(s, info);
         });
     }
@@ -146,7 +146,7 @@ public final class PagedMenu<T> extends GuiMenu {
         private int backSlot = -1;
 
         private List<T> entries = List.of();
-        private Function<T, GuiItem> renderer = t -> GuiItems.empty();
+        private Function<T, GuiItem> renderer = t -> GuiItemHelper.empty();
         private List<Integer> contentSlots = defaultGrid();
         private int prevSlot = 45; // bottom-left
         private int nextSlot = 53; // bottom-right

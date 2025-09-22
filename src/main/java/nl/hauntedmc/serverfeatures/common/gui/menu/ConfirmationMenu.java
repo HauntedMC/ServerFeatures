@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.common.gui.menu;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -45,9 +45,9 @@ public final class ConfirmationMenu extends GuiMenu {
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
         int center = (size / 9) / 2 * 9 + 4;
-        inv.setItem(center, GuiItems.info(question));
-        inv.setItem(yesSlot, GuiItems.button(Material.LIME_CONCRETE, Component.text("Confirm")));
-        inv.setItem(noSlot, GuiItems.button(Material.RED_CONCRETE, Component.text("Cancel")));
+        inv.setItem(center, GuiItemHelper.info(question));
+        inv.setItem(yesSlot, GuiItemHelper.button(Material.LIME_CONCRETE, Component.text("Confirm")));
+        inv.setItem(noSlot, GuiItemHelper.button(Material.RED_CONCRETE, Component.text("Cancel")));
     }
 
     @Override
@@ -70,7 +70,7 @@ public final class ConfirmationMenu extends GuiMenu {
         private Component title = Component.text("Confirm");
         private Component question = Component.text("Are you sure?");
         private int size = 27;
-        private org.bukkit.inventory.ItemStack filler = GuiItems.filler();
+        private org.bukkit.inventory.ItemStack filler = GuiItemHelper.filler();
         private Runnable onConfirm, onCancel;
         private int yesSlot = 11;
         private int noSlot = 15;

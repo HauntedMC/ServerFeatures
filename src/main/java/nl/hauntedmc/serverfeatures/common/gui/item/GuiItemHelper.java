@@ -22,8 +22,8 @@ import java.util.stream.Collectors;
  * Default styling: NO ITALICS on display name and lore unless you explicitly add italics yourself
  * after creating the ItemStack.
  */
-public final class GuiItems {
-    private GuiItems() {}
+public final class GuiItemHelper {
+    private GuiItemHelper() {}
 
     /** Ensure a component renders without italics. */
     private static Component noItalics(Component c) {
@@ -32,7 +32,7 @@ public final class GuiItems {
 
     /** Apply no-italics to a list of components. */
     private static List<Component> noItalics(List<Component> cs) {
-        return cs.stream().map(GuiItems::noItalics).collect(Collectors.toList());
+        return cs.stream().map(GuiItemHelper::noItalics).collect(Collectors.toList());
     }
 
     /** Generic button-style item with a display name and optional lore (non-italic by default). */

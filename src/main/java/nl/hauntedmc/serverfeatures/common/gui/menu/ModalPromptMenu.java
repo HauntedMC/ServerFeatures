@@ -4,7 +4,7 @@ import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
@@ -67,8 +67,8 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
 
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
-        inv.setItem(infoSlot, GuiItems.info(promptLine));
-        inv.setItem(cancelSlot, GuiItems.button(Material.BARRIER, Component.text("Cancel")));
+        inv.setItem(infoSlot, GuiItemHelper.info(promptLine));
+        inv.setItem(cancelSlot, GuiItemHelper.button(Material.BARRIER, Component.text("Cancel")));
     }
 
     @Override
@@ -140,7 +140,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
         private Consumer<String> onSubmit;
         private Runnable onCancel;
         private int size = 9;
-        private ItemStack filler = GuiItems.filler();
+        private ItemStack filler = GuiItemHelper.filler();
         private int infoSlot = 3;
         private int cancelSlot = 5;
         private boolean backButton = true;

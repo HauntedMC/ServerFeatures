@@ -108,6 +108,9 @@ public class VanishService {
                             .build(),
                     p.getUniqueId()
             );
+        } else {
+            // Force visibility
+            removeVanish(p);
         }
 
         // Hide all currently vanished players from the joiner (unless they can see)

@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
 import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItems;
+import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.common.gui.menu.SimpleMenu;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
@@ -40,7 +40,7 @@ public final class GlowMenu {
         SimpleMenu.Builder builder = SimpleMenu.builder(gui)
                 .title(feature.getLocalizationHandler().getMessage("glow.menu.title").build())
                 .size(54)
-                .filler(GuiItems.filler())
+                .filler(GuiItemHelper.filler())
                 .backButton(false); // Root menu
 
         // Compute slot indices for a 4x7 grid (rows 1..4, cols 1..7)
@@ -84,7 +84,7 @@ public final class GlowMenu {
 
     private static GuiItem removeItem(Glow feature) {
         return GuiItem.builder()
-                .factory(p -> GuiItems.button(
+                .factory(p -> GuiItemHelper.button(
                         Material.MILK_BUCKET,
                         feature.getLocalizationHandler().getMessage("glow.menu.remove.name").build(),
                         EMPTY_LORE,
@@ -126,13 +126,13 @@ public final class GlowMenu {
                 .getMessage("glow.menu.status.lore").build();
 
         return GuiItem.builder()
-                .factory(p -> GuiItems.info(title, EMPTY_LORE, lore))
+                .factory(p -> GuiItemHelper.info(title, EMPTY_LORE, lore))
                 .build();
     }
 
     private static GuiItem closeItem(Glow feature) {
         return GuiItem.builder()
-                .factory(p -> GuiItems.button(
+                .factory(p -> GuiItemHelper.button(
                         Material.BARRIER,
                         feature.getLocalizationHandler().getMessage("glow.menu.close.name").build(),
                         EMPTY_LORE,
@@ -160,7 +160,7 @@ public final class GlowMenu {
                             .getMessage("glow.menu.color.lore.allowed")
                             .build();
                     Material mat = effect.menuMaterial();
-                    return GuiItems.button(mat, name, EMPTY_LORE, lore);
+                    return GuiItemHelper.button(mat, name, EMPTY_LORE, lore);
                 })
                 .replacementIfNoPerm(p -> {
                     Component name = feature.getLocalizationHandler()
@@ -170,7 +170,7 @@ public final class GlowMenu {
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.locked")
                             .build();
-                    return GuiItems.button(Material.BARRIER, name, EMPTY_LORE, lore);
+                    return GuiItemHelper.button(Material.BARRIER, name, EMPTY_LORE, lore);
                 })
                 .onClick(ctx -> {
                     boolean ok = feature.getGlowHandler().setGlow(ctx.player(), effect);
