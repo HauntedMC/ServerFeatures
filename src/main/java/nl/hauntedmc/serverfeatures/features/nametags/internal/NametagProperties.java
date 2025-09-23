@@ -75,6 +75,7 @@ public class NametagProperties {
                 .findFirst();
     }
 
+    @SuppressWarnings("unchecked")
     private void setEntityData(int index, Object value, EntityDataType<?> type) {
         removeEntityData(index);
         metadata.add(new EntityData(index, type, value));

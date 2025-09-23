@@ -49,8 +49,9 @@ public class HeadURL {
 	}
 
 	public static ItemStack create(String paramString) {
-		ItemStack head = new ItemStack(Material.PLAYER_HEAD, 1, (short)3);
-		SkullMeta meta = (SkullMeta) head.getItemMeta();
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta meta = (SkullMeta) head.getItemMeta();
+        if (meta == null) return head;
 		PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
 		profile.setProperty(new ProfileProperty("textures", paramString));
 		meta.setPlayerProfile(profile);

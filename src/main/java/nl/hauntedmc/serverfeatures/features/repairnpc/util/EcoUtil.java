@@ -2,11 +2,14 @@ package nl.hauntedmc.serverfeatures.features.repairnpc.util;
 
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import nl.hauntedmc.serverfeatures.features.repairnpc.RepairNPC;
 import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.Map;
 
 public class EcoUtil {
 
@@ -18,16 +21,16 @@ public class EcoUtil {
     }
 
     public static boolean doesPlayerHaveEnough(Player p, Economy eco) {
-        double cost = getCost(p.getItemInHand());
+        double cost = getCost(p.getInventory().getItemInMainHand());
         return eco.getBalance(p) >= cost;
     }
 
     public static String formatCost(Player p, Economy eco) {
-        return eco.format(getCost(p.getItemInHand()));
+        return eco.format(getCost(p.getInventory().getItemInMainHand()));
     }
 
     public static void withdraw(Player p, Economy eco) {
-        eco.withdrawPlayer(p, getCost(p.getItemInHand()));
+        eco.withdrawPlayer(p, getCost(p.getInventory().getItemInMainHand()));
     }
 
     private static double getCost(ItemStack item) {
@@ -48,8 +51,8 @@ public class EcoUtil {
 
         // enchantment modifiers
         double enchantmentCost = 0.0;
-        for (var e : item.getEnchantments().entrySet()) {
-            String ek = e.getKey().getName().toLowerCase().replace('_', '-');
+        for (Map.Entry<Enchantment, Integer> e : item.getEnchantments().entrySet()) {
+            String ek = e.getKey().toString().toLowerCase().replace('_', '-');
             double mod = em.getDouble(ek, em.getDouble("default"));
             enchantmentCost += mod * e.getValue();
         }

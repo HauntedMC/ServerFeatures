@@ -61,20 +61,22 @@ public class LiquidTankDataHandler {
                     }
                 }
                 String worldName = worldBuilder.toString();
-                if (loadedWorlds.contains(worldName)) {
-                    World world = feature.getPlugin().getServer().getWorld(worldName);
-                    if (config.getConfigurationSection("tanks." + key) != null) {
-                        for (String subKey : Objects.requireNonNull(config.getConfigurationSection("tanks." + key)).getKeys(false)) {
-                            if (subKey.contains("tankType")) {
-                                tankTypeStr = config.getString("tanks." + key + "." + subKey);
-                            }
-                            if (subKey.contains("quantity")) {
-                                quantity = config.getInt("tanks." + key + "." + subKey);
-                            }
+                World world = feature.getPlugin().getServer().getWorld(worldName);
+
+                if (config.getConfigurationSection("tanks." + key) != null) {
+                    for (String subKey : Objects.requireNonNull(config.getConfigurationSection("tanks." + key)).getKeys(false)) {
+                        if (subKey.contains("tankType")) {
+                            tankTypeStr = config.getString("tanks." + key + "." + subKey);
                         }
-                        Location location = new Location(world, x, y, z);
-                        feature.getTankManager().createLiquidTank(location, TankType.getTankType(tankTypeStr), quantity);
+                        if (subKey.contains("quantity")) {
+                            quantity = config.getInt("tanks." + key + "." + subKey);
+                        }
                     }
+                }
+
+                if (loadedWorlds.contains(worldName)) {
+                    Location location = new Location(world, x, y, z);
+                    feature.getTankManager().createLiquidTank(location, TankType.getTankType(tankTypeStr), quantity);
                 } else {
                     unloadedTankList.add(new UnloadedTank(worldName, x, y, z, TankType.getTankType(tankTypeStr), quantity));
                 }

@@ -1,9 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.itemedit.internal;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.commonlib.util.CastUtils;
 import nl.hauntedmc.serverfeatures.features.itemedit.ItemEdit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
@@ -14,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 
 public class ItemHandler {
+
+    private static final LegacyComponentSerializer AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
+    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
 
     private final ItemEdit feature;
     private final List<String> blockedNames;
@@ -31,14 +35,22 @@ public class ItemHandler {
         if (renameText == null || !renameText.contains("&")) {
             return;
         }
+
         HumanEntity player = event.getView().getPlayer();
         if (!player.hasPermission("serverfeatures.feature.itemedit.anvilcolors")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank").forAudience(player).withPlaceholders(Map.of("rank", "&2Legend")).build());
+            player.sendMessage(
+                    feature.getLocalizationHandler()
+                            .getMessage("general.no_permission_rank")
+                            .forAudience(player)
+                            .withPlaceholders(Map.of("rank", "&2Legend"))
+                            .build()
+            );
             return;
         }
 
-        String coloredName = ChatColor.translateAlternateColorCodes('&', renameText);
-        String rawName = ChatColor.stripColor(coloredName).trim();
+        // Convert &-codes -> Component, then strip colors to compare against blocked names
+        Component coloredNameComponent = AMPERSAND.deserialize(renameText);
+        String rawName = PLAIN.serialize(coloredNameComponent).trim();
 
         for (String blocked : this.blockedNames) {
             if (rawName.equalsIgnoreCase(blocked)) {
@@ -59,7 +71,7 @@ public class ItemHandler {
         if (result.hasItemMeta()) {
             ItemMeta meta = result.getItemMeta();
             if (meta != null) {
-                meta.displayName(Component.text(coloredName));
+                meta.displayName(coloredNameComponent);
                 result.setItemMeta(meta);
                 event.setResult(result);
             }

@@ -25,6 +25,7 @@ public class BlockBreakListener implements Listener {
         this.feature = feature;
     }
 
+    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBlockDamage(BlockDamageEvent event) {
 
@@ -43,7 +44,7 @@ public class BlockBreakListener implements Listener {
         if (feature.isGriefPreventionEnabled()) {
             Claim claim = GriefPrevention.instance.dataStore.getClaimAt(block.getLocation(), false, null);
             if (claim != null && claim.allowBreak(player, block.getType()) != null) {
-                // The player doesn't have trust/permission in this claim
+                // The player doesn't have trust/permission in this
                 event.setCancelled(true);
                 player.sendMessage(feature.getLocalizationHandler().getMessage("enderframe.claim_restricted").forAudience(player).build());
                 return;

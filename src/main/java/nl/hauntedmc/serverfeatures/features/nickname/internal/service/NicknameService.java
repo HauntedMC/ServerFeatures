@@ -15,14 +15,14 @@ public class NicknameService {
 
     public Optional<PlayerEntity> getPlayerEntity(OfflinePlayer player) {
         return feature.getOrmContext().runInTransaction(session ->
-                session.createQuery("FROM PlayerEntity WHERE uuid = :uuid", PlayerEntity.class)
+                session.createSelectionQuery("FROM PlayerEntity WHERE uuid = :uuid", PlayerEntity.class)
                         .setParameter("uuid", player.getUniqueId().toString())
                         .uniqueResultOptional());
     }
 
     public Optional<String> getNickname(PlayerEntity playerEntity) {
         return feature.getOrmContext().runInTransaction(session ->
-                session.createQuery(
+                session.createSelectionQuery(
                                 "SELECT n.nickname FROM NicknameEntity n WHERE n.playerId = :playerId", String.class)
                         .setParameter("playerId", playerEntity.getId())
                         .uniqueResultOptional());
@@ -30,8 +30,9 @@ public class NicknameService {
 
     public void setNickname(PlayerEntity playerEntity, String nickname) {
         feature.getOrmContext().runInTransaction(session ->
-                session.createNativeQuery(
-                                "INSERT INTO player_nicknames (player_id, nickname) VALUES (:playerId, :nickname) " +
+                session.createNativeMutationQuery(
+                                "INSERT INTO player_nicknames (player_id, nickname) " +
+                                        "VALUES (:playerId, :nickname) " +
                                         "ON DUPLICATE KEY UPDATE nickname = :nickname")
                         .setParameter("playerId", playerEntity.getId())
                         .setParameter("nickname", nickname)
@@ -41,7 +42,7 @@ public class NicknameService {
 
     public void removeNickname(PlayerEntity playerEntity) {
         feature.getOrmContext().runInTransaction(session ->
-                session.createQuery("DELETE FROM NicknameEntity WHERE playerId = :playerId")
+                session.createMutationQuery("DELETE FROM NicknameEntity WHERE playerId = :playerId")
                         .setParameter("playerId", playerEntity.getId())
                         .executeUpdate()
         );

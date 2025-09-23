@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;

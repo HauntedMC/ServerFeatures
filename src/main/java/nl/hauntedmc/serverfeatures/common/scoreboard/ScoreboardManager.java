@@ -20,7 +20,6 @@ public class ScoreboardManager {
 
     private static final String GLOW_PREFIX  = "sf_glow_";
     private static final String OBJ_NAME     = "ServerSB";
-    private static final String OBJ_CRITERIA = "dummy";
 
     private static final Map<UUID, Scoreboard> boards = new ConcurrentHashMap<>();
     private static final Map<UUID, NamedTextColor> glowColors = new ConcurrentHashMap<>();
@@ -136,7 +135,7 @@ public class ScoreboardManager {
 
         Objective obj = board.getObjective(OBJ_NAME);
         if (obj == null) {
-            obj = board.registerNewObjective(OBJ_NAME, OBJ_CRITERIA, title);
+            obj = board.registerNewObjective(OBJ_NAME, Criteria.DUMMY, title);
             obj.setDisplaySlot(DisplaySlot.SIDEBAR);
             obj.displayName(title);
         } else {

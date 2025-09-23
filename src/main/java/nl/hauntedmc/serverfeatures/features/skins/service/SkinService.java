@@ -340,7 +340,7 @@ public class SkinService {
 
     private HttpRequest baseGet(URI uri) {
         // Identify your plugin politely (helps Mojang ops)
-        String ua = feature.getPlugin().getName() + "/" + feature.getPlugin().getDescription().getVersion()
+        String ua = feature.getPlugin().getName() + "/" + feature.getPlugin().getPluginMeta().getVersion()
                 + " (+https://hauntedmc.nl; Admin contact in server logs)";
         return HttpRequest.newBuilder()
                 .GET()

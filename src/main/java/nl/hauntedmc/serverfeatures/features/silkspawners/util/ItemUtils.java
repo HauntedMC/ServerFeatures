@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.util;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -53,8 +55,13 @@ public class ItemUtils {
                                             .decoration(TextDecoration.ITALIC, false)
                             )
             ));
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
+            // Keep attributes hidden, replace deprecated HIDE_ADDITIONAL_TOOLTIP with TooltipDisplay
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
             spawnerItem.setItemMeta(meta);
+            spawnerItem.setData(
+                    DataComponentTypes.TOOLTIP_DISPLAY,
+                    TooltipDisplay.tooltipDisplay().hideTooltip(true).build()
+            );
         }
         return spawnerItem;
     }

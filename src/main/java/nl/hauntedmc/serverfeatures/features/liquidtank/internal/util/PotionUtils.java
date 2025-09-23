@@ -9,6 +9,6 @@ import java.util.Objects;
 
 public class PotionUtils {
 	public static boolean isWaterBottle(ItemStack paramItemStack) {
-		return paramItemStack.getType() == Material.POTION && Objects.requireNonNull(((PotionMeta) paramItemStack.getItemMeta()).getBasePotionData()).getType() == PotionType.WATER;
+		return paramItemStack.getType() == Material.POTION && Objects.requireNonNull(((PotionMeta) paramItemStack.getItemMeta()).getBasePotionType()) == PotionType.WATER;
 	}
 }

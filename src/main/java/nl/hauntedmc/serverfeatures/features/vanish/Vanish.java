@@ -24,7 +24,6 @@ import nl.hauntedmc.serverfeatures.features.vanish.listener.InteractionListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.TabListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Optional;
 

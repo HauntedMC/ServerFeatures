@@ -78,6 +78,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         blockState.update();
     }
 
+    @SuppressWarnings("deprecation")
     public boolean checkBuildPermissions(Player player, Location location) {
         Claim claim = GriefPrevention.instance.dataStore.getClaimAt(location, false, null);
         return claim == null || claim.allowBreak(player, Material.SPAWNER) == null;

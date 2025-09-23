@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.listener;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
@@ -33,6 +35,7 @@ import org.bukkit.event.world.WorldLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
 import java.util.Objects;
@@ -51,7 +54,14 @@ public class LiquidTankListener implements Listener {
             return;
         }
         try {
-            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER || !blockPlaceEvent.getItemInHand().getItemMeta().getDisplayName().equals(feature.getTankManager().getItemName())) {
+            ItemMeta meta = blockPlaceEvent.getItemInHand().getItemMeta();
+            Component display = (meta != null) ? meta.displayName() : null;
+
+            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER
+                    || display == null
+                    || !LegacyComponentSerializer.legacyAmpersand()
+                    .deserialize(feature.getTankManager().getItemName())
+                    .equals(display)) {
                 return;
             }
             if (blockPlaceEvent.getPlayer().hasPermission("liquidtanks.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {
@@ -118,11 +128,8 @@ public class LiquidTankListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void rightClickOnLiquidTank(PlayerInteractEvent playerInteractEvent) {
-        if (playerInteractEvent.isCancelled()) {
-            return;
-        }
         Player player = playerInteractEvent.getPlayer();
         if (!(player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE) || player.getGameMode().equals(GameMode.CREATIVE) || playerInteractEvent.getAction().equals(Action.RIGHT_CLICK_BLOCK) && Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getType() == Material.HOPPER)) {
             return;

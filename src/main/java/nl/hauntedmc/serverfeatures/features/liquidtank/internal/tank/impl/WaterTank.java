@@ -14,7 +14,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
-import org.bukkit.potion.PotionData;
 import org.bukkit.potion.PotionType;
 
 import java.util.ArrayList;
@@ -132,8 +131,8 @@ public class WaterTank extends AbstractTank {
 				ItemStack itemStack = new ItemStack(Material.POTION, 1);
 				ItemMeta itemMeta = itemStack.getItemMeta();
 				PotionMeta potionMeta = (PotionMeta) itemMeta;
-				PotionData potionData = new PotionData(PotionType.WATER);
-				potionMeta.setBasePotionData(potionData);
+				PotionType potionData = PotionType.WATER;
+				potionMeta.setBasePotionType(potionData);
 				itemStack.setItemMeta(itemMeta);
 				changeItemFromPlayer(paramPlayer, new ItemStack(itemStack));
 				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
@@ -145,8 +144,8 @@ public class WaterTank extends AbstractTank {
 				ItemStack itemStack = new ItemStack(Material.POTION, 1);
 				ItemMeta itemMeta = itemStack.getItemMeta();
 				PotionMeta potionMeta = (PotionMeta) itemMeta;
-				PotionData potionData = new PotionData(PotionType.WATER);
-				potionMeta.setBasePotionData(potionData);
+                PotionType potionData = PotionType.WATER;
+                potionMeta.setBasePotionType(potionData);
 				itemStack.setItemMeta(itemMeta);
 				changeItemFromPlayer(paramPlayer, new ItemStack(itemStack));
 				setQuantity(getQuantity() - 1);

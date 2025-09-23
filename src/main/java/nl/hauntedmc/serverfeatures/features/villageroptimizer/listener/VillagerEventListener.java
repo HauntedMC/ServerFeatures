@@ -142,6 +142,7 @@ public class VillagerEventListener implements Listener {
         villagerAIHandler.getVillagerLevelHandler().updateVillagerLevel(vil, player);
     }
 
+    @SuppressWarnings("deprecation")
     private boolean checkBuildPermissions(Player player) {
         Location currentloc = player.getLocation();
         Claim claim = GriefPrevention.instance.dataStore.getClaimAt(currentloc, false, null);
