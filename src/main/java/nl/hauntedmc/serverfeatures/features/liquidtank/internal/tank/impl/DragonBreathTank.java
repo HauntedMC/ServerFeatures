@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -11,8 +10,6 @@ import org.bukkit.inventory.ItemStack;
 
 public class DragonBreathTank extends AbstractTank {
 	private static final TankType type = TankType.DRAGON_BREATH;
-
-	private static final ChatColor chatColor = ChatColor.LIGHT_PURPLE;
 
     public DragonBreathTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, feature);
@@ -53,8 +50,8 @@ public class DragonBreathTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&d";
 	}
 
 	@Override

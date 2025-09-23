@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
@@ -14,8 +15,6 @@ import java.util.ArrayList;
 
 public class LavaTank extends AbstractTank {
 	private static final TankType type = TankType.LAVA;
-
-	private static final ChatColor chatColor = ChatColor.RED;
 
 	private static final int maxAmount = 128;
 
@@ -162,8 +161,8 @@ public class LavaTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&c";
 	}
 
 	@Override

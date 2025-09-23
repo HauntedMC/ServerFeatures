@@ -13,8 +13,6 @@ import org.bukkit.potion.PotionEffect;
 import static org.bukkit.Material.QUARTZ_BLOCK;
 
 public class MilkTank extends AbstractTank {
-	private static final ChatColor chatColor = ChatColor.WHITE;
-
 	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
@@ -86,8 +84,8 @@ public class MilkTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&f";
 	}
 
 	@Override

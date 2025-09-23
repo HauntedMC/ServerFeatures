@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -13,8 +12,6 @@ import static org.bukkit.Material.NETHER_WART_BLOCK;
 import static org.bukkit.Material.RED_NETHER_BRICKS;
 
 public class BeetrootSoupTank extends FoodTank {
-	private static final ChatColor chatColor = ChatColor.DARK_RED;
-
     public BeetrootSoupTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, 5, feature);
 	}
@@ -50,8 +47,8 @@ public class BeetrootSoupTank extends FoodTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&4";
 	}
 
 	@Override

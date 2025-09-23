@@ -9,8 +9,6 @@ import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
 public abstract class FoodTank extends AbstractTank {
-	private static final ChatColor chatColor = ChatColor.DARK_GRAY;
-
 	private static final int maxAmount = 128;
 
 	private static final long delay = 30L;
@@ -62,8 +60,8 @@ public abstract class FoodTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&9";
 	}
 
     @Override

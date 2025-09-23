@@ -25,8 +25,6 @@ import static org.bukkit.Particle.SPLASH;
 public class WaterTank extends AbstractTank {
 	private static final TankType type = TankType.WATER;
 
-	private static final ChatColor chatColor = ChatColor.AQUA;
-
 	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
@@ -159,8 +157,8 @@ public class WaterTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&b";
 	}
 
 	@Override

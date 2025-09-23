@@ -18,8 +18,6 @@ import static org.bukkit.Material.YELLOW_WOOL;
 public class ExperienceTank extends AbstractTank {
 	private static final TankType type = TankType.EXPERIENCE;
 
-	private static final ChatColor chatColor = ChatColor.GREEN;
-
 	private static final long delay = 20L;
 
 	private static final int maxAmount = 1395;
@@ -164,21 +162,21 @@ public class ExperienceTank extends AbstractTank {
 	@Override
 	public void playTitle(Player paramPlayer) {
 		StringBuilder stringBuilder = new StringBuilder("&7[");
-		stringBuilder.append(getChatColor()).append(ChatColor.BOLD);
+		stringBuilder.append(getChatColor()).append("&l");
 		int i = ExperienceUtil.getLevel(getMaxQuantity());
 		int j = ExperienceUtil.getLevel(getQuantity());
 		double d = (i / 41 + 1);
 		for (byte b = 0; b < i / d; b++) {
 			if (b == i / d / 2.0D && j / d <= i / d / 2.0D)
-				stringBuilder.append("&7 Lvl. ").append(ChatColor.BOLD).append(j).append(" &8")
-						.append(ChatColor.BOLD);
+				stringBuilder.append("&7 Lvl. ").append("&l").append(j).append(" &8")
+						.append("&l");
 			if (b == i / d / 2.0D && j / d > i / d / 2.0D)
-				stringBuilder.append("&7 Lvl. ").append(ChatColor.BOLD).append(j).append(" ")
-						.append(getChatColor()).append(ChatColor.BOLD);
+				stringBuilder.append("&7 Lvl. ").append("&l").append(j).append(" ")
+						.append(getChatColor()).append("&l");
 			if (b < j / d)
 				stringBuilder.append("|");
 			if (b == j / d)
-				stringBuilder.append("&8").append(ChatColor.BOLD);
+				stringBuilder.append("&8").append("&l");
 			if (b >= j / d)
 				stringBuilder.append("|");
 		}
@@ -187,8 +185,8 @@ public class ExperienceTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&a";
 	}
 
 	@Override

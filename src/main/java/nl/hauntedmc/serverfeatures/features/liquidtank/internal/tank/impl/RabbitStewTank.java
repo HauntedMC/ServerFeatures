@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -12,11 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import static org.bukkit.Material.*;
 
 public class RabbitStewTank extends FoodTank {
-	private static final ChatColor chatColor = ChatColor.YELLOW;
-
 	private static final int maxAmount = 128;
-
-	private static final long delay = 20L;
 
 	public RabbitStewTank(Location location, int amount, LiquidTank feature) {
 		super(location, amount, 12, feature);
@@ -53,8 +48,8 @@ public class RabbitStewTank extends FoodTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&e";
 	}
 
 	@Override

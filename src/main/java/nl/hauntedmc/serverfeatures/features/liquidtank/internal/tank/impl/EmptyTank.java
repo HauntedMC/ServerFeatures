@@ -5,15 +5,12 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHan
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.PotionUtils;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class EmptyTank extends AbstractTank {
-	private static final ChatColor chatColor = ChatColor.GRAY;
-
 	private static final int maxAmount = 128;
 
     public EmptyTank(Location location, LiquidTank feature) {
@@ -22,7 +19,7 @@ public class EmptyTank extends AbstractTank {
 
 	@Override
 	public void updateVisuals() {
-		clear(false);
+		clear();
 		Location location = new Location(getLocation().getWorld(), getLocation().getX(), getLocation().getY(), getLocation().getZ());
 		setPacketArmorstandGlass(new PacketHandler(location.clone().add(0.5D, 0.35D, 0.5D)));
 		getPacketArmorstandGlass().setHead(ItemCreator.newItem(Material.GLASS, 1, "", ""));
@@ -107,8 +104,8 @@ public class EmptyTank extends AbstractTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&7";
 	}
 
     @Override

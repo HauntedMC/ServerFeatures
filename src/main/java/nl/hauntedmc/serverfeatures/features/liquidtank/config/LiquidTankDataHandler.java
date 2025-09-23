@@ -122,7 +122,7 @@ public class LiquidTankDataHandler {
             config.set("tanks." + key + ".tankType", tank.getTankType().toString().toLowerCase().replace("_", ""));
             config.set("tanks." + key + ".quantity", tank.getQuantity());
             if (clearAfter) {
-                tank.clear(true);
+                tank.clear();
             }
         }
         // Save unloaded tanks.

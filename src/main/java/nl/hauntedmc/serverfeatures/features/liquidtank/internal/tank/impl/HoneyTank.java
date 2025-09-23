@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -19,8 +19,6 @@ import java.lang.reflect.Method;
 import static org.bukkit.Material.*;
 
 public class HoneyTank extends FoodTank {
-	private static final ChatColor chatColor = ChatColor.GOLD;
-
 	private static final int maxAmount = 128;
 
 	private static final long delay = 20L;
@@ -96,8 +94,8 @@ public class HoneyTank extends FoodTank {
 	}
 
 	@Override
-	public ChatColor getChatColor() {
-		return chatColor;
+	public String getChatColor() {
+		return "&6";
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
+import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
@@ -19,7 +20,7 @@ import java.util.List;
 import static org.bukkit.Particle.FALLING_DUST;
 
 public abstract class AbstractTank {
-	private static final ChatColor chatColor = ChatColor.GRAY;
+	private static final String chatColor = "&8";
 
 	private static final int maxAmount = 128;
 
@@ -114,7 +115,7 @@ public abstract class AbstractTank {
 
 	public void playTitle(Player paramPlayer) {
 		StringBuilder stringBuilder = new StringBuilder("&7[");
-		stringBuilder.append(getChatColor()).append(ChatColor.BOLD);
+		stringBuilder.append(getChatColor()).append("&l");
 		int i = getMaxQuantity() / 41 + 1;
 		int j = getMaxQuantity() / i;
 		if (j % 2 == 1)
@@ -126,16 +127,16 @@ public abstract class AbstractTank {
 			str = "&c";
 		for (byte b = 0; b < j; b++) {
 			if (b == j / 2 && k <= j / 2)
-				stringBuilder.append(str).append(" ").append(ChatColor.BOLD)
-						.append(getQuantity()).append(" &8").append(ChatColor.BOLD);
+				stringBuilder.append(str).append(" ").append("&l")
+						.append(getQuantity()).append(" &8").append("&l");
 			if (b == j / 2 && k > j / 2)
-				stringBuilder.append(str).append(" ").append(ChatColor.BOLD)
+				stringBuilder.append(str).append(" ").append("&l")
 						.append(getQuantity()).append(" ").append(getChatColor())
-						.append(ChatColor.BOLD);
+						.append("&l");
 			if (b < k)
 				stringBuilder.append("|");
 			if (b == k)
-				stringBuilder.append("&8").append(ChatColor.BOLD);
+				stringBuilder.append("&8").append("&l");
 			if (b >= k)
 				stringBuilder.append("|");
 		}
@@ -143,7 +144,7 @@ public abstract class AbstractTank {
 		MessageUtils.sendTitle(paramPlayer, stringBuilder.toString());
 	}
 
-	public void clear(boolean b) {
+	public void clear() {
 		this.playersNearby.clear();
 		if (this.packetHandlerGlass != null)
 			for (Player player : Bukkit.getOnlinePlayers())
@@ -154,7 +155,7 @@ public abstract class AbstractTank {
 	}
 
 	public void updateVisuals() {
-		clear(false);
+		clear();
 		this.packetHandlerGlass = new PacketHandler(getLocation().clone().add(0.5D, 0.4D, 0.5D));
 		this.packetHandlerGlass.setHead(ItemCreator.newItem(Material.GLASS, 1, "", ""));
 		updateLiquidLevel();
@@ -202,7 +203,7 @@ public abstract class AbstractTank {
 			}
 	}
 
-	public ChatColor getChatColor() {
+	public String getChatColor() {
 		return chatColor;
 	}
 

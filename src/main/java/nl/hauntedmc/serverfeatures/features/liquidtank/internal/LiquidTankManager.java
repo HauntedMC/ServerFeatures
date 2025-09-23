@@ -75,7 +75,7 @@ public class LiquidTankManager implements Listener {
     }
 
     public AbstractTank changeTankType(AbstractTank liquidTank, TankType tankType, int n) {
-        liquidTank.clear(false);
+        liquidTank.clear();
         AbstractTank newTank = tankType.equals(TankType.LAVA) ? new LavaTank(liquidTank.getLocation(), n, feature)
                 : (tankType.equals(TankType.WATER) ? new WaterTank(liquidTank.getLocation(), n, feature)
                 : (tankType.equals(TankType.MILK) ? new MilkTank(liquidTank.getLocation(), n, feature)
@@ -92,7 +92,7 @@ public class LiquidTankManager implements Listener {
     }
 
     public AbstractTank emptyTank(AbstractTank liquidTank) {
-        liquidTank.clear(false);
+        liquidTank.clear();
         dataHandler.removeTank(liquidTank);
         EmptyTank emptyTank = new EmptyTank(liquidTank.getLocation(), feature);
         dataHandler.addTank(emptyTank);
@@ -100,7 +100,7 @@ public class LiquidTankManager implements Listener {
     }
 
     public void removeTank(AbstractTank liquidTank) {
-        liquidTank.clear(true);
+        liquidTank.clear();
         dataHandler.removeTank(liquidTank);
     }
 
