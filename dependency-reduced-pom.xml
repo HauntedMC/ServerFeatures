@@ -107,7 +107,7 @@
       <url>https://repo.essentialsx.net/releases/</url>
     </repository>
     <repository>
-      <id>enginehub-maven</id>
+      <id>enginehub</id>
       <url>https://maven.enginehub.org/repo/</url>
     </repository>
     <repository>
@@ -197,6 +197,24 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>com.fastasyncworldedit</groupId>
+      <artifactId>FastAsyncWorldEdit-Core</artifactId>
+      <version>2.13.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.fastasyncworldedit</groupId>
+      <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+      <version>2.13.1</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>FastAsyncWorldEdit-Core</artifactId>
+          <groupId>*</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
       <groupId>com.github.TechFortress</groupId>
       <artifactId>GriefPrevention</artifactId>
       <version>16.18.1</version>
@@ -259,6 +277,17 @@
       <scope>compile</scope>
     </dependency>
   </dependencies>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.intellectualsites.bom</groupId>
+        <artifactId>bom-newest</artifactId>
+        <version>1.55</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <distributionManagement>
     <repository>
       <id>github</id>
