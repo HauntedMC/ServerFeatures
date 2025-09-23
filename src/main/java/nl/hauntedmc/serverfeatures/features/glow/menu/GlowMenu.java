@@ -32,6 +32,7 @@ public final class GlowMenu {
 
     // Empty line component for lore spacing
     private static final Component EMPTY_LORE = Component.text(" ");
+    private static final int LORE_MAX_WIDTH = 30;
 
     public static void open(Glow feature, Player player) {
         var gui = feature.getLifecycleManager().getGuiManager();
@@ -84,9 +85,10 @@ public final class GlowMenu {
 
     private static GuiItem removeItem(Glow feature) {
         return GuiItem.builder()
-                .factory(p -> GuiItemHelper.button(
+                .factory(p -> GuiItemHelper.menuItemWrapped(
                         Material.MILK_BUCKET,
                         feature.getLocalizationHandler().getMessage("glow.menu.remove.name").build(),
+                        LORE_MAX_WIDTH,
                         EMPTY_LORE,
                         feature.getLocalizationHandler().getMessage("glow.menu.remove.lore").build()
                 ))
@@ -126,15 +128,16 @@ public final class GlowMenu {
                 .getMessage("glow.menu.status.lore").build();
 
         return GuiItem.builder()
-                .factory(p -> GuiItemHelper.info(title, EMPTY_LORE, lore))
+                .factory(p -> GuiItemHelper.menuItemWrapped(Material.CLOCK, title, LORE_MAX_WIDTH, EMPTY_LORE, lore))
                 .build();
     }
 
     private static GuiItem closeItem(Glow feature) {
         return GuiItem.builder()
-                .factory(p -> GuiItemHelper.button(
+                .factory(p -> GuiItemHelper.menuItemWrapped(
                         Material.BARRIER,
                         feature.getLocalizationHandler().getMessage("glow.menu.close.name").build(),
+                        LORE_MAX_WIDTH,
                         EMPTY_LORE,
                         feature.getLocalizationHandler().getMessage("glow.menu.close.lore").build()
                 ))
@@ -160,7 +163,7 @@ public final class GlowMenu {
                             .getMessage("glow.menu.color.lore.allowed")
                             .build();
                     Material mat = effect.menuMaterial();
-                    return GuiItemHelper.button(mat, name, EMPTY_LORE, lore);
+                    return GuiItemHelper.menuItemWrapped(mat, name, LORE_MAX_WIDTH, EMPTY_LORE, lore);
                 })
                 .replacementIfNoPerm(p -> {
                     Component name = feature.getLocalizationHandler()
@@ -170,7 +173,7 @@ public final class GlowMenu {
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.locked")
                             .build();
-                    return GuiItemHelper.button(Material.BARRIER, name, EMPTY_LORE, lore);
+                    return GuiItemHelper.menuItemWrapped(Material.BARRIER, name, LORE_MAX_WIDTH, EMPTY_LORE, lore);
                 })
                 .onClick(ctx -> {
                     boolean ok = feature.getGlowHandler().setGlow(ctx.player(), effect);

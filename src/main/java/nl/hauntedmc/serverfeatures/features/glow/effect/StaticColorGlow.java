@@ -40,7 +40,7 @@ public final class StaticColorGlow implements GlowEffect {
         this.color = color;
         String base = color.toString().toLowerCase(Locale.ROOT);
         this.id = base;
-        this.permission = "serverfeatures.feature.glow.color." + base;
+        this.permission = "serverfeatures.feature.glow.effect." + base;
         this.material = COLOR_MATERIALS.getOrDefault(color, Material.WHITE_CONCRETE);
         this.displayName = Component.text(pretty(base));
     }

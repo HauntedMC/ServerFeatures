@@ -46,8 +46,8 @@ public final class ConfirmationMenu extends GuiMenu {
     protected void afterPopulate(Player p, Inventory inv) {
         int center = (size / 9) / 2 * 9 + 4;
         inv.setItem(center, GuiItemHelper.info(question));
-        inv.setItem(yesSlot, GuiItemHelper.button(Material.LIME_CONCRETE, Component.text("Confirm")));
-        inv.setItem(noSlot, GuiItemHelper.button(Material.RED_CONCRETE, Component.text("Cancel")));
+        inv.setItem(yesSlot, GuiItemHelper.menuItem(Material.LIME_CONCRETE, Component.text("Confirm")));
+        inv.setItem(noSlot, GuiItemHelper.menuItem(Material.RED_CONCRETE, Component.text("Cancel")));
     }
 
     @Override

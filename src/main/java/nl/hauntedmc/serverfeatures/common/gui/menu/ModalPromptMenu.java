@@ -68,7 +68,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
         inv.setItem(infoSlot, GuiItemHelper.info(promptLine));
-        inv.setItem(cancelSlot, GuiItemHelper.button(Material.BARRIER, Component.text("Cancel")));
+        inv.setItem(cancelSlot, GuiItemHelper.menuItem(Material.BARRIER, Component.text("Cancel")));
     }
 
     @Override

@@ -16,6 +16,7 @@ public final class GlowRegistry {
     public GlowRegistry() {
         registerAll(defaultStaticColors());
         register(new RainbowGlow());
+        register(new HauntedGlow());
     }
 
     /** All registered effects in display order. */

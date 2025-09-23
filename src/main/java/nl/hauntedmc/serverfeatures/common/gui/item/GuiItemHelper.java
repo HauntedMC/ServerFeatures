@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.common.gui.item;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import nl.hauntedmc.serverfeatures.common.gui.text.ComponentWordWrap;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -35,8 +36,24 @@ public final class GuiItemHelper {
         return cs.stream().map(GuiItemHelper::noItalics).collect(Collectors.toList());
     }
 
+    public static ItemStack menuItemWrapped(Material type, Component name, int loreWidth, Component... lore) {
+        ItemStack is = new ItemStack(type);
+        ItemMeta meta = is.getItemMeta();
+        meta.displayName(noItalics(name));
+
+        if (lore != null && lore.length > 0) {
+            List<Component> wrapped = new java.util.ArrayList<>();
+            for (Component c : lore) wrapped.addAll(ComponentWordWrap.wrap(c, loreWidth));
+            meta.lore(wrapped);
+        }
+
+        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_DYE);
+        is.setItemMeta(meta);
+        return is;
+    }
+
     /** Generic button-style item with a display name and optional lore (non-italic by default). */
-    public static ItemStack button(Material type, Component name, Component... lore) {
+    public static ItemStack menuItem(Material type, Component name, Component... lore) {
         ItemStack is = new ItemStack(type);
         ItemMeta meta = is.getItemMeta();
 
@@ -58,27 +75,17 @@ public final class GuiItemHelper {
 
     /** Paper info card with a name and optional lore (non-italic by default). */
     public static ItemStack info(Component name, Component... lore) {
-        return button(Material.PAPER, name, lore);
+        return menuItem(Material.CLOCK, name, lore);
     }
 
     /** Neutral glass filler pane. */
     public static ItemStack filler() {
-        return button(Material.GRAY_STAINED_GLASS_PANE, Component.text(" "));
+        return menuItem(Material.GRAY_STAINED_GLASS_PANE, Component.text(" "));
     }
 
     /** Standard back arrow item. */
     public static ItemStack backArrow() {
-        return button(Material.ARROW, Component.text("Back"));
-    }
-
-    /** Standard close button (barrier). */
-    public static ItemStack closeBarrier() {
-        return button(Material.BARRIER, Component.text("Close"));
-    }
-
-    /** Barrier with a label used for permission-gated or locked items. */
-    public static ItemStack locked(Component reason) {
-        return button(Material.BARRIER, Component.text("Locked"), reason);
+        return menuItem(Material.ARROW, Component.text("Back"));
     }
 
     /** Empty gui item factory that renders AIR. */

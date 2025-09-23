@@ -89,8 +89,8 @@ public final class PagedMenu<T> extends GuiMenu {
             dynamicItems.put(slot, gi);
         }
 
-        inv.setItem(prevSlot, GuiItemHelper.button(Material.ARROW, Component.text("Previous")));
-        inv.setItem(nextSlot, GuiItemHelper.button(Material.ARROW, Component.text("Next")));
+        inv.setItem(prevSlot, GuiItemHelper.menuItem(Material.ARROW, Component.text("Previous")));
+        inv.setItem(nextSlot, GuiItemHelper.menuItem(Material.ARROW, Component.text("Next")));
 
         pageInfoSlot.ifPresent(s -> {
             int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));

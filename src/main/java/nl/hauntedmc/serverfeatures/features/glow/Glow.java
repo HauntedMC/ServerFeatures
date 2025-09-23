@@ -42,22 +42,21 @@ public class Glow extends BukkitBaseFeature<Meta> {
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
 
-        m.add("glow.invalid_color", "&cOngeldige kleur optie.");
         m.add("glow.usage", "&cGebruik: /glow of /glow remove");
         m.add("glow.glow_set", "&aJe hebt nu een &7{color} &aglow effect.");
         m.add("glow.glow_removed", "&7Glow effect is verwijderd.");
-        m.add("glow.no_active_glow", "&7Je had geen glow actief.");
+        m.add("glow.no_active_glow", "&7Je hebt geen glow effect op dit moment.");
         m.add("glow.menu.title", "&8&lGlow Effect Menu");
         m.add("glow.menu.color.name", "&eGlow Effect: &f{color}");
-        m.add("glow.menu.color.lore.allowed", "&aKlik om deze glow te activeren.");
-        m.add("glow.menu.color.lore.locked", "&cJe hebt deze glow kleur nog niet unlocked.");
-        m.add("glow.menu.remove.name", "&ct&lVerwijder Glow");
-        m.add("glow.menu.remove.lore", "&7Klik om je huidige glow uit te zetten.");
-        m.add("glow.menu.close.name", "&c&lSluiten");
+        m.add("glow.menu.color.lore.allowed", "&aKlik om deze glow effect te activeren.");
+        m.add("glow.menu.color.lore.locked", "&cJe hebt deze glow effect nog niet unlocked.");
+        m.add("glow.menu.remove.name", "&c&lVerwijder Glow");
+        m.add("glow.menu.remove.lore", "&7Klik om je huidige glow effect uit te zetten.");
+        m.add("glow.menu.close.name", "&c&lMenu Sluiten");
         m.add("glow.menu.close.lore", "&7Klik om dit menu te sluiten.");
-        m.add("glow.menu.status.active", "&6&lStatus: &r&f{color} &7Glow Effect actief.");
-        m.add("glow.menu.status.inactive", "&6&lStatus: &r&7Geen glow actief.");
-        m.add("glow.menu.status.lore", "&7Selecteer een kleur of verwijder je glow.");
+        m.add("glow.menu.status.active", "&6&lHuidig effect: &r&f{color}");
+        m.add("glow.menu.status.inactive", "&6&lHuidig effect: &r&7Geen.");
+        m.add("glow.menu.status.lore", "&7Selecteer een kleur of verwijder je glow effect.");
 
         return m;
     }
