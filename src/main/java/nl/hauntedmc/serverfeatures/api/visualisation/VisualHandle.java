@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.common.visualisation;
+package nl.hauntedmc.serverfeatures.api.visualisation;
 
 /**
  * Lifecycle handle for a visualisation instance.

@@ -5,7 +5,7 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.util.APIRegistry;
+import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.listener.LanguageListener;

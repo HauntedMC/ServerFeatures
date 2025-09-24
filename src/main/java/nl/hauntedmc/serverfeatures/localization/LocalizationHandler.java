@@ -8,7 +8,7 @@ import nl.hauntedmc.commonlib.util.PlaceholderUtils;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
-import nl.hauntedmc.serverfeatures.common.util.PlayerUtils;
+import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -150,7 +150,7 @@ public class LocalizationHandler {
      * Falls back to the default message if no localized version is found.
      */
     private @NotNull String getTranslateMessage(String key, Player player) {
-        Language language = PlayerUtils.getPlayerLanguage(player);
+        Language language = PlayerRegistryAPI.getPlayerLanguage(player);
         String message = null;
         if (language != null) {
             ResourceHandler resource = languageResources.get(language);

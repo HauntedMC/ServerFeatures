@@ -1,7 +1,11 @@
-package nl.hauntedmc.serverfeatures.common.visualisation;
+package nl.hauntedmc.serverfeatures.api.visualisation.display;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import nl.hauntedmc.serverfeatures.api.visualisation.VisualHandle;
+import nl.hauntedmc.serverfeatures.api.visualisation.Visualisation;
+import nl.hauntedmc.serverfeatures.api.visualisation.options.VisualOptions;
+import nl.hauntedmc.serverfeatures.api.visualisation.shape.RegionShape;
 import org.bukkit.*;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
@@ -17,17 +21,16 @@ import org.joml.Vector3f;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Bukkit implementation of {@link Visualisation} using Display entities (1.19+).
  * Produces per-player visualisations (viewer-only visibility).
  */
-public final class BukkitDisplayVisualisation implements Visualisation {
+public final class DisplayVisualisation implements Visualisation {
 
     private final Plugin plugin;
 
-    public BukkitDisplayVisualisation(Plugin plugin) {
+    public DisplayVisualisation(Plugin plugin) {
         this.plugin = plugin;
     }
 
@@ -72,7 +75,7 @@ public final class BukkitDisplayVisualisation implements Visualisation {
         }
 
         // Return handle to clear
-        return new BukkitDisplaysHandle(spawned);
+        return new DisplayVisualHandle(spawned);
     }
 
     /* ==== helpers ==== */
@@ -127,29 +130,5 @@ public final class BukkitDisplayVisualisation implements Visualisation {
         int g = (rgb >> 8) & 0xFF;
         int b = rgb & 0xFF;
         return Color.fromRGB(r, g, b);
-    }
-
-    private static final class BukkitDisplaysHandle implements VisualHandle {
-        private final List<Display> displays;
-        private final AtomicBoolean cleared = new AtomicBoolean(false);
-
-        private BukkitDisplaysHandle(List<Display> displays) {
-            this.displays = displays;
-        }
-
-        @Override
-        public void clear() {
-            if (cleared.compareAndSet(false, true)) {
-                for (Display d : displays) {
-                    if (d != null && !d.isDead()) d.remove();
-                }
-                displays.clear();
-            }
-        }
-
-        @Override
-        public boolean isCleared() {
-            return cleared.get();
-        }
     }
 }

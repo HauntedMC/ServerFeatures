@@ -1,6 +1,6 @@
-package nl.hauntedmc.serverfeatures.common.gui.item;
+package nl.hauntedmc.serverfeatures.api.gui.item;
 
-import nl.hauntedmc.serverfeatures.common.gui.menu.ConfirmationMenu;
+import nl.hauntedmc.serverfeatures.api.gui.menu.ConfirmationMenu;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 

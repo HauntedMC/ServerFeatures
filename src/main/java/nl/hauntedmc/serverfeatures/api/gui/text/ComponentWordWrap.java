@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.common.gui.text;
+package nl.hauntedmc.serverfeatures.api.gui.text;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;

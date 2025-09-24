@@ -1,5 +1,7 @@
-package nl.hauntedmc.serverfeatures.common.visualisation;
+package nl.hauntedmc.serverfeatures.api.visualisation;
 
+import nl.hauntedmc.serverfeatures.api.visualisation.options.VisualOptions;
+import nl.hauntedmc.serverfeatures.api.visualisation.shape.RegionShape;
 import org.bukkit.entity.Player;
 
 /**

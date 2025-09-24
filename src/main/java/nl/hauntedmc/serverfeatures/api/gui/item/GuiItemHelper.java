@@ -1,8 +1,8 @@
-package nl.hauntedmc.serverfeatures.common.gui.item;
+package nl.hauntedmc.serverfeatures.api.gui.item;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import nl.hauntedmc.serverfeatures.common.gui.text.ComponentWordWrap;
+import nl.hauntedmc.serverfeatures.api.gui.text.ComponentWordWrap;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;

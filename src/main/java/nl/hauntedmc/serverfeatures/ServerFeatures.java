@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures;
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.commonlib.featureapi.FeaturePlugin;
 import nl.hauntedmc.serverfeatures.commands.ServerFeaturesCommand;
+import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.internal.FeatureLoadManager;
@@ -66,7 +67,7 @@ public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
 
     private void registerCommonListeners() {
         PluginManager pm = Bukkit.getPluginManager();
-        pm.registerEvents(new nl.hauntedmc.serverfeatures.common.listener.PlayerListener(this), this);
+        pm.registerEvents(new ScoreboardListener(this), this);
     }
 
     public FeatureLoadManager getFeatureLoadManager() {

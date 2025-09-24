@@ -1,9 +1,8 @@
-package nl.hauntedmc.serverfeatures.common.visualisation;
+package nl.hauntedmc.serverfeatures.api.visualisation.options;
 
 import org.bukkit.Material;
 import net.kyori.adventure.text.format.NamedTextColor;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,10 +45,10 @@ public final class VisualOptions {
     private VisualOptions(Builder b) {
         this.edgeMaterial = b.edgeMaterial;
         this.cornerMaterial = b.cornerMaterial;
-        this.namedPointMaterials = Collections.unmodifiableMap(new HashMap<>(b.namedPointMaterials));
+        this.namedPointMaterials = Map.copyOf(b.namedPointMaterials);
         this.edgeGlow = b.edgeGlow;
         this.cornerGlow = b.cornerGlow;
-        this.namedPointGlow = Collections.unmodifiableMap(new HashMap<>(b.namedPointGlow));
+        this.namedPointGlow = Map.copyOf(b.namedPointGlow);
         this.edgeScale = b.edgeScale;
         this.cornerScale = b.cornerScale;
         this.edgeStepBlocks = b.edgeStepBlocks;

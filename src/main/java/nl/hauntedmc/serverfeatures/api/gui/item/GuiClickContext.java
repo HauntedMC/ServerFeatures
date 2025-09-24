@@ -1,6 +1,6 @@
-package nl.hauntedmc.serverfeatures.common.gui.item;
+package nl.hauntedmc.serverfeatures.api.gui.item;
 
-import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
+import nl.hauntedmc.serverfeatures.api.gui.GuiMenu;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;

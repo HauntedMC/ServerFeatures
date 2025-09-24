@@ -1,7 +1,6 @@
-package nl.hauntedmc.serverfeatures.common.listener;
+package nl.hauntedmc.serverfeatures.common.scoreboard;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -9,9 +8,9 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.jetbrains.annotations.NotNull;
 
-public class PlayerListener implements Listener {
+public class ScoreboardListener implements Listener {
 
-    public PlayerListener(ServerFeatures plugin) {
+    public ScoreboardListener(ServerFeatures plugin) {
     }
 
     @EventHandler(priority = EventPriority.LOW)

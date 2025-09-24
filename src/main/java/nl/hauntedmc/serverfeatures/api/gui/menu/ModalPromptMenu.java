@@ -1,10 +1,10 @@
-package nl.hauntedmc.serverfeatures.common.gui.menu;
+package nl.hauntedmc.serverfeatures.api.gui.menu;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import nl.hauntedmc.serverfeatures.common.gui.GuiMenu;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
+import nl.hauntedmc.serverfeatures.api.gui.GuiMenu;
+import nl.hauntedmc.serverfeatures.api.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;

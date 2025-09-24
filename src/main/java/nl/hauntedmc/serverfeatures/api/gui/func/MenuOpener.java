@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.common.gui.func;
+package nl.hauntedmc.serverfeatures.api.gui.func;
 
 import org.bukkit.entity.Player;
 

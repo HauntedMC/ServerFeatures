@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.common.util;
+package nl.hauntedmc.serverfeatures.api;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;

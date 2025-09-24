@@ -1,9 +1,9 @@
-package nl.hauntedmc.serverfeatures.common.gui;
+package nl.hauntedmc.serverfeatures.api.gui;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiClickContext;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItem;
-import nl.hauntedmc.serverfeatures.common.gui.item.GuiItemHelper;
+import nl.hauntedmc.serverfeatures.api.gui.item.GuiClickContext;
+import nl.hauntedmc.serverfeatures.api.gui.item.GuiItem;
+import nl.hauntedmc.serverfeatures.api.gui.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureGUIManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
