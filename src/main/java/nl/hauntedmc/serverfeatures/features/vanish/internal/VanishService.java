@@ -9,7 +9,6 @@ import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,10 +27,6 @@ public class VanishService {
 
     // In-memory runtime state for online players
     private final Set<UUID> vanished = ConcurrentHashMap.newKeySet();
-
-    // Remember pre-vanish flags to restore on exit
-    private final Map<UUID, Boolean> preCollidable = new ConcurrentHashMap<>();
-    private final Map<UUID, Boolean> weSetInvisible = new ConcurrentHashMap<>();
 
     public VanishService(Vanish feature) { this.feature = feature; }
 
@@ -120,9 +115,6 @@ public class VanishService {
     /* --------------------- Internal mechanics ------------------- */
 
     private void applyVanish(Player p) {
-        // Defensive remembers
-        preCollidable.putIfAbsent(p.getUniqueId(), p.isCollidable());
-
         // Hide from others who cannot see
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             updatePairVisibility(viewer, p);
@@ -137,7 +129,6 @@ public class VanishService {
         if ((boolean) feature.getConfigHandler().getSetting("set_invisible_flag")) {
             if (!p.isInvisible()) {
                 p.setInvisible(true);
-                weSetInvisible.put(p.getUniqueId(), true);
             }
         }
 
@@ -151,19 +142,15 @@ public class VanishService {
             try { viewer.showPlayer(feature.getPlugin(), p); } catch (Throwable ignored) {}
         }
 
-        // Restore collisions if we changed them
-        Boolean wasCollidable = preCollidable.remove(p.getUniqueId());
-        if (Boolean.TRUE.equals(wasCollidable)) {
-            try { p.setCollidable(true); } catch (Throwable ignored) {}
-        } else if (wasCollidable == null) {
-            // default safe path: set true if we didn't track; avoids stuck no-collide
+        // Collisions off
+        if ((boolean) feature.getConfigHandler().getSetting("disable_collisions")) {
             try { p.setCollidable(true); } catch (Throwable ignored) {}
         }
 
-        // Restore invisible flag only if we set it and there's no invisibility potion
-        if (Boolean.TRUE.equals(weSetInvisible.remove(p.getUniqueId()))) {
-            if (!p.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
-                try { p.setInvisible(false); } catch (Throwable ignored) {}
+        // Optional invisible flag; restore safely on unvanish
+        if ((boolean) feature.getConfigHandler().getSetting("set_invisible_flag")) {
+            if (!p.isInvisible()) {
+                p.setInvisible(false);
             }
         }
 
@@ -240,8 +227,6 @@ public class VanishService {
             }
         }
         vanished.clear();
-        preCollidable.clear();
-        weSetInvisible.clear();
     }
 
     /* ---------------------- Redis publish ----------------------- */
