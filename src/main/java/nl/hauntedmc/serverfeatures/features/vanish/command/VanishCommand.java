@@ -42,7 +42,6 @@ public class VanishCommand extends FeatureCommand {
                     .getMessage(desired ? "vanish.enabled_self" : "vanish.disabled_self")
                     .forAudience(sender)
                     .build());
-            System.out.println(((Player) sender).getProtocolVersion());
             feature.getService().notifyStaffToggle(self, self, desired);
             return true;
         }
