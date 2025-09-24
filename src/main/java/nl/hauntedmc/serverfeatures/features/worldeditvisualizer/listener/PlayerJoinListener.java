@@ -13,6 +13,7 @@ public class PlayerJoinListener implements Listener {
     public PlayerJoinListener(VisualizationService service) {
         this.service = service;
     }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         if (service != null && e.getPlayer().hasPermission("serverfeatures.feature.worldeditvisualizer.use")) {

@@ -10,16 +10,16 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
-public class WorldEditVizCommand extends FeatureCommand {
+public class WorldEditVisualizerCommand extends FeatureCommand {
 
     private final WorldEditVisualizer feature;
     private final VisualizationService service;
 
-    public WorldEditVizCommand(WorldEditVisualizer feature, VisualizationService service) {
-        super(new CommandSpec.Builder("weviz")
+    public WorldEditVisualizerCommand(WorldEditVisualizer feature, VisualizationService service) {
+        super(new CommandSpec.Builder("worldeditvisualizer")
                 .description("Toggle the WorldEdit selection visualizer")
-                .usage("/weviz toggle")
-                .aliases(List.of("worldeditviz", "worldeditvisualizer"))
+                .usage("/wevis toggle")
+                .aliases(List.of("wevis"))
                 .permission("serverfeatures.feature.worldeditvisualizer.use")
                 .build());
         this.feature = feature;
@@ -35,12 +35,12 @@ public class WorldEditVizCommand extends FeatureCommand {
             return true;
         }
 
-        // Only toggle (as requested)
-        boolean enabled = service.toggle(p);
+        // Toggle and message based on resulting state (true = enabled, false = disabled)
+        boolean nowEnabled = service.toggle(p);
+
         p.sendMessage(feature.getLocalizationHandler()
-                .getMessage(enabled ? "worldeditvisualizer.enabled" : "worldeditvisualizer.disabled")
+                .getMessage(nowEnabled ? "worldeditvisualizer.enabled" : "worldeditvisualizer.disabled")
                 .forAudience(p).build());
-        if (enabled) service.tryShowFromSelection(p, true);
 
         return true;
     }

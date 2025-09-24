@@ -5,7 +5,7 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.command.WorldEditVizCommand;
+import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.command.WorldEditVisualizerCommand;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.internal.VisualizationService;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta;
@@ -28,16 +28,17 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         c.put("corner.pos1_material", "BLUE_STAINED_GLASS");
         c.put("corner.pos2_material", "RED_STAINED_GLASS");
         c.put("glow.edge_color", "aqua");
+        c.put("glow.corner_color", "aqua");
         c.put("glow.pos1_color", "blue");
         c.put("glow.pos2_color", "red");
-        c.put("edge.step_blocks", 0.5d);   // spacing between dots on edges
-        c.put("edge.scale", 0.18d);        // dot size (0..1)
-        c.put("corner.scale", 0.45d);      // corner cube size (0..1)
+        c.put("edge.step_blocks", 0.25d);
+        c.put("edge.scale", 0.15d);
+        c.put("corner.scale", 1.0d);
         c.put("label.enabled", true);
-        c.put("label.y_offset", 0.7d);     // above the corner
-        c.put("label.scale", 1.0d);        // 1.0 = default text size
-        c.put("label.show_prefix_hash", false); // show #1/#2 instead of pos1/pos2 (optional)
-        c.put("poll.interval_ticks", 10);  // how often to check for selection changes while enabled
+        c.put("label.y_offset", 0.7d);
+        c.put("label.scale", 1.0d);
+        c.put("label.show_prefix_hash", false); // if true, show "#1"/"#2" instead of "pos1"/"pos2"
+        c.put("poll.interval_ticks", 10);
         return c;
     }
 
@@ -55,10 +56,10 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.service = new VisualizationService(this);
 
-        // Command (only toggle)
+        // Command
         getLifecycleManager()
                 .getCommandManager()
-                .registerFeatureCommand(new WorldEditVizCommand(this, service));
+                .registerFeatureCommand(new WorldEditVisualizerCommand(this, service));
 
         // Events
         getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(service));
@@ -74,7 +75,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         int interval = getInt("poll.interval_ticks", 10);
         if (interval > 0) {
             getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                    () -> service.pollSelections(),
+                    service::pollSelections,
                     BukkitTime.ticks(interval)
             );
         }
