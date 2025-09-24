@@ -149,7 +149,7 @@ public class VanishService {
 
         // Optional invisible flag; restore safely on unvanish
         if ((boolean) feature.getConfigHandler().getSetting("set_invisible_flag")) {
-            if (!p.isInvisible()) {
+            if (p.isInvisible()) {
                 p.setInvisible(false);
             }
         }
