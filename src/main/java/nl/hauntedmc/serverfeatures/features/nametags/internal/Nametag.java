@@ -1,68 +1,116 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
-import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
-import com.github.retrooper.packetevents.util.Vector3f;
 import org.bukkit.Color;
+import org.bukkit.Location;
+import org.bukkit.World;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
-
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
+import org.bukkit.entity.TextDisplay;
+import org.bukkit.util.Transformation;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 
 /**
- * Represents an individual nametag.
- * Holds the owner, its properties configuration, a custom entity id and
- * the current viewers that can see this nametag.
+ * Single owner + single TextDisplay. Knows how to (re)spawn and stay mounted.
  */
 public class Nametag {
-    private final Player nametagOwner;
-    private final int entityId;
-    private final NametagProperties properties;
-    private final Set<Player> viewers = ConcurrentHashMap.newKeySet();
+    private final Player owner;
+    private TextDisplay display;
 
-    public Nametag(Player nametagOwner) {
-        this.nametagOwner = nametagOwner;
-        this.properties = new NametagProperties();
-        this.entityId = SpigotReflectionUtil.generateEntityId();
-        initDefaultProperties();
+    // Visual config snapshot
+    private boolean shadow;
+    private boolean seeThrough;
+    private boolean useDefaultBg;
+    private int backgroundARGB;
+    private int lineWidth;
+    private double translationY;
+    private double spawnYOffsetBlocks;
+
+    public Nametag(Player owner) {
+        this.owner = owner;
     }
 
     public Player getNametagOwner() {
-        return nametagOwner;
+        return owner;
     }
 
-    public UUID getNametagOwnerId() {
-        return nametagOwner.getUniqueId();
+    public java.util.UUID getNametagOwnerId() {
+        return owner.getUniqueId();
     }
 
-    public int getEntityId() {
-        return entityId;
+    public TextDisplay getDisplay() {
+        return display;
     }
 
-    public NametagProperties getNametagProperties() {
-        return properties;
+    public void configureFromDefaults(boolean shadow, boolean seeThrough, boolean useDefaultBg, int backgroundARGB,
+                                      int lineWidth, double translationY, double spawnYOffsetBlocks) {
+        this.shadow = shadow;
+        this.seeThrough = seeThrough;
+        this.useDefaultBg = useDefaultBg;
+        this.backgroundARGB = backgroundARGB;
+        this.lineWidth = lineWidth;
+        this.translationY = translationY;
+        this.spawnYOffsetBlocks = spawnYOffsetBlocks;
     }
 
-    public Set<Player> getViewers() {
-        return viewers;
+    public void spawnOrRespawn() {
+        remove(); // ensure clean start
+
+        World world = owner.getWorld();
+        Location spawnLoc = owner.getLocation().clone().add(0.0, spawnYOffsetBlocks, 0.0);
+
+        this.display = world.spawn(spawnLoc, TextDisplay.class, td -> {
+            td.setBillboard(Display.Billboard.CENTER);
+            td.setShadowed(shadow);
+            td.setSeeThrough(seeThrough);
+            td.setDefaultBackground(useDefaultBg);
+            td.setBackgroundColor(Color.fromARGB(backgroundARGB));
+            td.setLineWidth(lineWidth);
+            td.text(PlaceholderHook.getInstance().getNametagText(owner));
+            td.setPersistent(false);
+            td.setSilent(true);
+            td.setInvulnerable(true);
+            td.setGravity(false);
+
+            // Upward relative translation while mounted
+            Transformation t = td.getTransformation();
+            Vector3f trans = new Vector3f(t.getTranslation());
+            trans.y = (float) translationY;
+            td.setTransformation(new Transformation(
+                    trans,
+                    new Quaternionf(t.getLeftRotation()),
+                    new Vector3f(t.getScale()),
+                    new Quaternionf(t.getRightRotation())
+            ));
+        });
+
+        ensureMounted();
     }
 
-    /**
-     * Updates the default properties based on owner's properties.
-     */
-    private void initDefaultProperties() {
-        updateNametagText();
-        this.properties.setBillboardConstraints(BillboardConstraints.CENTER);
-        this.properties.setTranslation(new Vector3f(0.0f, 0.3f, 0.0f));
-        this.properties.setHasShadow(true);
-        this.properties.setIsSeeThrough(false);
-        this.properties.setBackgroundColor(Color.BLACK.setAlpha(0).asARGB());
+    public void ensureMounted() {
+        if (display == null || display.isDead()) return;
+        if (!owner.getPassengers().contains(display)) {
+            owner.addPassenger(display);
+        }
     }
 
-    public void updateNametagText() {
-        this.properties.setText(PlaceholderHook.getInstance().getNametagText(getNametagOwner()));
+    public void updateTextOnly() {
+        if (display != null && !display.isDead()) {
+            display.text(PlaceholderHook.getInstance().getNametagText(owner));
+        }
+    }
+
+    public void remove() {
+        if (display != null) {
+            try {
+                if (display.getVehicle() != null) {
+                    display.getVehicle().removePassenger(display);
+                }
+                display.remove();
+            } finally {
+                display = null;
+            }
+        }
     }
 }

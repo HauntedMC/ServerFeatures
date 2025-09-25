@@ -2,145 +2,145 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.NametagUpdater;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.PassengerHandler;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.VisibilityManager;
+import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 /**
- * The API for creating, updating, removing, and refreshing nametags.
- * This manager delegates packet sending and viewer logic to the NametagUpdater.
+ * Minimal manager: spawns/remounts TextDisplays, keeps them mounted,
+ * and exposes text refresh for hooks. No packets, no per-viewer diffs.
  */
 public class NametagManager {
 
-    private final NametagRegistry registry;
-    private final NametagUpdater updater;
     private final Nametags feature;
+    private final NametagRegistry registry = new NametagRegistry();
 
-    private final PassengerHandler passengerHandler;
-
-    private final VisibilityManager visibilityManager;
+    // Config snapshot (read once)
+    private final boolean enabledOnStartup;
     private final int updateIntervalTicks;
-    private final int viewerUpdateDelayTicks;
+    private final double spawnYOffsetBlocks;
+    private final double translationY;
+    private final int lineWidth;
+    private final boolean shadow;
+    private final boolean seeThrough;
+    private final boolean useDefaultBg;
+    private final int backgroundARGB;
+
+    private final FeatureTaskManager tasks;
 
     public NametagManager(Nametags feature) {
         this.feature = feature;
-        this.registry = new NametagRegistry();
-        this.passengerHandler = new PassengerHandler();
-        this.visibilityManager = new VisibilityManager(feature);
-        this.updateIntervalTicks = (int) feature.getConfigHandler().getSetting("update_interval_ticks");
-        this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().getSetting("viewer_update_delay_ticks");
+        this.tasks = feature.getLifecycleManager().getTaskManager();
 
-        this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
-        scheduleRepeatingUpdate();
-    }
+        // --- Inline config reads (snapshotted once) ---
+        this.enabledOnStartup     = getBoolean("enabled", false);
+        this.updateIntervalTicks  = getInt("update_interval_ticks", 10);
+        this.spawnYOffsetBlocks   = getDouble("y_offset_blocks", 1.80d);
+        this.translationY         = getDouble("translation_y", 0.30d);
+        this.lineWidth            = getInt("line_width", 200);
+        this.shadow               = getBoolean("shadow", true);
+        this.seeThrough           = getBoolean("see_through", false);
+        this.useDefaultBg         = getBoolean("use_default_bg", false);
+        this.backgroundARGB       = getInt("background_argb", 0x00000000);
 
-    /**
-     * Schedules a repeating task that forces updates on all active nametags.
-     */
-    private void scheduleRepeatingUpdate() {
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(() -> {
-            for (Nametag nametag : registry.getAllNametags()) {
-                updater.update(nametag, new UpdateProperties.Builder().build());
-            }
-        }, BukkitTime.ticks(0L), BukkitTime.ticks(updateIntervalTicks));
-    }
-
-    /**
-     * Creates a nametag for the given player.
-     */
-    private void createNametag(Player player) {
-        Nametag nametag = new Nametag(player);
-        registry.register(nametag);
-        updater.update(nametag, new UpdateProperties.Builder().build());
-    }
-
-    /**
-     * Updates an existing nametag (or creates one if it does not exist).
-     */
-    public void updateNametag(Player player, UpdateProperties updateProperties) {
-        Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
-        if (optTag.isEmpty()) {
-            createNametag(player);
-            return;
-        }
-        Nametag nametag = optTag.get();
-
-        updater.update(nametag, updateProperties);
-    }
-
-    /**
-     * Updates an existing nametag (or creates one if it does not exist).
-     */
-    public void updateNametag(int entityID, UpdateProperties updateProperties) {
-        Optional<Nametag> optTag = registry.getNametagByEntityId(entityID);
-
-        if (optTag.isEmpty()) {
-            return;
-        }
-        Nametag nametag = optTag.get();
-        updater.update(nametag, updateProperties);
-    }
-
-    /**
-     * Removes a player's nametag.
-     */
-    public void removeNametag(Player player) {
-        Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
-        if (optTag.isPresent()) {
-            Nametag nametag = optTag.get();
-            registry.unregister(player.getUniqueId());
-            RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
-            PacketManager.sendMulticast(new ArrayList<>(nametag.getViewers()), removePacket);
-        }
-    }
-
-    public void removeAllNametags() {
-        for (Nametag nametag : registry.getAllNametags()) {
-            removeNametag(nametag.getNametagOwner());
+        // Self-heal loop: keep displays mounted and rebuild if missing
+        if (updateIntervalTicks > 0) {
+            tasks.scheduleRepeatingTask(this::tickMaintain, BukkitTime.ticks(updateIntervalTicks));
         }
     }
 
     public void initializeOnlinePlayers() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            createNametag(player);
+        if (!enabledOnStartup) return;
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            respawn(p);
         }
     }
 
-    /**
-     * Gets a list of all players who have a registered nametag.
-     *
-     * @return List of players with registered nametags.
-     */
-    public List<Player> getRegisteredPlayers() {
-        List<Player> players = new ArrayList<>();
-        for (Nametag nametag : registry.getAllNametags()) {
-            Player player = nametag.getNametagOwner();
-            if (player != null && player.isOnline()) {
-                players.add(player);
+    /** Rebuilds (or creates) the display and (re)mounts it. */
+    public void respawn(Player player) {
+        if (player == null || !player.isOnline()) return;
+
+        Nametag tag = registry.getNametag(player.getUniqueId()).orElseGet(() -> {
+            Nametag nt = new Nametag(player);
+            nt.configureFromDefaults(
+                    shadow, seeThrough, useDefaultBg, backgroundARGB,
+                    lineWidth, translationY, spawnYOffsetBlocks
+            );
+            registry.register(nt);
+            return nt;
+        });
+
+        tag.configureFromDefaults(
+                shadow, seeThrough, useDefaultBg, backgroundARGB,
+                lineWidth, translationY, spawnYOffsetBlocks
+        );
+        tag.spawnOrRespawn();
+    }
+
+    /** Removes the display for a player, if any. */
+    public void remove(Player player) {
+        Optional<Nametag> opt = registry.getNametag(player.getUniqueId());
+        opt.ifPresent(tag -> {
+            tag.remove();
+            registry.unregister(tag);
+        });
+    }
+
+    /** Removes all displays (feature disable). */
+    public void removeAllNametags() {
+        for (Nametag tag : registry.getAllNametags()) {
+            tag.remove();
+        }
+        registry.getAllNametags().clear();
+    }
+
+    /** Called by LuckPerms/placeholder hooks to refresh text only. */
+    public void refreshText(Player player) {
+        Optional<Nametag> opt = registry.getNametag(player.getUniqueId());
+        if (opt.isEmpty()) {
+            // If feature is enabled and no tag exists, create it—keeps UX consistent
+            if (enabledOnStartup && player.isOnline()) respawn(player);
+            return;
+        }
+        opt.get().updateTextOnly();
+    }
+
+    /** Periodic maintenance: remount if needed; rebuild if entity went missing. */
+    private void tickMaintain() {
+        for (Nametag tag : registry.getAllNametags()) {
+            Player owner = tag.getNametagOwner();
+            if (owner == null || !owner.isOnline()) continue;
+
+            if (tag.getDisplay() == null || tag.getDisplay().isDead() || tag.getDisplay().isValid() == false) {
+                // recreate missing display
+                tag.spawnOrRespawn();
+                continue;
             }
+
+            // make sure it's still mounted
+            tag.ensureMounted();
         }
-        return players;
     }
 
-    public PassengerHandler getPassengerHandler() {
-        return passengerHandler;
+    // --- tiny typed getters (config is Object-typed) ---
+    private boolean getBoolean(String key, boolean def) {
+        Object v = feature.getConfigHandler().getSetting(key);
+        return (v instanceof Boolean b) ? b : def;
     }
 
-    public VisibilityManager getVisibilityManager() {
-        return visibilityManager;
+    private int getInt(String key, int def) {
+        Object v = feature.getConfigHandler().getSetting(key);
+        if (v instanceof Number n) return n.intValue();
+        try { return Integer.parseInt(String.valueOf(v)); } catch (Throwable ignored) {}
+        return def;
     }
 
-    public int getViewerUpdateDelayTicks() {
-        return viewerUpdateDelayTicks;
+    private double getDouble(String key, double def) {
+        Object v = feature.getConfigHandler().getSetting(key);
+        if (v instanceof Number n) return n.doubleValue();
+        try { return Double.parseDouble(String.valueOf(v)); } catch (Throwable ignored) {}
+        return def;
     }
 }
-

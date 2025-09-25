@@ -3,9 +3,6 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * A thread-safe registry for storing and retrieving active nametags.
- */
 public class NametagRegistry {
     private final Map<UUID, Nametag> registry = new ConcurrentHashMap<>();
 
@@ -28,11 +25,4 @@ public class NametagRegistry {
     public void unregister(Nametag tag) {
         unregister(tag.getNametagOwnerId());
     }
-
-    public Optional<Nametag> getNametagByEntityId(int entityId) {
-        return registry.values().stream()
-                .filter(nametag -> nametag.getEntityId() == entityId)
-                .findFirst();
-    }
-
 }

@@ -2,17 +2,10 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
-
-import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
-
-import org.jetbrains.annotations.NotNull;
 
 public class NametagListener implements Listener {
 
@@ -23,55 +16,39 @@ public class NametagListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
-        // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), BukkitTime.ticks(10L));
+    public void onJoin(PlayerJoinEvent e) {
+        // Delay so client has loaded and can accept passengers reliably
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> feature.getNametagManager().respawn(e.getPlayer()),
+                BukkitTime.ticks(10L)
+        );
     }
 
     @EventHandler
-    public void onPlayerQuit(@NotNull PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        this.feature.getNametagManager().removeNametag(player);
+    public void onQuit(PlayerQuitEvent e) {
+        feature.getNametagManager().remove(e.getPlayer());
     }
 
     @EventHandler
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).delay(10L).build());
+    public void onWorldChange(PlayerChangedWorldEvent e) {
+        // Passengers don't cross worlds—recreate in target world
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> feature.getNametagManager().respawn(e.getPlayer()),
+                BukkitTime.ticks(10L)
+        );
     }
 
     @EventHandler
-    public void onEntityDismount(EntityDismountEvent event) {
-        if (event.getDismounted() instanceof Player player) {
-            this.feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).delay(10L).build());
-        }
+    public void onDeath(PlayerDeathEvent e) {
+        // Optional: ensure clean slate; respawn event will rebuild
+        feature.getNametagManager().remove(e.getEntity());
     }
 
     @EventHandler
-    public void onSkinUpdate(SkinUpdateEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).delay(10L).build());
+    public void onRespawn(PlayerRespawnEvent e) {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> feature.getNametagManager().respawn(e.getPlayer()),
+                BukkitTime.ticks(10L)
+        );
     }
-
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
-    }
-
-    @EventHandler
-    public void onPlayerTeleport(PlayerTeleportEvent event) {
-        if (event.getFrom().getWorld() != event.getTo().getWorld()) return;
-
-        double distance = event.getFrom().distance(event.getTo());
-
-        if (distance > 80) {
-            this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().ownerOnly(true).build()), BukkitTime.ticks(5L));
-        }
-    }
-
-    @EventHandler
-    public void onResourcePackSend(PlayerResourcePackStatusEvent event) {
-        if (event.getStatus() == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) {
-            feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().forced(true).build());
-        }
-    }
-
 }

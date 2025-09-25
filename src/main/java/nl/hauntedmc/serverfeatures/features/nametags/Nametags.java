@@ -20,12 +20,17 @@ public class Nametags extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
+        // Core toggles
         defaults.put("enabled", false);
-        defaults.put("update_interval_ticks", 2);
-        defaults.put("viewer_update_delay_ticks", 10);
-        defaults.put("max_distance", 64);
+        defaults.put("update_interval_ticks", 10);        // mount self-heal tick (default ~0.5s)
+        defaults.put("y_offset_blocks", 1.80d);           // where to spawn before mounting (failsafe)
+        defaults.put("translation_y", 0.30d);             // relative Y offset while mounted
+        defaults.put("line_width", 200);
+        defaults.put("shadow", true);
+        defaults.put("see_through", true);
+        defaults.put("use_default_bg", false);
+        defaults.put("background_argb", 0x00000000);      // fully transparent
         return defaults;
-
     }
 
     @Override
@@ -36,7 +41,6 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         messages.add("nametags.suffix", "%vault_suffix%");
         return messages;
     }
-
 
     @Override
     public void initialize() {
@@ -49,7 +53,10 @@ public class Nametags extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        this.nametagManager.removeAllNametags();
+        if (nametagManager != null) {
+            nametagManager.removeAllNametags();
+            nametagManager = null;
+        }
     }
 
     public NametagManager getNametagManager() {
