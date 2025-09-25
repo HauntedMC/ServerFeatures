@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.NametagUsageGate;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -10,12 +11,14 @@ import java.util.Optional;
 
 /**
  * Minimal manager: spawns/remounts TextDisplays, keeps them mounted,
- * and exposes text refresh for hooks. No packets, no per-viewer diffs.
+ * honors NametagUsageGate, and is teleport-safe (remove before, re-add after).
  */
 public class NametagManager {
 
     private final Nametags feature;
     private final NametagRegistry registry = new NametagRegistry();
+    private final FeatureTaskManager tasks;
+    private final NametagUsageGate usageGate = new NametagUsageGate();
 
     // Config snapshot (read once)
     private final boolean enabledOnStartup;
@@ -27,8 +30,6 @@ public class NametagManager {
     private final boolean seeThrough;
     private final boolean useDefaultBg;
     private final int backgroundARGB;
-
-    private final FeatureTaskManager tasks;
 
     public NametagManager(Nametags feature) {
         this.feature = feature;
@@ -45,7 +46,7 @@ public class NametagManager {
         this.useDefaultBg         = getBoolean("use_default_bg", false);
         this.backgroundARGB       = getInt("background_argb", 0x00000000);
 
-        // Self-heal loop: keep displays mounted and rebuild if missing
+        // Self-heal loop: keep displays mounted/recreated, honor usage gate
         if (updateIntervalTicks > 0) {
             tasks.scheduleRepeatingTask(this::tickMaintain, BukkitTime.ticks(updateIntervalTicks));
         }
@@ -58,9 +59,24 @@ public class NametagManager {
         }
     }
 
-    /** Rebuilds (or creates) the display and (re)mounts it. */
+    /** Create/rebuild if allowed; otherwise ensure removed (but keep a shell in registry for auto re-add). */
     public void respawn(Player player) {
         if (player == null || !player.isOnline()) return;
+
+        if (!usageGate.allowNametag(player)) {
+            Optional<Nametag> existing = registry.getNametag(player.getUniqueId());
+            if (existing.isPresent()) {
+                existing.get().remove();
+            } else {
+                Nametag shell = new Nametag(player);
+                shell.configureFromDefaults(
+                        shadow, seeThrough, useDefaultBg, backgroundARGB,
+                        lineWidth, translationY, spawnYOffsetBlocks
+                );
+                registry.register(shell);
+            }
+            return;
+        }
 
         Nametag tag = registry.getNametag(player.getUniqueId()).orElseGet(() -> {
             Nametag nt = new Nametag(player);
@@ -88,7 +104,7 @@ public class NametagManager {
         });
     }
 
-    /** Removes all displays (feature disable). */
+    /** Feature disable cleanup. */
     public void removeAllNametags() {
         for (Nametag tag : registry.getAllNametags()) {
             tag.remove();
@@ -96,32 +112,45 @@ public class NametagManager {
         registry.getAllNametags().clear();
     }
 
-    /** Called by LuckPerms/placeholder hooks to refresh text only. */
+    /** Called by LuckPerms/placeholder hooks to refresh text only (when allowed). */
     public void refreshText(Player player) {
         Optional<Nametag> opt = registry.getNametag(player.getUniqueId());
         if (opt.isEmpty()) {
-            // If feature is enabled and no tag exists, create it—keeps UX consistent
             if (enabledOnStartup && player.isOnline()) respawn(player);
             return;
         }
-        opt.get().updateTextOnly();
+        if (usageGate.allowNametag(player)) {
+            opt.get().updateTextOnly();
+        }
     }
 
-    /** Periodic maintenance: remount if needed; rebuild if entity went missing. */
+    /** Periodic maintenance: honor gate; remount or rebuild as needed when allowed. */
     private void tickMaintain() {
         for (Nametag tag : registry.getAllNametags()) {
             Player owner = tag.getNametagOwner();
             if (owner == null || !owner.isOnline()) continue;
 
-            if (tag.getDisplay() == null || tag.getDisplay().isDead() || tag.getDisplay().isValid() == false) {
-                // recreate missing display
-                tag.spawnOrRespawn();
+            if (!usageGate.allowNametag(owner)) {
+                tag.remove(); // ensure not present while blocked
                 continue;
             }
 
-            // make sure it's still mounted
-            tag.ensureMounted();
+            if (tag.getDisplay() == null || tag.getDisplay().isDead() || !tag.getDisplay().isValid()) {
+                tag.spawnOrRespawn();
+            } else {
+                tag.ensureMounted();
+            }
         }
+    }
+
+    /**
+     * Teleport-safe handler, called from the listener at MONITOR:
+     * - remove the display before the teleport executes
+     * - schedule a respawn a couple ticks later (after location/world settles)
+     */
+    public void handleTeleport(Player player) {
+        remove(player);
+        tasks.scheduleDelayedTask(() -> respawn(player), BukkitTime.ticks(20L));
     }
 
     // --- tiny typed getters (config is Object-typed) ---

@@ -27,7 +27,7 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         defaults.put("translation_y", 0.30d);             // relative Y offset while mounted
         defaults.put("line_width", 200);
         defaults.put("shadow", true);
-        defaults.put("see_through", true);
+        defaults.put("see_through", false);
         defaults.put("use_default_bg", false);
         defaults.put("background_argb", 0x00000000);      // fully transparent
         return defaults;

@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
@@ -50,5 +51,10 @@ public class NametagListener implements Listener {
                 () -> feature.getNametagManager().respawn(e.getPlayer()),
                 BukkitTime.ticks(10L)
         );
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onTeleport(PlayerTeleportEvent e) {
+        feature.getNametagManager().handleTeleport(e.getPlayer());
     }
 }
