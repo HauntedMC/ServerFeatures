@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.versionrecommender.internal;
 
+import nl.hauntedmc.serverfeatures.common.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.VersionRecommender;
 import org.bukkit.entity.Player;
 
@@ -12,12 +13,12 @@ import java.util.Objects;
 public final class RecommendationService {
 
     private final VersionRecommender feature;
-    private final ViaVersionAdapter via;
+    private final ViaVersionHook via;
 
     private final boolean warnOlder;
     private final boolean warnNewer;
 
-    public RecommendationService(VersionRecommender feature, ViaVersionAdapter via) {
+    public RecommendationService(VersionRecommender feature, ViaVersionHook via) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.via = Objects.requireNonNull(via, "via");
         this.warnOlder = (boolean) feature.getConfigHandler().getSetting("warn_players_older");

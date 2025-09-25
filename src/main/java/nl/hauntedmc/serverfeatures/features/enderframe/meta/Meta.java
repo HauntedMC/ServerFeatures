@@ -16,14 +16,4 @@ public class Meta implements BaseMeta {
     public String getFeatureVersion() {
         return "1.0.0";
     }
-
-    @Override
-    public List<String> getDependencies() {
-        return List.of();
-    }
-
-    @Override
-    public List<String> getPluginDependencies() {
-        return List.of();
-    }
 }

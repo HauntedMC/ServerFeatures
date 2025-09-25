@@ -5,7 +5,7 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.internal.RecommendationService;
-import nl.hauntedmc.serverfeatures.features.versionrecommender.internal.ViaVersionAdapter;
+import nl.hauntedmc.serverfeatures.common.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.listener.VersionRecommenderListener;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.meta.Meta;
 
@@ -42,7 +42,7 @@ public class VersionRecommender extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        final ViaVersionAdapter viaAdapter = new ViaVersionAdapter();
+        final ViaVersionHook viaAdapter = new ViaVersionHook();
         if (!viaAdapter.isAvailable()) {
             getPlugin().getLogger().warning("ViaVersion is not available; feature remains inactive.");
             return;

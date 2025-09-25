@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.versionrecommender.internal;
+package nl.hauntedmc.serverfeatures.common.hook;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
@@ -10,11 +10,11 @@ import java.util.Objects;
 /**
  * Thin wrapper around ViaVersion to keep external API usage contained.
  */
-public final class ViaVersionAdapter {
+public final class ViaVersionHook {
 
     private final ViaAPI<?> api;
 
-    public ViaVersionAdapter() {
+    public ViaVersionHook() {
         this.api = Via.getAPI();
     }
 
