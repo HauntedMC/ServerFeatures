@@ -23,7 +23,7 @@ public class BalloonsCommand extends FeatureCommand {
     private final Balloons feature;
 
     public BalloonsCommand(Balloons feature) {
-        super(new CommandSpec.Builder("balloon").build());
+        super(new CommandSpec.Builder("balloons").build());
         this.feature = feature;
     }
 
