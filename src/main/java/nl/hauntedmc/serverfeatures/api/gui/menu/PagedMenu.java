@@ -17,6 +17,13 @@ import java.util.function.Function;
 
 /**
  * Multi-page menu with prev/next navigation and optional page info.
+ *
+ * New API:
+ *  - You can customize the labels of the prev/next buttons via the Builder:
+ *      .prevLabel(Component.text("Vorige"))
+ *      .nextLabel(Component.text("Volgende"))
+ *  - When on the first page, the Prev button is hidden (slot gets the filler if present).
+ *  - When on the last page, the Next button is hidden (slot gets the filler if present).
  */
 public final class PagedMenu<T> extends GuiMenu {
 
@@ -27,8 +34,12 @@ public final class PagedMenu<T> extends GuiMenu {
     private final int nextSlot;
     private final Optional<Integer> pageInfoSlot;
 
-    private int pageIndex = 0;
+    private final Component prevLabel;
+    private final Component nextLabel;
 
+    private final ItemStack fillerItem; // keep local copy to re-fill nav slots when hiding buttons
+
+    private int pageIndex = 0;
     private final Map<Integer, GuiItem> dynamicItems = new HashMap<>();
 
     private PagedMenu(
@@ -45,7 +56,9 @@ public final class PagedMenu<T> extends GuiMenu {
             List<Integer> contentSlots,
             int prevSlot,
             int nextSlot,
-            Optional<Integer> pageInfoSlot
+            Optional<Integer> pageInfoSlot,
+            Component prevLabel,
+            Component nextLabel
     ) {
         super(gui, baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
         this.entries = new ArrayList<>(entries);
@@ -54,6 +67,9 @@ public final class PagedMenu<T> extends GuiMenu {
         this.prevSlot = prevSlot;
         this.nextSlot = nextSlot;
         this.pageInfoSlot = pageInfoSlot;
+        this.prevLabel = prevLabel == null ? Component.text("Previous") : prevLabel;
+        this.nextLabel = nextLabel == null ? Component.text("Next") : nextLabel;
+        this.fillerItem = filler == null ? null : filler.clone();
     }
 
     public static <T> Builder<T> builder(FeatureGUIManager gui) { return new Builder<>(gui); }
@@ -72,6 +88,7 @@ public final class PagedMenu<T> extends GuiMenu {
     }
 
     private void renderPage(Player p, Inventory inv) {
+        // clear content area
         for (int s : contentSlots) {
             inv.setItem(s, null);
             dynamicItems.remove(s);
@@ -80,6 +97,7 @@ public final class PagedMenu<T> extends GuiMenu {
         int perPage = contentSlots.size();
         int start = pageIndex * perPage;
 
+        // place content entries
         for (int i = 0; i < perPage; i++) {
             int idx = start + i;
             if (idx >= entries.size()) break;
@@ -89,11 +107,28 @@ public final class PagedMenu<T> extends GuiMenu {
             dynamicItems.put(slot, gi);
         }
 
-        inv.setItem(prevSlot, GuiItemHelper.menuItem(Material.ARROW, Component.text("Previous")));
-        inv.setItem(nextSlot, GuiItemHelper.menuItem(Material.ARROW, Component.text("Next")));
+        // compute page bounds
+        int maxPage = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
 
+        // Prev button: only when pageIndex > 0
+        if (pageIndex > 0) {
+            inv.setItem(prevSlot, GuiItemHelper.menuItem(Material.ARROW, prevLabel));
+        } else {
+            // hide prev: restore filler if available, else clear
+            inv.setItem(prevSlot, fillerItem == null ? null : fillerItem.clone());
+        }
+
+        // Next button: only when pageIndex < maxPage
+        if (pageIndex < maxPage) {
+            inv.setItem(nextSlot, GuiItemHelper.menuItem(Material.ARROW, nextLabel));
+        } else {
+            // hide next: restore filler if available, else clear
+            inv.setItem(nextSlot, fillerItem == null ? null : fillerItem.clone());
+        }
+
+        // Optional page info item
         pageInfoSlot.ifPresent(s -> {
-            int totalPages = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));
+            int totalPages = Math.max(1, maxPage + 1);
             ItemStack info = GuiItemHelper.info(Component.text("Page " + (pageIndex + 1) + "/" + totalPages));
             inv.setItem(s, info);
         });
@@ -152,6 +187,9 @@ public final class PagedMenu<T> extends GuiMenu {
         private int nextSlot = 53; // bottom-right
         private Optional<Integer> pageInfoSlot = Optional.of(49);
 
+        private Component prevLabel = Component.text("Previous");
+        private Component nextLabel = Component.text("Next");
+
         private Builder(FeatureGUIManager gui) {
             this.gui = Objects.requireNonNull(gui, "gui");
         }
@@ -170,6 +208,19 @@ public final class PagedMenu<T> extends GuiMenu {
         public Builder<T> prevSlot(int s) { this.prevSlot = s; return this; }
         public Builder<T> nextSlot(int s) { this.nextSlot = s; return this; }
         public Builder<T> pageInfoSlot(Optional<Integer> s) { this.pageInfoSlot = s; return this; }
+
+        /** Set the label (display name) for the "previous page" button. */
+        public Builder<T> prevLabel(Component label) { this.prevLabel = label; return this; }
+
+        /** Set the label (display name) for the "next page" button. */
+        public Builder<T> nextLabel(Component label) { this.nextLabel = label; return this; }
+
+        /** Convenience setter for both labels at once. */
+        public Builder<T> navLabels(Component prev, Component next) {
+            this.prevLabel = prev;
+            this.nextLabel = next;
+            return this;
+        }
 
         public PagedMenu<T> build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");
@@ -199,7 +250,7 @@ public final class PagedMenu<T> extends GuiMenu {
             }
 
             return new PagedMenu<>(gui, title, size, pageInTitle, filler, items, backButton, backSlot,
-                    entries, renderer, contentSlots, prevSlot, nextSlot, pageInfoSlot);
+                    entries, renderer, contentSlots, prevSlot, nextSlot, pageInfoSlot, prevLabel, nextLabel);
         }
 
         private static List<Integer> defaultGrid() {
