@@ -55,13 +55,18 @@ public class ItemUtils {
                                             .decoration(TextDecoration.ITALIC, false)
                             )
             ));
+            // 1.21.8
             // Keep attributes hidden, replace deprecated HIDE_ADDITIONAL_TOOLTIP with TooltipDisplay
-            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+//            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+//            spawnerItem.setItemMeta(meta);
+//            spawnerItem.setData(
+//                    DataComponentTypes.TOOLTIP_DISPLAY,
+//                    TooltipDisplay.tooltipDisplay().hideTooltip(true).build()
+//            );
+
+            // 1.21.4
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ADDITIONAL_TOOLTIP);
             spawnerItem.setItemMeta(meta);
-            spawnerItem.setData(
-                    DataComponentTypes.TOOLTIP_DISPLAY,
-                    TooltipDisplay.tooltipDisplay().hideTooltip(true).build()
-            );
         }
         return spawnerItem;
     }
