@@ -139,7 +139,20 @@ public class LocalizationHandler {
                 rawMessage = defaultMessagesResource.getConfig()
                         .getString(key, "&cMessage not found: " + key);
             }
-            return parseAndSerialize(rawMessage, messageType, placeholders, audience);
+            return parseAndDeserializeToComponent(rawMessage, messageType, placeholders, audience);
+        }
+
+        public String buildPlain() {
+            String rawMessage;
+            // If audience is a Player, use translated (localized) version.
+            if (audience instanceof Player) {
+                rawMessage = getTranslateMessage(key, (Player) audience);
+            } else {
+                // Otherwise, use the default message.
+                rawMessage = defaultMessagesResource.getConfig()
+                        .getString(key, "&cMessage not found: " + key);
+            }
+            return parseAndDeserializeToString(rawMessage, placeholders, audience);
         }
     }
 
@@ -170,8 +183,8 @@ public class LocalizationHandler {
      * Applies placeholder processing, color parsing, and then serializes the message string to a Component.
      * If MessageType is MiniMessage, an alternate serialization is applied.
      */
-    private Component parseAndSerialize(String message, MessageType messageType,
-                                        Map<String, String> placeholders, Audience audience) {
+    private Component parseAndDeserializeToComponent(String message, MessageType messageType,
+                                                     Map<String, String> placeholders, Audience audience) {
         if (placeholders != null) {
             message = PlaceholderUtils.parsePlaceholders(message, placeholders);
         }
@@ -182,5 +195,20 @@ public class LocalizationHandler {
         return (messageType == MessageType.MiniMessage)
                 ? ComponentUtils.deserializeMMComponent(message)
                 : ComponentUtils.deserializeComponent(message);
+    }
+
+    /**
+     * Applies placeholder processing, color parsing, and then returns the final message string.
+     */
+    private String parseAndDeserializeToString(String message,
+                                                     Map<String, String> placeholders, Audience audience) {
+        if (placeholders != null) {
+            message = PlaceholderUtils.parsePlaceholders(message, placeholders);
+        }
+        if (audience instanceof Player) {
+            message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
+        }
+        message = ComponentUtils.serializeLegacyString(message);
+        return message;
     }
 }
