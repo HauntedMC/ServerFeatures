@@ -64,8 +64,8 @@ public class LiquidTankListener implements Listener {
                     .equals(display)) {
                 return;
             }
-            if (blockPlaceEvent.getPlayer().hasPermission("liquidtanks.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {
-                if (blockPlaceEvent.getPlayer().hasPermission("liquidtanks.limit.bypass") || feature.getTankManager().canPlaceTank(blockPlaceEvent.getBlock().getLocation())) {
+            if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {
+                if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.limit.bypass") || feature.getTankManager().canPlaceTank(blockPlaceEvent.getBlock().getLocation())) {
                     feature.getTankManager().createLiquidTank(blockPlaceEvent.getBlock().getLocation());
 
                     if (feature.getTankManager().isEnableItems()) {
@@ -144,7 +144,7 @@ public class LiquidTankListener implements Listener {
                 AbstractTank liquidTank = feature.getTankManager().getTank(Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getLocation());
                 if (liquidTank != null) {
                     playerInteractEvent.setCancelled(true);
-                    if (!player.hasPermission("liquidtanks.use") && (boolean) feature.getConfigHandler().getSetting("enable-permission")) {
+                    if (!player.hasPermission("serverfeatures.feature.liquidtank.use") && (boolean) feature.getConfigHandler().getSetting("enable-permission")) {
                         return;
                     }
                     feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->  liquidTank.onInteract(player));
