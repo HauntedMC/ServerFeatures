@@ -22,9 +22,9 @@ public final class BalloonDefinition {
     private final String permission;
     private final Component displayName;
 
-    private final Material itemMaterial;     // when non-null, use item mode
-    private final Integer customModelData;   // optional
-    private final String skullTextureBase64; // when non-null, use head mode
+    private final Material itemMaterial;
+    private final Integer customModelData;
+    private final String skullTextureBase64;
 
     public BalloonDefinition(
             String id,

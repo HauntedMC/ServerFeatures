@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.balloons.util;
 
-import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -24,12 +23,6 @@ public final class Distance {
         if (d < 3.0D) {
             parrot.setVelocity(parrot.getVelocity().add(new Vector(0.0D, 0.3D, 0.0D)));
         }
-
-        // Keep ArmorStand facing similar direction as player if desired (optional)
-        // (Actual position is handled by the handler each tick)
         parrot.getLocation().setDirection(player.getLocation().getDirection());
-
-        // If you want, you could fetch the ArmorStand here and adjust rotation,
-        // but we keep that logic minimal to avoid scanning entities each tick.
     }
 }

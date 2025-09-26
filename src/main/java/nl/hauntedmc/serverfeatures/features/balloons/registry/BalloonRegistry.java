@@ -10,14 +10,12 @@ import java.util.*;
 
 /**
  * Loads balloons from top-level config:
- *
  *  enabled: true
  *  balloons:
  *    <id>:
  *      permission: ...
  *      item: MATERIAL | head: <base64>
  *      displayname: "§bSome Name"
- *
  * Notes:
  * - Accepts Bukkit ConfigurationSection (MemorySection) or a plain Map.
  * - We use the "displayname" key (but accept "display_name" as fallback).
@@ -36,13 +34,13 @@ public final class BalloonRegistry {
         byId.clear();
 
         Object balloonsObj = feature.getConfigHandler().getSetting("balloons");
-        feature.getLogger().info("[Balloons] Type of balloons config: " + (balloonsObj == null ? "null" : balloonsObj.getClass().getName()));
+        feature.getLogger().info("Type of balloons config: " + (balloonsObj == null ? "null" : balloonsObj.getClass().getName()));
 
         if (balloonsObj instanceof ConfigurationSection section) {
             loadFromSection(section);
             return;
         }
-        feature.getLogger().warning("[Balloons] No balloons configured (unsupported type).");
+        feature.getLogger().warning("No balloons configured (unsupported type).");
     }
 
     private void loadFromSection(ConfigurationSection section) {
@@ -65,7 +63,7 @@ public final class BalloonRegistry {
                 try {
                     itemMat = Material.valueOf(itemStr.toUpperCase(Locale.ROOT));
                 } catch (IllegalArgumentException ex) {
-                    feature.getLogger().warning("[Balloons] Invalid material for '" + id + "': " + itemStr);
+                    feature.getLogger().warning("Invalid material for '" + id + "': " + itemStr);
                 }
             }
 
@@ -83,7 +81,7 @@ public final class BalloonRegistry {
             byId.put(id.toLowerCase(Locale.ROOT), bd);
             count++;
         }
-        feature.getLogger().info("[Balloons] Loaded " + count + " balloon(s) from ConfigurationSection.");
+        feature.getLogger().info("Loaded " + count + " balloon(s) from ConfigurationSection.");
     }
 
     public List<BalloonDefinition> all() {

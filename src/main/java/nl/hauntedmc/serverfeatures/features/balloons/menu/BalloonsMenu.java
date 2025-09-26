@@ -15,13 +15,11 @@ import java.util.*;
 
 /**
  * Paged Balloons selection menu with the same visual style as Glow.
- *
  * Layout (6 rows total):
  *   - Row 0: filler (glass)
  *   - Rows 1..3: content grid (3 x 7, inner columns 1..7)
  *   - Row 4: filler (glass)  <-- kept empty as requested
  *   - Row 5: controls (prev @45, remove @46, status @49, close @52, next @53)
- *
  * If the player lacks permission for a balloon, it renders as BARRIER with a "locked" lore.
  */
 public final class BalloonsMenu {

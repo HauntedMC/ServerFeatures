@@ -178,7 +178,7 @@ public final class BalloonsHandler {
         UUID u = player.getUniqueId();
         BalloonDefinition def = active.get(u);
         ArmorStand as = stands.get(u);
-        ItemStack helmet = (as != null && as.getEquipment() != null) ? as.getEquipment().getHelmet() : null;
+        ItemStack helmet = as != null ? as.getEquipment().getHelmet() : null;
 
         removeBalloon(player);
 

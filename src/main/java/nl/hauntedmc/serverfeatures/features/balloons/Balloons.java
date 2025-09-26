@@ -4,6 +4,7 @@ import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.balloons.command.BalloonsCommand;
 import nl.hauntedmc.serverfeatures.features.balloons.internal.BalloonsHandler;
 import nl.hauntedmc.serverfeatures.features.balloons.listener.BalloonsListener;
 import nl.hauntedmc.serverfeatures.features.balloons.meta.Meta;
@@ -107,7 +108,6 @@ public class Balloons extends BukkitBaseFeature<Meta> {
         defs.put("donkergrijs", mapOf("permission","serverfeatures.feature.balloons.donkergrijs","item","GRAY_CONCRETE","displayname","§bDonker Grijze Ballon"));
         defs.put("zwart", mapOf("permission","serverfeatures.feature.balloons.zwart","item","BLACK_CONCRETE","displayname","§bZwarte Ballon"));
         defs.put("bruin", mapOf("permission","serverfeatures.feature.balloons.bruin","item","BROWN_CONCRETE","displayname","§bBruine Ballon"));
-
         // === Heads ===
         defs.put("paasevent24", mapOf(
                 "permission", "serverfeatures.feature.balloons.paasevent24",
@@ -135,8 +135,6 @@ public class Balloons extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
-
-        // Menu
         m.add("balloons.menu.title", "&8&lBallonnen");
         m.add("balloons.menu.balloon.name", "&eBallon: &f{name}");
         m.add("balloons.menu.balloon.lore.allowed", "&aKlik om deze ballon te activeren.");
@@ -150,27 +148,20 @@ public class Balloons extends BukkitBaseFeature<Meta> {
         m.add("balloons.menu.status.lore", "&7Selecteer een ballon of verwijder je ballon.");
         m.add("balloons.menu.prev", "&7« &eVorige");
         m.add("balloons.menu.next", "&eVolgende &7»");
-        // Commands / status
         m.add("balloons.removed", "&7Ballon is verwijderd.");
         m.add("balloons.no_active", "&7Je hebt geen ballon actief.");
         m.add("balloons.set", "&aJe ballon is geactiveerd: &f{name}");
         m.add("balloons.cannot_open_vehicle", "&bJe kunt het ballonmenu niet openen in een voertuig.");
-
         return m;
     }
 
     @Override
     public void initialize() {
-        // Registry from config
         this.registry = new BalloonRegistry(this);
         this.registry.reloadFromConfig();
-
-        // Handler (schedules its own ticks)
         this.handler = new BalloonsHandler(this);
-
-        // Listener + Command
         getLifecycleManager().getListenerManager().registerListener(new BalloonsListener(this));
-        getLifecycleManager().getCommandManager().registerFeatureCommand(new nl.hauntedmc.serverfeatures.features.balloons.command.BalloonsCommand(this));
+        getLifecycleManager().getCommandManager().registerFeatureCommand(new BalloonsCommand(this));
     }
 
     @Override
