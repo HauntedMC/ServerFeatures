@@ -88,7 +88,7 @@ public final class PagedMenu<T> extends GuiMenu {
     }
 
     private void renderPage(Player p, Inventory inv) {
-        // clear content area
+        // Clear previous dynamic items in the content area
         for (int s : contentSlots) {
             inv.setItem(s, null);
             dynamicItems.remove(s);
@@ -97,24 +97,32 @@ public final class PagedMenu<T> extends GuiMenu {
         int perPage = contentSlots.size();
         int start = pageIndex * perPage;
 
-        // place content entries
+        // Render entries with permission-aware logic (fix)
         for (int i = 0; i < perPage; i++) {
             int idx = start + i;
             if (idx >= entries.size()) break;
+
             GuiItem gi = renderer.apply(entries.get(idx));
             int slot = contentSlots.get(i);
-            inv.setItem(slot, gi.renderFor(p));
+
+            ItemStack toPlace;
+            if (gi.visibleTo(p)) {
+                toPlace = gi.renderFor(p);
+            } else {
+                toPlace = gi.replacementOrNull(p); // may be null (empty slot) or a barrier/etc
+            }
+
+            inv.setItem(slot, toPlace);
             dynamicItems.put(slot, gi);
         }
 
-        // compute page bounds
+        // Compute page bounds
         int maxPage = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
 
         // Prev button: only when pageIndex > 0
         if (pageIndex > 0) {
             inv.setItem(prevSlot, GuiItemHelper.menuItem(Material.ARROW, prevLabel));
         } else {
-            // hide prev: restore filler if available, else clear
             inv.setItem(prevSlot, fillerItem == null ? null : fillerItem.clone());
         }
 
@@ -122,7 +130,6 @@ public final class PagedMenu<T> extends GuiMenu {
         if (pageIndex < maxPage) {
             inv.setItem(nextSlot, GuiItemHelper.menuItem(Material.ARROW, nextLabel));
         } else {
-            // hide next: restore filler if available, else clear
             inv.setItem(nextSlot, fillerItem == null ? null : fillerItem.clone());
         }
 

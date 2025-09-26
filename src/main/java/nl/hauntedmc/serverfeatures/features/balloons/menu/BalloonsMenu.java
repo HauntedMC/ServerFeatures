@@ -33,7 +33,6 @@ public final class BalloonsMenu {
         var gui = feature.getLifecycleManager().getGuiManager();
 
         List<BalloonDefinition> defs = feature.getRegistry().all();
-        feature.getLogger().info("Opening balloons menu for " + player.getName() + ", " + defs.size() + " balloons available");
 
         // Content grid: 3 rows x 7 columns (rows 1..3, cols 1..7) to keep margins and an extra glass row above controls.
         List<Integer> contentSlots = computeGridSlots(3, 7);
@@ -152,10 +151,10 @@ public final class BalloonsMenu {
 
     private static GuiItem balloonItem(Balloons feature, BalloonDefinition def) {
         String perm = def.permission();
-
+        feature.getLogger().info(perm);
         return GuiItem.builder()
-                // Requires general use permission; specific permission is handled via replacementIfNoPerm
                 .visibleWhen(p -> p.hasPermission("serverfeatures.feature.balloons.use"))
+                .permission(perm)
                 .factory(p -> {
                     var name = feature.getLocalizationHandler()
                             .getMessage("balloons.menu.balloon.name")
@@ -190,7 +189,6 @@ public final class BalloonsMenu {
                     icon.setItemMeta(meta);
                     return icon;
                 })
-                .permission(perm) // click requires this permission
                 .onClick(ctx -> {
                     boolean ok = feature.getHandler().setBalloon(ctx.player(), def);
                     if (ok) {
