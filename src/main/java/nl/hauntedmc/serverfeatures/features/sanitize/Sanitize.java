@@ -82,7 +82,7 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
             try {
                 service.runStartupSanitize();
             } catch (Throwable t) {
-                getLogger().warning("[Sanitize] Startup sanitize failed: " + t.getMessage());
+                getLogger().warning("Startup sanitize failed: " + t.getMessage());
             }
         });
     }

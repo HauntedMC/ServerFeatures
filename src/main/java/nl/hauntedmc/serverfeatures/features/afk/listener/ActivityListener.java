@@ -35,7 +35,7 @@ public class ActivityListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChat(AsyncChatEvent e) {
         Player p = e.getPlayer();
-        Bukkit.getScheduler().runTask(feature.getPlugin(), () ->
+        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
                 feature.getService().fire(AfkEvent.simple(p, AfkEventType.CHAT)));
     }
 

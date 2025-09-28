@@ -34,7 +34,6 @@ public final class BalloonRegistry {
         byId.clear();
 
         Object balloonsObj = feature.getConfigHandler().getSetting("balloons");
-        feature.getLogger().info("Type of balloons config: " + (balloonsObj == null ? "null" : balloonsObj.getClass().getName()));
 
         if (balloonsObj instanceof ConfigurationSection section) {
             loadFromSection(section);
@@ -48,7 +47,7 @@ public final class BalloonRegistry {
         for (String id : section.getKeys(false)) {
             ConfigurationSection def = section.getConfigurationSection(id);
             if (def == null) {
-                feature.getLogger().warning("[Balloons] Skipping '" + id + "': not a section");
+                feature.getLogger().warning("Skipping '" + id + "': not a section");
                 continue;
             }
 

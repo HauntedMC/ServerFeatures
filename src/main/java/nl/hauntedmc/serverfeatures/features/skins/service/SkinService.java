@@ -80,14 +80,14 @@ public class SkinService {
         }
 
         sendSync(actor, "skins.working", Map.of("skin", cleaned));
-        feature.getLogger().info("[Skins] " + actor.getName() + " requested skin '" + cleaned + "' for " + target.getName());
+        feature.getLogger().info(actor.getName() + " requested skin '" + cleaned + "' for " + target.getName());
 
         feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
             try {
                 ProfileData donor = fetchOfficialProfileByName(cleaned);
                 if (donor == null || donor.texturesProp == null) {
                     scheduleSend(actor, "skins.lookup_failed", Map.of("skin", cleaned));
-                    feature.getLogger().warning("[Skins] Failed to resolve official textures for '" + cleaned + "'");
+                    feature.getLogger().warning("Failed to resolve official textures for '" + cleaned + "'");
                     if (isSelf && !actor.hasPermission("serverfeatures.feature.skins.bypass.cooldown")) {
                         state.clearLastUse(target.getUniqueId());
                     }
@@ -97,7 +97,7 @@ public class SkinService {
                 feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                     Player now = Bukkit.getPlayer(target.getUniqueId());
                     if (now == null || !now.isOnline()) {
-                        feature.getLogger().info("[Skins] Target went offline before skin could be applied: " + target.getName());
+                        feature.getLogger().info("Target went offline before skin could be applied: " + target.getName());
                         if (isSelf && !actor.hasPermission("serverfeatures.feature.skins.bypass.cooldown")) {
                             state.clearLastUse(target.getUniqueId());
                         }
@@ -119,11 +119,11 @@ public class SkinService {
                                 .build());
                     }
 
-                    feature.getLogger().info("[Skins] Applied skin '" + donor.name + "' to " + now.getName() + " (by " + actor.getName() + ")");
+                    feature.getLogger().info("Applied skin '" + donor.name + "' to " + now.getName() + " (by " + actor.getName() + ")");
                 });
 
             } catch (Throwable ex) {
-                feature.getLogger().warning("[Skins] Exception while resolving skin '" + cleaned + "': " + ex);
+                feature.getLogger().warning("Exception while resolving skin '" + cleaned + "': " + ex);
                 scheduleSend(actor, "skins.lookup_failed", Map.of("skin", cleaned));
                 if (isSelf && !actor.hasPermission("serverfeatures.feature.skins.bypass.cooldown")) {
                     state.clearLastUse(target.getUniqueId());
@@ -153,7 +153,7 @@ public class SkinService {
             sendSync(actor, "skins.removing", Map.of());
         }
 
-        feature.getLogger().info("[Skins] " + actor.getName() + " requested skin removal for " + target.getName());
+        feature.getLogger().info(actor.getName() + " requested skin removal for " + target.getName());
 
         feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
             try {
@@ -171,7 +171,7 @@ public class SkinService {
                         applyTexturesToPlayer(now, official);
                         Bukkit.getPluginManager().callEvent(new SkinUpdateEvent(now, SkinUpdateType.REMOVE, official.name()));
                     } else {
-                        feature.getLogger().warning("[Skins] Kon originele textures niet ophalen voor " + now.getName());
+                        feature.getLogger().warning("Kon originele textures niet ophalen voor " + now.getName());
                     }
 
                     state.markCustomSkin(uuid, false);
@@ -185,11 +185,11 @@ public class SkinService {
                                 .build());
                     }
 
-                    feature.getLogger().info("[Skins] Removed custom skin from " + now.getName() + " (by " + actor.getName() + ")");
+                    feature.getLogger().info("Removed custom skin from " + now.getName() + " (by " + actor.getName() + ")");
                 });
 
             } catch (Throwable ex) {
-                feature.getLogger().warning("[Skins] Exception while removing skin for " + target.getName() + ": " + ex);
+                feature.getLogger().warning("Exception while removing skin for " + target.getName() + ": " + ex);
                 feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                     Player now = Bukkit.getPlayer(uuid);
                     if (now != null && now.isOnline()) {
@@ -241,7 +241,7 @@ public class SkinService {
      */
     private void applyTexturesToPlayer(Player target, ProfileData donor) {
         if (donor == null || donor.texturesProp == null) {
-            feature.getLogger().warning("[Skins] applyTexturesToPlayer called without textures");
+            feature.getLogger().warning("applyTexturesToPlayer called without textures");
             return;
         }
 
@@ -296,7 +296,7 @@ public class SkinService {
             String rawId = obj.get("id").getAsString();
             return uuidFromUndashed(rawId);
         } catch (Throwable t) {
-            feature.getLogger().warning("[Skins] JSON parse error (name->uuid) for '" + name + "': " + t.getMessage());
+            feature.getLogger().warning("JSON parse error (name->uuid) for '" + name + "': " + t.getMessage());
             return null;
         }
     }
@@ -329,7 +329,7 @@ public class SkinService {
             if (texturesProp == null) return null;
             return new ProfileData(uuid, name, texturesProp);
         } catch (Throwable t) {
-            feature.getLogger().warning("[Skins] JSON parse error (session) for " + uuid + ": " + t.getMessage());
+            feature.getLogger().warning("JSON parse error (session) for " + uuid + ": " + t.getMessage());
             return null;
         }
     }
@@ -385,7 +385,7 @@ public class SkinService {
                 return null;
             } catch (Exception ex) {
                 if (attempt > MAX_RETRIES + 1) {
-                    feature.getLogger().warning("[Skins] HTTP failed for " + req.uri() + ": " + ex.getMessage());
+                    feature.getLogger().warning("HTTP failed for " + req.uri() + ": " + ex.getMessage());
                     return null;
                 }
                 sleepQuiet(backoffMs(attempt));

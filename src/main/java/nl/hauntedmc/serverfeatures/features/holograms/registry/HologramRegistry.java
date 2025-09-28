@@ -40,10 +40,9 @@ public final class HologramRegistry {
         cachedLines.clear();
 
         Object raw = feature.getConfigHandler().getSetting("holograms");
-        feature.getLogger().info("[Holograms] type of raw holograms: " + (raw == null ? "null" : raw.getClass().getName()));
 
         if (!(raw instanceof ConfigurationSection root)) {
-            feature.getLogger().warning("[Holograms] No 'holograms' section found or not a MemorySection");
+            feature.getLogger().warning("No 'holograms' section found or not a MemorySection");
             return;
         }
 
@@ -91,7 +90,7 @@ public final class HologramRegistry {
         // Resolve & cache lines from MessageMap once
         resolveAllLines();
 
-        feature.getLogger().info("[Holograms] Loaded " + byId.size() + " hologram definitions; cached lines for " + cachedLines.size() + ".");
+        feature.getLogger().info("Loaded " + byId.size() + " hologram definitions; cached lines for " + cachedLines.size() + ".");
     }
 
     /** Build and cache lines from message keys holograms.hologram.<id>.0..N */

@@ -69,11 +69,11 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
                     muteRegistry.trackIfMuted(p.getUniqueId());
                     checked++;
                 } catch (Throwable t) {
-                    getLogger().warning("[Sanctions] Warm-up failed for "+p.getName()+": " + t.getMessage());
+                    getLogger().warning("Warm-up failed for "+p.getName()+": " + t.getMessage());
                 }
             }
             if (checked > 0) {
-                getLogger().info("[Sanctions] Warmed up mute state for "+checked+" online player(s).");
+                getLogger().info("Warmed up mute state for "+checked+" online player(s).");
             }
         });
 

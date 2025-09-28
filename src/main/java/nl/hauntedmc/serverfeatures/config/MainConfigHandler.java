@@ -9,30 +9,24 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * Main config handler (legacy API preserved) + typed/global helpers.
+ */
 public class MainConfigHandler {
     protected final ResourceHandler configResource;
     protected FileConfiguration config;
 
-    /**
-     * Creates the config handler and ensures global defaults are set.
-     */
     public MainConfigHandler(ServerFeatures plugin) {
         this.configResource = new ResourceHandler(plugin, "config.yml");
         this.config = configResource.getConfig();
         injectGlobalDefaults(Map.of("server_name", "server"));
     }
 
-    /**
-     * Reloads config from disk and re-applies global defaults.
-     */
     public void reloadConfig() {
         configResource.reload();
         this.config = configResource.getConfig();
     }
 
-    /**
-     * Registers a feature in config with `enabled: false` if missing.
-     */
     public void registerFeature(String featureName) {
         if (!config.contains("features." + featureName)) {
             config.set("features." + featureName + ".enabled", false);
@@ -40,9 +34,6 @@ public class MainConfigHandler {
         }
     }
 
-    /**
-     * Injects missing default settings for a specific feature.
-     */
     public void injectFeatureDefaults(String featureName, ConfigMap defaultValues) {
         String basePath = "features." + featureName;
         boolean updated = false;
@@ -54,30 +45,18 @@ public class MainConfigHandler {
                 updated = true;
             }
         }
-
-        if (updated) {
-            configResource.save();
-        }
+        if (updated) configResource.save();
     }
 
-    /**
-     * Checks if a feature is enabled.
-     */
     public boolean isFeatureEnabled(String featureName) {
         return config.getBoolean("features." + featureName + ".enabled", false);
     }
 
-    /**
-     * Enables or disables a feature.
-     */
     public void setFeatureEnabled(String featureName, boolean enabled) {
         config.set("features." + featureName + ".enabled", enabled);
         configResource.save();
     }
 
-    /**
-     * Cleans up removed features from config.
-     */
     public void cleanupUnusedFeatures(Set<String> registeredFeatures) {
         if (config.contains("features")) {
             Set<String> existingKeys = Objects.requireNonNull(
@@ -91,19 +70,30 @@ public class MainConfigHandler {
         }
     }
 
-    /**
-     * Retrieves a global setting (assumed to exist after initialization).
-     *
-     * @param key the global setting key (without the "global." prefix)
-     * @return the value from config, or null if missing
-     */
+    // -------------------------
+    // Global setting accessors
+    // -------------------------
+
+    /** Legacy raw getter: returns underlying Bukkit value. */
     public Object getGlobalSetting(String key) {
         return config.get("global." + key);
     }
 
-    /**
-     * Injects missing global defaults into the config.
-     */
+    /** Typed getter: coerces to requested type or throws. */
+    public <T> T getGlobalSetting(String key, Class<T> type) {
+        return ConfigTypes.convert(getGlobalSetting(key), type);
+    }
+
+    /** Typed getter with default. */
+    public <T> T getGlobalSetting(String key, Class<T> type, T defaultValue) {
+        return ConfigTypes.convertOrDefault(getGlobalSetting(key), type, defaultValue);
+    }
+
+    /** A node view rooted at global.<key>. */
+    public ConfigNode globalNode(String key) {
+        return ConfigNode.ofRaw(getGlobalSetting(key), "global." + key);
+    }
+
     private void injectGlobalDefaults(Map<String, Object> defaultValues) {
         boolean updated = false;
         for (Map.Entry<String, Object> entry : defaultValues.entrySet()) {
@@ -113,8 +103,6 @@ public class MainConfigHandler {
                 updated = true;
             }
         }
-        if (updated) {
-            configResource.save();
-        }
+        if (updated) configResource.save();
     }
 }

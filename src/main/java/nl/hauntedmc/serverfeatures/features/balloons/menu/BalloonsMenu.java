@@ -151,7 +151,6 @@ public final class BalloonsMenu {
 
     private static GuiItem balloonItem(Balloons feature, BalloonDefinition def) {
         String perm = def.permission();
-        feature.getLogger().info(perm);
         return GuiItem.builder()
                 .visibleWhen(p -> p.hasPermission("serverfeatures.feature.balloons.use"))
                 .permission(perm)
