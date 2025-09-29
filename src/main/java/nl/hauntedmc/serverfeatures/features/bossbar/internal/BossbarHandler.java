@@ -2,13 +2,13 @@ package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BossBar;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
@@ -57,25 +57,20 @@ public class BossbarHandler {
     }
 
     private void startAutoFade(BossbarMessage message) {
-        Object animationSettings = feature.getConfigHandler().getSetting("animation");
-        int stepsPerSecond;
-        int fadeDelay;
-        if (animationSettings instanceof ConfigurationSection configSection) {
-            stepsPerSecond = configSection.getInt("steps_per_second", 5);
-            fadeDelay = configSection.getInt("fade_delay", 0);
-        } else {
-            stepsPerSecond = 5;
-            fadeDelay = 0;
-        }
+        ConfigNode anim = feature.getConfigHandler().node("animation");
+        int stepsPerSecond = Math.max(1, anim.get("steps_per_second").as(Integer.class, 5));
+        int fadeDelay = Math.max(0, anim.get("fade_delay").as(Integer.class, 0));
 
         long duration = message.getDurationTicks();
         if (duration <= fadeDelay) {
             return;
         }
         long fadeDuration = duration - fadeDelay;
-        int seconds = (int) (fadeDuration / 20L);
-        int totalSteps = seconds * stepsPerSecond;
-        long timePerStep = fadeDuration / totalSteps;
+
+        // Compute total steps safely (avoid division by zero)
+        long seconds = Math.max(1, fadeDuration / 20L);
+        int totalSteps = Math.max(1, (int) (seconds * (long) stepsPerSecond));
+        long timePerStep = Math.max(1L, fadeDuration / totalSteps);
 
         taskManager.scheduleDelayedTask(() -> {
             AtomicInteger stepCounter = new AtomicInteger(0);

@@ -49,7 +49,6 @@ public final class JoinItemsListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent e) {
         if (!handler.isRemoveOnLeave()) return;
-        // Purge on quit to avoid cross-server carryover in proxies (optional behavior)
         handler.purgeFor(e.getPlayer());
     }
 
@@ -57,11 +56,6 @@ public final class JoinItemsListener implements Listener {
     // Command execution on use
     // -----------------------
 
-    /**
-     * Use HIGHEST and ignoreCancelled=false so we still fire when another plugin
-     * cancels air-interact events. We fetch the item directly from the main hand
-     * (instead of e.getItem()) to avoid nulls for *CLICK_AIR actions on some builds.
-     */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent e) {
         // Ignore pressure plates/trampling etc.

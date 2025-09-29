@@ -22,7 +22,7 @@ public class ChatTools extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
         cfg.put("clear_lines", 150); // how many blank lines to send
         return cfg;
     }

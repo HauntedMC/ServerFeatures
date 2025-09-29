@@ -1,10 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
-import java.util.TreeMap;
+
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import org.bukkit.configuration.ConfigurationSection;
+import java.util.TreeMap;
 
 public class ChatFormatRegistry {
 
@@ -16,23 +18,33 @@ public class ChatFormatRegistry {
 
     public void loadFormats(ChatLayout feature) {
         formats.clear();
-        Object formatSetting = feature.getConfigHandler().getSetting("formats");
-        if (formatSetting instanceof ConfigurationSection sec) {
-            Set<String> keys = sec.getKeys(false);
-            for (String key : keys) {
-                int priority = sec.getInt(key + ".priority", Integer.MAX_VALUE);
-                ChatFormat chatFormat = new ChatFormat(key, priority);
-                chatFormat.setPrefix(sec.getString(key + ".prefix", ""));
-                chatFormat.setName(sec.getString(key + ".name", "%player_name%"));
-                chatFormat.setSuffix(sec.getString(key + ".suffix", " > "));
-                chatFormat.setPrefixTooltip(sec.getStringList(key + ".prefix_tooltip"));
-                chatFormat.setNameTooltip(sec.getStringList(key + ".name_tooltip"));
-                chatFormat.setSuffixTooltip(sec.getStringList(key + ".suffix_tooltip"));
-                chatFormat.setPreClickCmd(sec.getString(key + ".prefix_click_command", ""));
-                chatFormat.setNameClickCmd(sec.getString(key + ".name_click_command", ""));
-                chatFormat.setSuffixClickCmd(sec.getString(key + ".suffix_click_command", ""));
-                formats.put(priority, chatFormat);
-            }
+
+        ConfigNode root = feature.getConfigHandler().node("formats");
+        Map<String, ConfigNode> children = root.children();
+        if (children.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
+            String key = entry.getKey();
+            ConfigNode n = entry.getValue();
+
+            int priority = n.get("priority").as(Integer.class, Integer.MAX_VALUE);
+
+            ChatFormat chatFormat = new ChatFormat(key, priority);
+            chatFormat.setPrefix(n.get("prefix").as(String.class, ""));
+            chatFormat.setName(n.get("name").as(String.class, "%player_name%"));
+            chatFormat.setSuffix(n.get("suffix").as(String.class, " > "));
+
+            chatFormat.setPrefixTooltip(listOrEmpty(n.get("prefix_tooltip").listOf(String.class)));
+            chatFormat.setNameTooltip(listOrEmpty(n.get("name_tooltip").listOf(String.class)));
+            chatFormat.setSuffixTooltip(listOrEmpty(n.get("suffix_tooltip").listOf(String.class)));
+
+            chatFormat.setPreClickCmd(n.get("prefix_click_command").as(String.class, ""));
+            chatFormat.setNameClickCmd(n.get("name_click_command").as(String.class, ""));
+            chatFormat.setSuffixClickCmd(n.get("suffix_click_command").as(String.class, ""));
+
+            formats.put(priority, chatFormat);
         }
     }
 
@@ -53,5 +65,9 @@ public class ChatFormatRegistry {
         defaultFormat.setName("%player_name%");
         defaultFormat.setSuffix(" > ");
         return defaultFormat;
+    }
+
+    private static List<String> listOrEmpty(List<String> list) {
+        return list == null ? Collections.emptyList() : list;
     }
 }

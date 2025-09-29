@@ -24,7 +24,7 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
-
+        defaults.put("enabled", false);
         // base-prices
         Map<String, Object> bp = new HashMap<>();
         bp.put("default", 100);

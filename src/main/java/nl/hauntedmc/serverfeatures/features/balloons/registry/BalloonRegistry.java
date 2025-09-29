@@ -1,25 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.balloons.registry;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;
-import org.bukkit.configuration.ConfigurationSection;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 /**
- * Loads balloons from top-level config:
- *  enabled: true
- *  balloons:
- *    <id>:
- *      permission: ...
- *      item: MATERIAL | head: <base64>
- *      displayname: "§bSome Name"
- * Notes:
- * - Accepts Bukkit ConfigurationSection (MemorySection) or a plain Map.
- * - We use the "displayname" key (but accept "display_name" as fallback).
- * - If both "item" and "head" exist, "item" takes precedence.
+ * Loads balloons from feature config
  */
 public final class BalloonRegistry {
 
@@ -33,54 +28,51 @@ public final class BalloonRegistry {
     public void reloadFromConfig() {
         byId.clear();
 
-        Object balloonsObj = feature.getConfigHandler().getSetting("balloons");
-
-        if (balloonsObj instanceof ConfigurationSection section) {
-            loadFromSection(section);
+        ConfigNode root = feature.getConfigHandler().node("balloons");
+        Map<String, ConfigNode> children = root.children();
+        if (children.isEmpty()) {
+            feature.getLogger().warning("No balloons configured.");
             return;
         }
-        feature.getLogger().warning("No balloons configured (unsupported type).");
-    }
 
-    private void loadFromSection(ConfigurationSection section) {
         int count = 0;
-        for (String id : section.getKeys(false)) {
-            ConfigurationSection def = section.getConfigurationSection(id);
-            if (def == null) {
-                feature.getLogger().warning("Skipping '" + id + "': not a section");
-                continue;
-            }
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
+            final String rawId = entry.getKey();
+            final String id = rawId.toLowerCase(Locale.ROOT);
+            ConfigNode n = entry.getValue();
 
-            String permission = def.getString("permission", "serverfeatures.feature.balloons." + id);
+            String permission = n.get("permission").as(String.class, "serverfeatures.feature.balloons." + id);
 
             // Prefer "displayname"; support "display_name" as fallback
-            String display = def.getString("displayname");
+            String displayStr = Optional.ofNullable(n.get("displayname").as(String.class, null))
+                    .orElseGet(() -> n.get("display_name").as(String.class, null));
 
+            // Item material (takes precedence over head)
             Material itemMat = null;
-            String itemStr = def.getString("item");
+            String itemStr = n.get("item").as(String.class, null);
             if (itemStr != null && !itemStr.isBlank()) {
-                try {
-                    itemMat = Material.valueOf(itemStr.toUpperCase(Locale.ROOT));
-                } catch (IllegalArgumentException ex) {
-                    feature.getLogger().warning("Invalid material for '" + id + "': " + itemStr);
+                itemMat = Material.matchMaterial(itemStr);
+                if (itemMat == null) {
+                    feature.getLogger().warning("Invalid material for '" + rawId + "': " + itemStr);
                 }
             }
 
-            Integer cmd = def.isInt("custom_model_data") ? def.getInt("custom_model_data") : null;
-            String head = def.getString("head");
+            Integer customModelData = n.get("custom_model_data").as(Integer.class, null);
+            String head = n.get("head").as(String.class, null);
 
-            BalloonDefinition bd = new BalloonDefinition(
+            BalloonDefinition def = new BalloonDefinition(
                     id,
                     permission,
-                    Component.text(display),
+                    toComponent(displayStr != null ? displayStr : rawId),
                     itemMat,
-                    cmd,
+                    customModelData,
                     head
             );
-            byId.put(id.toLowerCase(Locale.ROOT), bd);
+            byId.put(id, def);
             count++;
         }
-        feature.getLogger().info("Loaded " + count + " balloon(s) from ConfigurationSection.");
+
+        feature.getLogger().info("Loaded " + count + " balloon(s).");
     }
 
     public List<BalloonDefinition> all() {
@@ -90,5 +82,17 @@ public final class BalloonRegistry {
     public Optional<BalloonDefinition> find(String id) {
         if (id == null) return Optional.empty();
         return Optional.ofNullable(byId.get(id.toLowerCase(Locale.ROOT)));
+    }
+
+    // -----------------
+    // helpers
+    // -----------------
+
+    private static Component toComponent(String s) {
+        if (s == null || s.isBlank()) return Component.empty();
+        // Support both '&' and '§' style color codes. Fallback to plain text.
+        if (s.indexOf('§') >= 0) return LegacyComponentSerializer.legacySection().deserialize(s);
+        if (s.indexOf('&') >= 0) return LegacyComponentSerializer.legacyAmpersand().deserialize(s);
+        return Component.text(s);
     }
 }

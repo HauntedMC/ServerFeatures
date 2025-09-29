@@ -20,7 +20,7 @@ public class Skins extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
         cfg.put("cooldown_seconds", 60); // self-command cooldown
         return cfg;
     }

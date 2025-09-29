@@ -50,7 +50,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
         cfg.put("set_invisible_flag", true);
         cfg.put("disable_collisions", true);
         cfg.put("prevent_item_pickup", true);

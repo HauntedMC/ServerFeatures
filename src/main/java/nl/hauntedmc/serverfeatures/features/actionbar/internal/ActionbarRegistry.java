@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 
 import java.util.ArrayList;
@@ -17,26 +18,27 @@ public class ActionbarRegistry {
     }
 
     private void loadMessagesFromConfig() {
-        Object raw = feature.getConfigHandler().getSetting("messages");
-        if (raw instanceof List<?> messageList) {
-            for (Object obj : messageList) {
-                if (obj instanceof Map<?, ?> map) {
-                    String key = map.get("message_key").toString();
+        messages.clear();
 
-                    long duration;
-                    try {
-                        duration = Long.parseLong(map.get("duration").toString());
-                    } catch (NumberFormatException e) {
-                        duration = 100L;
-                    }
+        ConfigNode root = feature.getConfigHandler().node("messages");
+        Map<String, ConfigNode> children = root.children();
+        if (children.isEmpty()) {
+            return;
+        }
 
-                    ActionbarMessage message = new ActionbarMessage.Builder()
-                            .messageKey(key)
-                            .duration(duration)
-                            .build();
-                    messages.add(message);
-                }
-            }
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
+            String id = entry.getKey();
+            ConfigNode n = entry.getValue();
+
+            String key = n.get("message_key").as(String.class, id);
+            long duration;
+            duration = n.get("duration").as(Long.class, 100L);
+
+            ActionbarMessage message = new ActionbarMessage.Builder()
+                    .messageKey(key)
+                    .duration(duration)
+                    .build();
+            messages.add(message);
         }
     }
 

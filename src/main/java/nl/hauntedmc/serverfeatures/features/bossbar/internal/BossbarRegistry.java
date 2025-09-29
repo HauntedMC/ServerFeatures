@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -8,6 +9,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Loads bossbar messages
+ */
 public class BossbarRegistry {
 
     private final Bossbars feature;
@@ -19,46 +23,38 @@ public class BossbarRegistry {
     }
 
     private void loadMessagesFromConfig() {
-        Object raw = feature.getConfigHandler().getSetting("messages");
-        if (raw instanceof List<?> messageList) {
-            for (Object obj : messageList) {
-                if (obj instanceof Map<?, ?> map) {
-                    String key = map.get("message_key").toString();
+        messages.clear();
 
-                    long duration;
-                    try {
-                        duration = Long.parseLong(map.get("duration").toString());
-                    } catch (NumberFormatException e) {
-                        duration = 100L;
-                    }
+        ConfigNode root = feature.getConfigHandler().node("messages");
+        Map<String, ConfigNode> children = root.children();
+        if (children.isEmpty()) {
+            return;
+        }
 
-                    BarColor color;
-                    try {
-                        color = BarColor.valueOf(map.get("color").toString().toUpperCase());
-                    } catch (IllegalArgumentException e) {
-                        color = BarColor.WHITE;
-                    }
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
+            String id = entry.getKey();
+            ConfigNode n = entry.getValue();
 
-                    BarStyle style;
-                    try {
-                        style = BarStyle.valueOf(map.get("style").toString().toUpperCase());
-                    } catch (IllegalArgumentException e) {
-                        style = BarStyle.SOLID;
-                    }
+            String key            = n.get("message_key").as(String.class, id); // default to id
+            long durationTicks    = n.get("duration").as(Long.class, 100L);
+            BarColor color        = n.get("color").as(BarColor.class, BarColor.WHITE);
+            BarStyle style        = n.get("style").as(BarStyle.class, BarStyle.SOLID);
+            boolean autoFade      = n.get("autoFade").as(Boolean.class, false);
+            double initialProg    = n.get("initialProgress").as(Double.class, 1.0);
 
-                    boolean autoFade = Boolean.parseBoolean(map.get("autoFade").toString());
+            if (initialProg < 0.0) initialProg = 0.0;
+            if (initialProg > 1.0) initialProg = 1.0;
 
-                    BossbarMessage message = new BossbarMessage.Builder()
-                            .messageKey(key)
-                            .durationTicks(duration)
-                            .color(color)
-                            .style(style)
-                            .autoFade(autoFade)
-                            .initialProgress(1.0)
-                            .build();
-                    messages.add(message);
-                }
-            }
+            BossbarMessage message = new BossbarMessage.Builder()
+                    .messageKey(key)
+                    .durationTicks(durationTicks)
+                    .color(color)
+                    .style(style)
+                    .autoFade(autoFade)
+                    .initialProgress(initialProg)
+                    .build();
+
+            messages.add(message);
         }
     }
 
@@ -68,10 +64,14 @@ public class BossbarRegistry {
 
     public BossbarMessage get(int currentMessageIndex) {
         if (messages.isEmpty()) {
-            return new BossbarMessage.Builder().messageKey("default").durationTicks(100)
-                    .color(BarColor.WHITE).style(BarStyle.SOLID).build();
+            return new BossbarMessage.Builder()
+                    .messageKey("default")
+                    .durationTicks(100L)
+                    .color(BarColor.WHITE)
+                    .style(BarStyle.SOLID)
+                    .initialProgress(1.0)
+                    .build();
         }
-
         return messages.get(currentMessageIndex);
     }
 

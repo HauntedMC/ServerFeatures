@@ -4,12 +4,11 @@ import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.bossbar.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.bossbar.internal.BossbarHandler;
 import nl.hauntedmc.serverfeatures.features.bossbar.listener.BossbarListener;
+import nl.hauntedmc.serverfeatures.features.bossbar.meta.Meta;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,30 +25,31 @@ public class Bossbars extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
 
-        List<Map<String, Object>> messages = new ArrayList<>();
+        Map<String, Object> messages = new LinkedHashMap<>();
 
-        Map<String, Object> msg1 = new HashMap<>();
-        msg1.put("message_key", "text1");
-        msg1.put("duration", 100);
-        msg1.put("color", "YELLOW");
-        msg1.put("style", "SOLID");
-        msg1.put("autoFade", true);
-        messages.add(msg1);
+        Map<String, Object> text1 = new LinkedHashMap<>();
+        text1.put("duration", 100);
+        text1.put("color", "YELLOW");
+        text1.put("style", "SOLID");
+        text1.put("autoFade", true);
+        text1.put("initialProgress", 1.0);
+        messages.put("text1", text1);
 
-        Map<String, Object> msg2 = new HashMap<>();
-        msg2.put("message_key", "text2");
-        msg2.put("duration", 100);
-        msg2.put("color", "GREEN");
-        msg2.put("style", "SEGMENTED_6");
-        msg2.put("autoFade", false);
-        messages.add(msg2);
+        Map<String, Object> text2 = new LinkedHashMap<>();
+        text2.put("duration", 100);
+        text2.put("color", "GREEN");
+        text2.put("style", "SEGMENTED_6");
+        text2.put("autoFade", false);
+        text2.put("initialProgress", 1.0);
+        messages.put("text2", text2);
 
         defaults.put("messages", messages);
 
-        Map<String, Object> animation = new HashMap<>();
+        Map<String, Object> animation = new LinkedHashMap<>();
         animation.put("steps_per_second", 20);
         animation.put("fade_delay", 0);
         defaults.put("animation", animation);
+
         return defaults;
     }
 
@@ -68,7 +68,6 @@ public class Bossbars extends BukkitBaseFeature<Meta> {
 
         bossbarHandler.initOnlinePlayers();
         bossbarHandler.startMessageCycle();
-
     }
 
     @Override

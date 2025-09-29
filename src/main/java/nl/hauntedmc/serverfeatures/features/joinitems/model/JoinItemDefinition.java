@@ -12,15 +12,15 @@ import java.util.Objects;
 /** Immutable definition of a join item parsed from config. */
 public final class JoinItemDefinition {
 
-    private final String id;                 // map key in config, lowercased
+    private final String id;
     private final Material material;
-    private final int slot;                  // 0..(size-1) of PlayerInventory (commonly 0..35 for main)
-    private final Component name;            // Adventure display name
-    private final List<Component> lore;      // Adventure lore
-    private final List<String> commands;     // commands to run as the player (no leading '/')
-    private final boolean locked;            // conceptually "special item"
-    private final boolean unmovable;         // blocks inventory moves/swaps
-    private final boolean undroppable;       // blocks Q-drop & manual drops
+    private final int slot;
+    private final Component name;
+    private final List<Component> lore;
+    private final List<String> commands;
+    private final boolean locked;
+    private final boolean unmovable;
+    private final boolean undroppable;
 
     public JoinItemDefinition(
             String id, Material material, int slot,

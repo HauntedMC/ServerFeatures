@@ -22,7 +22,7 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
 
         // Outer bounds = WorldBorder (see TeleportBounds).
         // These are INNER "no-teleport" bounds and default disabled (0..0).

@@ -24,7 +24,7 @@ public class Restart extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap c = new ConfigMap();
-        c.put("enabled", true);
+        c.put("enabled", false);
 
         // Title timings (ticks)
         c.put("title_fade_in", 20);

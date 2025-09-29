@@ -21,7 +21,7 @@ public class Backup extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
-        cfg.put("enabled", true);
+        cfg.put("enabled", false);
 
         cfg.put("backup_folder_name", "backups");
         cfg.put("zip_name_prefix", "backup_");

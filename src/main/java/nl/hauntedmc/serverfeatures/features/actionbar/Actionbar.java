@@ -26,12 +26,12 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
 
-        List<Map<String, Object>> messages = new ArrayList<>();
+        Map<String, Object> messages = new java.util.LinkedHashMap<>();
 
-        Map<String, Object> msg1 = new HashMap<>();
-        msg1.put("message_key", "default");
-        msg1.put("duration", 100);
-        messages.add(msg1);
+        Map<String, Object> defaultMsg = new java.util.LinkedHashMap<>();
+
+        defaultMsg.put("duration", 100);
+        messages.put("default", defaultMsg);
 
         defaults.put("messages", messages);
         defaults.put("message_interval", 0);

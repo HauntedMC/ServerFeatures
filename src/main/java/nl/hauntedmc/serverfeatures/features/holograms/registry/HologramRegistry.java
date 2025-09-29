@@ -2,24 +2,16 @@ package nl.hauntedmc.serverfeatures.features.holograms.registry;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.holograms.Holograms;
 import nl.hauntedmc.serverfeatures.features.holograms.model.HologramDefinition;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 
 import java.util.*;
 
 /**
- * Loads hologram definitions from a Bukkit ConfigurationSection (MemorySection) and
- * resolves/caches lines from MessageMap:
- *
- *   holograms.hologram.<id>.0
- *   holograms.hologram.<id>.1
- *   ...
- *
- * Stops either when a key is missing OR when a line contains the "<end>" marker
- * (the marker is removed from the rendered Component).
+ * Loads hologram definitions
  */
 public final class HologramRegistry {
 
@@ -39,44 +31,46 @@ public final class HologramRegistry {
         byId.clear();
         cachedLines.clear();
 
-        Object raw = feature.getConfigHandler().getSetting("holograms");
-
-        if (!(raw instanceof ConfigurationSection root)) {
-            feature.getLogger().warning("No 'holograms' section found or not a MemorySection");
+        // New: use typed ConfigNode API
+        ConfigNode root = feature.getConfigHandler().node("holograms");
+        Map<String, ConfigNode> children = root.children();
+        if (children.isEmpty()) {
+            feature.getLogger().warning("No 'holograms' section found or empty");
             return;
         }
 
-        // Parse each hologram section
-        for (String id : root.getKeys(false)) {
-            ConfigurationSection sec = root.getConfigurationSection(id);
-            if (sec == null) continue;
+        // Parse each hologram node
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
+            String id = entry.getKey();
+            ConfigNode n = entry.getValue();
 
-            String world = sec.getString("world", "world");
-            double x = HologramDefinition.parseDouble(sec.get("x"), 0.0D);
-            double y = HologramDefinition.parseDouble(sec.get("y"), 64.0D);
-            double z = HologramDefinition.parseDouble(sec.get("z"), 0.0D);
-            float yaw = HologramDefinition.parseFloat(sec.get("yaw"), 0.0F);
-            float pitch = HologramDefinition.parseFloat(sec.get("pitch"), 0.0F);
+            String world = n.get("world").as(String.class, "world");
+            double x = n.get("x").as(Double.class, 0.0D);
+            double y = n.get("y").as(Double.class, 64.0D);
+            double z = n.get("z").as(Double.class, 0.0D);
+            float yaw = n.get("yaw").as(Float.class, 0.0F);
+            float pitch = n.get("pitch").as(Float.class, 0.0F);
 
-            Display.Billboard billboard = HologramDefinition.parseBillboard(sec.get("billboard"), Display.Billboard.CENTER);
-            TextDisplay.TextAlignment align = HologramDefinition.parseAlignment(sec.get("alignment"), TextDisplay.TextAlignment.CENTER);
-            int lineWidth = HologramDefinition.parseInt(sec.get("line_width"), 0);
+            Display.Billboard billboard = n.get("billboard").as(Display.Billboard.class, Display.Billboard.CENTER);
+            TextDisplay.TextAlignment align = n.get("alignment").as(TextDisplay.TextAlignment.class, TextDisplay.TextAlignment.CENTER);
+            int lineWidth = n.get("line_width").as(Integer.class, 0);
 
-            boolean seeThrough   = sec.getBoolean("see_through", false);
-            boolean shadowed     = sec.getBoolean("shadowed", true);
-            boolean useDefaultBg = sec.getBoolean("use_default_background", true);
-            Integer bgColor      = HologramDefinition.parseARGB(sec.get("background_color"));
+            boolean seeThrough = n.get("see_through").as(Boolean.class, false);
+            boolean shadowed = n.get("shadowed").as(Boolean.class, true);
+            boolean useDefaultBg = n.get("use_default_background").as(Boolean.class, true);
+            Integer bgColor = n.get("background_color").as(Integer.class, null); // ARGB int or null
 
-            boolean glow      = sec.getBoolean("glow", false);
-            Integer glowColor = HologramDefinition.parseARGB(sec.get("glow_color"));
+            boolean glow = n.get("glow").as(Boolean.class, false);
+            Integer glowColor = n.get("glow_color").as(Integer.class, null); // ARGB int or null
 
-            Float viewRange = HologramDefinition.parseFloat(sec.get("view_range"), null);
+            Float viewRange = n.get("view_range").as(Float.class, null);
 
+            // brightness:
             Integer brightBlock = null, brightSky = null;
-            ConfigurationSection bsec = sec.getConfigurationSection("brightness");
+            ConfigNode bsec = n.get("brightness");
             if (bsec != null) {
-                brightBlock = HologramDefinition.parseInt(bsec.get("block"), null);
-                brightSky   = HologramDefinition.parseInt(bsec.get("sky"), null);
+                brightBlock = bsec.get("block").as(Integer.class, null);
+                brightSky = bsec.get("sky").as(Integer.class, null);
             }
 
             HologramDefinition hd = new HologramDefinition(
@@ -93,7 +87,9 @@ public final class HologramRegistry {
         feature.getLogger().info("Loaded " + byId.size() + " hologram definitions; cached lines for " + cachedLines.size() + ".");
     }
 
-    /** Build and cache lines from message keys holograms.hologram.<id>.0..N */
+    /**
+     * Build and cache lines from message keys holograms.hologram.<id>.0..N
+     */
     private void resolveAllLines() {
         var lh = feature.getLocalizationHandler();
 
@@ -129,18 +125,24 @@ public final class HologramRegistry {
         }
     }
 
-    public Collection<HologramDefinition> all() { return List.copyOf(byId.values()); }
+    public Collection<HologramDefinition> all() {
+        return List.copyOf(byId.values());
+    }
 
     public Optional<HologramDefinition> find(String id) {
         return Optional.ofNullable(byId.get(id.toLowerCase(Locale.ROOT)));
     }
 
-    /** Returns cached line list for an id (never empty). */
+    /**
+     * Returns cached line list for an id (never empty).
+     */
     public List<Component> lines(String id) {
         return cachedLines.getOrDefault(id.toLowerCase(Locale.ROOT), List.of(Component.text(id)));
     }
 
-    /** Returns the cached lines joined with newline separators. */
+    /**
+     * Returns the cached lines joined with newline separators.
+     */
     public Component joinedText(String id) {
         List<Component> ls = lines(id);
         if (ls.isEmpty()) return Component.empty();
