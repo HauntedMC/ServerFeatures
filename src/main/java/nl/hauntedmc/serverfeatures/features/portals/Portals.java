@@ -53,6 +53,8 @@ public class Portals extends BukkitBaseFeature<Meta> {
         m.add("portals.wand.select_first", "&cSelecteer eerst een portal: &f/portals select <id>");
         m.add("portals.wand.must_hold", "&cHoud de &fPortals Wand &cin je hand om punten te selecteren.");
         m.add("portals.wand.block_click_denied", "&cJe kunt dit blok niet gebruiken terwijl je de &fPortals Wand &choudt.");
+        m.add("portals.server.set", "&aServer-bestemming voor &f{id} &agezet op &f{server}");
+        m.add("portals.server.missing", "&cGeen servernaam ingesteld voor deze portal.");
 
         return m;
     }
@@ -66,11 +68,13 @@ public class Portals extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getListenerManager().registerListener(new WandListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new PortalOverrideListener(this, handler));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new PortalsCommand(this, handler));
+        getPlugin().getServer().getMessenger().registerOutgoingPluginChannel(getPlugin(), "BungeeCord");
         getLogger().info("Initialized. Loaded " + registry.size() + " portal(s).");
     }
 
     @Override
     public void disable() {
+        getPlugin().getServer().getMessenger().unregisterOutgoingPluginChannel(getPlugin(), "BungeeCord");
     }
 
     public PortalRegistry getRegistry() { return registry; }

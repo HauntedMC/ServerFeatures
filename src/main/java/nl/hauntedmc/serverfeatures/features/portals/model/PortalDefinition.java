@@ -10,7 +10,7 @@ public final class PortalDefinition {
 
     private final String id;
     private Region region;          // required to trigger
-    private PortalMode mode;        // TELEPORT or COMMAND
+    private PortalMode mode;        // TELEPORT, COMMAND or SERVER
 
     // TELEPORT fields
     private String targetWorld;     // world name
@@ -20,6 +20,9 @@ public final class PortalDefinition {
     // COMMAND fields
     private String command;         // without leading slash
     private CommandExecutor executor;
+
+    // SERVER fields (proxy server to connect to)
+    private String targetServer;
 
     public PortalDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -35,12 +38,12 @@ public final class PortalDefinition {
     public PortalMode mode() { return mode; }
     public void setMode(PortalMode mode) { this.mode = mode; }
 
+    // TELEPORT
     public void setTeleport(String world, double x, double y, double z, float yaw, float pitch) {
         this.targetWorld = world;
         this.x = x; this.y = y; this.z = z;
         this.yaw = yaw; this.pitch = pitch;
     }
-
     public Optional<String> targetWorld() { return Optional.ofNullable(targetWorld); }
     public double tx() { return x; }
     public double ty() { return y; }
@@ -48,13 +51,17 @@ public final class PortalDefinition {
     public float tyaw() { return yaw; }
     public float tpitch() { return pitch; }
 
+    // COMMAND
     public void setCommand(String command, CommandExecutor executor) {
         this.command = command;
         this.executor = executor == null ? CommandExecutor.CONSOLE : executor;
     }
-
     public Optional<String> command() { return Optional.ofNullable(command); }
     public CommandExecutor executor() { return executor; }
+
+    // SERVER
+    public void setServerTarget(String serverName) { this.targetServer = serverName; }
+    public Optional<String> serverTarget() { return Optional.ofNullable(targetServer); }
 
     public Optional<World> resolveTargetWorld() {
         if (targetWorld == null) return Optional.empty();

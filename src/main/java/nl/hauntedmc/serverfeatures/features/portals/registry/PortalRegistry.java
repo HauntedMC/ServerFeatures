@@ -72,6 +72,13 @@ public final class PortalRegistry {
                     def.setCommand(cmd, CommandExecutor.fromString(ex, CommandExecutor.CONSOLE));
                 }
 
+                // server (SERVER mode)
+                ConfigNode s = n.get("server");
+                String targetServer = s.get("name").as(String.class, null);
+                if (targetServer != null && !targetServer.isBlank()) {
+                    def.setServerTarget(targetServer);
+                }
+
                 byId.put(id.toLowerCase(Locale.ROOT), def);
                 loaded++;
             } catch (Exception ex) {
@@ -115,6 +122,9 @@ public final class PortalRegistry {
                 b.put(base + ".command.value", cmd);
                 b.put(base + ".command.executor", def.executor().name());
             });
+
+            // server
+            def.serverTarget().ifPresent(srv -> b.put(base + ".server.name", srv));
         });
 
         byId.put(keyId, def);
@@ -124,20 +134,17 @@ public final class PortalRegistry {
         if (id == null || id.isBlank()) return false;
 
         String keyLower = id.toLowerCase(Locale.ROOT);
-        byId.remove(keyLower);
-        // Even if not in memory, attempt to purge from config by normalized key
+        PortalDefinition removed = byId.remove(keyLower);
         String base = "portals." + keyLower;
 
         feature.getConfigHandler().batch(b -> {
-            // Remove children first (safety for sparse-section persistence on some Bukkit builds)
             b.remove(base + ".mode");
             b.remove(base + ".region");
             b.remove(base + ".teleport");
             b.remove(base + ".command");
-            // Then remove the parent section
+            b.remove(base + ".server");
             b.remove(base);
         });
-
 
         return true;
     }

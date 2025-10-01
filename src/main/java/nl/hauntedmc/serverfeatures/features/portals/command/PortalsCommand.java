@@ -107,7 +107,7 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setmode" -> {
-                if (args.length < 3) { usage(sender, "setmode <id> <teleport|command>"); return true; }
+                if (args.length < 3) { usage(sender, "setmode <id> <teleport|command|server>"); return true; }
                 String id = args[1];
                 String mode = args[2];
                 if (handler.setMode(id, mode)) {
@@ -153,6 +153,22 @@ public class PortalsCommand extends FeatureCommand {
                 }
                 return true;
             }
+            case "setserver" -> {
+                if (args.length < 3) { usage(sender, "setserver <id> <serverName>"); return true; }
+                String id = args[1];
+                String serverName = args[2];
+                boolean ok = handler.setServer(id, serverName);
+                if (ok) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.server.set")
+                            .withPlaceholders(Map.of("id", id, "server", serverName))
+                            .forAudience(sender).build());
+                } else {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .withPlaceholders(Map.of("id", id))
+                            .forAudience(sender).build());
+                }
+                return true;
+            }
             case "list" -> {
                 var all = registry.all();
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.list.header")
@@ -194,17 +210,17 @@ public class PortalsCommand extends FeatureCommand {
         if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","list")
+            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","list")
                     .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
 
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand").anyMatch(args[0]::equalsIgnoreCase)) {
+        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver").anyMatch(args[0]::equalsIgnoreCase)) {
             return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
 
         if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {
-            return Stream.of("teleport","command").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+            return Stream.of("teleport","command","server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
 
         if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {

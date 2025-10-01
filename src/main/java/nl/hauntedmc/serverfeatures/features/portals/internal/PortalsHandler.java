@@ -19,6 +19,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -27,6 +29,7 @@ public final class PortalsHandler {
     private static final long TRIGGER_COOLDOWN_MS = 1000L; // prevent spam while standing in region
     private static final String WAND_NAME = "§6Portals Wand";
 
+    private final Portals feature;
     private final PortalRegistry registry;
     private final FeatureLogger log;
     private final NamespacedKey wandKey;
@@ -60,6 +63,7 @@ public final class PortalsHandler {
     private final Map<UUID, Long> lastTrigger = new ConcurrentHashMap<>();
 
     public PortalsHandler(Portals feature, PortalRegistry registry) {
+        this.feature = feature;
         this.registry = registry;
         this.log = feature.getLogger();
         this.wandKey = new NamespacedKey(feature.getPlugin(), "portals_wand");
@@ -121,7 +125,6 @@ public final class PortalsHandler {
         meta.getPersistentDataContainer().set(wandKey, PersistentDataType.BYTE, (byte) 1);
         wand.setItemMeta(meta);
 
-        // Put in inventory or drop if full
         Map<Integer, ItemStack> notStored = p.getInventory().addItem(wand);
         if (!notStored.isEmpty()) {
             p.getWorld().dropItemNaturally(p.getLocation(), wand);
@@ -159,7 +162,10 @@ public final class PortalsHandler {
             p.teleport(dst);
             log.info("Teleported " + p.getName() + " via portal '" + def.id() + "' to " +
                     dst.getWorld().getName() + " " + dst.getX() + " " + dst.getY() + " " + dst.getZ());
-        } else {
+            return;
+        }
+
+        if (def.mode() == PortalMode.COMMAND) {
             String cmd = def.command().orElse("");
             if (cmd.isBlank()) return;
 
@@ -174,6 +180,31 @@ public final class PortalsHandler {
                     log.info("Console executed command for '" + p.getName() + "' via portal '" + def.id() + "': /" + cmd + " (ok=" + ok + ")");
                 }
             }
+            return;
+        }
+
+        if (def.mode() == PortalMode.SERVER) {
+            var targetOpt = def.serverTarget();
+            if (targetOpt.isEmpty() || targetOpt.get().isBlank()) {
+                p.sendMessage(feature.getLocalizationHandler().getMessage("portals.server.missing").forAudience(p).build());
+                log.warning("Portal '" + def.id() + "' has SERVER mode but no target server set.");
+                return;
+            }
+            String server = targetOpt.get();
+            connectPlayerToServer(p, server);
+            log.info("Sent " + p.getName() + " to server '" + server + "' via portal '" + def.id() + "'");
+        }
+    }
+
+    /** Send a legacy BungeeCord/Velocity plugin message to connect the player to another server. */
+    private void connectPlayerToServer(Player player, String serverName) {
+        try (ByteArrayOutputStream b = new ByteArrayOutputStream();
+             DataOutputStream out = new DataOutputStream(b)) {
+            out.writeUTF("Connect");
+            out.writeUTF(serverName);
+            player.sendPluginMessage(feature.getPlugin(), "BungeeCord", b.toByteArray());
+        } catch (Exception e) {
+            log.severe("Failed to send player to server '" + serverName + "': " + e.getMessage());
         }
     }
 
@@ -218,6 +249,15 @@ public final class PortalsHandler {
         if (opt.isEmpty()) return false;
         PortalDefinition def = opt.get();
         def.setCommand(cmd, ex);
+        registry.savePortal(def);
+        return true;
+    }
+
+    public boolean setServer(String id, String serverName) {
+        Optional<PortalDefinition> opt = registry.get(id);
+        if (opt.isEmpty()) return false;
+        PortalDefinition def = opt.get();
+        def.setServerTarget(serverName);
         registry.savePortal(def);
         return true;
     }
