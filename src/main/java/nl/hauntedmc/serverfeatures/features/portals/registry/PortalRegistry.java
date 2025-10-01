@@ -1,0 +1,155 @@
+package nl.hauntedmc.serverfeatures.features.portals.registry;
+
+import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.features.portals.Portals;
+import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
+import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
+import nl.hauntedmc.serverfeatures.features.portals.model.PortalMode;
+import nl.hauntedmc.serverfeatures.features.portals.model.Region;
+import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+
+import java.util.*;
+
+public final class PortalRegistry {
+
+    private final Portals feature;
+    private final Map<String, PortalDefinition> byId = new LinkedHashMap<>();
+
+    public PortalRegistry(Portals feature) {
+        this.feature = feature;
+    }
+
+    public void reloadFromConfig() {
+        byId.clear();
+
+        ConfigNode root = feature.getConfigHandler().node("portals");
+        Map<String, ConfigNode> children = root.children();
+        FeatureLogger log = feature.getLogger();
+
+        int loaded = 0;
+        for (Map.Entry<String, ConfigNode> e : children.entrySet()) {
+            String rawId = e.getKey();
+            String id = rawId.trim();
+            if (id.isEmpty()) continue;
+
+            try {
+                PortalDefinition def = new PortalDefinition(id);
+
+                ConfigNode n = e.getValue();
+                String mode = n.get("mode").as(String.class, "TELEPORT");
+                def.setMode(PortalMode.valueOf(mode.toUpperCase(Locale.ROOT)));
+
+                // region
+                ConfigNode r = n.get("region");
+                String w = r.get("world").as(String.class, null);
+                Integer x1 = r.get("x1").as(Integer.class, null);
+                Integer y1 = r.get("y1").as(Integer.class, null);
+                Integer z1 = r.get("z1").as(Integer.class, null);
+                Integer x2 = r.get("x2").as(Integer.class, null);
+                Integer y2 = r.get("y2").as(Integer.class, null);
+                Integer z2 = r.get("z2").as(Integer.class, null);
+                if (w != null && x1 != null && y1 != null && z1 != null && x2 != null && y2 != null && z2 != null) {
+                    def.setRegion(new Region(w, x1, y1, z1, x2, y2, z2));
+                }
+
+                // teleport
+                ConfigNode t = n.get("teleport");
+                String tw = t.get("world").as(String.class, null);
+                Double tx = t.get("x").as(Double.class, null);
+                Double ty = t.get("y").as(Double.class, null);
+                Double tz = t.get("z").as(Double.class, null);
+                Float yaw = t.get("yaw").as(Float.class, 0f);
+                Float pitch = t.get("pitch").as(Float.class, 0f);
+                if (tw != null && tx != null && ty != null && tz != null) {
+                    def.setTeleport(tw, tx, ty, tz, yaw, pitch);
+                }
+
+                // command
+                ConfigNode c = n.get("command");
+                String cmd = c.get("value").as(String.class, null);
+                String ex = c.get("executor").as(String.class, "CONSOLE");
+                if (cmd != null) {
+                    def.setCommand(cmd, CommandExecutor.fromString(ex, CommandExecutor.CONSOLE));
+                }
+
+                byId.put(id.toLowerCase(Locale.ROOT), def);
+                loaded++;
+            } catch (Exception ex) {
+                log.warning("Failed to load portal '" + rawId + "': " + ex.getMessage());
+            }
+        }
+        feature.getLogger().info("Loaded " + loaded + " portal(s).");
+    }
+
+    public void savePortal(PortalDefinition def) {
+        var cfg = feature.getConfigHandler();
+        String keyId = def.id().toLowerCase(Locale.ROOT);
+        String base = "portals." + keyId;
+
+        cfg.batch(b -> {
+            b.put(base + ".mode", def.mode().name());
+
+            // region
+            def.region().ifPresent(r -> {
+                b.put(base + ".region.world", r.worldName());
+                b.put(base + ".region.x1", r.minX());
+                b.put(base + ".region.y1", r.minY());
+                b.put(base + ".region.z1", r.minZ());
+                b.put(base + ".region.x2", r.maxX());
+                b.put(base + ".region.y2", r.maxY());
+                b.put(base + ".region.z2", r.maxZ());
+            });
+
+            // teleport
+            def.targetWorld().ifPresent(w -> {
+                b.put(base + ".teleport.world", w);
+                b.put(base + ".teleport.x", def.tx());
+                b.put(base + ".teleport.y", def.ty());
+                b.put(base + ".teleport.z", def.tz());
+                b.put(base + ".teleport.yaw", def.tyaw());
+                b.put(base + ".teleport.pitch", def.tpitch());
+            });
+
+            // command
+            def.command().ifPresent(cmd -> {
+                b.put(base + ".command.value", cmd);
+                b.put(base + ".command.executor", def.executor().name());
+            });
+        });
+
+        byId.put(keyId, def);
+    }
+
+    public boolean deletePortal(String id) {
+        if (id == null || id.isBlank()) return false;
+
+        String keyLower = id.toLowerCase(Locale.ROOT);
+        byId.remove(keyLower);
+        // Even if not in memory, attempt to purge from config by normalized key
+        String base = "portals." + keyLower;
+
+        feature.getConfigHandler().batch(b -> {
+            // Remove children first (safety for sparse-section persistence on some Bukkit builds)
+            b.remove(base + ".mode");
+            b.remove(base + ".region");
+            b.remove(base + ".teleport");
+            b.remove(base + ".command");
+            // Then remove the parent section
+            b.remove(base);
+        });
+
+
+        return true;
+    }
+
+    public Optional<PortalDefinition> get(String id) {
+        if (id == null) return Optional.empty();
+        return Optional.ofNullable(byId.get(id.toLowerCase(Locale.ROOT)));
+    }
+
+    public Collection<PortalDefinition> all() {
+        return List.copyOf(byId.values());
+    }
+
+    public int size() { return byId.size(); }
+}

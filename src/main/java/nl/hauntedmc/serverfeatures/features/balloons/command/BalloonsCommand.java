@@ -30,6 +30,7 @@ public class BalloonsCommand extends FeatureCommand {
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
         if (!(sender instanceof Player player)) {
+            feature.getConfigHandler().reloadConfig();
             sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
             return true;
         }

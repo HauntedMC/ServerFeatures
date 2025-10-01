@@ -1,15 +1,16 @@
 package nl.hauntedmc.serverfeatures.config;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import org.bukkit.configuration.ConfigurationSection;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 /**
- * Feature-level config handler.
- * - Legacy raw: getSetting(key)
- * - Typed: getSetting(key, Class<T>) and with default
- * - High-level: node() / node(key) / nodeAt(path) for painless nested parsing
+ * Feature-level config handler with concurrency-safe mutation API.
  */
 public class FeatureConfigHandler extends MainConfigHandler {
 
@@ -20,28 +21,22 @@ public class FeatureConfigHandler extends MainConfigHandler {
         this.featureName = featureName;
     }
 
-    // -------------------------
-    // Legacy + typed getters
-    // -------------------------
-
-    /** Legacy raw getter: returns underlying Bukkit value under features.<feature>.<key>. */
     public Object getSetting(String key) {
-        return config.get("features." + featureName + "." + key);
+        rw.readLock().lock();
+        try {
+            return config.get(base(key));
+        } finally {
+            rw.readLock().unlock();
+        }
     }
 
-    /** Typed getter: coerces to requested type or throws. */
     public <T> T getSetting(String key, Class<T> type) {
         return ConfigTypes.convert(getSetting(key), type);
     }
 
-    /** Typed getter with default. */
     public <T> T getSetting(String key, Class<T> type, T defaultValue) {
         return ConfigTypes.convertOrDefault(getSetting(key), type, defaultValue);
     }
-
-    // -------------------------
-    // Convenience for maps/lists
-    // -------------------------
 
     public Map<String, Object> getMap(String key) {
         return getSetting(key, Map.class);
@@ -52,8 +47,7 @@ public class FeatureConfigHandler extends MainConfigHandler {
     }
 
     public <T> List<T> getList(String key, Class<T> elemType) {
-        Object raw = getSetting(key);
-        return ConfigTypes.convertList(raw, elemType);
+        return ConfigTypes.convertList(getSetting(key), elemType);
     }
 
     public <T> List<T> getList(String key, Class<T> elemType, List<T> def) {
@@ -76,32 +70,198 @@ public class FeatureConfigHandler extends MainConfigHandler {
         }
     }
 
-    // -------------------------
-    // Node API (zero boilerplate)
-    // -------------------------
-
-    /** Node rooted at 'features.<featureName>'. */
     public ConfigNode node() {
-        return ConfigNode.ofRaw(config.getConfigurationSection("features." + featureName), "features." + featureName);
+        rw.readLock().lock();
+        try {
+            ConfigurationSection section = config.getConfigurationSection("features." + featureName);
+            return ConfigNode.ofRaw(section, "features." + featureName);
+        } finally {
+            rw.readLock().unlock();
+        }
     }
 
-    /** Node rooted at 'features.<featureName>.<key>'. */
     public ConfigNode node(String key) {
-        return ConfigNode.ofRaw(getSetting(key), "features." + featureName + "." + key);
+        rw.readLock().lock();
+        try {
+            return ConfigNode.ofRaw(config.get(base(key)), base(key));
+        } finally {
+            rw.readLock().unlock();
+        }
     }
 
-    /** Node rooted at a dotted path under this feature (e.g., "items.cosmetic-item"). */
     public ConfigNode nodeAt(String dottedPath) {
         return node().getAt(dottedPath);
     }
 
-    /** Typed value at dotted path (throws if invalid). */
     public <T> T getAt(String dottedPath, Class<T> type) {
         return node().getAt(dottedPath).asRequired(type);
     }
 
-    /** Typed value at dotted path with default. */
     public <T> T getAt(String dottedPath, Class<T> type, T defaultValue) {
         return node().getAt(dottedPath).as(type, defaultValue);
+    }
+
+    protected String base(String key) {
+        return "features." + featureName + (key == null || key.isEmpty() ? "" : "." + key);
+    }
+
+    public void put(String dottedPath, Object value) {
+        rw.writeLock().lock();
+        try {
+            config.set(base(dottedPath), value);
+            configResource.save();
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    /** New: remove a path (feature-aware). Equivalent to set(null). */
+    public void remove(String dottedPath) {
+        rw.writeLock().lock();
+        try {
+            config.set(base(dottedPath), null);
+            configResource.save();
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public boolean putIfAbsent(String dottedPath, Object value) {
+        rw.writeLock().lock();
+        try {
+            String path = base(dottedPath);
+            if (!config.contains(path)) {
+                config.set(path, value);
+                configResource.save();
+                return true;
+            }
+            return false;
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public <T> T compute(String dottedPath, Class<T> type, UnaryOperator<T> updateFn, Supplier<T> init) {
+        rw.writeLock().lock();
+        try {
+            String path = base(dottedPath);
+            T cur = config.contains(path) ? ConfigTypes.convert(config.get(path), type) : null;
+            if (cur == null && init != null) cur = init.get();
+            T next = Objects.requireNonNull(updateFn.apply(cur), "updateFn returned null");
+            config.set(path, next);
+            configResource.save();
+            return next;
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public void appendToList(String dottedPath, Object value) {
+        rw.writeLock().lock();
+        try {
+            String path = base(dottedPath);
+            List<?> current = config.getList(path);
+            List<Object> list = new ArrayList<>();
+            if (current != null) list.addAll(current);
+            list.add(value);
+            config.set(path, list);
+            configResource.save();
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public int removeFromList(String dottedPath, Predicate<Object> predicate) {
+        rw.writeLock().lock();
+        try {
+            String path = base(dottedPath);
+            List<?> current = config.getList(path);
+            if (current == null || current.isEmpty()) return 0;
+            List<Object> list = new ArrayList<>(current.size());
+            list.addAll(current);
+            int before = list.size();
+            list.removeIf(predicate);
+            if (list.size() != before) {
+                config.set(path, list);
+                configResource.save();
+            }
+            return before - list.size();
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public void batch(Consumer<FeatureBatch> tx) {
+        rw.writeLock().lock();
+        try {
+            FeatureBatch batch = new FeatureBatch();
+            tx.accept(batch);
+            if (batch.changed) {
+                configResource.save();
+            }
+        } finally {
+            rw.writeLock().unlock();
+        }
+    }
+
+    public final class FeatureBatch {
+        private boolean changed = false;
+
+        private FeatureBatch() { }
+
+        public FeatureBatch put(String dottedPath, Object value) {
+            config.set(base(dottedPath), value);
+            changed = true;
+            return this;
+        }
+
+        public FeatureBatch putIfAbsent(String dottedPath, Object value) {
+            if (!config.contains(base(dottedPath))) {
+                config.set(base(dottedPath), value);
+                changed = true;
+            }
+            return this;
+        }
+
+        public <T> FeatureBatch compute(String dottedPath, Class<T> type, UnaryOperator<T> updateFn, Supplier<T> init) {
+            String path = base(dottedPath);
+            T cur = config.contains(path) ? ConfigTypes.convert(config.get(path), type) : null;
+            if (cur == null && init != null) cur = init.get();
+            T next = Objects.requireNonNull(updateFn.apply(cur));
+            config.set(path, next);
+            changed = true;
+            return this;
+        }
+
+        public FeatureBatch appendToList(String dottedPath, Object value) {
+            String path = base(dottedPath);
+            List<?> current = config.getList(path);
+            List<Object> list = new ArrayList<>();
+            if (current != null) list.addAll(current);
+            list.add(value);
+            config.set(path, list);
+            changed = true;
+            return this;
+        }
+
+        public FeatureBatch removeFromList(String dottedPath, Predicate<Object> predicate) {
+            String path = base(dottedPath);
+            List<?> current = config.getList(path);
+            if (current == null || current.isEmpty()) return this;
+            List<Object> list = new ArrayList<>(current);
+            int before = list.size();
+            list.removeIf(predicate);
+            if (list.size() != before) {
+                config.set(path, list);
+                changed = true;
+            }
+            return this;
+        }
+
+        public FeatureBatch remove(String dottedPath) {
+            config.set(base(dottedPath), null);
+            changed = true;
+            return this;
+        }
     }
 }
