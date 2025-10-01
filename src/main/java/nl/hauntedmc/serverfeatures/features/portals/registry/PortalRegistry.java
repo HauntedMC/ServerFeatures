@@ -6,11 +6,16 @@ import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalMode;
 import nl.hauntedmc.serverfeatures.features.portals.model.Region;
+import nl.hauntedmc.serverfeatures.features.portals.util.RegistryUtil;
 import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
 import org.bukkit.Material;
 
 import java.util.*;
 
+/**
+ * Loads/saves portals; stores sound/particle as namespaced keys in config,
+ * resolves via Paper registry at runtime (no deprecated enum calls).
+ */
 public final class PortalRegistry {
 
     private final Portals feature;
@@ -73,14 +78,14 @@ public final class PortalRegistry {
                     def.setCommand(cmd, CommandExecutor.fromString(ex, CommandExecutor.CONSOLE));
                 }
 
-                // server (SERVER mode)
+                // server
                 ConfigNode s = n.get("server");
                 String targetServer = s.get("name").as(String.class, null);
                 if (targetServer != null && !targetServer.isBlank()) {
                     def.setServerTarget(targetServer);
                 }
 
-                // NEW: exclusive portal block
+                // exclusive block
                 String blockName = n.get("exclusive_block").as(String.class, null);
                 if (blockName != null && !blockName.isBlank()) {
                     Material m = Material.matchMaterial(blockName.toUpperCase(Locale.ROOT));
@@ -90,6 +95,18 @@ public final class PortalRegistry {
                         log.warning("Portal '" + id + "' has invalid exclusive_block: " + blockName);
                     }
                 }
+
+                // sound (namespaced key)
+                ConfigNode snd = n.get("sound");
+                String soundKey = snd.get("name").as(String.class, null);
+                Integer soundDelay = snd.get("delay").as(Integer.class, 0);
+                RegistryUtil.resolveSound(soundKey).ifPresent(sndVal -> def.setSound(sndVal, Math.max(0, soundDelay)));
+
+                // particle (namespaced key)
+                ConfigNode part = n.get("particle");
+                String particleKey = part.get("name").as(String.class, null);
+                Integer particleDelay = part.get("delay").as(Integer.class, 0);
+                RegistryUtil.resolveParticle(particleKey).ifPresent(pVal -> def.setParticle(pVal, Math.max(0, particleDelay)));
 
                 byId.put(id.toLowerCase(Locale.ROOT), def);
                 loaded++;
@@ -138,10 +155,38 @@ public final class PortalRegistry {
             // server
             def.serverTarget().ifPresent(srv -> b.put(base + ".server.name", srv));
 
-            // NEW: exclusive block
+            // exclusive block
             def.exclusiveBlock().ifPresentOrElse(
                     mat -> b.put(base + ".exclusive_block", mat.name()),
                     () -> b.remove(base + ".exclusive_block")
+            );
+
+            // sound
+            def.sound().ifPresentOrElse(
+                    s -> {
+                        String k = RegistryUtil.keyString(s);
+                        if (!k.equals("<unregistered>")) {
+                            b.put(base + ".sound.name", k);
+                            b.put(base + ".sound.delay", def.soundDelay());
+                        } else {
+                            b.remove(base + ".sound");
+                        }
+                    },
+                    () -> b.remove(base + ".sound")
+            );
+
+            // particle
+            def.particle().ifPresentOrElse(
+                    p -> {
+                        String k = RegistryUtil.keyString(p);
+                        if (!k.equals("<unregistered>")) {
+                            b.put(base + ".particle.name", k);
+                            b.put(base + ".particle.delay", def.particleDelay());
+                        } else {
+                            b.remove(base + ".particle");
+                        }
+                    },
+                    () -> b.remove(base + ".particle")
             );
         });
 
@@ -150,7 +195,6 @@ public final class PortalRegistry {
 
     public boolean deletePortal(String id) {
         if (id == null || id.isBlank()) return false;
-
         String keyLower = id.toLowerCase(Locale.ROOT);
         byId.remove(keyLower);
         String base = "portals." + keyLower;
@@ -161,7 +205,9 @@ public final class PortalRegistry {
             b.remove(base + ".teleport");
             b.remove(base + ".command");
             b.remove(base + ".server");
-            b.remove(base + ".exclusive_block"); // NEW
+            b.remove(base + ".exclusive_block");
+            b.remove(base + ".sound");
+            b.remove(base + ".particle");
             b.remove(base);
         });
 
@@ -173,9 +219,6 @@ public final class PortalRegistry {
         return Optional.ofNullable(byId.get(id.toLowerCase(Locale.ROOT)));
     }
 
-    public Collection<PortalDefinition> all() {
-        return List.copyOf(byId.values());
-    }
-
+    public Collection<PortalDefinition> all() { return List.copyOf(byId.values()); }
     public int size() { return byId.size(); }
 }

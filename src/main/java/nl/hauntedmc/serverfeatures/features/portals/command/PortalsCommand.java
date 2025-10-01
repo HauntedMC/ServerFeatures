@@ -6,9 +6,11 @@ import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.internal.PortalsHandler;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
-import nl.hauntedmc.serverfeatures.features.portals.model.Region;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
+import nl.hauntedmc.serverfeatures.features.portals.util.RegistryUtil;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -17,6 +19,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/**
+ * Admin command for portals. Uses RegistryUtil for sound/particle parsing & completions.
+ */
 public class PortalsCommand extends FeatureCommand {
 
     private static final String ADMIN_PERM = "serverfeatures.feature.portals.admin";
@@ -25,29 +30,23 @@ public class PortalsCommand extends FeatureCommand {
     private final PortalRegistry registry;
     private final PortalsHandler handler;
 
-    // Cached list of placeable block names for tab-complete
+    // Cached list of placeable blocks for tab-complete
     private static final List<String> PLACEABLE_BLOCKS = computePlaceableBlocks();
+
+    public PortalsCommand(Portals feature, PortalsHandler handler) {
+        super(new CommandSpec.Builder("portals").permission(ADMIN_PERM).build());
+        this.feature = feature;
+        this.registry = feature.getRegistry();
+        this.handler = handler;
+    }
 
     private static List<String> computePlaceableBlocks() {
         List<String> list = new ArrayList<>();
         for (Material m : Material.values()) {
-            // consider "placeable block" = is a block, has an item form, and not air
-            if (m.isBlock()) {
-                list.add(m.name().toLowerCase(Locale.ROOT));
-            }
+            if (m.isBlock()) list.add(m.name().toLowerCase(Locale.ROOT));
         }
-        // add them defensively if missing:
         if (!list.contains("nether_portal")) list.add("nether_portal");
         return Collections.unmodifiableList(list);
-    }
-
-    public PortalsCommand(Portals feature, PortalsHandler handler) {
-        super(new CommandSpec.Builder("portals")
-                .permission(ADMIN_PERM)
-                .build());
-        this.feature = feature;
-        this.registry = feature.getRegistry();
-        this.handler = handler;
     }
 
     @Override
@@ -56,10 +55,7 @@ public class PortalsCommand extends FeatureCommand {
             sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
             return true;
         }
-
-        if (args.length < 1) {
-            return true;
-        }
+        if (args.length < 1) return true;
 
         String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
@@ -140,7 +136,6 @@ public class PortalsCommand extends FeatureCommand {
                 if (!(sender instanceof Player p)) { sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build()); return true; }
                 if (args.length < 2) { usage(sender, "setteleport <id>"); return true; }
                 String id = args[1];
-
                 boolean ok = handler.setTeleportFromPlayer(id, p);
                 if (ok) {
                     var l = p.getLocation();
@@ -180,9 +175,7 @@ public class PortalsCommand extends FeatureCommand {
                             .withPlaceholders(Map.of("id", id, "server", serverName))
                             .forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .withPlaceholders(Map.of("id", id))
-                            .forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
                 }
                 return true;
             }
@@ -203,71 +196,130 @@ public class PortalsCommand extends FeatureCommand {
                 }
                 return true;
             }
-            case "list" -> {
-                var all = registry.all();
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.list.header")
-                        .withPlaceholders(Map.of("count", String.valueOf(all.size())))
+            case "setsound" -> {
+                if (args.length < 3) { usage(sender, "setsound <id> <minecraft:key|none> [delayTicks]"); return true; }
+                String id = args[1];
+                Optional<PortalDefinition> defOpt = registry.get(id);
+                if (defOpt.isEmpty()) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    return true;
+                }
+                PortalDefinition def = defOpt.get();
+                String soundArg = args[2];
+
+                if (soundArg.equalsIgnoreCase("none") || soundArg.equalsIgnoreCase("clear")) {
+                    def.clearSound();
+                    registry.savePortal(def);
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.cleared")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    return true;
+                }
+
+                Optional<Sound> resolved = RegistryUtil.resolveSound(soundArg);
+                if (resolved.isEmpty()) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.invalid")
+                            .withPlaceholders(Map.of("sound", soundArg)).forAudience(sender).build());
+                    return true;
+                }
+
+                int delay = 0;
+                if (args.length >= 4) {
+                    try { delay = Math.max(0, Integer.parseInt(args[3])); } catch (NumberFormatException ignored) {}
+                }
+
+                def.setSound(resolved.get(), delay);
+                registry.savePortal(def);
+
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.set")
+                        .withPlaceholders(Map.of("id", id, "sound", RegistryUtil.keyString(resolved.get()), "delay", String.valueOf(delay)))
                         .forAudience(sender).build());
-                all.forEach(def -> {
-                    String world = def.region().map(Region::worldName).orElse("-");
-                    String mode = def.mode().name();
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.list.entry")
-                            .withPlaceholders(Map.of("id", def.id(), "world", world, "mode", mode))
-                            .forAudience(sender).build());
-                });
                 return true;
             }
-            default -> {
+            case "setparticle" -> {
+                if (args.length < 3) { usage(sender, "setparticle <id> <minecraft:key|none> [delayTicks]"); return true; }
+                String id = args[1];
+                Optional<PortalDefinition> defOpt = registry.get(id);
+                if (defOpt.isEmpty()) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    return true;
+                }
+                PortalDefinition def = defOpt.get();
+                String particleArg = args[2];
+
+                if (particleArg.equalsIgnoreCase("none") || particleArg.equalsIgnoreCase("clear")) {
+                    def.clearParticle();
+                    registry.savePortal(def);
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.cleared")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    return true;
+                }
+
+                Optional<Particle> resolved = RegistryUtil.resolveParticle(particleArg);
+                if (resolved.isEmpty()) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.invalid")
+                            .withPlaceholders(Map.of("particle", particleArg)).forAudience(sender).build());
+                    return true;
+                }
+
+                int delay = 0;
+                if (args.length >= 4) {
+                    try { delay = Math.max(0, Integer.parseInt(args[3])); } catch (NumberFormatException ignored) {}
+                }
+
+                def.setParticle(resolved.get(), delay);
+                registry.savePortal(def);
+
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.set")
+                        .withPlaceholders(Map.of("id", id, "particle", RegistryUtil.keyString(resolved.get()), "delay", String.valueOf(delay)))
+                        .forAudience(sender).build());
                 return true;
             }
+
+            default -> { return true; }
         }
     }
 
-    private void usage(CommandSender s, String u) {
-        s.sendMessage("§cGebruik: /portals " + u);
-    }
+    private void usage(CommandSender s, String u) { s.sendMessage("§cGebruik: /portals " + u); }
 
     private static String format(double d) {
         return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long)Math.rint(d)) : String.format(Locale.ROOT, "%.3f", d);
     }
-
-    private static String format(float f) {
-        return String.format(Locale.ROOT, "%.1f", f);
-    }
-
-    private static String stripSlash(String s) {
-        return s.startsWith("/") ? s.substring(1) : s;
-    }
+    private static String format(float f) { return String.format(Locale.ROOT, "%.1f", f); }
+    private static String stripSlash(String s) { return s.startsWith("/") ? s.substring(1) : s; }
 
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String @NotNull [] args) {
         if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","list")
+            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","list")
                     .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
-
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock").anyMatch(args[0]::equalsIgnoreCase)) {
+        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle").anyMatch(args[0]::equalsIgnoreCase)) {
             return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
-
         if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {
             return Stream.of("teleport","command","server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
-
         if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {
             return Stream.of("player","console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
-
         if (args.length == 3 && args[0].equalsIgnoreCase("setblock")) {
             String partial = args[2].toLowerCase(Locale.ROOT);
             Stream<String> base = PLACEABLE_BLOCKS.stream().filter(n -> n.startsWith(partial));
-            if ("none".startsWith(partial)) {
-                return Stream.concat(Stream.of("none"), base).limit(50).toList();
-            }
-            return base.limit(50).toList(); // limit for sanity
+            if ("none".startsWith(partial)) return Stream.concat(Stream.of("none"), base).toList();
+            return base.toList();
+        }
+
+        // Sound/Particle completions via registry keys (supports datapacks)
+        if (args.length == 3 && args[0].equalsIgnoreCase("setsound")) {
+            return RegistryUtil.soundKeysStartingWith(args[2], true);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setparticle")) {
+            return RegistryUtil.particleKeysStartingWith(args[2], true);
         }
 
         return Collections.emptyList();

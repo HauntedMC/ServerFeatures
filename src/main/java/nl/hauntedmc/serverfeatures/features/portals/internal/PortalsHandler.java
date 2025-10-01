@@ -8,10 +8,7 @@ import nl.hauntedmc.serverfeatures.features.portals.model.PortalMode;
 import nl.hauntedmc.serverfeatures.features.portals.model.Region;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
 import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -161,6 +158,7 @@ public final class PortalsHandler {
     }
 
     private void handlePortalEnter(Player p, PortalDefinition def) {
+        // Perform primary action first
         if (def.mode() == PortalMode.TELEPORT) {
             var wOpt = def.resolveTargetWorld();
             if (wOpt.isEmpty()) {
@@ -171,28 +169,22 @@ public final class PortalsHandler {
             p.teleport(dst);
             log.info("Teleported " + p.getName() + " via portal '" + def.id() + "' to " +
                     dst.getWorld().getName() + " " + dst.getX() + " " + dst.getY() + " " + dst.getZ());
-            return;
-        }
-
-        if (def.mode() == PortalMode.COMMAND) {
+        } else if (def.mode() == PortalMode.COMMAND) {
             String cmd = def.command().orElse("");
-            if (cmd.isBlank()) return;
-
-            switch (def.executor()) {
-                case PLAYER -> {
-                    boolean ok = p.performCommand(cmd);
-                    log.info("Player '" + p.getName() + "' executed command via portal '" + def.id() + "': /" + cmd + " (ok=" + ok + ")");
-                }
-                case CONSOLE -> {
-                    ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
-                    boolean ok = Bukkit.dispatchCommand(console, cmd.replace("{player}", p.getName()));
-                    log.info("Console executed command for '" + p.getName() + "' via portal '" + def.id() + "': /" + cmd + " (ok=" + ok + ")");
+            if (!cmd.isBlank()) {
+                switch (def.executor()) {
+                    case PLAYER -> {
+                        boolean ok = p.performCommand(cmd);
+                        log.info("Player '" + p.getName() + "' executed command via portal '" + def.id() + "': /" + cmd + " (ok=" + ok + ")");
+                    }
+                    case CONSOLE -> {
+                        ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
+                        boolean ok = Bukkit.dispatchCommand(console, cmd.replace("{player}", p.getName()));
+                        log.info("Console executed command for '" + p.getName() + "' via portal '" + def.id() + "': /" + cmd + " (ok=" + ok + ")");
+                    }
                 }
             }
-            return;
-        }
-
-        if (def.mode() == PortalMode.SERVER) {
+        } else if (def.mode() == PortalMode.SERVER) {
             var targetOpt = def.serverTarget();
             if (targetOpt.isEmpty() || targetOpt.get().isBlank()) {
                 p.sendMessage(feature.getLocalizationHandler().getMessage("portals.server.missing").forAudience(p).build());
@@ -203,7 +195,33 @@ public final class PortalsHandler {
             connectPlayerToServer(p, server);
             log.info("Sent " + p.getName() + " to server '" + server + "' via portal '" + def.id() + "'");
         }
+
+        // Schedule feedback effects after action
+        scheduleEffects(p, def);
     }
+
+    private void scheduleEffects(Player p, PortalDefinition def) {
+        // Sound
+        def.sound().ifPresent((Sound s) -> {
+            int delay = Math.max(0, def.soundDelay());
+            Bukkit.getScheduler().runTaskLater(feature.getPlugin(), () -> {
+                if (!p.isOnline()) return;
+                p.playSound(p.getLocation(), s, 1.0f, 1.0f);
+            }, delay);
+        });
+
+        // Particle
+        def.particle().ifPresent((org.bukkit.Particle part) -> {
+            int delay = Math.max(0, def.particleDelay());
+            Bukkit.getScheduler().runTaskLater(feature.getPlugin(), () -> {
+                if (!p.isOnline()) return;
+                Location loc = p.getLocation();
+                // A small burst around player
+                p.spawnParticle(part, loc, 30, 0.3, 0.6, 0.3, 0.0);
+            }, delay);
+        });
+    }
+
 
     /** Send a legacy BungeeCord/Velocity plugin message to connect the player to another server. */
     private void connectPlayerToServer(Player player, String serverName) {

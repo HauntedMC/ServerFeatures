@@ -58,6 +58,12 @@ public class Portals extends BukkitBaseFeature<Meta> {
         m.add("portals.block.set", "&aExclusieve portal-block voor &f{id} &agezet op &f{block}");
         m.add("portals.block.cleared", "&aExclusieve portal-block voor &f{id} &aopgeheven.");
         m.add("portals.block.invalid", "&cOngeldige blocknaam: &f{block}&c. Gebruik een plaatsbaar block.");
+        m.add("portals.sound.set", "&aGeluid voor &f{id} &agezet op &f{sound} &8(delay: {delay} ticks)");
+        m.add("portals.sound.cleared", "&aGeluid voor &f{id} &aopgeheven.");
+        m.add("portals.sound.invalid", "&cOngeldig geluid: &f{sound}&c.");
+        m.add("portals.particle.set", "&aParticle voor &f{id} &agezet op &f{particle} &8(delay: {delay} ticks)");
+        m.add("portals.particle.cleared", "&aParticle voor &f{id} &aopgeheven.");
+        m.add("portals.particle.invalid", "&cOngeldige particle: &f{particle}&c.");
 
         return m;
     }

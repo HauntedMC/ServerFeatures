@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.portals.model;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
 
 import java.util.Objects;
@@ -25,13 +27,21 @@ public final class PortalDefinition {
     // SERVER fields (proxy server to connect to)
     private String targetServer;
 
-    // NEW: exclusive block requirement
+    // Exclusive block requirement
     private Material exclusiveBlock;
+
+    // NEW: feedback effects
+    private Sound sound;
+    private int soundDelay;         // ticks
+    private Particle particle;
+    private int particleDelay;      // ticks
 
     public PortalDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
         this.mode = PortalMode.TELEPORT; // sensible default
         this.executor = CommandExecutor.CONSOLE;
+        this.soundDelay = 0;
+        this.particleDelay = 0;
     }
 
     public String id() { return id; }
@@ -67,6 +77,7 @@ public final class PortalDefinition {
     public void setServerTarget(String serverName) { this.targetServer = serverName; }
     public Optional<String> serverTarget() { return Optional.ofNullable(targetServer); }
 
+    // Exclusive block
     public void setExclusiveBlock(Material m) { this.exclusiveBlock = m; }
     public void clearExclusiveBlock() { this.exclusiveBlock = null; }
     public Optional<Material> exclusiveBlock() { return Optional.ofNullable(exclusiveBlock); }
@@ -75,4 +86,16 @@ public final class PortalDefinition {
         if (targetWorld == null) return Optional.empty();
         return Optional.ofNullable(Bukkit.getWorld(targetWorld));
     }
+
+    // sound
+    public void setSound(Sound s, int delayTicks) { this.sound = s; this.soundDelay = Math.max(0, delayTicks); }
+    public void clearSound() { this.sound = null; this.soundDelay = 0; }
+    public Optional<Sound> sound() { return Optional.ofNullable(sound); }
+    public int soundDelay() { return soundDelay; }
+
+    // particle
+    public void setParticle(Particle p, int delayTicks) { this.particle = p; this.particleDelay = Math.max(0, delayTicks); }
+    public void clearParticle() { this.particle = null; this.particleDelay = 0; }
+    public Optional<Particle> particle() { return Optional.ofNullable(particle); }
+    public int particleDelay() { return particleDelay; }
 }
