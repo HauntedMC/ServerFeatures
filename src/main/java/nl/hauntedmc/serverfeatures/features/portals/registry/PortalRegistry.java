@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalMode;
 import nl.hauntedmc.serverfeatures.features.portals.model.Region;
 import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+import org.bukkit.Material;
 
 import java.util.*;
 
@@ -79,6 +80,17 @@ public final class PortalRegistry {
                     def.setServerTarget(targetServer);
                 }
 
+                // NEW: exclusive portal block
+                String blockName = n.get("exclusive_block").as(String.class, null);
+                if (blockName != null && !blockName.isBlank()) {
+                    Material m = Material.matchMaterial(blockName.toUpperCase(Locale.ROOT));
+                    if (m != null && m.isBlock() && !m.isAir()) {
+                        def.setExclusiveBlock(m);
+                    } else {
+                        log.warning("Portal '" + id + "' has invalid exclusive_block: " + blockName);
+                    }
+                }
+
                 byId.put(id.toLowerCase(Locale.ROOT), def);
                 loaded++;
             } catch (Exception ex) {
@@ -125,6 +137,12 @@ public final class PortalRegistry {
 
             // server
             def.serverTarget().ifPresent(srv -> b.put(base + ".server.name", srv));
+
+            // NEW: exclusive block
+            def.exclusiveBlock().ifPresentOrElse(
+                    mat -> b.put(base + ".exclusive_block", mat.name()),
+                    () -> b.remove(base + ".exclusive_block")
+            );
         });
 
         byId.put(keyId, def);
@@ -134,7 +152,7 @@ public final class PortalRegistry {
         if (id == null || id.isBlank()) return false;
 
         String keyLower = id.toLowerCase(Locale.ROOT);
-        PortalDefinition removed = byId.remove(keyLower);
+        byId.remove(keyLower);
         String base = "portals." + keyLower;
 
         feature.getConfigHandler().batch(b -> {
@@ -143,6 +161,7 @@ public final class PortalRegistry {
             b.remove(base + ".teleport");
             b.remove(base + ".command");
             b.remove(base + ".server");
+            b.remove(base + ".exclusive_block"); // NEW
             b.remove(base);
         });
 

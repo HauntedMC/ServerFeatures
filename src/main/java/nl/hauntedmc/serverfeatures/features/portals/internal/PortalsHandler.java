@@ -118,7 +118,7 @@ public final class PortalsHandler {
     // ===== Wand helpers =====
 
     public void giveWand(Player p) {
-        ItemStack wand = new ItemStack(Material.BLAZE_ROD, 1);
+        ItemStack wand = new ItemStack(org.bukkit.Material.BLAZE_ROD, 1);
         ItemMeta meta = wand.getItemMeta();
         meta.displayName(Component.text(WAND_NAME));
         meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -143,6 +143,15 @@ public final class PortalsHandler {
             Region r = def.region().get();
             if (!r.worldName().equals(to.getWorld().getName())) continue;
             if (!r.contains(to)) continue;
+
+            if (def.exclusiveBlock().isPresent()) {
+                Material required = def.exclusiveBlock().get();
+                Material inBlock = to.getBlock().getType();
+                if (inBlock != required) {
+                    // Not inside the specified block -> do not trigger
+                    continue;
+                }
+            }
 
             // Trigger
             handlePortalEnter(p, def);
@@ -260,6 +269,31 @@ public final class PortalsHandler {
         def.setServerTarget(serverName);
         registry.savePortal(def);
         return true;
+    }
+
+    public enum ExclusiveBlockResult { SET, CLEARED, INVALID, NOT_FOUND }
+
+    public ExclusiveBlockResult setExclusiveBlock(String id, String blockName) {
+        Optional<PortalDefinition> opt = registry.get(id);
+        if (opt.isEmpty()) return ExclusiveBlockResult.NOT_FOUND;
+
+        PortalDefinition def = opt.get();
+
+        if (blockName.equalsIgnoreCase("none") || blockName.equalsIgnoreCase("clear")) {
+            def.clearExclusiveBlock();
+            registry.savePortal(def);
+            return ExclusiveBlockResult.CLEARED;
+        }
+
+        Material m = Material.matchMaterial(blockName);
+        if (m == null) m = Material.matchMaterial(blockName.toUpperCase(Locale.ROOT));
+        if (m == null || !m.isBlock()) {
+            return ExclusiveBlockResult.INVALID;
+        }
+
+        def.setExclusiveBlock(m);
+        registry.savePortal(def);
+        return ExclusiveBlockResult.SET;
     }
 
     public boolean delete(String id) {

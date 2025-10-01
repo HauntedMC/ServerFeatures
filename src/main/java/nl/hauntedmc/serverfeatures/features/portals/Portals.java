@@ -55,6 +55,9 @@ public class Portals extends BukkitBaseFeature<Meta> {
         m.add("portals.wand.block_click_denied", "&cJe kunt dit blok niet gebruiken terwijl je de &fPortals Wand &choudt.");
         m.add("portals.server.set", "&aServer-bestemming voor &f{id} &agezet op &f{server}");
         m.add("portals.server.missing", "&cGeen servernaam ingesteld voor deze portal.");
+        m.add("portals.block.set", "&aExclusieve portal-block voor &f{id} &agezet op &f{block}");
+        m.add("portals.block.cleared", "&aExclusieve portal-block voor &f{id} &aopgeheven.");
+        m.add("portals.block.invalid", "&cOngeldige blocknaam: &f{block}&c. Gebruik een plaatsbaar block.");
 
         return m;
     }

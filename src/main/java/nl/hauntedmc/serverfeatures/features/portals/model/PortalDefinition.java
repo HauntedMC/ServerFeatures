@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.portals.model;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.World;
 
 import java.util.Objects;
@@ -23,6 +24,9 @@ public final class PortalDefinition {
 
     // SERVER fields (proxy server to connect to)
     private String targetServer;
+
+    // NEW: exclusive block requirement
+    private Material exclusiveBlock;
 
     public PortalDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -62,6 +66,10 @@ public final class PortalDefinition {
     // SERVER
     public void setServerTarget(String serverName) { this.targetServer = serverName; }
     public Optional<String> serverTarget() { return Optional.ofNullable(targetServer); }
+
+    public void setExclusiveBlock(Material m) { this.exclusiveBlock = m; }
+    public void clearExclusiveBlock() { this.exclusiveBlock = null; }
+    public Optional<Material> exclusiveBlock() { return Optional.ofNullable(exclusiveBlock); }
 
     public Optional<World> resolveTargetWorld() {
         if (targetWorld == null) return Optional.empty();

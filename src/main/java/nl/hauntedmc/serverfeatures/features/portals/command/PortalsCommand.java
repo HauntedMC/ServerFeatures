@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.model.Region;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -23,6 +24,22 @@ public class PortalsCommand extends FeatureCommand {
     private final Portals feature;
     private final PortalRegistry registry;
     private final PortalsHandler handler;
+
+    // Cached list of placeable block names for tab-complete
+    private static final List<String> PLACEABLE_BLOCKS = computePlaceableBlocks();
+
+    private static List<String> computePlaceableBlocks() {
+        List<String> list = new ArrayList<>();
+        for (Material m : Material.values()) {
+            // consider "placeable block" = is a block, has an item form, and not air
+            if (m.isBlock()) {
+                list.add(m.name().toLowerCase(Locale.ROOT));
+            }
+        }
+        // add them defensively if missing:
+        if (!list.contains("nether_portal")) list.add("nether_portal");
+        return Collections.unmodifiableList(list);
+    }
 
     public PortalsCommand(Portals feature, PortalsHandler handler) {
         super(new CommandSpec.Builder("portals")
@@ -169,6 +186,23 @@ public class PortalsCommand extends FeatureCommand {
                 }
                 return true;
             }
+            case "setblock" -> {
+                if (args.length < 3) { usage(sender, "setblock <id> <material|none>"); return true; }
+                String id = args[1];
+                String blockName = args[2];
+                PortalsHandler.ExclusiveBlockResult res = handler.setExclusiveBlock(id, blockName);
+                switch (res) {
+                    case NOT_FOUND -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    case INVALID -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.invalid")
+                            .withPlaceholders(Map.of("block", blockName)).forAudience(sender).build());
+                    case CLEARED -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.cleared")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    case SET -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.set")
+                            .withPlaceholders(Map.of("id", id, "block", blockName.toUpperCase(Locale.ROOT))).forAudience(sender).build());
+                }
+                return true;
+            }
             case "list" -> {
                 var all = registry.all();
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.list.header")
@@ -210,12 +244,12 @@ public class PortalsCommand extends FeatureCommand {
         if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","list")
+            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","list")
                     .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
 
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver").anyMatch(args[0]::equalsIgnoreCase)) {
+        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock").anyMatch(args[0]::equalsIgnoreCase)) {
             return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
 
@@ -225,6 +259,15 @@ public class PortalsCommand extends FeatureCommand {
 
         if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {
             return Stream.of("player","console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+
+        if (args.length == 3 && args[0].equalsIgnoreCase("setblock")) {
+            String partial = args[2].toLowerCase(Locale.ROOT);
+            Stream<String> base = PLACEABLE_BLOCKS.stream().filter(n -> n.startsWith(partial));
+            if ("none".startsWith(partial)) {
+                return Stream.concat(Stream.of("none"), base).limit(50).toList();
+            }
+            return base.limit(50).toList(); // limit for sanity
         }
 
         return Collections.emptyList();
