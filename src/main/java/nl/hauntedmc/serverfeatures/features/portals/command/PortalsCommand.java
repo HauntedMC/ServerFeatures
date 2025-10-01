@@ -277,6 +277,20 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
 
+            // >>> NEW: /portals info <id>
+            case "info" -> {
+                if (args.length < 2) { usage(sender, "info <id>"); return true; }
+                String id = args[1];
+                Optional<PortalDefinition> defOpt = registry.get(id);
+                if (defOpt.isEmpty()) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    return true;
+                }
+                sendPortalInfo(sender, defOpt.get());
+                return true;
+            }
+
             default -> { return true; }
         }
     }
@@ -289,16 +303,73 @@ public class PortalsCommand extends FeatureCommand {
     private static String format(float f) { return String.format(Locale.ROOT, "%.1f", f); }
     private static String stripSlash(String s) { return s.startsWith("/") ? s.substring(1) : s; }
 
+    private String dash() {
+        return feature.getLocalizationHandler().getMessage("portals.info.none").forAudience(null).buildPlain();
+    }
+
+    /** Sends a compact info sheet for a single portal. */
+    private void sendPortalInfo(CommandSender sender, PortalDefinition def) {
+        var lh = feature.getLocalizationHandler();
+
+        sender.sendMessage(lh.getMessage("portals.info.header")
+                .withPlaceholders(Map.of("id", def.id()))
+                .forAudience(sender).build());
+
+        // Mode
+        sendProp(sender, "Mode", def.mode().name());
+
+        // Region
+        String regionStr = def.region()
+                .map(r -> r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]")
+                .orElse(dash());
+        sendProp(sender, "Region", regionStr);
+
+        // Teleport target
+        String tpStr = def.targetWorld()
+                .map(w -> w + " " + format(def.tx()) + " " + format(def.ty()) + " " + format(def.tz()) +
+                        " " + format(def.tyaw()) + " " + format(def.tpitch()))
+                .orElse(dash());
+        sendProp(sender, "Teleport", tpStr);
+
+        // Command + executor
+        sendProp(sender, "Command", def.command().orElse(dash()));
+        sendProp(sender, "Executor", def.command().isPresent() ? def.executor().name().toLowerCase(Locale.ROOT) : dash());
+
+        // Server
+        sendProp(sender, "Server", def.serverTarget().orElse(dash()));
+
+        // Exclusive block
+        sendProp(sender, "Exclusive Block", def.exclusiveBlock().map(m -> m.name().toLowerCase(Locale.ROOT)).orElse(dash()));
+
+        // Sound + delay
+        String soundStr = def.sound().map(RegistryUtil::keyString).orElse(dash());
+        String soundDelay = def.sound().isPresent() ? String.valueOf(def.soundDelay()) : dash();
+        sendProp(sender, "Sound", soundStr);
+        sendProp(sender, "Sound Delay", soundDelay);
+
+        // Particle + delay
+        String particleStr = def.particle().map(RegistryUtil::keyString).orElse(dash());
+        String particleDelay = def.particle().isPresent() ? String.valueOf(def.particleDelay()) : dash();
+        sendProp(sender, "Particle", particleStr);
+        sendProp(sender, "Particle Delay", particleDelay);
+    }
+
+    private void sendProp(CommandSender sender, String key, String value) {
+        sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.info.prop")
+                .withPlaceholders(Map.of("key", key, "value", value))
+                .forAudience(sender).build());
+    }
+
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String @NotNull [] args) {
         if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","list")
+            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info","list")
                     .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle").anyMatch(args[0]::equalsIgnoreCase)) {
+        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info").anyMatch(args[0]::equalsIgnoreCase)) {
             return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {

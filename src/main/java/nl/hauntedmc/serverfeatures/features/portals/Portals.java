@@ -64,7 +64,9 @@ public class Portals extends BukkitBaseFeature<Meta> {
         m.add("portals.particle.set", "&aParticle voor &f{id} &agezet op &f{particle} &8(delay: {delay} ticks)");
         m.add("portals.particle.cleared", "&aParticle voor &f{id} &aopgeheven.");
         m.add("portals.particle.invalid", "&cOngeldige particle: &f{particle}&c.");
-
+        m.add("portals.info.header", "&6&lPortal info &7({id})");
+        m.add("portals.info.prop", "&7- &f{key}&7: &f{value}");
+        m.add("portals.info.none", "-");
         return m;
     }
 
