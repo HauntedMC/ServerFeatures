@@ -137,6 +137,10 @@ public class VanishService {
     }
 
     private void removeVanish(Player p) {
+        if (!p.hasPermission(PERM_TOGGLE_SELF)) {
+            return;
+        }
+
         // Show to everyone again
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             try { viewer.showPlayer(feature.getPlugin(), p); } catch (Throwable ignored) {}
@@ -144,7 +148,9 @@ public class VanishService {
 
         // Collisions off
         if ((boolean) feature.getConfigHandler().getSetting("disable_collisions")) {
-            try { p.setCollidable(true); } catch (Throwable ignored) {}
+            if (!p.isCollidable()) {
+                p.setCollidable(true);
+            }
         }
 
         // Optional invisible flag; restore safely on unvanish
@@ -153,9 +159,6 @@ public class VanishService {
                 p.setInvisible(false);
             }
         }
-
-        // Force survival gamemode on unvanish (per requirement)
-        try { p.setGameMode(GameMode.SURVIVAL); } catch (Throwable ignored) {}
     }
 
     public void applyToNewViewer(Player viewer) {
@@ -247,6 +250,9 @@ public class VanishService {
     }
 
     public void handleLeave(PlayerQuitEvent e) {
+        if (!e.getPlayer().hasPermission(PERM_TOGGLE_SELF)) {
+            return;
+        }
         vanished.remove(e.getPlayer().getUniqueId());
     }
 }

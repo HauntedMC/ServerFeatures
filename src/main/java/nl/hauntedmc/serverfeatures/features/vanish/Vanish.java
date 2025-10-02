@@ -58,7 +58,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         cfg.put("prevent_entity_targeting", true);
         cfg.put("filter_tab_completion", true);
         cfg.put("actionbar_interval_ticks", 40);
-        // No specific Redis settings here; uses global "server_name" and a shared "default" messaging connection.
         return cfg;
     }
 
