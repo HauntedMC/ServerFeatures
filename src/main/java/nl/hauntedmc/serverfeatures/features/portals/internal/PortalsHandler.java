@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.portals.internal;
 
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
@@ -204,21 +205,21 @@ public final class PortalsHandler {
         // Sound
         def.sound().ifPresent((Sound s) -> {
             int delay = Math.max(0, def.soundDelay());
-            Bukkit.getScheduler().runTaskLater(feature.getPlugin(), () -> {
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
                 if (!p.isOnline()) return;
                 p.playSound(p.getLocation(), s, 1.0f, 1.0f);
-            }, delay);
+            }, BukkitTime.ticks(delay));
         });
 
         // Particle
         def.particle().ifPresent((org.bukkit.Particle part) -> {
             int delay = Math.max(0, def.particleDelay());
-            Bukkit.getScheduler().runTaskLater(feature.getPlugin(), () -> {
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
                 if (!p.isOnline()) return;
                 Location loc = p.getLocation();
                 // A small burst around player
                 p.spawnParticle(part, loc, 30, 0.3, 0.6, 0.3, 0.0);
-            }, delay);
+            }, BukkitTime.ticks(delay));
         });
     }
 
