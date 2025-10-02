@@ -87,6 +87,11 @@ public final class ConfigTypes {
             if (value instanceof String s) return (T) Double.valueOf(Double.parseDouble(s.trim()));
             throw typeError("double", value);
         }
+        if (type == Float.class || type == float.class) {
+            if (value instanceof Number n) return (T) Float.valueOf(n.floatValue());
+            if (value instanceof String s) return (T) Float.valueOf(Float.parseFloat(s.trim()));
+            throw typeError("float", value);
+        }
         if (type.isEnum()) {
             if (value instanceof String s) {
                 @SuppressWarnings("rawtypes")

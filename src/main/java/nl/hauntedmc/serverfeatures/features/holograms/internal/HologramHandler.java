@@ -9,6 +9,9 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.util.Transformation;
+import org.joml.AxisAngle4f;
+import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,6 +86,14 @@ public final class HologramHandler {
                     d.setBrightness(new Display.Brightness(block, sky));
                 } catch (Throwable ignored) {}
             }
+
+            try {
+                Vector3f translation = new Vector3f(0f, 0f, 0f);
+                Vector3f scale = new Vector3f(3.5f, 3.5f, 3.5f);
+                AxisAngle4f left = new AxisAngle4f(0f, 0f, 0f, 0f);
+                AxisAngle4f right = new AxisAngle4f(0f, 0f, 0f, 0f);
+                d.setTransformation(new Transformation(translation, left, scale, right));
+            } catch (Throwable ignored) {}
 
             d.setPersistent(false);
         });

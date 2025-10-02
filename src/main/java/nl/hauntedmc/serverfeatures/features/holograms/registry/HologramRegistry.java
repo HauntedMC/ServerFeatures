@@ -5,6 +5,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.holograms.Holograms;
 import nl.hauntedmc.serverfeatures.features.holograms.model.HologramDefinition;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 
@@ -50,7 +51,6 @@ public final class HologramRegistry {
             double z = n.get("z").as(Double.class, 0.0D);
             float yaw = n.get("yaw").as(Float.class, 0.0F);
             float pitch = n.get("pitch").as(Float.class, 0.0F);
-
             Display.Billboard billboard = n.get("billboard").as(Display.Billboard.class, Display.Billboard.CENTER);
             TextDisplay.TextAlignment align = n.get("alignment").as(TextDisplay.TextAlignment.class, TextDisplay.TextAlignment.CENTER);
             int lineWidth = n.get("line_width").as(Integer.class, 0);
@@ -58,20 +58,18 @@ public final class HologramRegistry {
             boolean seeThrough = n.get("see_through").as(Boolean.class, false);
             boolean shadowed = n.get("shadowed").as(Boolean.class, true);
             boolean useDefaultBg = n.get("use_default_background").as(Boolean.class, true);
-            Integer bgColor = n.get("background_color").as(Integer.class, null); // ARGB int or null
+            String bgColor = n.get("background_color").as(String.class, null); // ARGB int or null
 
             boolean glow = n.get("glow").as(Boolean.class, false);
-            Integer glowColor = n.get("glow_color").as(Integer.class, null); // ARGB int or null
+            String glowColor = n.get("glow_color").as(String.class, null); // ARGB int or null
 
             Float viewRange = n.get("view_range").as(Float.class, null);
 
             // brightness:
-            Integer brightBlock = null, brightSky = null;
+            Integer brightBlock, brightSky;
             ConfigNode bsec = n.get("brightness");
-            if (bsec != null) {
-                brightBlock = bsec.get("block").as(Integer.class, null);
-                brightSky = bsec.get("sky").as(Integer.class, null);
-            }
+            brightBlock = bsec.get("block").as(Integer.class, null);
+            brightSky = bsec.get("sky").as(Integer.class, null);
 
             HologramDefinition hd = new HologramDefinition(
                     id, world, x, y, z, yaw, pitch,

@@ -79,7 +79,6 @@ public final class Holograms extends BukkitBaseFeature<Meta> {
         this.handler = new HologramHandler(this, registry);
 
         getLifecycleManager().getListenerManager().registerListener(new HologramListener(this));
-
         // spawn after enable (ensure worlds ready)
         getLifecycleManager().getTaskManager().scheduleOneTimeTask(handler::spawnAllSafe);
     }

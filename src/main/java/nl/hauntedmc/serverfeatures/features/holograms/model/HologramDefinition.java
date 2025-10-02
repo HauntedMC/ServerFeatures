@@ -4,7 +4,6 @@ import org.bukkit.World;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 
-import java.util.Locale;
 import java.util.Optional;
 
 public final class HologramDefinition {
@@ -41,9 +40,9 @@ public final class HologramDefinition {
             boolean seeThrough,
             boolean shadowed,
             boolean useDefaultBackground,
-            Integer backgroundARGB,
+            String backgroundARGB,
             boolean glow,
-            Integer glowColorARGB,
+            String glowColorARGB,
             Float viewRange,
             Integer brightnessBlock,
             Integer brightnessSky
@@ -58,24 +57,12 @@ public final class HologramDefinition {
         this.seeThrough = seeThrough;
         this.shadowed = shadowed;
         this.useDefaultBackground = useDefaultBackground;
-        this.backgroundARGB = backgroundARGB;
+        this.backgroundARGB = parseARGB(backgroundARGB);
         this.glow = glow;
-        this.glowColorARGB = glowColorARGB;
+        this.glowColorARGB = parseARGB(glowColorARGB);
         this.viewRange = viewRange;
         this.brightnessBlock = brightnessBlock;
         this.brightnessSky = brightnessSky;
-    }
-
-    public static Display.Billboard parseBillboard(Object v, Display.Billboard def) {
-        if (v == null) return def;
-        try { return Display.Billboard.valueOf(String.valueOf(v).toUpperCase(Locale.ROOT)); }
-        catch (Exception e) { return def; }
-    }
-
-    public static TextDisplay.TextAlignment parseAlignment(Object v, TextDisplay.TextAlignment def) {
-        if (v == null) return def;
-        try { return TextDisplay.TextAlignment.valueOf(String.valueOf(v).toUpperCase(Locale.ROOT)); }
-        catch (Exception e) { return def; }
     }
 
     public static Integer parseARGB(Object v) {
@@ -93,14 +80,6 @@ public final class HologramDefinition {
     public static Integer parseInt(Object v, Integer def) {
         if (v == null) return def;
         try { return Integer.parseInt(String.valueOf(v)); } catch (Exception e) { return def; }
-    }
-    public static Float parseFloat(Object v, Float def) {
-        if (v == null) return def;
-        try { return Float.parseFloat(String.valueOf(v)); } catch (Exception e) { return def; }
-    }
-    public static Double parseDouble(Object v, Double def) {
-        if (v == null) return def;
-        try { return Double.parseDouble(String.valueOf(v)); } catch (Exception e) { return def; }
     }
 
     public Optional<World> resolveWorld(org.bukkit.Server server) {
