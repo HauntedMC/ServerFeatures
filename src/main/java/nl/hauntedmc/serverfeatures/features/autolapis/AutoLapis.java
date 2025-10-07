@@ -20,13 +20,13 @@ public final class AutoLapis extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
-        cfg.put("stack_size", 1);
+        cfg.put("stack_size", 3);
         return cfg;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
-        return new MessageMap(); // No messages needed for this simple perk
+        return new MessageMap();
     }
 
 

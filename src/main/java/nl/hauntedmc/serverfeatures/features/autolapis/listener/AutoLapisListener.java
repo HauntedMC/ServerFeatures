@@ -43,14 +43,6 @@ public final class AutoLapisListener implements Listener {
         handler.ensureMarker(asEnchanting(inv));
     }
 
-    // Keep marker present while selecting an item (updates the table display)
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPrepare(PrepareItemEnchantEvent event) {
-        Inventory inv = event.getInventory();
-        if (!handler.eligible(event.getEnchanter())) return;
-        handler.ensureMarker(asEnchanting(inv));
-    }
-
     // After enchanting, immediately restore the marker stack to full
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEnchant(EnchantItemEvent event) {
