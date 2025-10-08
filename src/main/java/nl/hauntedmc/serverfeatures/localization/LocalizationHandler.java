@@ -2,13 +2,12 @@ package nl.hauntedmc.serverfeatures.localization;
 
 import nl.hauntedmc.commonlib.localization.Language;
 import nl.hauntedmc.commonlib.localization.MessageMap;
-import nl.hauntedmc.commonlib.localization.MessageType;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.commonlib.util.PlaceholderUtils;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.common.resources.ResourceHandler;
-import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -78,13 +77,12 @@ public class LocalizationHandler {
 
     /**
      * Entry point for retrieving a localized message.
-     * Example usage:
-     *     Component comp = localizationHandler
-     *                           .getMessage("welcome.message")
-     *                           .forAudience(someAudience)
-     *                           .ofType(MessageType.MiniMessage)
-     *                           .withPlaceholders(somePlaceholders)
-     *                           .build();
+     * Usage:
+     *   Component comp = localizationHandler
+     *       .getMessage("welcome.message")
+     *       .forAudience(player)
+     *       .withPlaceholders(Map.of("player", player.getName()))
+     *       .build();
      */
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
@@ -93,7 +91,6 @@ public class LocalizationHandler {
     public class MessageBuilder {
         private final String key;
         private Audience audience;
-        private MessageType messageType = MessageType.Legacy;
         private Map<String, String> placeholders;
 
         private MessageBuilder(String key) {
@@ -110,15 +107,6 @@ public class LocalizationHandler {
         }
 
         /**
-         * Specify the deserialization method: Legacy or MiniMessage.
-         * Defaults to MessageType.Legacy.
-         */
-        public MessageBuilder ofType(MessageType messageType) {
-            this.messageType = messageType;
-            return this;
-        }
-
-        /**
          * Set the placeholders to apply to the message.
          */
         public MessageBuilder withPlaceholders(Map<String, String> placeholders) {
@@ -128,31 +116,26 @@ public class LocalizationHandler {
 
         /**
          * Build and return the configured message component.
+         * Always uses Hybrid behavior: legacy (&/§, incl. hex) -> MiniMessage tags -> MiniMessage parse.
          */
         public Component build() {
-            String rawMessage;
-            // If audience is a Player, use translated (localized) version.
-            if (audience instanceof Player) {
-                rawMessage = getTranslateMessage(key, (Player) audience);
-            } else {
-                // Otherwise, use the default message.
-                rawMessage = defaultMessagesResource.getConfig()
-                        .getString(key, "&cMessage not found: " + key);
-            }
-            return parseAndDeserializeToComponent(rawMessage, messageType, placeholders, audience);
+            String rawMessage = (audience instanceof Player)
+                    ? getTranslateMessage(key, (Player) audience)
+                    : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
+
+            return parseToComponent(rawMessage, placeholders, audience);
         }
 
+        /**
+         * Build and return a plain string form (primarily for logs/console).
+         * Keeps existing legacy serialization behavior after placeholder processing.
+         */
         public String buildPlain() {
-            String rawMessage;
-            // If audience is a Player, use translated (localized) version.
-            if (audience instanceof Player) {
-                rawMessage = getTranslateMessage(key, (Player) audience);
-            } else {
-                // Otherwise, use the default message.
-                rawMessage = defaultMessagesResource.getConfig()
-                        .getString(key, "&cMessage not found: " + key);
-            }
-            return parseAndDeserializeToString(rawMessage, placeholders, audience);
+            String rawMessage = (audience instanceof Player)
+                    ? getTranslateMessage(key, (Player) audience)
+                    : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
+
+            return parseToPlainString(rawMessage, placeholders, audience);
         }
     }
 
@@ -172,43 +155,92 @@ public class LocalizationHandler {
             }
         }
         if (message == null) {
-            message = defaultMessagesResource.getConfig()
-                    .getString(key, "&cMessage not found: " + key);
+            message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
         }
         return message;
     }
 
-
     /**
-     * Applies placeholder processing, color parsing, and then serializes the message string to a Component.
-     * If MessageType is MiniMessage, an alternate serialization is applied.
+     * Applies placeholders + PAPI, converts legacy to MiniMessage tags, then parses as MiniMessage Component.
      */
-    private Component parseAndDeserializeToComponent(String message, MessageType messageType,
-                                                     Map<String, String> placeholders, Audience audience) {
+    private Component parseToComponent(String message,
+                                       Map<String, String> placeholders,
+                                       Audience audience) {
         if (placeholders != null) {
             message = PlaceholderUtils.parsePlaceholders(message, placeholders);
         }
         if (audience instanceof Player) {
             message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
         }
-        message = ComponentUtils.serializeLegacyString(message);
-        return (messageType == MessageType.MiniMessage)
-                ? ComponentUtils.deserializeMMComponent(message)
-                : ComponentUtils.deserializeComponent(message);
+        String mmReady = legacyToMiniMessage(message);
+        return ComponentUtils.deserializeMMComponent(mmReady);
     }
 
     /**
-     * Applies placeholder processing, color parsing, and then returns the final message string.
+     * Applies placeholders + PAPI, then returns a legacy-serialized string.
+     * (Useful for logging; not parsed by MiniMessage.)
      */
-    private String parseAndDeserializeToString(String message,
-                                                     Map<String, String> placeholders, Audience audience) {
+    private String parseToPlainString(String message,
+                                      Map<String, String> placeholders,
+                                      Audience audience) {
         if (placeholders != null) {
             message = PlaceholderUtils.parsePlaceholders(message, placeholders);
         }
         if (audience instanceof Player) {
             message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
         }
-        message = ComponentUtils.serializeLegacyString(message);
-        return message;
+        // Preserve legacy look for plain text output
+        return ComponentUtils.serializeLegacyString(message);
+    }
+
+    /**
+     * Convert legacy color/format codes (both & and §), including Spigot hex (&x&R&RG&G&B&B) and &#RRGGBB,
+     * into MiniMessage tags so strings can mix legacy and MiniMessage safely.
+     */
+    private static String legacyToMiniMessage(String input) {
+        if (input == null || input.isEmpty()) return input;
+
+        // Normalize § to &
+        input = input.replace('§', '&');
+
+        // Hex color formats:
+        // 1) "&#RRGGBB"  -> "<#RRGGBB>"
+        input = input.replaceAll("(?i)&#([0-9a-f]{6})", "<#$1>");
+
+        // 2) "&x&R&R&G&G&B&B" (Spigot-style) -> "<#RRGGBB>"
+        input = input.replaceAll(
+                "(?i)&x&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])",
+                "<#$1$2$3$4$5$6>"
+        );
+
+        // Standard color codes
+        input = input
+                .replaceAll("(?i)&0", "<black>")
+                .replaceAll("(?i)&1", "<dark_blue>")
+                .replaceAll("(?i)&2", "<dark_green>")
+                .replaceAll("(?i)&3", "<dark_aqua>")
+                .replaceAll("(?i)&4", "<dark_red>")
+                .replaceAll("(?i)&5", "<dark_purple>")
+                .replaceAll("(?i)&6", "<gold>")
+                .replaceAll("(?i)&7", "<gray>")
+                .replaceAll("(?i)&8", "<dark_gray>")
+                .replaceAll("(?i)&9", "<blue>")
+                .replaceAll("(?i)&a", "<green>")
+                .replaceAll("(?i)&b", "<aqua>")
+                .replaceAll("(?i)&c", "<red>")
+                .replaceAll("(?i)&d", "<light_purple>")
+                .replaceAll("(?i)&e", "<yellow>")
+                .replaceAll("(?i)&f", "<white>");
+
+        // Formatting codes
+        input = input
+                .replaceAll("(?i)&l", "<bold>")
+                .replaceAll("(?i)&n", "<underlined>")
+                .replaceAll("(?i)&m", "<strikethrough>")
+                .replaceAll("(?i)&o", "<italic>")
+                .replaceAll("(?i)&k", "<obfuscated>")
+                .replaceAll("(?i)&r", "<reset>");
+
+        return input;
     }
 }

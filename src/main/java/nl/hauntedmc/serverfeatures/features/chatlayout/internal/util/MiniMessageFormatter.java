@@ -60,6 +60,7 @@ public class MiniMessageFormatter {
             .tags(TagResolver.builder()
                     .resolver(StandardTags.color())
                     .resolver(StandardTags.reset())
+                    .resolver(StandardTags.gradient())
                     .resolver(StandardTags.decorations())
                     .resolver(StandardTags.clickEvent())
                     .resolver(StandardTags.hoverEvent())
