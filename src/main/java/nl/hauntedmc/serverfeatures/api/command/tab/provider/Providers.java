@@ -71,14 +71,15 @@ public final class Providers {
     public static SuggestionProvider yesNo()    { return staticList("yes","no"); }
     public static SuggestionProvider onOff()    { return staticList("on","off"); }
 
-    /** Integer range with a rolling window around the typed value to avoid huge lists. */
+    /** Integer range with a rolling window; capped to avoid huge lists. */
     public static SuggestionProvider intRange(int min, int max, int step) {
         return ctx -> {
             if (step <= 0 || max < min) return List.of();
             String token = ctx.lastTokenOrEmpty();
             boolean numeric = token.chars().allMatch(Character::isDigit);
             int focus = numeric ? safeParse(token, min) : min;
-            int window = Math.max(step, Math.min(1000, (max - min + 1))); // cap the window
+            int span = Math.max(0, max - min);
+            int window = Math.max(step, Math.min(1000, span)); // Cap
             int start = clampToStep(Math.max(min, focus - window), min, step);
             int end = Math.min(max, focus + window);
             LinkedHashSet<String> out = new LinkedHashSet<>();
@@ -93,7 +94,7 @@ public final class Providers {
             if (step <= 0 || max < min || scale < 0 || scale > 6) return List.of();
             String token = ctx.lastTokenOrEmpty();
             double focus = safeParseDouble(token, min);
-            double span = max - min;
+            double span = Math.max(0, max - min);
             double window = Math.max(step, Math.min(100 * step, span));
             double start = Math.max(min, focus - window);
             double end = Math.min(max, focus + window);

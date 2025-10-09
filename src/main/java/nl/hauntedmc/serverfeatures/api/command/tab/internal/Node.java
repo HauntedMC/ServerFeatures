@@ -38,7 +38,7 @@ public abstract class Node {
         return true;
     }
 
-    /** True if this node consumes the argument fully (literals must match case-insensitively). */
+    /** True if this node consumes the argument fully. */
     public abstract boolean matchesFully(String arg);
 
     /** Suggestions produced by this node given the current token (not previous args). */

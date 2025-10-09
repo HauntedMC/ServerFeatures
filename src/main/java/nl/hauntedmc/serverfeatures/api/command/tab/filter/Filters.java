@@ -36,7 +36,7 @@ public final class Filters {
         };
     }
 
-    /** Prefix first; if none, then contains — both case-insensitive. */
+    /** Prefix first; then contains — both case-insensitive. */
     public static SuggestionFilter prefixThenContains() {
         return (token, candidates) -> {
             String t = token.toLowerCase(Locale.ROOT);
