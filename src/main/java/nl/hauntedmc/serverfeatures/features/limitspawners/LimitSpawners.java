@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
 import nl.hauntedmc.serverfeatures.features.limitspawners.listener.LimitSpawnersListener;
+import nl.hauntedmc.serverfeatures.features.limitspawners.listener.TransformListener;
 import nl.hauntedmc.serverfeatures.features.limitspawners.meta.Meta;
 
 public final class LimitSpawners extends BukkitBaseFeature<Meta> {
@@ -33,7 +34,8 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         this.handler = new LimitSpawnersHandler(this);
-        getLifecycleManager().getListenerManager().registerListener(new LimitSpawnersListener(handler));
+        getLifecycleManager().getListenerManager().registerListener(new TransformListener(handler));
+        getLifecycleManager().getListenerManager().registerListener(new LimitSpawnersListener(this, handler));
     }
 
     @Override

@@ -4,146 +4,127 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Core logic & lightweight tracking.
- * Per-spawner buckets are keyed by (world UUID, x, y, z) of the spawner block location.
- * We mark spawned mobs via PDC so we can rebuild counts on chunk load and clean safely.
+ * Lightweight per-spawner cap enforcement without PDC persistence.
+ * - buckets: SpawnerKey -> set of alive entity UUIDs from that spawner
+ * - reverse: entity UUID -> SpawnerKey (for O(1) unregister/transfer)
+ * Scope: runtime-only; we don't persist across unloads/restarts.
  */
 public final class LimitSpawnersHandler {
-
-    private static final String PDC_ORIGIN_KEY = "limitspawners_origin"; // String: worldUUID:x:y:y:z
-
-    private final NamespacedKey originKey;
 
     private final int maxSpawn;
     private final boolean removeOnChunkUnload;
 
-    /** Map of spawner key -> set of tracked entity UUIDs currently alive (best-effort, pruned lazily). */
+    /** Per-spawner set of currently alive entity UUIDs (best-effort, pruned lazily). */
     private final Map<SpawnerKey, Set<UUID>> buckets = new ConcurrentHashMap<>();
+    /** Reverse index for O(1) lookups on death/remove/transform. */
+    private final Map<UUID, SpawnerKey> reverse = new ConcurrentHashMap<>();
 
     public LimitSpawnersHandler(LimitSpawners feature) {
-        this.originKey = new NamespacedKey(feature.getPlugin(), PDC_ORIGIN_KEY);
-
         var cfg = feature.getConfigHandler();
         this.maxSpawn = Math.max(0, cfg.node("max_spawn").as(Integer.class, 4));
         this.removeOnChunkUnload = cfg.node("remove_mobs_on_chunk_unload").as(Boolean.class, true);
     }
 
-    public int getMaxSpawn() { return maxSpawn; }
-    public boolean isRemoveOnChunkUnload() { return removeOnChunkUnload; }
-
-    /* ===== Tagging helpers ===== */
-
-    public void tagEntityWithOrigin(LivingEntity e, SpawnerKey key) {
-        PersistentDataContainer pdc = e.getPersistentDataContainer();
-        pdc.set(originKey, PersistentDataType.STRING, key.toString());
-    }
-
-    public Optional<SpawnerKey> readOrigin(Entity e) {
-        PersistentDataContainer pdc = e.getPersistentDataContainer();
-        String raw = pdc.get(originKey, PersistentDataType.STRING);
-        if (raw == null || raw.isEmpty()) return Optional.empty();
-        try {
-            SpawnerKey k = SpawnerKey.fromString(raw);
-            return Optional.ofNullable(k);
-        } catch (Exception ex) {
-            return Optional.empty();
-        }
-    }
-
-    public void clearOrigin(Entity e) {
-        e.getPersistentDataContainer().remove(originKey);
-    }
-
-    /* ===== Bucket management ===== */
-
-    private Set<UUID> getBucket(SpawnerKey key) {
-        return buckets.computeIfAbsent(key, k -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
-    }
-
-    /** Return current alive count for a spawner, pruning dead/stale entries. */
-    public int currentAliveCount(SpawnerKey key) {
-        Set<UUID> ids = buckets.get(key);
-        if (ids == null || ids.isEmpty()) return 0;
-
-        // prune dead/stale
-        ids.removeIf(uuid -> {
-            Entity ent = Bukkit.getEntity(uuid);
-            return !(ent instanceof LivingEntity le) || le.isDead() || !le.isValid();
-        });
-        return ids.size();
-    }
-
-    /** Try to register a newly spawned entity into the bucket; return true if allowed, false if over limit. */
+    /**
+     * Attempt to register a newly spawned entity for a specific spawner.
+     * @return true if allowed, false if the spawner is at/over the cap.
+     */
     public boolean tryRegisterSpawn(LivingEntity e, SpawnerKey key) {
         Set<UUID> ids = getBucket(key);
-        // prune first (cheap set-based cleanup)
-        if (!ids.isEmpty()) {
-            ids.removeIf(uuid -> {
-                Entity ent = Bukkit.getEntity(uuid);
-                return !(ent instanceof LivingEntity le) || le.isDead() || !le.isValid();
-            });
-        }
+        prune(ids);
         if (ids.size() >= maxSpawn) return false;
 
-        ids.add(e.getUniqueId());
-        tagEntityWithOrigin(e, key);
-        // Optional: encourage removal if chunk unload removal is enabled (server may cull more aggressively)
+        UUID id = e.getUniqueId();
+        ids.add(id);
+        reverse.put(id, key);
+
         if (removeOnChunkUnload) {
+            // Hint to the server that these should be culled when far; explicit unload cleanup still runs.
             e.setRemoveWhenFarAway(true);
         }
         return true;
     }
 
-    /** Called when an entity is removed/dead to keep counts correct. */
+    /**
+     * Unregister an entity if it was tracked (death, despawn, plugin removal, etc).
+     */
     public void unregisterIfTracked(Entity e) {
-        readOrigin(e).ifPresent(key -> {
-            Set<UUID> ids = buckets.get(key);
-            if (ids != null) {
-                ids.remove(e.getUniqueId());
-                if (ids.isEmpty()) buckets.remove(key);
-            }
-            clearOrigin(e);
-        });
-    }
+        UUID id = e.getUniqueId();
+        SpawnerKey key = reverse.remove(id);
+        if (key == null) return;
 
-    /* ===== Chunk hooks ===== */
-
-    /** Re-index tracked entities from this chunk into buckets (used on chunk load). */
-    public void indexChunk(Chunk chunk) {
-        for (Entity ent : chunk.getEntities()) {
-            if (!(ent instanceof LivingEntity)) continue;
-            Optional<SpawnerKey> key = readOrigin(ent);
-            if (key.isEmpty()) continue;
-            getBucket(key.get()).add(ent.getUniqueId());
+        Set<UUID> ids = buckets.get(key);
+        if (ids != null) {
+            ids.remove(id);
+            if (ids.isEmpty()) buckets.remove(key);
         }
     }
 
     /**
+     * Transfer tracking from an original entity to its transformed replacement (e.g., villager -> zombie villager).
+     * No cap check: this replaces an existing tracked entity 1:1.
+     */
+    public void transferTracking(Entity original, LivingEntity transformed) {
+        UUID oldId = original.getUniqueId();
+        SpawnerKey key = reverse.get(oldId);
+        if (key == null) return; // not tracked by us
+
+        // Atomic-ish swap in our maps without a cap check.
+        Set<UUID> ids = getBucket(key);
+        UUID newId = transformed.getUniqueId();
+
+        ids.add(newId);
+        reverse.put(newId, key);
+
+        // keep Paper's despawn hint consistent with config
+        if (removeOnChunkUnload) {
+            transformed.setRemoveWhenFarAway(true);
+        }
+
+        // Now drop the old mapping
+        reverse.remove(oldId);
+        ids.remove(oldId);
+        if (ids.isEmpty()) {
+            buckets.remove(key);
+        }
+    }
+
+    /**
+     * Current alive count for a spawner (after pruning stale UUIDs).
+     */
+    public int currentAliveCount(SpawnerKey key) {
+        Set<UUID> ids = buckets.get(key);
+        if (ids == null || ids.isEmpty()) return 0;
+        prune(ids);
+        return ids.size();
+    }
+
+    /**
      * On chunk unload:
-     * - If configured, remove all tracked spawner mobs in this chunk (recommended).
-     * - Always drop bucket entries for spawners in this chunk to avoid stale refs.
+     * - If configured, remove all tracked spawner mobs in this chunk (hard remove).
+     * - Always drop bucket entries whose spawner position lies in this chunk.
      */
     public void handleChunkUnload(Chunk chunk) {
         if (removeOnChunkUnload) {
             for (Entity ent : chunk.getEntities()) {
-                if (!(ent instanceof LivingEntity le)) continue;
-                if (readOrigin(le).isPresent()) {
-                    le.remove(); // hard remove to ensure no lingering counts
+                if (ent instanceof LivingEntity) {
+                    UUID id = ent.getUniqueId();
+                    if (reverse.containsKey(id)) {
+                        reverse.remove(id);
+                        ent.remove();
+                    }
                 }
             }
         }
-        // Buckets are per-spawner (x,y,z). Remove any bucket whose spawner is in this chunk.
+
         UUID worldId = chunk.getWorld().getUID();
         int baseX = chunk.getX() << 4;
         int baseZ = chunk.getZ() << 4;
@@ -151,12 +132,34 @@ public final class LimitSpawnersHandler {
         buckets.keySet().removeIf(key ->
                 key.worldId().equals(worldId)
                         && key.x() >= baseX && key.x() < (baseX + 16)
-                        && key.z() >= baseZ && key.z() < (baseZ + 16));
+                        && key.z() >= baseZ && key.z() < (baseZ + 16)
+        );
     }
 
-    /* ===== Utility ===== */
+    /**
+     * Optional hardening: drop all state for a world when it unloads.
+     */
+    public void dropWorld(UUID worldId) {
+        buckets.keySet().removeIf(k -> k.worldId().equals(worldId));
+        reverse.entrySet().removeIf(e -> e.getValue().worldId().equals(worldId));
+    }
 
     public Optional<World> resolveWorld(UUID worldId) {
         return Optional.ofNullable(Bukkit.getWorld(worldId));
+    }
+
+    private Set<UUID> getBucket(SpawnerKey key) {
+        return buckets.computeIfAbsent(key, k -> Collections.newSetFromMap(new ConcurrentHashMap<>()));
+    }
+
+    /**
+     * Remove dead/invalid UUIDs from a bucket (cheap, bounded by maxSpawn).
+     */
+    private void prune(Set<UUID> ids) {
+        if (ids.isEmpty()) return;
+        ids.removeIf(uuid -> {
+            Entity ent = Bukkit.getEntity(uuid);
+            return !(ent instanceof LivingEntity le) || le.isDead() || !le.isValid();
+        });
     }
 }
