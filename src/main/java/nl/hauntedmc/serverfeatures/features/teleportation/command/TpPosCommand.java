@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.teleportation.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 import nl.hauntedmc.serverfeatures.features.teleportation.service.TeleportService;
 import nl.hauntedmc.serverfeatures.features.teleportation.util.Msg;
@@ -19,7 +19,7 @@ public class TpPosCommand extends FeatureCommand {
     private final TeleportService service;
 
     public TpPosCommand(Teleportation feature, TeleportService service) {
-        super(new CommandSpec.Builder("tppos").build());
+        super(new CommandMeta.Builder("tppos").build());
         this.feature = feature;
         this.service = service;
     }

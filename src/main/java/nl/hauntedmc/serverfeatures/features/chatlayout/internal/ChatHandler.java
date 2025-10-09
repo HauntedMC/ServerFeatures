@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 
-import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.MiniMessageFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.StarTierModifier;

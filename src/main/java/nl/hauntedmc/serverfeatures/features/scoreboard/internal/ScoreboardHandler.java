@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
-import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
-import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.internal.localization.LocalizationHandler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;

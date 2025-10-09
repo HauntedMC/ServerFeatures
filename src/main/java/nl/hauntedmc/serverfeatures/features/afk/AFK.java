@@ -4,7 +4,7 @@ import nl.hauntedmc.commonlib.config.ConfigMap;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.APIRegistry;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.afk.command.AfkCommand;
 import nl.hauntedmc.serverfeatures.features.afk.internal.AfkAPI;

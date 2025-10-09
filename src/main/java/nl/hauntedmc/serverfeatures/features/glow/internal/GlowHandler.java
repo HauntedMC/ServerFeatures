@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.glow.internal;
 
 import net.kyori.adventure.text.format.NamedTextColor;
-import nl.hauntedmc.serverfeatures.common.scoreboard.ScoreboardManager;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import org.bukkit.entity.Player;

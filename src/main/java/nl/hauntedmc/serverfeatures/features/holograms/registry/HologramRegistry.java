@@ -2,10 +2,9 @@ package nl.hauntedmc.serverfeatures.features.holograms.registry;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.holograms.Holograms;
 import nl.hauntedmc.serverfeatures.features.holograms.model.HologramDefinition;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.TextDisplay;
 

@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures.features.chatlog.command;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -16,7 +16,7 @@ public class ChatReportCommand extends FeatureCommand {
     private final ChatLog feature;
 
     public ChatReportCommand(ChatLog feature) {
-        super(new CommandSpec.Builder("chatreport").build());
+        super(new CommandMeta.Builder("chatreport").build());
         this.feature = feature;
     }
 

@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.portals.internal;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;

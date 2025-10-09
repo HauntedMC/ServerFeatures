@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 

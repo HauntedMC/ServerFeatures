@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.broadcast.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.broadcast.Broadcast;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -21,7 +21,7 @@ public class BroadcastCommand extends FeatureCommand {
     private final Broadcast feature;
 
     public BroadcastCommand(Broadcast feature) {
-        super(new CommandSpec.Builder("broadcast").build());
+        super(new CommandMeta.Builder("broadcast").build());
         this.feature = feature;
     }
 

@@ -10,7 +10,7 @@ import net.citizensnpcs.api.util.DataKey;
 
 import net.milkbowl.vault.economy.Economy;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import org.bukkit.Material;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.LivingEntity;

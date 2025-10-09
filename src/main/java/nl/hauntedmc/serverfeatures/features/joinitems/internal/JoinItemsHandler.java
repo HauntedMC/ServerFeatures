@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.joinitems.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.joinitems.JoinItems;
 import nl.hauntedmc.serverfeatures.features.joinitems.model.JoinItemDefinition;
 import org.bukkit.Material;

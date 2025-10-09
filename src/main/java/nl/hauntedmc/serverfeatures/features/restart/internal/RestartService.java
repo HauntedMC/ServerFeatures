@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.restart.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -170,7 +171,7 @@ public class RestartService {
     private void scheduleInSeconds(int delaySeconds, Runnable action) {
         long ticks = Math.max(0, delaySeconds) * 20L;
         feature.getLifecycleManager().getTaskManager()
-                .scheduleDelayedTask(action, nl.hauntedmc.serverfeatures.common.util.BukkitTime.ticks(ticks));
+                .scheduleDelayedTask(action, BukkitTime.ticks(ticks));
     }
 
     private List<Integer> parseSchedule() {

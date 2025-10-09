@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.restart.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import nl.hauntedmc.serverfeatures.features.restart.internal.RestartService;
 import org.bukkit.command.CommandSender;
@@ -19,7 +19,7 @@ public class RestartCommand extends FeatureCommand {
     private final RestartService service;
 
     public RestartCommand(Restart feature, RestartService service) {
-        super(new CommandSpec.Builder("restart")
+        super(new CommandMeta.Builder("restart")
                 .description("Restart the server with a countdown, or immediately with 'force'.")
                 .usage("/restart [force]")
                 .aliases(List.of("reboot"))

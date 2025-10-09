@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.AntiRaidFarm;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.internal.AntiRaidFarmHandler;
 import org.bukkit.command.CommandSender;
@@ -20,7 +20,7 @@ public final class AntiRaidFarmCommand extends FeatureCommand {
     private final AntiRaidFarmHandler handler;
 
     public AntiRaidFarmCommand(AntiRaidFarm feature, AntiRaidFarmHandler handler) {
-        super(new CommandSpec.Builder("antiraidfarm")
+        super(new CommandMeta.Builder("antiraidfarm")
                 .permission(ADMIN_PERM)
                 .build());
         this.feature = feature;

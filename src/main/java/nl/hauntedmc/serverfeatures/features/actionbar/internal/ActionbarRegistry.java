@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 
 import java.util.ArrayList;

@@ -7,7 +7,7 @@ import com.github.retrooper.packetevents.protocol.world.Location;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
-import nl.hauntedmc.serverfeatures.common.packet.Packet;
+import nl.hauntedmc.serverfeatures.api.io.packet.Packet;
 import org.bukkit.entity.Player;
 
 import java.util.List;

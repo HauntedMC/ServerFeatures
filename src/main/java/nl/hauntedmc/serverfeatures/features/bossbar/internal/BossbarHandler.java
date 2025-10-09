@@ -2,10 +2,10 @@ package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
-import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
+import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BossBar;

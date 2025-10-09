@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
 import nl.hauntedmc.commonlib.util.CastUtils;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;

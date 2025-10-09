@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.ItemUtils;
 import org.bukkit.Bukkit;
@@ -23,7 +23,7 @@ public class SilkSpawnerCommand extends FeatureCommand {
     private final SilkSpawners feature;
 
     public SilkSpawnerCommand(SilkSpawners feature) {
-        super(new CommandSpec.Builder("silkspawners").build());
+        super(new CommandMeta.Builder("silkspawners").build());
         this.feature = feature;
     }
 

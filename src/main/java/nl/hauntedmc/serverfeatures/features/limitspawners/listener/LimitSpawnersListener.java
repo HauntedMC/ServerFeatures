@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.listener;
 
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;

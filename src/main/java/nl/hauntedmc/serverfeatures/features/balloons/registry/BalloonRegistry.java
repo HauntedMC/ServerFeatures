@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.balloons.registry;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;

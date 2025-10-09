@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal.packet;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
 
-import nl.hauntedmc.serverfeatures.common.packet.Packet;
+import nl.hauntedmc.serverfeatures.api.io.packet.Packet;
 import org.bukkit.entity.Player;
 
 

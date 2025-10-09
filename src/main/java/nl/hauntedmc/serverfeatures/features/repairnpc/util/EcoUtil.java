@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.repairnpc.util;
 
 import net.milkbowl.vault.economy.Economy;
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.repairnpc.RepairNPC;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;

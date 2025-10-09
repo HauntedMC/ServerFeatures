@@ -8,9 +8,6 @@ import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarHandler;
 import nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Actionbar extends BukkitBaseFeature<Meta> {

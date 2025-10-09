@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.afk.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.afk.AFK;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -14,7 +14,7 @@ public class AfkCommand extends FeatureCommand {
     private final AFK feature;
 
     public AfkCommand(AFK feature) {
-        super(new CommandSpec.Builder("afk").build());
+        super(new CommandMeta.Builder("afk").build());
         this.feature = feature;
     }
 

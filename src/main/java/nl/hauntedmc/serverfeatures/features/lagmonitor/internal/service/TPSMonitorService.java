@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor.internal.service;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.LagMonitor;
 import org.bukkit.Bukkit;
 import java.util.ArrayDeque;

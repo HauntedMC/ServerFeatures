@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.skins.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import nl.hauntedmc.serverfeatures.features.skins.service.SkinService;
 import org.bukkit.Bukkit;
@@ -21,7 +21,7 @@ public class SkinsCommand extends FeatureCommand {
     private final SkinService service;
 
     public SkinsCommand(Skins feature) {
-        super(new CommandSpec.Builder("skin").build());
+        super(new CommandMeta.Builder("skin").build());
         this.feature = feature;
         this.service = new SkinService(feature);
     }

@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.chattools.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.chattools.ChatTools;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -17,7 +17,7 @@ public class ChatCommand extends FeatureCommand {
     private final ChatTools feature;
 
     public ChatCommand(ChatTools feature) {
-        super(new CommandSpec.Builder("chat").build());
+        super(new CommandMeta.Builder("chat").build());
         this.feature = feature;
     }
 

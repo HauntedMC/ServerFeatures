@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import org.bukkit.NamespacedKey;
@@ -17,7 +17,7 @@ public class CustomRecipesCommand extends FeatureCommand {
     private final CustomRecipes feature;
 
     public CustomRecipesCommand(CustomRecipes feature) {
-        super(new CommandSpec.Builder("customrecipes").build());
+        super(new CommandMeta.Builder("customrecipes").build());
         this.feature = feature;
     }
 

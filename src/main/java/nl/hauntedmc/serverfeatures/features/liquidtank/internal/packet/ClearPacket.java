@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
-import nl.hauntedmc.serverfeatures.common.packet.Packet;
+import nl.hauntedmc.serverfeatures.api.io.packet.Packet;
 import org.bukkit.entity.Player;
 
 /**

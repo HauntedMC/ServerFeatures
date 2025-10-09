@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 
 import java.util.Collections;

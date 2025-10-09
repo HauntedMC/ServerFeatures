@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.worldeditvisualizer.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.internal.VisualizationService;
 import org.bukkit.command.CommandSender;
@@ -16,7 +16,7 @@ public class WorldEditVisualizerCommand extends FeatureCommand {
     private final VisualizationService service;
 
     public WorldEditVisualizerCommand(WorldEditVisualizer feature, VisualizationService service) {
-        super(new CommandSpec.Builder("worldeditvisualizer")
+        super(new CommandMeta.Builder("worldeditvisualizer")
                 .description("Toggle the WorldEdit selection visualizer")
                 .usage("/wevis toggle")
                 .aliases(List.of("wevis"))

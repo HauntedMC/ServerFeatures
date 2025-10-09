@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.joinitems.listener;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.joinitems.JoinItems;
 import nl.hauntedmc.serverfeatures.features.joinitems.internal.JoinItemsHandler;
 import nl.hauntedmc.serverfeatures.features.joinitems.model.JoinItemDefinition;

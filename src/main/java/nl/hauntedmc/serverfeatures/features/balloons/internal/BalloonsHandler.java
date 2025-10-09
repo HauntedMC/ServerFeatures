@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.balloons.internal;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import nl.hauntedmc.serverfeatures.features.balloons.util.Distance;

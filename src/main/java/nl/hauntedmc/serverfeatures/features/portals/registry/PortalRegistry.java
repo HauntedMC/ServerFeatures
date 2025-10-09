@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.portals.registry;
 
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;

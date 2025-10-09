@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.versionrecommender.internal;
 
-import nl.hauntedmc.serverfeatures.common.hook.ViaVersionHook;
+import nl.hauntedmc.serverfeatures.api.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.VersionRecommender;
 import org.bukkit.entity.Player;
 

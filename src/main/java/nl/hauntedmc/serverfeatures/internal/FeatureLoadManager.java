@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.internal;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.internal.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import nl.hauntedmc.serverfeatures.internal.action.disable.FeatureDisableResponse;
@@ -14,7 +14,7 @@ import nl.hauntedmc.serverfeatures.internal.action.softreload.FeatureSoftReloadR
 import nl.hauntedmc.serverfeatures.internal.action.softreload.FeatureSoftReloadResult;
 import nl.hauntedmc.serverfeatures.internal.dependency.DependencyCheckResult;
 import nl.hauntedmc.serverfeatures.internal.dependency.FeatureDependencyManager;
-import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.internal.localization.LocalizationHandler;
 
 import java.lang.reflect.Method;
 import java.util.*;

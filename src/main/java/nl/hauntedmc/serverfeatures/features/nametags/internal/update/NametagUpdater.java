@@ -1,14 +1,14 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.update;
 
-import nl.hauntedmc.serverfeatures.common.packet.BundleDelimiterPacket;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.io.packet.BundleDelimiterPacket;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
-import nl.hauntedmc.serverfeatures.common.packet.PacketManager;
-import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
+import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
+import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;

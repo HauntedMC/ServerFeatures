@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.portals.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.internal.PortalsHandler;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
@@ -34,7 +34,7 @@ public class PortalsCommand extends FeatureCommand {
     private static final List<String> PLACEABLE_BLOCKS = computePlaceableBlocks();
 
     public PortalsCommand(Portals feature, PortalsHandler handler) {
-        super(new CommandSpec.Builder("portals").permission(ADMIN_PERM).build());
+        super(new CommandMeta.Builder("portals").permission(ADMIN_PERM).build());
         this.feature = feature;
         this.registry = feature.getRegistry();
         this.handler = handler;

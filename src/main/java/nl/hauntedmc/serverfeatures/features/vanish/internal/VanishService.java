@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
 import org.bukkit.Bukkit;

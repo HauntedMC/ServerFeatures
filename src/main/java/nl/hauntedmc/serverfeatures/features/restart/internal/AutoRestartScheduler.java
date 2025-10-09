@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.restart.internal;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 
 import java.time.*;

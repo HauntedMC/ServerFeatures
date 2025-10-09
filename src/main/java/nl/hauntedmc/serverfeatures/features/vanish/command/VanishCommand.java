@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -17,7 +17,7 @@ public class VanishCommand extends FeatureCommand {
     private final Vanish feature;
 
     public VanishCommand(Vanish feature) {
-        super(new CommandSpec.Builder("vanish").build());
+        super(new CommandMeta.Builder("vanish").build());
         this.feature = feature;
     }
 

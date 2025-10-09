@@ -6,11 +6,11 @@ import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
 import net.kyori.adventure.text.format.NamedTextColor;
-import nl.hauntedmc.serverfeatures.api.visualisation.VisualHandle;
-import nl.hauntedmc.serverfeatures.api.visualisation.Visualisation;
-import nl.hauntedmc.serverfeatures.api.visualisation.display.DisplayVisualisation;
-import nl.hauntedmc.serverfeatures.api.visualisation.options.VisualOptions;
-import nl.hauntedmc.serverfeatures.api.visualisation.shape.CuboidRegionShape;
+import nl.hauntedmc.serverfeatures.api.gui.displays.VisualHandle;
+import nl.hauntedmc.serverfeatures.api.gui.displays.Visualisation;
+import nl.hauntedmc.serverfeatures.api.gui.displays.visualisation.CubeRegionVisualisation;
+import nl.hauntedmc.serverfeatures.api.gui.displays.options.VisualOptions;
+import nl.hauntedmc.serverfeatures.api.gui.displays.shape.CuboidRegionShape;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -36,7 +36,7 @@ public final class VisualizationService {
 
     public VisualizationService(WorldEditVisualizer feature) {
         this.feature = feature;
-        this.visualiser = new DisplayVisualisation(feature.getPlugin());
+        this.visualiser = new CubeRegionVisualisation(feature.getPlugin());
     }
 
     /* Public API */

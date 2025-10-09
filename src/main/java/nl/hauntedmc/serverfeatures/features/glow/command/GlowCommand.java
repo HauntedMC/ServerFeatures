@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.glow.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.menu.GlowMenu;
 import org.bukkit.command.CommandSender;
@@ -23,7 +23,7 @@ public class GlowCommand extends FeatureCommand {
     private final Glow feature;
 
     public GlowCommand(Glow feature) {
-        super(new CommandSpec.Builder("glow").build());
+        super(new CommandMeta.Builder("glow").build());
         this.feature = feature;
     }
 

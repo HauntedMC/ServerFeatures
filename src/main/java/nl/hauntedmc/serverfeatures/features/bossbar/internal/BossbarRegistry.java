@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
-import nl.hauntedmc.serverfeatures.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;

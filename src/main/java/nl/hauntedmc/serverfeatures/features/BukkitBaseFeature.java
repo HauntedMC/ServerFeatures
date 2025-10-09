@@ -6,9 +6,9 @@ import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
-import nl.hauntedmc.serverfeatures.lifecycle.FeatureLifecycleManager;
-import nl.hauntedmc.serverfeatures.config.FeatureConfigHandler;
-import nl.hauntedmc.serverfeatures.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureLifecycleManager;
+import nl.hauntedmc.serverfeatures.internal.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.internal.localization.LocalizationHandler;
 
 import java.util.List;
 

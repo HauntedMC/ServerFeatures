@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.villageroptimizer.internal;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.VillagerOptimizer;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;

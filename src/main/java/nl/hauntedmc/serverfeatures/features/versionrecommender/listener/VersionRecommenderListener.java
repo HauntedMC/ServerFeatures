@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.versionrecommender.listener;
 
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.VersionRecommender;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.internal.RecommendationService;
 import org.bukkit.entity.Player;

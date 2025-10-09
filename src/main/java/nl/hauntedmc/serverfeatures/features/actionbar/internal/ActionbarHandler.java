@@ -2,10 +2,10 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.commonlib.util.ComponentUtils;
-import nl.hauntedmc.serverfeatures.common.hook.PlaceholderAPIHook;
-import nl.hauntedmc.serverfeatures.common.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
-import nl.hauntedmc.serverfeatures.lifecycle.FeatureTaskManager;
+import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;

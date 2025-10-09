@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.balloons.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.menu.BalloonsMenu;
 import org.bukkit.command.CommandSender;
@@ -23,7 +23,7 @@ public class BalloonsCommand extends FeatureCommand {
     private final Balloons feature;
 
     public BalloonsCommand(Balloons feature) {
-        super(new CommandSpec.Builder("balloons").build());
+        super(new CommandMeta.Builder("balloons").build());
         this.feature = feature;
     }
 

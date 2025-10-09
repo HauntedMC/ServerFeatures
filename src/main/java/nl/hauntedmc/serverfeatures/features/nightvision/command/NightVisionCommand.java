@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nightvision.command;
 
-import nl.hauntedmc.serverfeatures.commands.CommandSpec;
-import nl.hauntedmc.serverfeatures.commands.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.nightvision.NightVision;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -19,7 +19,7 @@ public class NightVisionCommand extends FeatureCommand {
     private final NightVision feature;
 
     public NightVisionCommand(NightVision feature) {
-        super(new CommandSpec.Builder("nightvision").build());
+        super(new CommandMeta.Builder("nightvision").build());
         this.feature = feature;
     }
 
