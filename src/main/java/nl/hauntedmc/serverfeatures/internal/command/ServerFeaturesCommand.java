@@ -3,6 +3,11 @@ package nl.hauntedmc.serverfeatures.internal.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
+import nl.hauntedmc.serverfeatures.api.command.tab.filter.Filters;
+import nl.hauntedmc.serverfeatures.api.command.tab.provider.Providers;
+import nl.hauntedmc.serverfeatures.api.command.tab.sort.Sorters;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.internal.action.disable.FeatureDisableResponse;
 import nl.hauntedmc.serverfeatures.internal.action.enable.FeatureEnableResponse;
@@ -12,14 +17,63 @@ import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
     private final ServerFeatures plugin;
+    private final TabCompletion tabs;
 
     public ServerFeaturesCommand(ServerFeatures plugin) {
         this.plugin = plugin;
+
+        var loadedFeatures = Providers.dynamic(ctx ->
+                plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
+                        .map(BukkitBaseFeature::getFeatureName)
+                        .filter(Objects::nonNull)
+                        .toList()
+        );
+
+        var availableButNotLoaded = Providers.dynamic(ctx -> {
+            Set<String> loadedLower = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
+                    .map(BukkitBaseFeature::getFeatureName)
+                    .filter(Objects::nonNull)
+                    .map(s -> s.toLowerCase(Locale.ROOT))
+                    .collect(Collectors.toSet());
+            return plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
+                    .filter(Objects::nonNull)
+                    .filter(name -> !loadedLower.contains(name.toLowerCase(Locale.ROOT)))
+                    .toList();
+        });
+
+        TabTree tree = TabTree.builder()
+                .filter(Filters.prefixThenContains())
+                .sorter(Sorters.caseInsensitive())
+                .root()
+                .literal("status", n -> n.require("serverfeatures.command.status"))
+                .literal("list", n -> n.require("serverfeatures.command.list"))
+                .literal("reloadlocal", n -> n.require("serverfeatures.command.reloadlocal"))
+
+                .literal("softreload", n -> n.require("serverfeatures.command.reload")
+                        .child(b -> b.arg("feature", loadedFeatures))
+                )
+                .literal("reload", n -> n.require("serverfeatures.command.reload")
+                        .child(b -> b.arg("feature", loadedFeatures))
+                )
+                .literal("disable", n -> n.require("serverfeatures.command.disable")
+                        .child(b -> b.arg("feature", loadedFeatures))
+                )
+                .literal("enable", n -> n.require("serverfeatures.command.enable")
+                        .child(b -> b.arg("feature", availableButNotLoaded))
+                )
+                .build();
+
+        this.tabs = TabCompletion.of(tree);
+    }
+
+    @Override
+    public @NotNull List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
+        return tabs.complete(sender, alias, args);
     }
 
     @Override
@@ -201,52 +255,5 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                     "version", feature.getFeatureVersion()
             ));
         }
-    }
-
-    @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
-        final Locale L = Locale.ROOT;
-
-        if (args.length == 1) {
-            // Filter subcommands by the typed prefix
-            String prefix = args[0].toLowerCase(L);
-            return Stream.of("list", "disable", "enable", "reload", "reloadlocal", "softreload", "status")
-                    .filter(s -> s.toLowerCase(L).startsWith(prefix))
-                    .sorted(String.CASE_INSENSITIVE_ORDER)
-                    .toList();
-        }
-
-        if (args.length == 2) {
-            String sub = args[0].toLowerCase(L);
-            String featurePrefix = args[1].toLowerCase(L);
-
-            return switch (sub) {
-                case "reload", "softreload", "disable" ->
-                    // Only loaded features, filtered by prefix
-                        plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
-                                .map(BukkitBaseFeature::getFeatureName)
-                                .filter(name -> name != null && name.toLowerCase(L).startsWith(featurePrefix))
-                                .sorted(String.CASE_INSENSITIVE_ORDER)
-                                .toList();
-                case "enable" -> {
-                    // Available features that are NOT loaded yet, filtered by prefix
-                    Set<String> loadedLower = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
-                            .map(BukkitBaseFeature::getFeatureName)
-                            .filter(Objects::nonNull)
-                            .map(s -> s.toLowerCase(L))
-                            .collect(java.util.stream.Collectors.toSet());
-
-                    yield plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
-                            .filter(Objects::nonNull)
-                            .filter(name -> !loadedLower.contains(name.toLowerCase(L)))
-                            .filter(name -> name.toLowerCase(L).startsWith(featurePrefix))
-                            .sorted(String.CASE_INSENSITIVE_ORDER)
-                            .toList();
-                }
-                default -> Collections.emptyList();
-            };
-        }
-
-        return java.util.Collections.emptyList();
     }
 }

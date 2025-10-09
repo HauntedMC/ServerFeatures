@@ -1,14 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.portals.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabContext;
+import nl.hauntedmc.serverfeatures.api.command.tab.provider.Providers;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.internal.PortalsHandler;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
 import nl.hauntedmc.serverfeatures.features.portals.util.RegistryUtil;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
@@ -16,38 +19,56 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.function.Predicate;
 
-/**
- * Admin command for portals. Uses RegistryUtil for sound/particle parsing & completions.
- */
 public class PortalsCommand extends FeatureCommand {
 
     private static final String ADMIN_PERM = "serverfeatures.feature.portals.admin";
-
     private final Portals feature;
     private final PortalRegistry registry;
     private final PortalsHandler handler;
-
-    // Cached list of placeable blocks for tab-complete
-    private static final List<String> PLACEABLE_BLOCKS = computePlaceableBlocks();
 
     public PortalsCommand(Portals feature, PortalsHandler handler) {
         super(new CommandMeta.Builder("portals").permission(ADMIN_PERM).build());
         this.feature = feature;
         this.registry = feature.getRegistry();
         this.handler = handler;
+
+        var portalIds = Providers.dynamic(ctx -> registry.all().stream().map(PortalDefinition::id).toList());
+        var soundKeys = Providers.dynamic(ctx -> RegistryUtil.soundKeysStartingWith("", true));
+        var particleKeys = Providers.dynamic(ctx -> RegistryUtil.particleKeysStartingWith("", true));
+        var placeableBlocks = Providers.dynamic(ctx -> {
+            List<String> list = new ArrayList<>();
+            for (var m : org.bukkit.Material.values()) if (m.isBlock()) list.add(m.name().toLowerCase(Locale.ROOT));
+            if (!list.contains("nether_portal")) list.add("nether_portal");
+            return list;
+        });
+        // Define isplayer lambda with var
+
+        Predicate<TabContext> isPlayer = (TabContext c) -> c.asPlayer().isPresent();
+        TabTree.Builder.Group idGroup = TabTree.Builder.Group.define().arg("id", portalIds);
+
+        TabTree tree = TabTree.builder()
+                .root().withRequire(ADMIN_PERM)
+                .literal("create", n -> n.child(b -> b.arg("id", Providers.none())))
+                .literal("delete", n -> n.child(b -> b.group(idGroup)))
+                .literal("select", n -> n.when(isPlayer).child(b -> b.group(idGroup)))
+                .literal("wand", n -> n.when(isPlayer))
+                .literal("saveregion", n -> n.when(isPlayer))
+                .literal("setmode", n -> n.child(b -> b.group(idGroup).arg("mode", Providers.staticList("teleport","command","server"))))
+                .literal("setteleport", n -> n.when(isPlayer).child(b -> b.group(idGroup)))
+                .literal("setcommand", n -> n.child(b -> b.group(idGroup).arg("executor", Providers.staticList("player","console")).arg("command", Providers.none())))
+                .literal("setserver", n -> n.child(b -> b.group(idGroup).arg("server", Providers.none())))
+                .literal("setblock", n -> n.child(b -> b.group(idGroup).arg("block", Providers.union(Providers.staticList("none"), placeableBlocks))))
+                .literal("setsound", n -> n.child(b -> b.group(idGroup).arg("sound", Providers.union(Providers.staticList("none","clear"), soundKeys)).arg("delayTicks", Providers.intRange(0, 200, 1))))
+                .literal("setparticle", n -> n.child(b -> b.group(idGroup).arg("particle", Providers.union(Providers.staticList("none","clear"), particleKeys)).arg("delayTicks", Providers.intRange(0, 200, 1))))
+                .literal("info", n -> n.child(b -> b.group(idGroup)))
+                .literal("list")
+                .build();
+
+        useTabCompleter(TabCompletion.of(tree));
     }
 
-    private static List<String> computePlaceableBlocks() {
-        List<String> list = new ArrayList<>();
-        for (Material m : Material.values()) {
-            if (m.isBlock()) list.add(m.name().toLowerCase(Locale.ROOT));
-        }
-        if (!list.contains("nether_portal")) list.add("nether_portal");
-        return Collections.unmodifiableList(list);
-    }
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
@@ -360,39 +381,4 @@ public class PortalsCommand extends FeatureCommand {
                 .forAudience(sender).build());
     }
 
-    @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String @NotNull [] args) {
-        if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
-
-        if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info","list")
-                    .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
-                    .collect(Collectors.toList());
-        }
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info").anyMatch(args[0]::equalsIgnoreCase)) {
-            return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {
-            return Stream.of("teleport","command","server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {
-            return Stream.of("player","console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("setblock")) {
-            String partial = args[2].toLowerCase(Locale.ROOT);
-            Stream<String> base = PLACEABLE_BLOCKS.stream().filter(n -> n.startsWith(partial));
-            if ("none".startsWith(partial)) return Stream.concat(Stream.of("none"), base).toList();
-            return base.toList();
-        }
-
-        // Sound/Particle completions via registry keys (supports datapacks)
-        if (args.length == 3 && args[0].equalsIgnoreCase("setsound")) {
-            return RegistryUtil.soundKeysStartingWith(args[2], true);
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("setparticle")) {
-            return RegistryUtil.particleKeysStartingWith(args[2], true);
-        }
-
-        return Collections.emptyList();
-    }
 }

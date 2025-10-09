@@ -2,6 +2,9 @@ package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
+import nl.hauntedmc.serverfeatures.api.command.tab.provider.Providers;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
@@ -14,6 +17,20 @@ public class ActionbarCommand extends FeatureCommand {
     public ActionbarCommand(Actionbar feature) {
         super(new CommandMeta.Builder("actionbar").build());
         this.feature = feature;
+
+        TabTree tree = TabTree.builder()
+                .root()
+                .literal("start", n -> n.require("serverfeatures.feature.actionbar.command.start"))
+                .literal("stop", n -> n.require("serverfeatures.feature.actionbar.command.stop"))
+                .literal("send", n -> n.require("serverfeatures.feature.actionbar.command.send")
+                        .child(b -> b
+                                .arg("message", Providers.none())
+                                .arg("seconds", Providers.intRange(0, 3600, 1))
+                        )
+                )
+                .build();
+
+        useTabCompleter(TabCompletion.of(tree));
     }
 
     @Override
@@ -100,21 +117,4 @@ public class ActionbarCommand extends FeatureCommand {
         return true;
     }
 
-    @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
-                                             @NotNull String alias,
-                                             String @NotNull [] args) {
-        // /actionbar <subcommand>
-        if (args.length == 1) {
-            String input = args[0].toLowerCase();
-            List<String> suggestions = new ArrayList<>();
-            for (String option : Arrays.asList("start", "stop", "send")) {
-                if (option.startsWith(input)) {
-                    suggestions.add(option);
-                }
-            }
-            return suggestions;
-        }
-        return Collections.emptyList();
-    }
 }

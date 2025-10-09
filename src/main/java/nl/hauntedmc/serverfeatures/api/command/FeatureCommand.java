@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.api.command;
 
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -12,54 +13,57 @@ import java.util.regex.Pattern;
 
 public abstract class FeatureCommand extends Command {
 
-    private static final Pattern ALIAS_ALLOWED = Pattern.compile("^[a-z0-9_\\-]+$");
+    private @Nullable TabCompletion tabCompleter;
 
-    public FeatureCommand(@NotNull CommandMeta spec) {
+    protected FeatureCommand(@NotNull CommandMeta spec) {
         super(
                 spec.name(),
                 spec.description() == null ? "" : spec.description(),
                 spec.usage() == null ? "" : spec.usage(),
                 sanitizeAliases(spec.name(), spec.aliases() == null ? Collections.emptyList() : spec.aliases())
         );
-
-        if (spec.permission() != null) {
-            setPermission(spec.permission());
-        }
+        if (spec.permission() != null) setPermission(spec.permission());
     }
 
-    private static @NotNull List<String> sanitizeAliases(@NotNull String name, @Nullable List<String> raw) {
-        if (raw == null || raw.isEmpty()) return List.of();
+    public abstract boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args);
 
-        String primary = name.toLowerCase(Locale.ROOT);
-        LinkedHashSet<String> out = new LinkedHashSet<>();
-
-        for (String alias : raw) {
-            if (alias == null) continue;
-            String t = alias.trim().toLowerCase(Locale.ROOT);
-            if (t.isEmpty()) continue;
-            if (t.equals(primary)) continue;
-            if (t.contains(" ")) {
-                throw new IllegalArgumentException("Alias must not contain spaces: '" + alias + "'");
-            }
-            if (!ALIAS_ALLOWED.matcher(t).matches()) {
-                throw new IllegalArgumentException(
-                        "Alias contains invalid characters (allowed: a-z, 0-9, '_', '-'): '" + alias + "'"
-                );
-            }
-            out.add(t);
-        }
-        return List.copyOf(out);
-    }
-
-    /**
-     * Finalize registration: keep this final so validation always runs.
-     */
     @Override
     public final boolean register(@NotNull CommandMap commandMap) {
         return super.register(commandMap);
     }
 
-    public abstract boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args);
+    /** Attach a tab-completer; if unset, falls back to tabComplete(...) */
+    public final void useTabCompleter(@Nullable TabCompletion tabCompleter) {
+        this.tabCompleter = tabCompleter;
+    }
 
-    public abstract @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args);
+    @Override
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
+        if (tabCompleter != null) return tabCompleter.complete(sender, alias, args);
+        return this.tabCompleteFallback(sender, alias, args);
+    }
+
+    /** Fallback tab-complete when tabCompleter is not set. */
+    private @NotNull List<String> tabCompleteFallback(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
+        return Collections.emptyList();
+    }
+
+    private static @NotNull List<String> sanitizeAliases(@NotNull String name, @Nullable List<String> raw) {
+        if (raw == null || raw.isEmpty()) return List.of();
+        String primary = name.toLowerCase(Locale.ROOT);
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        Pattern ALIAS_ALLOWED = Pattern.compile("^[a-z0-9_\\-]+$");
+        for (String alias : raw) {
+            if (alias == null) continue;
+            String t = alias.trim().toLowerCase(Locale.ROOT);
+            if (t.isEmpty()) continue;
+            if (t.equals(primary)) continue;
+            if (t.contains(" ")) throw new IllegalArgumentException("Alias must not contain spaces: '" + alias + "'");
+            if (!ALIAS_ALLOWED.matcher(t).matches()) {
+                throw new IllegalArgumentException("Alias contains invalid characters (allowed: a-z, 0-9, '_', '-'): '" + alias + "'");
+            }
+            out.add(t);
+        }
+        return List.copyOf(out);
+    }
 }
