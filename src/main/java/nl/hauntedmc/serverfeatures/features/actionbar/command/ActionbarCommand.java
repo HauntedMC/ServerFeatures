@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
 import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
 import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
@@ -24,22 +24,26 @@ public class ActionbarCommand extends FeatureCommand {
     /** Provide the tab tree for the global TabCompleteListener/TabService. */
     @Override
     public TabTree createTabTree() {
+        // Tooltip for seconds suggestions (arg-level tooltips via Source wrapper)
+        var secondsWithTooltip = Sources.withTooltip(
+                ArgTypes.integer(0, 3600).suggestions(),
+                s -> Component.text("Duration in seconds (0 = once)")
+        );
+
         return TabTree.builder()
                 .root()
-                .literal("start", cfg -> cfg.require("serverfeatures.feature.actionbar.command.start"))
-                .literal("stop",  cfg -> cfg.require("serverfeatures.feature.actionbar.command.stop"))
+                .literal("start", cfg -> cfg
+                        .require("serverfeatures.feature.actionbar.command.start")
+                        .tooltip(Component.text("Begin the rotating actionbar messages")))
+                .literal("stop",  cfg -> cfg
+                        .require("serverfeatures.feature.actionbar.command.stop")
+                        .tooltip(Component.text("Stop the rotating actionbar messages")))
                 .literal("send",  cfg -> cfg
                         .require("serverfeatures.feature.actionbar.command.send")
+                        .tooltip(Component.text("Send a one-off or timed actionbar message"))
                         .child()
-                        .arg("message", ArgTypes.string(), Sources.withTooltip(
-                                ArgTypes.string().suggestions(),
-                                s -> Component.text("The actionbar message to send")
-                        ))
-                        .arg("seconds", ArgTypes.integer(0, 3600),  Sources.withTooltip(
-                                ArgTypes.integer(0, 3600).suggestions(),
-                                s -> Component.text("Duration in seconds (0 = once)")
-                        ))
-
+                        .arg("message", ArgTypes.string()) // free text (no suggestions to hover)
+                        .arg("seconds", ArgTypes.integer(0, 3600), secondsWithTooltip)
                 )
                 .build();
     }
@@ -56,7 +60,7 @@ public class ActionbarCommand extends FeatureCommand {
             return true;
         }
 
-        String subCommand = args[0].toLowerCase();
+        String subCommand = args[0].toLowerCase(Locale.ROOT);
 
         switch (subCommand) {
             case "start":
@@ -127,5 +131,4 @@ public class ActionbarCommand extends FeatureCommand {
 
         return true;
     }
-
 }

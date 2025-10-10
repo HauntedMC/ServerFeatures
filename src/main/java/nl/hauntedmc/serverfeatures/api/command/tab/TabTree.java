@@ -8,11 +8,12 @@ import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Suggestion;
 import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.SuggestionSource;
 import nl.hauntedmc.serverfeatures.api.command.tab.tree.*;
 import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgType;
-
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.function.Function;
 
 /** Paper-gerichte boom met één duidelijke DSL: literals, arg, argRepeatable, argGreedy, seq, alt. */
 public final class TabTree {
@@ -141,10 +142,28 @@ public final class TabTree {
             public static final class Configurator {
                 private final Node node;
                 Configurator(Node node) { this.node = node; }
+
                 public Configurator require(String perm) { node.require(perm); return this; }
                 public Configurator requireAny(String... perms) { node.requireAny(Arrays.asList(perms)); return this; }
                 public Configurator deny(String... perms) { for (String p : perms) node.deny(p); return this; }
                 public Configurator when(Predicate<TabRequest> cond) { node.when(cond); return this; }
+
+                /** Add a static tooltip to this node (supported for literals). */
+                public Configurator tooltip(Component constant) {
+                    if (node instanceof TooltipCapable t) {
+                        t.setTooltip(q -> constant);
+                    }
+                    return this;
+                }
+
+                /** Add a dynamic tooltip (supported for literals). */
+                public Configurator tooltip(Function<TabRequest, Component> supplier) {
+                    if (node instanceof TooltipCapable t) {
+                        t.setTooltip(supplier);
+                    }
+                    return this;
+                }
+
                 public Sequential child() { return new Sequential(node.children); }
             }
         }
