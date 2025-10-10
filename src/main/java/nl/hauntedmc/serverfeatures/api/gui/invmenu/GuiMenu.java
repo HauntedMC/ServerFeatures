@@ -4,7 +4,7 @@ import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiClickContext;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureGUIManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureGUIManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;

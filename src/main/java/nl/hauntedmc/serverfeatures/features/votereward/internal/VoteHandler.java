@@ -1,11 +1,14 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
 import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
+import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
-import nl.hauntedmc.serverfeatures.internal.cache.*;
 
 import java.util.*;
 

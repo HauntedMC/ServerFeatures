@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.restart.internal;
 
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;

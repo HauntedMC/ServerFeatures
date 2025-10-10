@@ -1,10 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
 import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
-import nl.hauntedmc.serverfeatures.api.command.tab.provider.Providers;
+import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
+import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
@@ -12,25 +13,35 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 public class ActionbarCommand extends FeatureCommand {
+
     private final Actionbar feature;
 
     public ActionbarCommand(Actionbar feature) {
         super(new CommandMeta.Builder("actionbar").build());
         this.feature = feature;
+    }
 
-        TabTree tree = TabTree.builder()
+    /** Provide the tab tree for the global TabCompleteListener/TabService. */
+    @Override
+    public TabTree createTabTree() {
+        return TabTree.builder()
                 .root()
-                .literal("start", n -> n.require("serverfeatures.feature.actionbar.command.start"))
-                .literal("stop", n -> n.require("serverfeatures.feature.actionbar.command.stop"))
-                .literal("send", n -> n.require("serverfeatures.feature.actionbar.command.send")
-                        .child(b -> b
-                                .arg("message", Providers.none())
-                                .arg("seconds", Providers.intRange(0, 3600, 1))
-                        )
+                .literal("start", cfg -> cfg.require("serverfeatures.feature.actionbar.command.start"))
+                .literal("stop",  cfg -> cfg.require("serverfeatures.feature.actionbar.command.stop"))
+                .literal("send",  cfg -> cfg
+                        .require("serverfeatures.feature.actionbar.command.send")
+                        .child()
+                        .arg("message", ArgTypes.string(), Sources.withTooltip(
+                                ArgTypes.string().suggestions(),
+                                s -> Component.text("The actionbar message to send")
+                        ))
+                        .arg("seconds", ArgTypes.integer(0, 3600),  Sources.withTooltip(
+                                ArgTypes.integer(0, 3600).suggestions(),
+                                s -> Component.text("Duration in seconds (0 = once)")
+                        ))
+
                 )
                 .build();
-
-        useTabCompleter(TabCompletion.of(tree));
     }
 
     @Override

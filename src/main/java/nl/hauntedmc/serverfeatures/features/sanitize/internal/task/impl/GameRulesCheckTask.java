@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.sanitize.internal.task.impl;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeContext;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeResult;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.World;

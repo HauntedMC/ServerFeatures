@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.api.gui.invmenu.menu;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureGUIManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureGUIManager;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;

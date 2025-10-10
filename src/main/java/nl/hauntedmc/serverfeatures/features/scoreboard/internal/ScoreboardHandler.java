@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
-import nl.hauntedmc.serverfeatures.internal.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.Bukkit;

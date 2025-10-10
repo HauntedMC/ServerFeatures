@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.sanitize.internal.util;
 
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 

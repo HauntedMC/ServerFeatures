@@ -9,8 +9,8 @@ import nl.hauntedmc.serverfeatures.features.votereward.listener.NativeVoteListen
 import nl.hauntedmc.serverfeatures.features.votereward.listener.VoteJoinListener;
 import nl.hauntedmc.serverfeatures.features.votereward.listener.VotifierVoteListener;
 import nl.hauntedmc.serverfeatures.features.votereward.meta.Meta;
-import nl.hauntedmc.serverfeatures.internal.cache.CacheDirectory;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureCacheManager;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureCacheManager;
 import org.bukkit.Bukkit;
 
 import java.util.List;

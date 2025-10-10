@@ -8,7 +8,7 @@ import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalMode;
 import nl.hauntedmc.serverfeatures.features.portals.model.Region;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.*;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;

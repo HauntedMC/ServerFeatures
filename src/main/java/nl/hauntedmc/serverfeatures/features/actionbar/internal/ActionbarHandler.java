@@ -5,7 +5,7 @@ import nl.hauntedmc.commonlib.util.ComponentUtils;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureTaskManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;

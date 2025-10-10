@@ -5,10 +5,10 @@ import nl.hauntedmc.commonlib.featureapi.feature.Feature;
 import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
 import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.internal.FeatureLogger;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureLifecycleManager;
-import nl.hauntedmc.serverfeatures.internal.config.FeatureConfigHandler;
-import nl.hauntedmc.serverfeatures.internal.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureLifecycleManager;
+import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 
 import java.util.List;
 

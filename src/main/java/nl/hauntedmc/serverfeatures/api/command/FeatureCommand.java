@@ -1,7 +1,8 @@
 package nl.hauntedmc.serverfeatures.api.command;
 
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabService;
+import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -13,7 +14,8 @@ import java.util.regex.Pattern;
 
 public abstract class FeatureCommand extends Command {
 
-    private @Nullable TabCompletion tabCompleter;
+    private @Nullable TabTree tabTree;
+    private @Nullable TabService tabService;
 
     protected FeatureCommand(@NotNull CommandMeta spec) {
         super(
@@ -27,24 +29,52 @@ public abstract class FeatureCommand extends Command {
 
     public abstract boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args);
 
+
     @Override
     public final boolean register(@NotNull CommandMap commandMap) {
         return super.register(commandMap);
     }
 
-    /** Attach a tab-completer; if unset, falls back to tabComplete(...) */
-    public final void useTabCompleter(@Nullable TabCompletion tabCompleter) {
-        this.tabCompleter = tabCompleter;
+    /**
+     * Override to provide a TabTree for this command.
+     * Return null if this command has no tab-completions.
+     */
+    public @Nullable TabTree createTabTree() {
+        return tabTree;
     }
 
+    /** Register this command's labels (primary + aliases) in the global TabService. */
+    public final void registerTabTree(@NotNull TabService service, @NotNull TabTree tree) {
+        this.tabService = Objects.requireNonNull(service, "service");
+        this.tabTree = Objects.requireNonNull(tree, "tree");
+
+        final String primary = getName().toLowerCase(Locale.ROOT);
+        service.register(primary, tree);
+
+        List<String> aliases = getAliases();
+        for (String a : aliases) {
+            if (a == null || a.isBlank()) continue;
+            service.register(a.toLowerCase(Locale.ROOT), tree);
+        }
+    }
+
+    /** Unregister all labels of this command from the global TabService. Safe on disable. */
+    public final void unregisterTabTree() {
+        if (tabService == null) return;
+        final String primary = getName().toLowerCase(Locale.ROOT);
+        tabService.unregister(primary);
+        List<String> aliases = getAliases();
+        for (String a : aliases) {
+            if (a == null || a.isBlank()) continue;
+            tabService.unregister(a.toLowerCase(Locale.ROOT));
+        }
+        this.tabTree = null;
+        this.tabService = null;
+    }
+
+    /** Bukkit will not be used for completions; global listener handles everything. */
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
-        if (tabCompleter != null) return tabCompleter.complete(sender, alias, args);
-        return this.tabCompleteFallback(sender, alias, args);
-    }
-
-    /** Fallback tab-complete when tabCompleter is not set. */
-    private @NotNull List<String> tabCompleteFallback(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
         return Collections.emptyList();
     }
 

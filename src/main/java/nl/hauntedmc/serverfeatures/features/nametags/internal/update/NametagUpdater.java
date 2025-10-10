@@ -8,7 +8,7 @@ import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNamet
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureTaskManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;

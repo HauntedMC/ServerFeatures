@@ -7,7 +7,7 @@ import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.internal.lifecycle.FeatureGUIManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

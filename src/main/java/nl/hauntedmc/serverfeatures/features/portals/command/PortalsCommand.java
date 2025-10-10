@@ -2,16 +2,17 @@ package nl.hauntedmc.serverfeatures.features.portals.command;
 
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabContext;
-import nl.hauntedmc.serverfeatures.api.command.tab.provider.Providers;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabCompletion;
+import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
+import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.SuggestionSource;
 import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
+import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.internal.PortalsHandler;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
 import nl.hauntedmc.serverfeatures.features.portals.registry.PortalRegistry;
 import nl.hauntedmc.serverfeatures.features.portals.util.RegistryUtil;
+import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
@@ -19,11 +20,11 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
-import java.util.function.Predicate;
 
 public class PortalsCommand extends FeatureCommand {
 
     private static final String ADMIN_PERM = "serverfeatures.feature.portals.admin";
+
     private final Portals feature;
     private final PortalRegistry registry;
     private final PortalsHandler handler;
@@ -33,40 +34,72 @@ public class PortalsCommand extends FeatureCommand {
         this.feature = feature;
         this.registry = feature.getRegistry();
         this.handler = handler;
+    }
 
-        var portalIds = Providers.dynamic(ctx -> registry.all().stream().map(PortalDefinition::id).toList());
-        var soundKeys = Providers.dynamic(ctx -> RegistryUtil.soundKeysStartingWith("", true));
-        var particleKeys = Providers.dynamic(ctx -> RegistryUtil.particleKeysStartingWith("", true));
-        var placeableBlocks = Providers.dynamic(ctx -> {
-            List<String> list = new ArrayList<>();
-            for (var m : org.bukkit.Material.values()) if (m.isBlock()) list.add(m.name().toLowerCase(Locale.ROOT));
-            if (!list.contains("nether_portal")) list.add("nether_portal");
-            return list;
+    /* ===================== Tabs (new framework) ===================== */
+
+    @Override
+    public TabTree createTabTree() {
+        // Dynamic sources
+        final SuggestionSource portalIds = Sources.dynamic(ctx ->
+                registry.all().stream().map(PortalDefinition::id).toList());
+
+        final SuggestionSource soundKeys = Sources.dynamic(ctx ->
+                RegistryUtil.soundKeysStartingWith("", true));
+
+        final SuggestionSource particleKeys = Sources.dynamic(ctx ->
+                RegistryUtil.particleKeysStartingWith("", true));
+
+        final SuggestionSource placeableBlocks = Sources.dynamic(ctx -> {
+            LinkedHashSet<String> out = new LinkedHashSet<>();
+            for (Material m : Material.values()) if (m.isBlock()) out.add(m.name().toLowerCase(Locale.ROOT));
+            out.add("nether_portal");
+            return out;
         });
-        // Define isplayer lambda with var
 
-        Predicate<TabContext> isPlayer = (TabContext c) -> c.asPlayer().isPresent();
-        TabTree.Builder.Group idGroup = TabTree.Builder.Group.define().arg("id", portalIds);
+        final SuggestionSource boolNone = Sources.ofStrings(List.of("none"));
+        final SuggestionSource noneClear = Sources.ofStrings(List.of("none", "clear"));
+        final SuggestionSource executors = Sources.ofStrings(List.of("player", "console"));
+        final SuggestionSource modes = Sources.ofStrings(List.of("teleport", "command", "server"));
 
-        TabTree tree = TabTree.builder()
-                .root().withRequire(ADMIN_PERM)
-                .literal("create", n -> n.child(b -> b.arg("id", Providers.none())))
-                .literal("delete", n -> n.child(b -> b.group(idGroup)))
-                .literal("select", n -> n.when(isPlayer).child(b -> b.group(idGroup)))
-                .literal("wand", n -> n.when(isPlayer))
-                .literal("saveregion", n -> n.when(isPlayer))
-                .literal("setmode", n -> n.child(b -> b.group(idGroup).arg("mode", Providers.staticList("teleport","command","server"))))
-                .literal("setteleport", n -> n.when(isPlayer).child(b -> b.group(idGroup)))
-                .literal("setcommand", n -> n.child(b -> b.group(idGroup).arg("executor", Providers.staticList("player","console")).arg("command", Providers.none())))
-                .literal("setserver", n -> n.child(b -> b.group(idGroup).arg("server", Providers.none())))
-                .literal("setblock", n -> n.child(b -> b.group(idGroup).arg("block", Providers.union(Providers.staticList("none"), placeableBlocks))))
-                .literal("setsound", n -> n.child(b -> b.group(idGroup).arg("sound", Providers.union(Providers.staticList("none","clear"), soundKeys)).arg("delayTicks", Providers.intRange(0, 200, 1))))
-                .literal("setparticle", n -> n.child(b -> b.group(idGroup).arg("particle", Providers.union(Providers.staticList("none","clear"), particleKeys)).arg("delayTicks", Providers.intRange(0, 200, 1))))
-                .literal("info", n -> n.child(b -> b.group(idGroup)))
-                .literal("list")
+        return TabTree.builder()
+                .root()
+                // All subcommands require the admin perm (set per literal)
+                .literal("create", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id", ArgTypes.string())) // free text id
+                .literal("delete", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id", ArgTypes.string(), portalIds))
+                .literal("select", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()).child()
+                        .arg("id", ArgTypes.string(), portalIds))
+                .literal("wand", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()))
+                .literal("saveregion", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()))
+                .literal("setmode", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",   ArgTypes.string(), portalIds)
+                        .arg("mode", ArgTypes.string(), modes))
+                .literal("setteleport", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()).child()
+                        .arg("id", ArgTypes.string(), portalIds))
+                .literal("setcommand", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",       ArgTypes.string(), portalIds)
+                        .arg("executor", ArgTypes.string(), executors)
+                        .argGreedy("command")) // rest of line
+                .literal("setserver", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",     ArgTypes.string(), portalIds)
+                        .arg("server", ArgTypes.string()))
+                .literal("setblock", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",    ArgTypes.string(), portalIds)
+                        .arg("block", ArgTypes.string(), Sources.union(boolNone, placeableBlocks)))
+                .literal("setsound", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",         ArgTypes.string(), portalIds)
+                        .arg("sound",      ArgTypes.string(), Sources.union(noneClear, soundKeys))
+                        .arg("delayTicks", ArgTypes.integer(0, 200)))
+                .literal("setparticle", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id",         ArgTypes.string(), portalIds)
+                        .arg("particle",   ArgTypes.string(), Sources.union(noneClear, particleKeys))
+                        .arg("delayTicks", ArgTypes.integer(0, 200)))
+                .literal("info", cfg -> cfg.require(ADMIN_PERM).child()
+                        .arg("id", ArgTypes.string(), portalIds))
+                .literal("list", cfg -> cfg.require(ADMIN_PERM))
                 .build();
-
-        useTabCompleter(TabCompletion.of(tree));
     }
 
 
@@ -297,8 +330,6 @@ public class PortalsCommand extends FeatureCommand {
                         .forAudience(sender).build());
                 return true;
             }
-
-            // >>> NEW: /portals info <id>
             case "info" -> {
                 if (args.length < 2) { usage(sender, "info <id>"); return true; }
                 String id = args[1];
@@ -311,7 +342,10 @@ public class PortalsCommand extends FeatureCommand {
                 sendPortalInfo(sender, defOpt.get());
                 return true;
             }
-
+            case "list" -> {
+                // Handle list elsewhere if needed; keeping behavior consistent with previous default path.
+                return true;
+            }
             default -> { return true; }
         }
     }
@@ -380,5 +414,4 @@ public class PortalsCommand extends FeatureCommand {
                 .withPlaceholders(Map.of("key", key, "value", value))
                 .forAudience(sender).build());
     }
-
 }

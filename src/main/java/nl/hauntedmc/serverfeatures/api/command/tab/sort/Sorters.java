@@ -1,64 +1,30 @@
 package nl.hauntedmc.serverfeatures.api.command.tab.sort;
 
+import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Suggestion;
+
 import java.text.Collator;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** Common sorting strategies for tab suggestions. */
 public final class Sorters {
     private Sorters() {}
 
-    /** Case-insensitive (ROOT). */
     public static SuggestionSorter caseInsensitive() {
-        return candidates -> candidates.stream()
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .collect(Collectors.toList());
+        return c -> c.stream().sorted(Comparator.comparing(s -> s.key().toLowerCase(Locale.ROOT))).collect(Collectors.toList());
     }
 
-    /** Case-sensitive natural order (Unicode code point). */
-    public static SuggestionSorter natural() {
-        return candidates -> candidates.stream()
-                .sorted()
-                .collect(Collectors.toList());
-    }
-
-    /** Locale-aware collation (human-friendly). */
-    public static SuggestionSorter collator(Locale locale) {
-        Objects.requireNonNull(locale, "locale");
-        final Collator collator = Collator.getInstance(locale);
-        collator.setStrength(Collator.PRIMARY);
-        return candidates -> candidates.stream()
-                .sorted(collator)
-                .collect(Collectors.toList());
-    }
-
-    /** By length, then case-insensitive (ROOT). */
     public static SuggestionSorter byLengthThenCaseInsensitive() {
-        return candidates -> candidates.stream()
-                .sorted(Comparator.comparingInt(String::length)
-                        .thenComparing(String.CASE_INSENSITIVE_ORDER))
-                .collect(Collectors.toList());
+        return c -> c.stream().sorted(
+                Comparator.comparingInt((Suggestion s) -> s.key().length())
+                        .thenComparing(s -> s.key().toLowerCase(Locale.ROOT))
+        ).collect(Collectors.toList());
     }
 
-    /** Stable/as-is order (copy). */
-    public static SuggestionSorter none() {
-        return ArrayList::new;
+    public static SuggestionSorter collator(Locale locale) {
+        Collator col = Collator.getInstance(locale);
+        col.setStrength(Collator.PRIMARY);
+        return c -> c.stream().sorted((a,b) -> col.compare(a.key(), b.key())).collect(Collectors.toList());
     }
 
-    /** Reverse any sorter. */
-    public static SuggestionSorter reversed(SuggestionSorter base) {
-        Objects.requireNonNull(base, "base");
-        return candidates -> {
-            List<String> list = base.sort(candidates);
-            Collections.reverse(list);
-            return list;
-        };
-    }
-
-    public static SuggestionSorter caseInsensitiveDesc() { return reversed(caseInsensitive()); }
-    public static SuggestionSorter naturalDesc()        { return reversed(natural()); }
-    public static SuggestionSorter collatorDesc(Locale locale) { return reversed(collator(locale)); }
-    public static SuggestionSorter byLengthThenCaseInsensitiveDesc() {
-        return reversed(byLengthThenCaseInsensitive());
-    }
+    public static SuggestionSorter none() { return ArrayList::new; }
 }
