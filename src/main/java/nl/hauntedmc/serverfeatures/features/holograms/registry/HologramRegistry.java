@@ -99,19 +99,13 @@ public final class HologramRegistry {
             for (int i = 0; i < 256 && !stop; i++) {
                 String key = base + i;
 
-                // If the localization returns the key as plain text, treat as missing.
-                String plain = lh.getMessage(key).buildPlain();
-                if (plain == null || plain.equals(key)) break;
+                Component msg = lh.getMessage(key).build();
 
-                boolean endsHere = plain.contains(END_MARKER);
+                Component stripped = msg.replaceText(b -> b.matchLiteral(END_MARKER).replacement(Component.empty()));
+                boolean endsHere = !msg.equals(stripped);
+                stripped = stripped.decoration(TextDecoration.ITALIC, false);
 
-                Component c = lh.getMessage(key).build()
-                        // strip the <end> marker if present
-                        .replaceText(builder -> builder.matchLiteral(END_MARKER).replacement(Component.empty()))
-                        // disable italic by default for display readability
-                        .decoration(TextDecoration.ITALIC, false);
-
-                lines.add(c);
+                lines.add(stripped);
                 if (endsHere) stop = true;
             }
 

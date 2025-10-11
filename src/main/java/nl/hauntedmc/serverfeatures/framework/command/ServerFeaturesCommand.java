@@ -3,10 +3,6 @@ package nl.hauntedmc.serverfeatures.framework.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
-import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.SuggestionSource;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
-import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.enable.FeatureEnableResponse;
@@ -14,11 +10,12 @@ import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResponse
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResponse;
 import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-public class ServerFeaturesCommand implements CommandExecutor {
+public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
     private final ServerFeatures plugin;
 
@@ -26,43 +23,6 @@ public class ServerFeaturesCommand implements CommandExecutor {
         this.plugin = plugin;
     }
 
-    /** Build the TabTree so ServerFeatures can register it with the global TabService. */
-    public TabTree createTabTree() {
-        // Dynamic sources
-        final SuggestionSource loadedFeatures = Sources.dynamic(ctx ->
-                plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
-                        .map(BukkitBaseFeature::getFeatureName)
-                        .filter(Objects::nonNull)
-                        .toList()
-        );
-
-        final SuggestionSource availableButNotLoaded = Sources.dynamic(ctx -> {
-            Set<String> loadedLower = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
-                    .map(BukkitBaseFeature::getFeatureName)
-                    .filter(Objects::nonNull)
-                    .map(s -> s.toLowerCase(Locale.ROOT))
-                    .collect(Collectors.toSet());
-            return plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
-                    .filter(Objects::nonNull)
-                    .filter(name -> !loadedLower.contains(name.toLowerCase(Locale.ROOT)))
-                    .toList();
-        });
-
-        return TabTree.builder()
-                .root()
-                .literal("status", cfg -> cfg.require("serverfeatures.command.status"))
-                .literal("list",   cfg -> cfg.require("serverfeatures.command.list"))
-                .literal("reloadlocal", cfg -> cfg.require("serverfeatures.command.reloadlocal"))
-                .literal("softreload", cfg -> cfg.require("serverfeatures.command.reload").child()
-                        .arg("feature", ArgTypes.string(), loadedFeatures))
-                .literal("reload", cfg -> cfg.require("serverfeatures.command.reload").child()
-                        .arg("feature", ArgTypes.string(), loadedFeatures))
-                .literal("disable", cfg -> cfg.require("serverfeatures.command.disable").child()
-                        .arg("feature", ArgTypes.string(), loadedFeatures))
-                .literal("enable", cfg -> cfg.require("serverfeatures.command.enable").child()
-                        .arg("feature", ArgTypes.string(), availableButNotLoaded))
-                .build();
-    }
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
@@ -243,5 +203,52 @@ public class ServerFeaturesCommand implements CommandExecutor {
                     "version", feature.getFeatureVersion()
             ));
         }
+    }
+
+    @Override
+    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, String[] args) {
+        final Locale L = Locale.ROOT;
+
+        if (args.length == 1) {
+            // Filter subcommands by the typed prefix
+            String prefix = args[0].toLowerCase(L);
+            return Stream.of("list", "disable", "enable", "reload", "reloadlocal", "softreload", "status")
+                    .filter(s -> s.toLowerCase(L).startsWith(prefix))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .toList();
+        }
+
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase(L);
+            String featurePrefix = args[1].toLowerCase(L);
+
+            return switch (sub) {
+                case "reload", "softreload", "disable" ->
+                    // Only loaded features, filtered by prefix
+                        plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
+                                .map(BukkitBaseFeature::getFeatureName)
+                                .filter(name -> name != null && name.toLowerCase(L).startsWith(featurePrefix))
+                                .sorted(String.CASE_INSENSITIVE_ORDER)
+                                .toList();
+                case "enable" -> {
+                    // Available features that are NOT loaded yet, filtered by prefix
+                    Set<String> loadedLower = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
+                            .map(BukkitBaseFeature::getFeatureName)
+                            .filter(Objects::nonNull)
+                            .map(s -> s.toLowerCase(L))
+                            .collect(java.util.stream.Collectors.toSet());
+
+                    yield plugin.getFeatureLoadManager().getFeatureRegistry().getAvailableFeatures().keySet().stream()
+                            .filter(Objects::nonNull)
+                            .filter(name -> !loadedLower.contains(name.toLowerCase(L)))
+                            .filter(name -> name.toLowerCase(L).startsWith(featurePrefix))
+                            .sorted(String.CASE_INSENSITIVE_ORDER)
+                            .toList();
+                }
+                default -> Collections.emptyList();
+            };
+        }
+
+        return java.util.Collections.emptyList();
     }
 }

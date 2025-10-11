@@ -1,11 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
-import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
-import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
@@ -13,39 +9,11 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 
 public class ActionbarCommand extends FeatureCommand {
-
     private final Actionbar feature;
 
     public ActionbarCommand(Actionbar feature) {
         super(new CommandMeta.Builder("actionbar").build());
         this.feature = feature;
-    }
-
-    /** Provide the tab tree for the global TabCompleteListener/TabService. */
-    @Override
-    public TabTree createTabTree() {
-        // Tooltip for seconds suggestions (arg-level tooltips via Source wrapper)
-        var secondsWithTooltip = Sources.withTooltip(
-                ArgTypes.integer(0, 3600).suggestions(),
-                s -> Component.text("Duration in seconds (0 = once)")
-        );
-
-        return TabTree.builder()
-                .root()
-                .literal("start", cfg -> cfg
-                        .require("serverfeatures.feature.actionbar.command.start")
-                        .tooltip(Component.text("Begin the rotating actionbar messages")))
-                .literal("stop",  cfg -> cfg
-                        .require("serverfeatures.feature.actionbar.command.stop")
-                        .tooltip(Component.text("Stop the rotating actionbar messages")))
-                .literal("send",  cfg -> cfg
-                        .require("serverfeatures.feature.actionbar.command.send")
-                        .tooltip(Component.text("Send a one-off or timed actionbar message"))
-                        .child()
-                        .arg("message", ArgTypes.string()) // free text (no suggestions to hover)
-                        .arg("seconds", ArgTypes.integer(0, 3600), secondsWithTooltip)
-                )
-                .build();
     }
 
     @Override
@@ -60,7 +28,7 @@ public class ActionbarCommand extends FeatureCommand {
             return true;
         }
 
-        String subCommand = args[0].toLowerCase(Locale.ROOT);
+        String subCommand = args[0].toLowerCase();
 
         switch (subCommand) {
             case "start":
@@ -113,14 +81,17 @@ public class ActionbarCommand extends FeatureCommand {
                 }
                 feature.getActionbarHandler().sendManualActionbar(message, timeSeconds);
 
-                Map<String, String> placeholders = new HashMap<>();
                 if (timeSeconds > 0) {
-                    placeholders.put("time", String.valueOf(timeSeconds));
-                    placeholders.put("message", message);
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer").forAudience(sender).withPlaceholders(placeholders).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer")
+                            .forAudience(sender)
+                            .with("time", timeSeconds)
+                            .with("message", message)
+                            .build());
                 } else {
-                    placeholders.put("message", message);
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once").forAudience(sender).withPlaceholders(placeholders).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once")
+                            .forAudience(sender)
+                            .with("message", message)
+                            .build());
                 }
                 break;
 
@@ -130,5 +101,23 @@ public class ActionbarCommand extends FeatureCommand {
         }
 
         return true;
+    }
+
+    @Override
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
+                                             @NotNull String alias,
+                                             String @NotNull [] args) {
+        // /actionbar <subcommand>
+        if (args.length == 1) {
+            String input = args[0].toLowerCase();
+            List<String> suggestions = new ArrayList<>();
+            for (String option : Arrays.asList("start", "stop", "send")) {
+                if (option.startsWith(input)) {
+                    suggestions.add(option);
+                }
+            }
+            return suggestions;
+        }
+        return Collections.emptyList();
     }
 }

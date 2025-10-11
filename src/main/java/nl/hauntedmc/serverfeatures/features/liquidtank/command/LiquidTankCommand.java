@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.commonlib.util.ComponentUtils;
+import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;

@@ -2,14 +2,14 @@ package nl.hauntedmc.serverfeatures.framework.localization;
 
 import nl.hauntedmc.commonlib.localization.Language;
 import nl.hauntedmc.commonlib.localization.MessageMap;
-import nl.hauntedmc.commonlib.util.ComponentUtils;
-import nl.hauntedmc.commonlib.util.PlaceholderUtils;
+import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -91,7 +91,7 @@ public class LocalizationHandler {
     public class MessageBuilder {
         private final String key;
         private Audience audience;
-        private Map<String, String> placeholders;
+        private MessagePlaceholders placeholders = MessagePlaceholders.empty();
 
         private MessageBuilder(String key) {
             this.key = key;
@@ -109,10 +109,15 @@ public class LocalizationHandler {
         /**
          * Set the placeholders to apply to the message.
          */
-        public MessageBuilder withPlaceholders(Map<String, String> placeholders) {
-            this.placeholders = placeholders;
+        public MessageBuilder withPlaceholders(MessagePlaceholders placeholders) {
+            if (placeholders != null) this.placeholders = placeholders;
             return this;
         }
+
+        public MessageBuilder with(String key, String value)        { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addString(key, value).build(); return this; }
+        public MessageBuilder with(String key, Number value)        { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addNumber(key, value).build(); return this; }
+        public MessageBuilder with(String key, Component value)     { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addComponent(key, value).build(); return this; }
+
 
         /**
          * Build and return the configured message component.
@@ -123,20 +128,21 @@ public class LocalizationHandler {
                     ? getTranslateMessage(key, (Player) audience)
                     : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
 
-            return parseToComponent(rawMessage, placeholders, audience);
+
+            // PAPI while still string-based
+            if (audience instanceof Player p) {
+                rawMessage = PlaceholderAPIHook.parseWithPAPI(rawMessage, p);
+            }
+
+            // Apply string/number/boolean placeholders pre-parse (with MiniMessage-escaping)
+            rawMessage = MessagePlaceholders.applyPlaceholders(rawMessage, placeholders);
+
+            // Convert legacy to MiniMessage tags
+            String mmReady = legacyToMiniMessage(rawMessage);
+            
+            return ComponentUtils.deserializeMMComponent(mmReady);
         }
 
-        /**
-         * Build and return a plain string form (primarily for logs/console).
-         * Keeps existing legacy serialization behavior after placeholder processing.
-         */
-        public String buildPlain() {
-            String rawMessage = (audience instanceof Player)
-                    ? getTranslateMessage(key, (Player) audience)
-                    : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
-
-            return parseToPlainString(rawMessage, placeholders, audience);
-        }
     }
 
     // --- Private Helper Methods ---
@@ -158,39 +164,6 @@ public class LocalizationHandler {
             message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
         }
         return message;
-    }
-
-    /**
-     * Applies placeholders + PAPI, converts legacy to MiniMessage tags, then parses as MiniMessage Component.
-     */
-    private Component parseToComponent(String message,
-                                       Map<String, String> placeholders,
-                                       Audience audience) {
-        if (placeholders != null) {
-            message = PlaceholderUtils.parsePlaceholders(message, placeholders);
-        }
-        if (audience instanceof Player) {
-            message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
-        }
-        String mmReady = legacyToMiniMessage(message);
-        return ComponentUtils.deserializeMMComponent(mmReady);
-    }
-
-    /**
-     * Applies placeholders + PAPI, then returns a legacy-serialized string.
-     * (Useful for logging; not parsed by MiniMessage.)
-     */
-    private String parseToPlainString(String message,
-                                      Map<String, String> placeholders,
-                                      Audience audience) {
-        if (placeholders != null) {
-            message = PlaceholderUtils.parsePlaceholders(message, placeholders);
-        }
-        if (audience instanceof Player) {
-            message = PlaceholderAPIHook.parseWithPAPI(message, (Player) audience);
-        }
-        // Preserve legacy look for plain text output
-        return ComponentUtils.serializeLegacyString(message);
     }
 
     /**

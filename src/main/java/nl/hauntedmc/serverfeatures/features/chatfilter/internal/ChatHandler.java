@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.chatfilter.internal;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.chatfilter.ChatFilter;
 import nl.hauntedmc.serverfeatures.features.chatfilter.internal.services.DiscordService;
 import org.apache.commons.text.similarity.LevenshteinDistance;

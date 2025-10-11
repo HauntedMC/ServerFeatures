@@ -29,7 +29,7 @@ public class StarTierModifier {
             case 7 -> "<yellow>✯<white>✯✯ ";
             case 8 -> "<yellow>✯✯<white>✯ ";
             case 9 -> "<yellow>✯✯✯ ";
-            default -> ""; // Default case for tier 0
+            default -> ""; // tier 0: no stars
         };
     }
 }

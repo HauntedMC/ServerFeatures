@@ -120,7 +120,7 @@ public final class BalloonsMenu {
         if (active.isPresent()) {
             title = feature.getLocalizationHandler()
                     .getMessage("balloons.menu.status.active")
-                    .withPlaceholders(Map.of("name", componentToString(active.get().displayName())))
+                    .withPlaceholders(Map.of("name", active.get().displayName()))
                     .build();
         } else {
             title = feature.getLocalizationHandler()
@@ -157,7 +157,7 @@ public final class BalloonsMenu {
                 .factory(p -> {
                     var name = feature.getLocalizationHandler()
                             .getMessage("balloons.menu.balloon.name")
-                            .withPlaceholders(Map.of("name", componentToString(def.displayName())))
+                            .withPlaceholders(Map.of("name", def.displayName()))
                             .build();
 
                     var lore = feature.getLocalizationHandler()
@@ -174,7 +174,7 @@ public final class BalloonsMenu {
                 .replacementIfNoPerm(p -> {
                     var name = feature.getLocalizationHandler()
                             .getMessage("balloons.menu.balloon.name")
-                            .withPlaceholders(Map.of("name", componentToString(def.displayName())))
+                            .withPlaceholders(Map.of("name", def.displayName()))
                             .build();
 
                     var lore = feature.getLocalizationHandler()
@@ -194,7 +194,7 @@ public final class BalloonsMenu {
                         ctx.player().sendMessage(
                                 feature.getLocalizationHandler()
                                         .getMessage("balloons.set")
-                                        .withPlaceholders(Map.of("name", componentToString(def.displayName())))
+                                        .withPlaceholders(Map.of("name", def.displayName()))
                                         .forAudience(ctx.player())
                                         .build()
                         );
@@ -205,7 +205,4 @@ public final class BalloonsMenu {
                 .build();
     }
 
-    private static String componentToString(Component c) {
-        return PlainTextComponentSerializer.plainText().serialize(c);
-    }
 }

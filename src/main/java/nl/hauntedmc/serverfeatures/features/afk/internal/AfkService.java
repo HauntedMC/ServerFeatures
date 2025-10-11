@@ -77,7 +77,7 @@ public class AfkService implements AfkServiceFacade {
                 s.setAfkSince(0L);
                 s.touchActivity(now);
                 sendSelf(p, "afk.disabled_self");
-                if (broadcast()) broadcast("afk.broadcast_disabled", p.getName());
+                if (broadcast()) broadcast("afk.broadcast_disabled", p.name());
 
                 // --- BELANGRIJK: alles opschonen bij statuswissel ---
                 s.clearAntiTimes();
@@ -89,7 +89,7 @@ public class AfkService implements AfkServiceFacade {
                 s.setAfk(true);
                 s.setAfkSince(now);
                 sendSelf(p, "afk.enabled_self");
-                if (broadcast()) broadcast("afk.broadcast_enabled", p.getName());
+                if (broadcast()) broadcast("afk.broadcast_enabled", p.name());
 
                 s.clearAntiTimes();
                 s.resetComboSignals();
@@ -110,7 +110,7 @@ public class AfkService implements AfkServiceFacade {
                 s.setAfk(true);
                 s.setAfkSince(now);
                 sendSelf(p, "afk.enabled_self");
-                if (broadcast()) broadcast("afk.broadcast_enabled", p.getName());
+                if (broadcast()) broadcast("afk.broadcast_enabled", p.name());
                 s.clearAntiTimes();
                 s.resetComboSignals();
             }
@@ -120,7 +120,7 @@ public class AfkService implements AfkServiceFacade {
                 s.setAfkSince(0L);
                 s.touchActivity(now);
                 sendSelf(p, "afk.disabled_self");
-                if (broadcast()) broadcast("afk.broadcast_disabled", p.getName());
+                if (broadcast()) broadcast("afk.broadcast_disabled", p.name());
                 s.clearAntiTimes();
                 s.resetComboSignals();
                 s.setAfkLockUntil(0L);
@@ -167,11 +167,12 @@ public class AfkService implements AfkServiceFacade {
         return (o instanceof Boolean b) && b;
     }
 
-    private void broadcast(String key, String name) {
+    private void broadcast(String key, Component name) {
         for (Player pl : Bukkit.getOnlinePlayers()) {
             try {
                 pl.sendMessage(feature.getLocalizationHandler()
-                        .getMessage(key).withPlaceholders(java.util.Map.of("name", name))
+                        .getMessage(key)
+                        .with("name", name)
                         .forAudience(pl).build());
             } catch (Throwable ignored) {}
         }

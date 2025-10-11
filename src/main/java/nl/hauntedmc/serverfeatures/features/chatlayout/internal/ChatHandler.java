@@ -1,22 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.MiniMessageFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.StarTierModifier;
-
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+// Handles formatting & component creation for the renderer.
 public class ChatHandler {
 
     private static final Pattern HEX_PATTERN = Pattern.compile("(§x(?:§[0-9a-fA-F]){6})");
@@ -29,6 +27,43 @@ public class ChatHandler {
     public ChatHandler(ChatLayout feature) {
         this.feature = feature;
     }
+
+    /**
+     * Builds the full rendered message:
+     *   [prefix + name + suffix] + [formatted chat message]
+     */
+    public Component renderBaseMessage(Player sender, Component messageComponent) {
+        Component prefix = buildPrefixComponent(sender);
+        Component chat = buildChatComponent(sender, messageComponent);
+        return prefix.append(chat);
+    }
+
+    /** Prefix + name + suffix (click/hover + star tier + placeholders). */
+    private Component buildPrefixComponent(Player player) {
+        String mm = formatPrefix(player); // MiniMessage string
+        return MiniMessageFormatter.prefixSerializer.deserialize(mm);
+    }
+
+    /** Chat message component (colors/formatting/url handling gated by perms). */
+    private Component buildChatComponent(Player player, Component messageComponent) {
+        // Convert incoming component to legacy text so we can support users typing &/§ codes.
+        String rawMessage = LegacyComponentSerializer.legacySection().serialize(messageComponent);
+
+        String filtered = filterChatAttributes(player, rawMessage);
+        String miniMsg = translateMinecraftToMiniMessage(filtered, false);
+
+        if (player.hasPermission("deluxechat.interactive")) {
+            return MiniMessageFormatter.chatColorAllSerializer.deserialize(miniMsg);
+        } else if (player.hasPermission("deluxechat.formatting")) {
+            return MiniMessageFormatter.chatColorExtraSerializer.deserialize(miniMsg);
+        } else if (player.hasPermission("deluxechat.color")) {
+            return MiniMessageFormatter.chatColorSerializer.deserialize(miniMsg);
+        } else {
+            return MiniMessageFormatter.chatSerializer.deserialize(miniMsg);
+        }
+    }
+
+    /* ==== Legacy color/format → MiniMessage helpers ==== */
 
     public String translateMinecraftToMiniMessage(String text, boolean prefix) {
         text = setHexColors(text);
@@ -58,6 +93,7 @@ public class ChatHandler {
         replacements.put("§n", "<underline>");
         replacements.put("§o", "<italic>");
         replacements.put("§r", "<reset>");
+
         replacements.put("&0", "<black>");
         replacements.put("&1", "<dark_blue>");
         replacements.put("&2", "<dark_green>");
@@ -80,8 +116,9 @@ public class ChatHandler {
         replacements.put("&n", "<underline>");
         replacements.put("&o", "<italic>");
         replacements.put("&r", "<reset>");
-        for (Map.Entry<String, String> entry : replacements.entrySet()) {
-            text = text.replace(entry.getKey(), entry.getValue());
+
+        for (Map.Entry<String, String> e : replacements.entrySet()) {
+            text = text.replace(e.getKey(), e.getValue());
         }
         return text;
     }
@@ -90,13 +127,13 @@ public class ChatHandler {
         Matcher m = URL_PATTERN.matcher(message);
         while (m.find()) {
             String originalURL = m.group(1);
-            String URL = originalURL;
-            if (originalURL.contains("http://")) {
-                URL = originalURL.replace("http://", "https://");
-            } else if (!originalURL.contains("http://") && !originalURL.contains("https://")) {
-                URL = "https://" + originalURL;
+            String url = originalURL;
+            if (originalURL.startsWith("http://")) {
+                url = originalURL.replace("http://", "https://");
+            } else if (!originalURL.startsWith("https://")) {
+                url = "https://" + originalURL;
             }
-            String minimessageURL = "<url:'" + URL + "'>" + originalURL + "</url>";
+            String minimessageURL = "<url:'" + url + "'>" + originalURL + "</url>";
             message = message.replace(originalURL, minimessageURL);
         }
         return message;
@@ -122,48 +159,21 @@ public class ChatHandler {
         return text;
     }
 
-    public void sendModifiedChatMessage(Player player, String prefix, String chatMessage,
-                                        Set<Audience> audienceSet) {
-        if (audienceSet == null) return;
-
-        Component prefixComponent = MiniMessageFormatter.prefixSerializer.deserialize(prefix);
-        Component chatComponent;
-
-        if (player.hasPermission("deluxechat.interactive")) {
-            chatComponent = MiniMessageFormatter.chatColorAllSerializer.deserialize(chatMessage);
-        } else if (player.hasPermission("deluxechat.formatting")) {
-            chatComponent = MiniMessageFormatter.chatColorExtraSerializer.deserialize(chatMessage);
-        } else if (player.hasPermission("deluxechat.color")) {
-            chatComponent = MiniMessageFormatter.chatColorSerializer.deserialize(chatMessage);
-        } else {
-            chatComponent = MiniMessageFormatter.chatSerializer.deserialize(chatMessage);
-        }
-        Component finalMessage = prefixComponent.append(chatComponent);
-
-        for (Audience audience : audienceSet) {
-            audience.sendMessage(finalMessage);
-        }
-    }
-
-    public String formatChatMessage(Player player, String chatMessage) {
-        String filtered = filterChatAttributes(player, chatMessage);
-        return translateMinecraftToMiniMessage(filtered, false);
-    }
+    /* ==== Prefix formatting (stars + rank + name + suffix) ==== */
 
     public static String formatTooltip(List<String> strings, Player player) {
-        StringBuilder concatenatedString = new StringBuilder();
+        StringBuilder sb = new StringBuilder();
         int length = strings.size();
         int index = 0;
         for (String str : strings) {
-            String replacedString = PlaceholderAPIHook.parseWithPAPI(str, player);
-            concatenatedString.append(replacedString);
-
-            if (index < length-1) {
-                concatenatedString.append("\n<reset>");
+            String replaced = PlaceholderAPIHook.parseWithPAPI(str, player);
+            sb.append(replaced);
+            if (index < length - 1) {
+                sb.append("\n<reset>");
             }
             index++;
         }
-        return concatenatedString.toString();
+        return sb.toString();
     }
 
     public String formatPrefix(Player player) {
@@ -175,14 +185,15 @@ public class ChatHandler {
         String rank = PlaceholderAPIHook.parseWithPAPI(playerFormat.getPrefix(), player);
         String prefix = starTierFormat + rank;
         String prefixCommand = playerFormat.getPreClickCmd();
-        String prefixTooltip = formatTooltip(playerFormat.getPrefixTooltip(), player).replace("<star_tier>", String.valueOf(starTier));
-        String processed_prefix =  "<click:run_command:'"+prefixCommand+"'><hover:show_text:'"+prefixTooltip+"'>"+prefix+"</hover></click>";
+        String prefixTooltip = formatTooltip(playerFormat.getPrefixTooltip(), player)
+                .replace("<star_tier>", String.valueOf(starTier));
+        String processed_prefix = "<click:run_command:'" + prefixCommand + "'><hover:show_text:'" + prefixTooltip + "'>" + prefix + "</hover></click>";
 
         // Name
         String name = PlaceholderAPIHook.parseWithPAPI(playerFormat.getName(), player);
         String nameCommand = playerFormat.getNameClickCmd();
         String nameTooltip = formatTooltip(playerFormat.getNameTooltip(), player);
-        String processed_name =  "<click:suggest_command:'"+nameCommand+"'><hover:show_text:'"+nameTooltip+"'>"+name+"</hover></click>";
+        String processed_name = "<click:suggest_command:'" + nameCommand + "'><hover:show_text:'" + nameTooltip + "'>" + name + "</hover></click>";
 
         // Suffix
         String suffix = PlaceholderAPIHook.parseWithPAPI(playerFormat.getSuffix(), player);

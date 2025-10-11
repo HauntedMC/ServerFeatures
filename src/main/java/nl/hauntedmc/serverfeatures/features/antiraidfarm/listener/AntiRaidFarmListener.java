@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm.listener;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.AntiRaidFarm;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.internal.AntiRaidFarmHandler;
 import org.bukkit.entity.Player;
@@ -35,7 +36,7 @@ public final class AntiRaidFarmListener implements Listener {
             if (handler.shouldNotify()) {
                 long secs = remainingOpt.getAsLong();
                 player.sendMessage(feature.getLocalizationHandler().getMessage("antiraidfarm.blocked")
-                        .withPlaceholders(Map.of("seconds", String.valueOf(secs)))
+                        .withPlaceholders(Map.of("seconds", Component.text(secs)))
                         .forAudience(player).build());
             }
             return;

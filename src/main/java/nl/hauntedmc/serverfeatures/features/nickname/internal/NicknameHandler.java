@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal;
 
-import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.commonlib.util.ColorEncodingUtils;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;

@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -40,16 +39,6 @@ public class FeatureCommandManager {
         registeredCommands.put(commandName, command);
         plugin.getLogger().info("Registered command: " + commandName);
 
-        try {
-            TabTree tree = command.createTabTree();
-            if (tree != null) {
-                command.registerTabTree(plugin.getTabService(), tree);
-                plugin.getLogger().info("Registered tab-completions for: " + commandName);
-            }
-        } catch (Throwable t) {
-            plugin.getLogger().warning("TabTree setup failed for " + commandName + ": " + t.getMessage());
-        }
-
         // Ensure clients see the new command immediately
         trySyncCommands();
     }
@@ -68,21 +57,14 @@ public class FeatureCommandManager {
             return;
         }
 
-        // 1) Unregister tab completions first (global listener uses these)
-        try {
-            command.unregisterTabTree();
-        } catch (Throwable t) {
-            log.warning("Failed to unregister tabs for " + commandName + ": " + t.getMessage());
-        }
-
-        // 2) Unregister from the CommandMap API
+        // Unregister from the CommandMap API
         try {
             command.unregister(commandMap);
         } catch (Throwable t) {
             log.warning("CommandMap#unregister failed for " + commandName + ": " + t.getMessage());
         }
 
-        // 3) Aggressively purge from knownCommands: primary, namespaced, aliases
+        // Aggressively purge from knownCommands: primary, namespaced, aliases
         try {
             Map<String, Command> known = commandMap.getKnownCommands();
             final String nsPrefix = plugin.getName().toLowerCase(Locale.ROOT) + ":";

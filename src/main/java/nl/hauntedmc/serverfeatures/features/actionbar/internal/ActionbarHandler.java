@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.commonlib.util.ComponentUtils;
+import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;

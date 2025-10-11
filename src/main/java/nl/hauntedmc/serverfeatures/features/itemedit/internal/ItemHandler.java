@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.itemedit.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.itemedit.ItemEdit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;

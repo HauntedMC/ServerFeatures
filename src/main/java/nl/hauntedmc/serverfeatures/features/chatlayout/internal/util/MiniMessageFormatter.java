@@ -12,6 +12,7 @@ public class MiniMessageFormatter {
         final String url = args.popOr("version expected").value();
         return Tag.styling(ClickEvent.openUrl(url));
     });
+
     public static final MiniMessage chatSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
@@ -30,7 +31,7 @@ public class MiniMessageFormatter {
             )
             .build();
 
-    public static final MiniMessage  chatColorExtraSerializer = MiniMessage.builder()
+    public static final MiniMessage chatColorExtraSerializer = MiniMessage.builder()
             .tags(TagResolver.builder()
                     .resolver(urls)
                     .resolver(StandardTags.color())

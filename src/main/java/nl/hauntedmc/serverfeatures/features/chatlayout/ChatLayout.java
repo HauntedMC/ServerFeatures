@@ -5,9 +5,9 @@ import nl.hauntedmc.commonlib.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
-import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
-import nl.hauntedmc.serverfeatures.features.chatlayout.listener.ChatListener;
+import nl.hauntedmc.serverfeatures.features.chatlayout.listener.SignedChatListener;
+import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 
 import java.util.HashMap;
 import java.util.List;
@@ -67,6 +67,8 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     @Override
     public MessageMap getDefaultMessages() {
+        // You can localize the remove buttons later if you want.
+        // For now the listener renders the buttons directly.
         return new MessageMap();
     }
 
@@ -74,7 +76,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.chatFormatRegistry = new ChatFormatRegistry(this);
         this.chatHandler = new ChatHandler(this);
-        getLifecycleManager().getListenerManager().registerListener(new ChatListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
     }
 
     @Override

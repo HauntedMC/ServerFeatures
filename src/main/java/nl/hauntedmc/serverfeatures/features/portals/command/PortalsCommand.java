@@ -2,10 +2,6 @@ package nl.hauntedmc.serverfeatures.features.portals.command;
 
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.Sources;
-import nl.hauntedmc.serverfeatures.api.command.tab.suggestion.SuggestionSource;
-import nl.hauntedmc.serverfeatures.api.command.tab.TabTree;
-import nl.hauntedmc.serverfeatures.api.command.tab.types.ArgTypes;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.internal.PortalsHandler;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
@@ -20,7 +16,12 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+/**
+ * Admin command for portals. Uses RegistryUtil for sound/particle parsing & completions.
+ */
 public class PortalsCommand extends FeatureCommand {
 
     private static final String ADMIN_PERM = "serverfeatures.feature.portals.admin";
@@ -29,6 +30,9 @@ public class PortalsCommand extends FeatureCommand {
     private final PortalRegistry registry;
     private final PortalsHandler handler;
 
+    // Cached list of placeable blocks for tab-complete
+    private static final List<String> PLACEABLE_BLOCKS = computePlaceableBlocks();
+
     public PortalsCommand(Portals feature, PortalsHandler handler) {
         super(new CommandMeta.Builder("portals").permission(ADMIN_PERM).build());
         this.feature = feature;
@@ -36,72 +40,14 @@ public class PortalsCommand extends FeatureCommand {
         this.handler = handler;
     }
 
-    /* ===================== Tabs (new framework) ===================== */
-
-    @Override
-    public TabTree createTabTree() {
-        // Dynamic sources
-        final SuggestionSource portalIds = Sources.dynamic(ctx ->
-                registry.all().stream().map(PortalDefinition::id).toList());
-
-        final SuggestionSource soundKeys = Sources.dynamic(ctx ->
-                RegistryUtil.soundKeysStartingWith("", true));
-
-        final SuggestionSource particleKeys = Sources.dynamic(ctx ->
-                RegistryUtil.particleKeysStartingWith("", true));
-
-        final SuggestionSource placeableBlocks = Sources.dynamic(ctx -> {
-            LinkedHashSet<String> out = new LinkedHashSet<>();
-            for (Material m : Material.values()) if (m.isBlock()) out.add(m.name().toLowerCase(Locale.ROOT));
-            out.add("nether_portal");
-            return out;
-        });
-
-        final SuggestionSource boolNone = Sources.ofStrings(List.of("none"));
-        final SuggestionSource noneClear = Sources.ofStrings(List.of("none", "clear"));
-        final SuggestionSource executors = Sources.ofStrings(List.of("player", "console"));
-        final SuggestionSource modes = Sources.ofStrings(List.of("teleport", "command", "server"));
-
-        return TabTree.builder()
-                .root()
-                // All subcommands require the admin perm (set per literal)
-                .literal("create", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id", ArgTypes.string())) // free text id
-                .literal("delete", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id", ArgTypes.string(), portalIds))
-                .literal("select", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()).child()
-                        .arg("id", ArgTypes.string(), portalIds))
-                .literal("wand", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()))
-                .literal("saveregion", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()))
-                .literal("setmode", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",   ArgTypes.string(), portalIds)
-                        .arg("mode", ArgTypes.string(), modes))
-                .literal("setteleport", cfg -> cfg.require(ADMIN_PERM).when(r -> r.asPlayer().isPresent()).child()
-                        .arg("id", ArgTypes.string(), portalIds))
-                .literal("setcommand", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",       ArgTypes.string(), portalIds)
-                        .arg("executor", ArgTypes.string(), executors)
-                        .argGreedy("command")) // rest of line
-                .literal("setserver", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",     ArgTypes.string(), portalIds)
-                        .arg("server", ArgTypes.string()))
-                .literal("setblock", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",    ArgTypes.string(), portalIds)
-                        .arg("block", ArgTypes.string(), Sources.union(boolNone, placeableBlocks)))
-                .literal("setsound", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",         ArgTypes.string(), portalIds)
-                        .arg("sound",      ArgTypes.string(), Sources.union(noneClear, soundKeys))
-                        .arg("delayTicks", ArgTypes.integer(0, 200)))
-                .literal("setparticle", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id",         ArgTypes.string(), portalIds)
-                        .arg("particle",   ArgTypes.string(), Sources.union(noneClear, particleKeys))
-                        .arg("delayTicks", ArgTypes.integer(0, 200)))
-                .literal("info", cfg -> cfg.require(ADMIN_PERM).child()
-                        .arg("id", ArgTypes.string(), portalIds))
-                .literal("list", cfg -> cfg.require(ADMIN_PERM))
-                .build();
+    private static List<String> computePlaceableBlocks() {
+        List<String> list = new ArrayList<>();
+        for (Material m : Material.values()) {
+            if (m.isBlock()) list.add(m.name().toLowerCase(Locale.ROOT));
+        }
+        if (!list.contains("nether_portal")) list.add("nether_portal");
+        return Collections.unmodifiableList(list);
     }
-
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
@@ -330,6 +276,8 @@ public class PortalsCommand extends FeatureCommand {
                         .forAudience(sender).build());
                 return true;
             }
+
+            // >>> NEW: /portals info <id>
             case "info" -> {
                 if (args.length < 2) { usage(sender, "info <id>"); return true; }
                 String id = args[1];
@@ -342,10 +290,7 @@ public class PortalsCommand extends FeatureCommand {
                 sendPortalInfo(sender, defOpt.get());
                 return true;
             }
-            case "list" -> {
-                // Handle list elsewhere if needed; keeping behavior consistent with previous default path.
-                return true;
-            }
+
             default -> { return true; }
         }
     }
@@ -359,7 +304,7 @@ public class PortalsCommand extends FeatureCommand {
     private static String stripSlash(String s) { return s.startsWith("/") ? s.substring(1) : s; }
 
     private String dash() {
-        return feature.getLocalizationHandler().getMessage("portals.info.none").forAudience(null).buildPlain();
+        return "-";
     }
 
     /** Sends a compact info sheet for a single portal. */
@@ -413,5 +358,41 @@ public class PortalsCommand extends FeatureCommand {
         sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.info.prop")
                 .withPlaceholders(Map.of("key", key, "value", value))
                 .forAudience(sender).build());
+    }
+
+    @Override
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, String @NotNull [] args) {
+        if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
+
+        if (args.length == 1) {
+            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info","list")
+                    .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
+                    .collect(Collectors.toList());
+        }
+        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info").anyMatch(args[0]::equalsIgnoreCase)) {
+            return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {
+            return Stream.of("teleport","command","server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {
+            return Stream.of("player","console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setblock")) {
+            String partial = args[2].toLowerCase(Locale.ROOT);
+            Stream<String> base = PLACEABLE_BLOCKS.stream().filter(n -> n.startsWith(partial));
+            if ("none".startsWith(partial)) return Stream.concat(Stream.of("none"), base).toList();
+            return base.toList();
+        }
+
+        // Sound/Particle completions via registry keys (supports datapacks)
+        if (args.length == 3 && args[0].equalsIgnoreCase("setsound")) {
+            return RegistryUtil.soundKeysStartingWith(args[2], true);
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("setparticle")) {
+            return RegistryUtil.particleKeysStartingWith(args[2], true);
+        }
+
+        return Collections.emptyList();
     }
 }

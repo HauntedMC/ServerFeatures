@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.internal;
 
-import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.ItemUtils;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.LegacyUtils;

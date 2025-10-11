@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm.command;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.AntiRaidFarm;
@@ -58,15 +59,16 @@ public final class AntiRaidFarmCommand extends FeatureCommand {
         }
 
         sender.sendMessage(lh.getMessage("antiraidfarm.list.header")
-                .withPlaceholders(Map.of("count", String.valueOf(entries.size())))
-                .forAudience(sender).build());
+                .with("count", entries.size())
+                .forAudience(sender)
+                .build());
 
         for (var e : entries) {
             sender.sendMessage(lh.getMessage("antiraidfarm.list.entry")
                     .withPlaceholders(Map.of(
-                            "player", e.name(),
-                            "remaining", String.valueOf(e.remainingSeconds()),
-                            "total", String.valueOf(e.totalSeconds())
+                            "player", Component.text(e.name()),
+                            "remaining", Component.text(e.remainingSeconds()),
+                            "total", Component.text(e.totalSeconds())
                     ))
                     .forAudience(sender).build());
         }

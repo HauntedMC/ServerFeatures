@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.villageroptimizer.internal;
 
-import nl.hauntedmc.commonlib.util.CastUtils;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.VillagerOptimizer;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;

@@ -26,140 +26,54 @@ public class ChatFormat {
         setIdentifier(identifier);
     }
 
-    public int getIndex() {
-        return this.index;
-    }
+    public int getIndex() { return this.index; }
+    public void setIndex(int index) { this.index = index; }
 
-    public void setIndex(int index) {
-        this.index = index;
-    }
+    public String getPrefix() { return this.prefix; }
+    public void setPrefix(String prefix) { this.prefix = prefix; }
 
-    public String getPrefix() {
-        return this.prefix;
-    }
+    public String getSuffix() { return this.suffix; }
+    public void setSuffix(String suffix) { this.suffix = suffix; }
 
-    public void setPrefix(String prefix) {
-        this.prefix = prefix;
-    }
+    public List<String> getNameTooltip() { return this.nameTooltip; }
+    public void setNameTooltip(List<String> tooltip) { this.nameTooltip = tooltip; }
 
-    public String getSuffix() {
-        return this.suffix;
-    }
+    public String getIdentifier() { return this.identifier; }
+    public void setIdentifier(String identifier) { this.identifier = identifier; }
 
-    public void setSuffix(String suffix) {
-        this.suffix = suffix;
-    }
+    public String getName() { return this.name; }
+    public void setName(String name) { this.name = name; }
 
-    public List<String> getNameTooltip() {
-        return this.nameTooltip;
-    }
+    public List<String> getPrefixTooltip() { return this.prefixTooltip; }
+    public void setPrefixTooltip(List<String> preTooltip) { this.prefixTooltip = preTooltip; }
 
-    public void setNameTooltip(List<String> tooltip) {
-        this.nameTooltip = tooltip;
-    }
+    public List<String> getSuffixTooltip() { return this.suffixTooltip; }
+    public void setSuffixTooltip(List<String> suffixTooltip) { this.suffixTooltip = suffixTooltip; }
 
-    public String getIdentifier() {
-        return this.identifier;
-    }
+    public boolean showNameTooltip() { return this.showNameTooltip; }
+    public void setShowNameTooltip(boolean showNameTooltip) { this.showNameTooltip = showNameTooltip; }
 
-    public void setIdentifier(String identifier) {
-        this.identifier = identifier;
-    }
+    public boolean showPreTooltip() { return this.showPreTooltip; }
+    public void setShowPreTooltip(boolean showPreTooltip) { this.showPreTooltip = showPreTooltip; }
 
-    public String getName() {
-        return this.name;
-    }
+    public boolean showSuffixTooltip() { return this.showSuffixTooltip; }
+    public void setShowSuffixTooltip(boolean showSuffixTooltip) { this.showSuffixTooltip = showSuffixTooltip; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public boolean usePreClick() { return this.usePreClick; }
+    public void setUsePreClick(boolean usePreClick) { this.usePreClick = usePreClick; }
 
-    public List<String> getPrefixTooltip() {
-        return this.prefixTooltip;
-    }
+    public boolean useNameClick() { return this.useNameClick; }
+    public void setUseNameClick(boolean useNameClick) { this.useNameClick = useNameClick; }
 
-    public void setPrefixTooltip(List<String> preTooltip) {
-        this.prefixTooltip = preTooltip;
-    }
+    public boolean useSuffixClick() { return this.useSuffixClick; }
+    public void setUseSuffixClick(boolean useSuffixClick) { this.useSuffixClick = useSuffixClick; }
 
-    public List<String> getSuffixTooltip() {
-        return this.suffixTooltip;
-    }
+    public String getPreClickCmd() { return this.preClickCmd; }
+    public void setPreClickCmd(String preClickCmd) { this.preClickCmd = preClickCmd; }
 
-    public void setSuffixTooltip(List<String> suffixTooltip) {
-        this.suffixTooltip = suffixTooltip;
-    }
+    public String getNameClickCmd() { return this.nameClickCmd; }
+    public void setNameClickCmd(String nameClickCmd) { this.nameClickCmd = nameClickCmd; }
 
-    public boolean showNameTooltip() {
-        return this.showNameTooltip;
-    }
-
-    public void setShowNameTooltip(boolean showNameTooltip) {
-        this.showNameTooltip = showNameTooltip;
-    }
-
-    public boolean showPreTooltip() {
-        return this.showPreTooltip;
-    }
-
-    public void setShowPreTooltip(boolean showPreTooltip) {
-        this.showPreTooltip = showPreTooltip;
-    }
-
-    public boolean showSuffixTooltip() {
-        return this.showSuffixTooltip;
-    }
-
-    public void setShowSuffixTooltip(boolean showSuffixTooltip) {
-        this.showSuffixTooltip = showSuffixTooltip;
-    }
-
-    public boolean usePreClick() {
-        return this.usePreClick;
-    }
-
-    public void setUsePreClick(boolean usePreClick) {
-        this.usePreClick = usePreClick;
-    }
-
-    public boolean useNameClick() {
-        return this.useNameClick;
-    }
-
-    public void setUseNameClick(boolean useNameClick) {
-        this.useNameClick = useNameClick;
-    }
-
-    public boolean useSuffixClick() {
-        return this.useSuffixClick;
-    }
-
-    public void setUseSuffixClick(boolean useSuffixClick) {
-        this.useSuffixClick = useSuffixClick;
-    }
-
-    public String getPreClickCmd() {
-        return this.preClickCmd;
-    }
-
-    public void setPreClickCmd(String preClickCmd) {
-        this.preClickCmd = preClickCmd;
-    }
-
-    public String getNameClickCmd() {
-        return this.nameClickCmd;
-    }
-
-    public void setNameClickCmd(String nameClickCmd) {
-        this.nameClickCmd = nameClickCmd;
-    }
-
-    public String getSuffixClickCmd() {
-        return this.suffixClickCmd;
-    }
-
-    public void setSuffixClickCmd(String suffixClickCmd) {
-        this.suffixClickCmd = suffixClickCmd;
-    }
-
+    public String getSuffixClickCmd() { return this.suffixClickCmd; }
+    public void setSuffixClickCmd(String suffixClickCmd) { this.suffixClickCmd = suffixClickCmd; }
 }
