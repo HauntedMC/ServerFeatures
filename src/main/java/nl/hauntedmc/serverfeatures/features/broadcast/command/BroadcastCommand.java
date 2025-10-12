@@ -2,9 +2,10 @@ package nl.hauntedmc.serverfeatures.features.broadcast.command;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
-import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.features.broadcast.Broadcast;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -67,9 +68,18 @@ public class BroadcastCommand extends FeatureCommand {
     /* ------------------------------------------------- */
     /*  Chat broadcast                                   */
     /* ------------------------------------------------- */
-    private void broadcastChat(String raw, CommandSender sender) {
-        String message = ComponentUtils.serializeLegacyString(raw);
-        Component messageComponent = ComponentUtils.deserializeComponent(message);
+    private void broadcastChat(String message, CommandSender sender) {
+        message = TextCodec.convert(message)
+                .expect(TextCodec.Input.MIXED_INPUT)
+                .toMiniMessage();
+
+        Component messageComponent = ComponentCodec.deserialize(message)
+                .expect(TextCodec.Input.MINIMESSAGE)
+                .features(ComponentCodec.ALL_DEFAULTS())
+                .autoLinkUrls()
+                .toComponent();
+
+
         Bukkit.getOnlinePlayers().forEach(p -> p.sendMessage(messageComponent));
         ack(sender);
     }
@@ -90,10 +100,25 @@ public class BroadcastCommand extends FeatureCommand {
             subPart   = "";
         }
 
-        titlePart = ComponentUtils.serializeLegacyString(titlePart);
-        subPart = ComponentUtils.serializeLegacyString(subPart);
-        Component titlePartComponent = ComponentUtils.deserializeComponent(titlePart);
-        Component subPartComponent = ComponentUtils.deserializeComponent(subPart);
+        titlePart = TextCodec.convert(titlePart)
+                .expect(TextCodec.Input.MIXED_INPUT)
+                .toMiniMessage();
+
+        Component titlePartComponent = ComponentCodec.deserialize(titlePart)
+                .expect(TextCodec.Input.MINIMESSAGE)
+                .features(ComponentCodec.ALL_DEFAULTS())
+                .autoLinkUrls()
+                .toComponent();
+
+        subPart = TextCodec.convert(subPart)
+                .expect(TextCodec.Input.MIXED_INPUT)
+                .toMiniMessage();
+
+        Component subPartComponent = ComponentCodec.deserialize(subPart)
+                .expect(TextCodec.Input.MINIMESSAGE)
+                .features(ComponentCodec.ALL_DEFAULTS())
+                .autoLinkUrls()
+                .toComponent();
 
         int fadeIn  = (int) feature.getConfigHandler().getSetting("title_fade_in");
         int stay    = (int) feature.getConfigHandler().getSetting("title_stay");

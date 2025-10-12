@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor.internal.service;
 
-import nl.hauntedmc.commonlib.util.DiscordUtils;
-import nl.hauntedmc.commonlib.util.JsonUtils;
+import nl.hauntedmc.serverfeatures.api.util.http.DiscordUtils;
+import nl.hauntedmc.serverfeatures.api.util.parse.JsonUtils;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.LagMonitor;
 
 import java.time.Instant;

@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.sanctions;
 
-import nl.hauntedmc.commonlib.config.ConfigMap;
-import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;

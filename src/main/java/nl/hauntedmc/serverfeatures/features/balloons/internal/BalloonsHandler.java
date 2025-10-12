@@ -51,7 +51,7 @@ public final class BalloonsHandler {
         if (!player.hasPermission(def.permission())) {
             player.sendMessage(feature.getLocalizationHandler()
                     .getMessage("general.no_permission_reason")
-                    .withPlaceholders(Map.of("reason", feature.getLocalizationHandler().getMessage("balloons.menu.balloon.lore.locked").forAudience(player).build()))
+                    .with("reason", feature.getLocalizationHandler().getMessage("balloons.menu.balloon.lore.locked").forAudience(player).build())
                     .forAudience(player).build());
             return false;
         }

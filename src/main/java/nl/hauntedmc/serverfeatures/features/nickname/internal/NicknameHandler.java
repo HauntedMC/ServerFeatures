@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal;
 
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
-import nl.hauntedmc.commonlib.util.ColorEncodingUtils;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.service.NicknameService;
@@ -91,10 +91,10 @@ public class NicknameHandler {
     }
 
     private static @NotNull String translateColours(String unformattedNickname) {
-        String nickname = ColorEncodingUtils.translateHexColors(unformattedNickname);
-        nickname = ColorEncodingUtils.translateAmpersandColors(nickname);
-        nickname = ColorEncodingUtils.translateMiniMessageColors(nickname);
-        return nickname;
+         return TextCodec.convert(unformattedNickname)
+                .expect(TextCodec.Input.MIXED_INPUT)
+                .options(o -> o.xRepeatedHex(true).normalizeSectionToAmpersand(true))
+                .toLegacy('§');
     }
 
     private boolean hasValidNicknameLength(String formattedNickname) {

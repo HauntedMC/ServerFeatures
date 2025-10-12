@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.chattools;
 
-import nl.hauntedmc.commonlib.config.ConfigMap;
-import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.chattools.command.ChatCommand;

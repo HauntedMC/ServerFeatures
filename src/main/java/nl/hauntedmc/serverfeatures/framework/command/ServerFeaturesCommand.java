@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.framework.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.enable.FeatureEnableResponse;
@@ -10,7 +11,6 @@ import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResponse
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResponse;
 import org.bukkit.command.*;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.stream.Stream;
@@ -27,7 +27,7 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (args.length == 0) {
-            send("general.usage", sender, Map.of());
+            send("general.usage", sender, MessagePlaceholders.empty());
             return true;
         }
 
@@ -44,13 +44,13 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
             case "softreload":
                 if (!has(sender, "serverfeatures.command.reload")) return true;
-                if (args.length < 2) { send("command.softreload.usage", sender, Map.of()); return true; }
+                if (args.length < 2) { send("command.softreload.usage", sender, MessagePlaceholders.empty()); return true; }
                 handleSoftReload(sender, args[1]);
                 return true;
 
             case "reload":
                 if (!has(sender, "serverfeatures.command.reload")) return true;
-                if (args.length < 2) { send("command.reload.usage", sender, Map.of()); return true; }
+                if (args.length < 2) { send("command.reload.usage", sender, MessagePlaceholders.empty()); return true; }
                 handleReload(sender, args[1]);
                 return true;
 
@@ -70,15 +70,15 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 if (!has(sender, "serverfeatures.command.reloadlocal")) return true;
                 try {
                     plugin.getLocalizationHandler().reloadLocalization();
-                    send("command.reloadlocal.success", sender, Map.of());
+                    send("command.reloadlocal.success", sender, MessagePlaceholders.empty());
                 } catch (Throwable t) {
                     plugin.getLogger().warning("Localization reload failed: " + t.getMessage());
-                    send("command.reloadlocal.fail", sender, Map.of());
+                    send("command.reloadlocal.fail", sender, MessagePlaceholders.empty());
                 }
                 return true;
 
             default:
-                send("general.unknown_command", sender, Map.of());
+                send("general.unknown_command", sender, MessagePlaceholders.empty());
                 return true;
         }
     }
@@ -148,13 +148,13 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
     private boolean has(CommandSender sender, String perm) {
         if (!sender.hasPermission(perm)) {
-            send("general.no_permission", sender, Map.of());
+            send("general.no_permission", sender, MessagePlaceholders.empty());
             return false;
         }
         return true;
     }
 
-    private void send(String key, CommandSender audience, Map<String, String> placeholders) {
+    private void send(String key, CommandSender audience, MessagePlaceholders placeholders) {
         audience.sendMessage(plugin.getLocalizationHandler()
                 .getMessage(key)
                 .forAudience(audience)

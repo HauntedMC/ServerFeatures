@@ -2,10 +2,10 @@ package nl.hauntedmc.serverfeatures.api.gui.invmenu.menu;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
@@ -117,7 +117,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
         if (finished) return;
         finished = true;
 
-        String msg = PlainTextComponentSerializer.plainText().serialize(e.message());
+        String msg = ComponentCodec.serialize(e.message()).format(ComponentCodec.Serializer.Format.PLAIN).build();
 
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             try {

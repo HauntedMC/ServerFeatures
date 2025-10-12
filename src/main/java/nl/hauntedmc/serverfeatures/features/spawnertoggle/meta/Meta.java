@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.spawnertoggle.meta;
 
-import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
 import java.util.List;
 

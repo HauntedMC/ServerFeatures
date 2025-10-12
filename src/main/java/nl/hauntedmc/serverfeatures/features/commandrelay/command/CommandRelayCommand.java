@@ -51,7 +51,8 @@ public class CommandRelayCommand extends FeatureCommand {
 
         sender.sendMessage(
                 feature.getLocalizationHandler().getMessage("commandrelay.relayed")
-                        .withPlaceholders(Map.of("target", target, "cmd", cmd))
+                        .with("target", target)
+                        .with("cmd", cmd)
                         .forAudience(sender)
                         .build()
         );

@@ -46,7 +46,10 @@ public class GlowHandler {
             player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("general.no_permission_reason")
-                            .withPlaceholders(Map.of("reason", "&fJe hebt deze glow nog niet unlocked"))
+                            .with("reason", feature.getLocalizationHandler()
+                                    .getMessage("glow.menu.color.lore.locked")
+                                    .forAudience(player)
+                                    .build())
                             .forAudience(player)
                             .build()
             );

@@ -52,7 +52,10 @@ public class ChatReportCommand extends FeatureCommand {
                 if (count >= 1) {
                     reportedPlayers.add(playerName);
                 } else {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.error").forAudience(sender).withPlaceholders(Map.of("name", playerName)).build());
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("chatlog.error")
+                            .forAudience(sender)
+                            .with("name", playerName)
+                            .build());
                 }
             }
         }
@@ -65,7 +68,10 @@ public class ChatReportCommand extends FeatureCommand {
             String fullUrl = baseUrl + reportId;
 
             // Build a clickable component with the report URL.
-            Component clickableUrl = feature.getLocalizationHandler().getMessage("chatlog.url").forAudience(sender).withPlaceholders(Map.of("url", fullUrl)).build()
+            Component clickableUrl = feature.getLocalizationHandler().getMessage("chatlog.url")
+                    .forAudience(sender)
+                    .with("url", fullUrl)
+                    .build()
                     .clickEvent(ClickEvent.openUrl(fullUrl));
             player.sendMessage(clickableUrl);
             feature.getReportHandler().sendDiscordNotifaction(player.getName(), reportedPlayers, serverName, fullUrl);

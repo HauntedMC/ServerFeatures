@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.staffchat.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannel;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannelHandler;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.StaffChatMessage;
@@ -28,7 +28,7 @@ public class ChatListener implements Listener {
     public void onPlayerChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
 
-        String rawMessage = PlainTextComponentSerializer.plainText().serialize(event.message());
+        String rawMessage = ComponentCodec.serialize(event.message()).format(ComponentCodec.Serializer.Format.PLAIN).build();
 
         String prefix = rawMessage.substring(0, 1);
         ChatChannel channel = handler.getChannelByPrefix(prefix);

@@ -1,15 +1,16 @@
 package nl.hauntedmc.serverfeatures.framework.localization;
 
-import nl.hauntedmc.commonlib.localization.Language;
-import nl.hauntedmc.commonlib.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -124,23 +125,30 @@ public class LocalizationHandler {
          * Always uses Hybrid behavior: legacy (&/§, incl. hex) -> MiniMessage tags -> MiniMessage parse.
          */
         public Component build() {
-            String rawMessage = (audience instanceof Player)
-                    ? getTranslateMessage(key, (Player) audience)
+            String rawMessage = (audience instanceof Player player)
+                    ? getTranslateMessage(key, player)
                     : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
 
+            return renderComponent(rawMessage);
+        }
 
-            // PAPI while still string-based
-            if (audience instanceof Player p) {
-                rawMessage = PlaceholderAPIHook.parseWithPAPI(rawMessage, p);
-            }
+        private Component renderComponent(String messageString) {
+            messageString = TextCodec.convert(messageString)
+                    .expect(TextCodec.Input.MIXED_INPUT)
+                    .preprocess(s -> {
+                        if (audience instanceof Player p) {
+                            s = PlaceholderAPIHook.applyPlaceholders(s, p);
+                        }
+                        s = MessagePlaceholders.applyPlaceholders(s, placeholders);
+                        return s;
+                    })
+                    .toMiniMessage();
 
-            // Apply string/number/boolean placeholders pre-parse (with MiniMessage-escaping)
-            rawMessage = MessagePlaceholders.applyPlaceholders(rawMessage, placeholders);
-
-            // Convert legacy to MiniMessage tags
-            String mmReady = legacyToMiniMessage(rawMessage);
-            
-            return ComponentUtils.deserializeMMComponent(mmReady);
+            return ComponentCodec.deserialize(messageString)
+                    .expect(TextCodec.Input.MINIMESSAGE)
+                    .features(ComponentCodec.ALL_DEFAULTS())
+                    .autoLinkUrls()
+                    .toComponent();
         }
 
     }
@@ -166,54 +174,5 @@ public class LocalizationHandler {
         return message;
     }
 
-    /**
-     * Convert legacy color/format codes (both & and §), including Spigot hex (&x&R&RG&G&B&B) and &#RRGGBB,
-     * into MiniMessage tags so strings can mix legacy and MiniMessage safely.
-     */
-    private static String legacyToMiniMessage(String input) {
-        if (input == null || input.isEmpty()) return input;
 
-        // Normalize § to &
-        input = input.replace('§', '&');
-
-        // Hex color formats:
-        // 1) "&#RRGGBB"  -> "<#RRGGBB>"
-        input = input.replaceAll("(?i)&#([0-9a-f]{6})", "<#$1>");
-
-        // 2) "&x&R&R&G&G&B&B" (Spigot-style) -> "<#RRGGBB>"
-        input = input.replaceAll(
-                "(?i)&x&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])&([0-9a-f])",
-                "<#$1$2$3$4$5$6>"
-        );
-
-        // Standard color codes
-        input = input
-                .replaceAll("(?i)&0", "<black>")
-                .replaceAll("(?i)&1", "<dark_blue>")
-                .replaceAll("(?i)&2", "<dark_green>")
-                .replaceAll("(?i)&3", "<dark_aqua>")
-                .replaceAll("(?i)&4", "<dark_red>")
-                .replaceAll("(?i)&5", "<dark_purple>")
-                .replaceAll("(?i)&6", "<gold>")
-                .replaceAll("(?i)&7", "<gray>")
-                .replaceAll("(?i)&8", "<dark_gray>")
-                .replaceAll("(?i)&9", "<blue>")
-                .replaceAll("(?i)&a", "<green>")
-                .replaceAll("(?i)&b", "<aqua>")
-                .replaceAll("(?i)&c", "<red>")
-                .replaceAll("(?i)&d", "<light_purple>")
-                .replaceAll("(?i)&e", "<yellow>")
-                .replaceAll("(?i)&f", "<white>");
-
-        // Formatting codes
-        input = input
-                .replaceAll("(?i)&l", "<bold>")
-                .replaceAll("(?i)&n", "<underlined>")
-                .replaceAll("(?i)&m", "<strikethrough>")
-                .replaceAll("(?i)&o", "<italic>")
-                .replaceAll("(?i)&k", "<obfuscated>")
-                .replaceAll("(?i)&r", "<reset>");
-
-        return input;
-    }
 }

@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures.features.repairnpc;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.trait.TraitInfo;
-import nl.hauntedmc.commonlib.config.ConfigMap;
-import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.repairnpc.hook.RepairTrait;

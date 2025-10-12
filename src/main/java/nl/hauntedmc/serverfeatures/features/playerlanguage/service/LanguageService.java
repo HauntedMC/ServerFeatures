@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
-import nl.hauntedmc.commonlib.localization.Language;
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.entities.PlayerLanguageEntity;

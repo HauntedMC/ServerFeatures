@@ -55,7 +55,11 @@ public class ChatHandler {
         // Check for disallowed words
         if (containsDisallowedWords(message)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_word").forAudience(player).build());
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_word")
+                    .forAudience(player)
+                    .with("name", player.getName())
+                    .with("message", message)
+                    .build());
             logBlockedMessage("[FILTERED] ", message, player);
             feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Taalgebruik", finalMessage));
             return true;
@@ -64,7 +68,11 @@ public class ChatHandler {
         // Check for IP addresses in the message
         if (containsIP(message)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_ip").forAudience(player).build());
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_ip")
+                    .forAudience(player)
+                    .with("name", player.getName())
+                    .with("message", message)
+                    .build());
             logBlockedMessage("[IP FILTERED] ", message, player);
             feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [IP]", finalMessage));
             return true;
@@ -73,7 +81,11 @@ public class ChatHandler {
         // Check for blocked links
         if (containsBlockedLink(message)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_link").forAudience(player).build());
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_link")
+                    .forAudience(player)
+                    .with("name", player.getName())
+                    .with("message", message)
+                    .build());
             logBlockedMessage("[LINK FILTERED] ", message, player);
             feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [Link]", finalMessage));
             return true;
@@ -82,7 +94,11 @@ public class ChatHandler {
         // Check for spam (excessively similar recent messages)
         if (isSpam(message, player)) {
             notifySender(player, feature.getLocalizationHandler().getMessage("chatfilter.blocked_spam").forAudience(player).build());
-            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_spam").forAudience(player).withPlaceholders(Map.of("name", player.getName(), "message", message)).build());
+            notifyStaff(feature.getLocalizationHandler().getMessage("chatfilter.notify_blocked_spam")
+                    .forAudience(player)
+                    .with("name", player.getName())
+                    .with("message", message)
+                    .build());
             logBlockedMessage("[SPAM] ", message, player);
             return true;
         }

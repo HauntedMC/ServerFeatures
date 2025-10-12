@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import nl.hauntedmc.commonlib.featureapi.FeaturePlugin;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
@@ -19,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-public class ServerFeatures extends JavaPlugin implements FeaturePlugin {
+public class ServerFeatures extends JavaPlugin {
 
     private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;

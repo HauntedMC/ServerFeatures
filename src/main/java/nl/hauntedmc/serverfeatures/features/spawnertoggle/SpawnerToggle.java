@@ -3,9 +3,8 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import nl.hauntedmc.commonlib.config.ConfigMap;
-import nl.hauntedmc.commonlib.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
@@ -66,13 +65,17 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         if (spawner.getRequiredPlayerRange() == defaultRange) {
             spawner.setRequiredPlayerRange(0);
             Component status_off = getLocalizationHandler().getMessage("spawner_toggle.status_off").forAudience(player).build();
-            String status_off_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_off);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message").forAudience(player).withPlaceholders(Map.of("status", status_off_str)).build());
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message")
+                    .forAudience(player)
+                    .with("status", status_off)
+                    .build());
         } else {
             spawner.setRequiredPlayerRange(defaultRange);
             Component status_on = getLocalizationHandler().getMessage("spawner_toggle.status_on").forAudience(player).build();
-            String status_on_str = LegacyComponentSerializer.legacyAmpersand().serialize(status_on);
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message").forAudience(player).withPlaceholders(Map.of("status", status_on_str)).build());
+            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message")
+                    .forAudience(player)
+                    .with("status", status_on)
+                    .build());
         }
 
         blockState.update();

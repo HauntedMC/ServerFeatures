@@ -36,7 +36,7 @@ public final class AntiRaidFarmListener implements Listener {
             if (handler.shouldNotify()) {
                 long secs = remainingOpt.getAsLong();
                 player.sendMessage(feature.getLocalizationHandler().getMessage("antiraidfarm.blocked")
-                        .withPlaceholders(Map.of("seconds", Component.text(secs)))
+                        .with("seconds", secs)
                         .forAudience(player).build());
             }
             return;

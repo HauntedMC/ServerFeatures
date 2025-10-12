@@ -1,7 +1,7 @@
 // File: MainConfigHandler.java
 package nl.hauntedmc.serverfeatures.framework.config;
 
-import nl.hauntedmc.commonlib.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigTypes;

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.api.player;
 
-import nl.hauntedmc.commonlib.localization.Language;
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import org.bukkit.entity.Player;

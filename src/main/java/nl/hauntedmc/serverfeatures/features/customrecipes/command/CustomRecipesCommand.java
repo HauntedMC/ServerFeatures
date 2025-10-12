@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 public class CustomRecipesCommand extends FeatureCommand {
 
@@ -74,7 +73,11 @@ public class CustomRecipesCommand extends FeatureCommand {
             for (String keyStr : activeKeys) {
                 RecipeData data = feature.getRecipeService().getRecipeData(NamespacedKey.fromString(keyStr));
                 String type = (data != null) ? data.getType().name() : "Unknown";
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.list_entry").forAudience(sender).withPlaceholders(Map.of("key", keyStr, "type", type)).build());
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.list_entry")
+                        .forAudience(sender)
+                        .with("key", keyStr)
+                        .with("type", type)
+                        .build());
             }
         }
     }
@@ -82,26 +85,44 @@ public class CustomRecipesCommand extends FeatureCommand {
     private void handleDisable(CommandSender sender, String keyInput) {
         NamespacedKey key = NamespacedKey.fromString(keyInput);
         if (key == null) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key").forAudience(sender).withPlaceholders(Map.of("key", keyInput)).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key")
+                    .forAudience(sender)
+                    .with("key", keyInput)
+                    .build());
             return;
         }
         if (feature.getRecipeService().disableRecipe(key)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disabled").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disabled")
+                    .forAudience(sender)
+                    .with("key", key.toString())
+                    .build());
         } else {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disable_fail").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.disable_fail")
+                    .forAudience(sender)
+                    .with("key", key.toString())
+                    .build());
         }
     }
 
     private void handleEnable(CommandSender sender, String keyInput) {
         NamespacedKey key = NamespacedKey.fromString(keyInput);
         if (key == null) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key").forAudience(sender).withPlaceholders(Map.of("key", keyInput)).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.invalid_key")
+                    .forAudience(sender)
+                    .with("key", keyInput)
+                    .build());
             return;
         }
         if (feature.getRecipeService().enableRecipe(key)) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enabled").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enabled")
+                    .forAudience(sender)
+                    .with("key", key.toString())
+                    .build());
         } else {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enable_fail").forAudience(sender).withPlaceholders(Map.of("key", key.toString())).build());
+            sender.sendMessage(feature.getLocalizationHandler().getMessage("customrecipes.enable_fail")
+                    .forAudience(sender)
+                    .with("key", key.toString())
+                    .build());
         }
     }
 

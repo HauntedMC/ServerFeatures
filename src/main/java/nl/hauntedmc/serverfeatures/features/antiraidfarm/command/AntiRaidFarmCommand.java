@@ -65,12 +65,11 @@ public final class AntiRaidFarmCommand extends FeatureCommand {
 
         for (var e : entries) {
             sender.sendMessage(lh.getMessage("antiraidfarm.list.entry")
-                    .withPlaceholders(Map.of(
-                            "player", Component.text(e.name()),
-                            "remaining", Component.text(e.remainingSeconds()),
-                            "total", Component.text(e.totalSeconds())
-                    ))
-                    .forAudience(sender).build());
+                    .forAudience(sender)
+                    .with("player", e.name())
+                    .with("remaining", e.remainingSeconds())
+                    .with("total", e.totalSeconds())
+                    .build());
         }
     }
 

@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.balloons.menu;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.menu.PagedMenu;
@@ -120,7 +119,7 @@ public final class BalloonsMenu {
         if (active.isPresent()) {
             title = feature.getLocalizationHandler()
                     .getMessage("balloons.menu.status.active")
-                    .withPlaceholders(Map.of("name", active.get().displayName()))
+                    .with("name", active.get().displayName())
                     .build();
         } else {
             title = feature.getLocalizationHandler()
@@ -157,7 +156,7 @@ public final class BalloonsMenu {
                 .factory(p -> {
                     var name = feature.getLocalizationHandler()
                             .getMessage("balloons.menu.balloon.name")
-                            .withPlaceholders(Map.of("name", def.displayName()))
+                            .with("name", def.displayName())
                             .build();
 
                     var lore = feature.getLocalizationHandler()
@@ -174,7 +173,7 @@ public final class BalloonsMenu {
                 .replacementIfNoPerm(p -> {
                     var name = feature.getLocalizationHandler()
                             .getMessage("balloons.menu.balloon.name")
-                            .withPlaceholders(Map.of("name", def.displayName()))
+                            .with("name", def.displayName())
                             .build();
 
                     var lore = feature.getLocalizationHandler()
@@ -194,7 +193,7 @@ public final class BalloonsMenu {
                         ctx.player().sendMessage(
                                 feature.getLocalizationHandler()
                                         .getMessage("balloons.set")
-                                        .withPlaceholders(Map.of("name", def.displayName()))
+                                        .with("name", def.displayName())
                                         .forAudience(ctx.player())
                                         .build()
                         );

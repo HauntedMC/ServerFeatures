@@ -1,9 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.util.message.ComponentUtils;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -73,8 +74,14 @@ public class LiquidTankCommand extends FeatureCommand {
     private org.bukkit.inventory.ItemStack getTankItem(int amount) {
         org.bukkit.inventory.ItemStack item = new org.bukkit.inventory.ItemStack(org.bukkit.Material.HOPPER, amount);
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
-        String displayName = ((String) feature.getConfigHandler().getSetting("item-name")).replace("&", "§");
-        meta.displayName(Component.text(ComponentUtils.serializeLegacyString(displayName)));
+
+        String raw = String.valueOf(feature.getConfigHandler().getSetting("item-name"));
+        Component display = ComponentCodec
+                .deserialize(raw)
+                .expect(TextCodec.Input.ANY_LEGACY)
+                .features(ComponentCodec.Feature.COLORS)
+                .toComponent();
+        meta.displayName(display);
         item.setItemMeta(meta);
         return item;
     }

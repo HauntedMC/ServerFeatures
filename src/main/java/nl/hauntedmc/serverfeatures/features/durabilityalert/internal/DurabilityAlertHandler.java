@@ -1,15 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.DurabilityAlert;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
-
-import java.util.Map;
 
 public class DurabilityAlertHandler {
 
@@ -47,8 +44,7 @@ public class DurabilityAlertHandler {
         double percentage = ((double) remaining / maxDurability) * 100;
 
         if (percentage <= this.defaultValue) {
-            String displayName = LegacyComponentSerializer.legacyAmpersand().serialize(item.effectiveName());
-            sendWarning(player, displayName, Math.max(remaining-1, 0));
+            sendWarning(player, item.effectiveName(), Math.max(remaining-1, 0));
         }
     }
 
@@ -59,14 +55,24 @@ public class DurabilityAlertHandler {
      * @param itemName            the formatted name of the item
      * @param durabilityRemaining the remaining durability value
      */
-    private void sendWarning(Player player, String itemName, int durabilityRemaining) {
+    private void sendWarning(Player player, Component itemName, int durabilityRemaining) {
         Component message;
 
         if (durabilityRemaining == 0) {
-            message = feature.getLocalizationHandler().getMessage("durabilityalert.no_durability").forAudience(player).withPlaceholders(Map.of("item", itemName)).build();
+            message = feature.getLocalizationHandler().getMessage("durabilityalert.no_durability")
+                    .forAudience(player)
+                    .with("item", itemName)
+                    .build();
         } else {
-            Component lowMsg = feature.getLocalizationHandler().getMessage("durabilityalert.low_durability").forAudience(player).withPlaceholders(Map.of("item", itemName)).build();
-            Component durMsg = feature.getLocalizationHandler().getMessage("durabilityalert.durability_left").forAudience(player).withPlaceholders(Map.of("durability", String.valueOf(durabilityRemaining))).build();
+            Component lowMsg = feature.getLocalizationHandler().getMessage("durabilityalert.low_durability")
+                    .forAudience(player)
+                    .with("item", itemName)
+                    .build();
+            Component durMsg = feature.getLocalizationHandler().getMessage("durabilityalert.durability_left")
+                    .forAudience(player)
+                    .with("durability", durabilityRemaining)
+                    .build();
+
             message = lowMsg.append(durMsg);
         }
 

@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.glow.meta;
 
 
-import nl.hauntedmc.commonlib.featureapi.feature.meta.BaseMeta;
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
 import java.util.List;
 

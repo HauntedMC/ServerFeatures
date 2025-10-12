@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 
 public class PlaceholderAPIHook {
 
-    public static String parseWithPAPI(String text, Player player) {
+    public static String applyPlaceholders(String text, Player player) {
         String output = text;
         if (player != null && Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             output = me.clip.placeholderapi.PlaceholderAPI.setPlaceholders(player, text);

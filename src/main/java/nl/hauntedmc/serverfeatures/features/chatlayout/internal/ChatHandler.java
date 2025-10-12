@@ -166,7 +166,7 @@ public class ChatHandler {
         int length = strings.size();
         int index = 0;
         for (String str : strings) {
-            String replaced = PlaceholderAPIHook.parseWithPAPI(str, player);
+            String replaced = PlaceholderAPIHook.applyPlaceholders(str, player);
             sb.append(replaced);
             if (index < length - 1) {
                 sb.append("\n<reset>");
@@ -182,7 +182,7 @@ public class ChatHandler {
         // Prefix (stars + rank)
         int starTier = StarTierModifier.getStarTier(player);
         String starTierFormat = StarTierModifier.getStarTierFormat(starTier);
-        String rank = PlaceholderAPIHook.parseWithPAPI(playerFormat.getPrefix(), player);
+        String rank = PlaceholderAPIHook.applyPlaceholders(playerFormat.getPrefix(), player);
         String prefix = starTierFormat + rank;
         String prefixCommand = playerFormat.getPreClickCmd();
         String prefixTooltip = formatTooltip(playerFormat.getPrefixTooltip(), player)
@@ -190,13 +190,13 @@ public class ChatHandler {
         String processed_prefix = "<click:run_command:'" + prefixCommand + "'><hover:show_text:'" + prefixTooltip + "'>" + prefix + "</hover></click>";
 
         // Name
-        String name = PlaceholderAPIHook.parseWithPAPI(playerFormat.getName(), player);
+        String name = PlaceholderAPIHook.applyPlaceholders(playerFormat.getName(), player);
         String nameCommand = playerFormat.getNameClickCmd();
         String nameTooltip = formatTooltip(playerFormat.getNameTooltip(), player);
         String processed_name = "<click:suggest_command:'" + nameCommand + "'><hover:show_text:'" + nameTooltip + "'>" + name + "</hover></click>";
 
         // Suffix
-        String suffix = PlaceholderAPIHook.parseWithPAPI(playerFormat.getSuffix(), player);
+        String suffix = PlaceholderAPIHook.applyPlaceholders(playerFormat.getSuffix(), player);
 
         String chatLayout = processed_prefix + processed_name + suffix;
         chatLayout = translateMinecraftToMiniMessage(chatLayout, true);

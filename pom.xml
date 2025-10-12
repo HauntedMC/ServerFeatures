@@ -74,12 +74,6 @@
                         </goals>
                         <configuration>
                             <relocations>
-                                <!-- Relocate your internal commonlib -->
-                                <relocation>
-                                    <pattern>nl.hauntedmc.commonlib</pattern>
-                                    <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commonlib</shadedPattern>
-                                </relocation>
-
                                 <!-- Relocate ClassGraph -->
                                 <relocation>
                                     <pattern>io.github.classgraph</pattern>
@@ -196,11 +190,6 @@
             <artifactId>dataprovider</artifactId>
             <version>1.19.0</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>nl.hauntedmc.commonlib</groupId>
-            <artifactId>commonlib</artifactId>
-            <version>1.3.0</version>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.proxyfeatures</groupId>

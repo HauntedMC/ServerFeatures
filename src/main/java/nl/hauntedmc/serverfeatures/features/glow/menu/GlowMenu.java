@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.glow.menu;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
@@ -117,7 +116,7 @@ public final class GlowMenu {
         if (active.isPresent()) {
             title = feature.getLocalizationHandler()
                     .getMessage("glow.menu.status.active")
-                    .withPlaceholders(Map.of("color", componentToString(active.get().displayName(viewer))))
+                    .with("color", active.get().displayName(viewer))
                     .build();
         } else {
             title = feature.getLocalizationHandler()
@@ -157,7 +156,7 @@ public final class GlowMenu {
                 .factory(p -> {
                     Component name = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.name")
-                            .withPlaceholders(Map.of("color", componentToString(effect.displayName(p))))
+                            .with("color", effect.displayName(p))
                             .build();
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.allowed")
@@ -168,7 +167,7 @@ public final class GlowMenu {
                 .replacementIfNoPerm(p -> {
                     Component name = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.name")
-                            .withPlaceholders(Map.of("color", componentToString(effect.displayName(p))))
+                            .with("color", effect.displayName(p))
                             .build();
                     Component lore = feature.getLocalizationHandler()
                             .getMessage("glow.menu.color.lore.locked")
@@ -181,7 +180,7 @@ public final class GlowMenu {
                         ctx.player().sendMessage(
                                 feature.getLocalizationHandler()
                                         .getMessage("glow.glow_set")
-                                        .withPlaceholders(Map.of("color", componentToString(effect.displayName(ctx.player()))))
+                                        .with("color", effect.displayName(ctx.player()))
                                         .forAudience(ctx.player())
                                         .build()
                         );
@@ -192,7 +191,4 @@ public final class GlowMenu {
                 .build();
     }
 
-    private static String componentToString(Component c) {
-        return PlainTextComponentSerializer.plainText().serialize(c);
-    }
 }

@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.itemedit.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.itemedit.ItemEdit;
 import org.bukkit.Material;
@@ -12,12 +12,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
-import java.util.Map;
 
 public class ItemHandler {
-
-    private static final LegacyComponentSerializer AMPERSAND = LegacyComponentSerializer.legacyAmpersand();
-    private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
 
     private final ItemEdit feature;
     private final List<String> blockedNames;
@@ -42,15 +38,15 @@ public class ItemHandler {
                     feature.getLocalizationHandler()
                             .getMessage("general.no_permission_rank")
                             .forAudience(player)
-                            .withPlaceholders(Map.of("rank", "&2Legend"))
+                            .with("rank", "&2Legend")
                             .build()
             );
             return;
         }
 
-        // Convert &-codes -> Component, then strip colors to compare against blocked names
-        Component coloredNameComponent = AMPERSAND.deserialize(renameText);
-        String rawName = PLAIN.serialize(coloredNameComponent).trim();
+        // Convert &-codes -> Component, then strip colors to compare against blocked
+        Component coloredNameComponent = ComponentCodec.deserialize(renameText).expect(TextCodec.Input.LEGACY_AMPERSAND).toComponent();
+        String rawName = ComponentCodec.serialize(coloredNameComponent).format(ComponentCodec.Serializer.Format.PLAIN).build().trim();
 
         for (String blocked : this.blockedNames) {
             if (rawName.equalsIgnoreCase(blocked)) {
