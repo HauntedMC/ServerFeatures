@@ -7,7 +7,6 @@ import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.inspect.FormatInspector;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.itemedit.ItemEdit;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
