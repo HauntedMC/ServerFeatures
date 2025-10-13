@@ -7,5 +7,7 @@ public record FeatureDisableResponse(
         String feature,
         Set<String> alsoDisabledDependents
 ) {
-    public boolean success() { return result == FeatureDisableResult.SUCCESS; }
+    public boolean success() {
+        return result == FeatureDisableResult.SUCCESS;
+    }
 }

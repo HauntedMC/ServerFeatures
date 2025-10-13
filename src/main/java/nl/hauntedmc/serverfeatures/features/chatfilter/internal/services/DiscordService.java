@@ -16,9 +16,9 @@ public class DiscordService {
     /**
      * Sends a notification for chat filter events as an embed with red color.
      *
-     * @param playerName    The name of the player whose message was filtered.
-     * @param filterType    The type of filter triggered (e.g. "Blocked Link", "Blocked IP", "Blocked Word", etc.).
-     * @param filteredMsg   The filtered message.
+     * @param playerName  The name of the player whose message was filtered.
+     * @param filterType  The type of filter triggered (e.g. "Blocked Link", "Blocked IP", "Blocked Word", etc.).
+     * @param filteredMsg The filtered message.
      */
     public void sendFilterNotification(String playerName, String filterType, String filteredMsg) {
         String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");

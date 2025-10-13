@@ -60,7 +60,10 @@ public class PortalsCommand extends FeatureCommand {
         String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "create" -> {
-                if (args.length < 2) { usage(sender, "create <id>"); return true; }
+                if (args.length < 2) {
+                    usage(sender, "create <id>");
+                    return true;
+                }
                 String id = args[1];
                 if (handler.createPortal(id)) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.created")
@@ -76,7 +79,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "delete" -> {
-                if (args.length < 2) { usage(sender, "delete <id>"); return true; }
+                if (args.length < 2) {
+                    usage(sender, "delete <id>");
+                    return true;
+                }
                 String id = args[1];
                 if (handler.delete(id)) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.deleted")
@@ -92,8 +98,14 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "select" -> {
-                if (!(sender instanceof Player p)) { sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build()); return true; }
-                if (args.length < 2) { usage(sender, "select <id>"); return true; }
+                if (!(sender instanceof Player p)) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
+                    return true;
+                }
+                if (args.length < 2) {
+                    usage(sender, "select <id>");
+                    return true;
+                }
                 String id = args[1];
                 if (handler.selectPortal(p, id)) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.select.current").with("id", id).forAudience(sender).build());
@@ -103,13 +115,19 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "wand" -> {
-                if (!(sender instanceof Player p)) { sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build()); return true; }
+                if (!(sender instanceof Player p)) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
+                    return true;
+                }
                 handler.giveWand(p);
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.wand.given").forAudience(sender).build());
                 return true;
             }
             case "saveregion" -> {
-                if (!(sender instanceof Player p)) { sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build()); return true; }
+                if (!(sender instanceof Player p)) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
+                    return true;
+                }
                 var sel = handler.selection(p);
                 if (sel.selectedPortalId == null) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.select.none").forAudience(sender).build());
@@ -132,7 +150,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setmode" -> {
-                if (args.length < 3) { usage(sender, "setmode <id> <teleport|command|server>"); return true; }
+                if (args.length < 3) {
+                    usage(sender, "setmode <id> <teleport|command|server>");
+                    return true;
+                }
                 String id = args[1];
                 String mode = args[2];
                 if (handler.setMode(id, mode)) {
@@ -146,8 +167,14 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setteleport" -> {
-                if (!(sender instanceof Player p)) { sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build()); return true; }
-                if (args.length < 2) { usage(sender, "setteleport <id>"); return true; }
+                if (!(sender instanceof Player p)) {
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(sender).build());
+                    return true;
+                }
+                if (args.length < 2) {
+                    usage(sender, "setteleport <id>");
+                    return true;
+                }
                 String id = args[1];
                 boolean ok = handler.setTeleportFromPlayer(id, p);
                 if (ok) {
@@ -166,7 +193,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setcommand" -> {
-                if (args.length < 4) { usage(sender, "setcommand <id> <player|console> <command...>"); return true; }
+                if (args.length < 4) {
+                    usage(sender, "setcommand <id> <player|console> <command...>");
+                    return true;
+                }
                 String id = args[1];
                 CommandExecutor ex = CommandExecutor.fromString(args[2], CommandExecutor.CONSOLE);
                 String cmd = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
@@ -182,7 +212,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setserver" -> {
-                if (args.length < 3) { usage(sender, "setserver <id> <serverName>"); return true; }
+                if (args.length < 3) {
+                    usage(sender, "setserver <id> <serverName>");
+                    return true;
+                }
                 String id = args[1];
                 String serverName = args[2];
                 boolean ok = handler.setServer(id, serverName);
@@ -197,17 +230,23 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setblock" -> {
-                if (args.length < 3) { usage(sender, "setblock <id> <material|none>"); return true; }
+                if (args.length < 3) {
+                    usage(sender, "setblock <id> <material|none>");
+                    return true;
+                }
                 String id = args[1];
                 String blockName = args[2];
                 PortalsHandler.ExclusiveBlockResult res = handler.setExclusiveBlock(id, blockName);
                 switch (res) {
-                    case NOT_FOUND -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .with("id", id).forAudience(sender).build());
-                    case INVALID -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.invalid")
-                            .with("block", blockName).forAudience(sender).build());
-                    case CLEARED -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.cleared")
-                            .with("id", id).forAudience(sender).build());
+                    case NOT_FOUND ->
+                            sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                                    .with("id", id).forAudience(sender).build());
+                    case INVALID ->
+                            sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.invalid")
+                                    .with("block", blockName).forAudience(sender).build());
+                    case CLEARED ->
+                            sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.cleared")
+                                    .with("id", id).forAudience(sender).build());
                     case SET -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.set")
                             .with("id", id)
                             .with("block", blockName.toUpperCase(Locale.ROOT))
@@ -217,7 +256,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setsound" -> {
-                if (args.length < 3) { usage(sender, "setsound <id> <minecraft:key|none> [delayTicks]"); return true; }
+                if (args.length < 3) {
+                    usage(sender, "setsound <id> <minecraft:key|none> [delayTicks]");
+                    return true;
+                }
                 String id = args[1];
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
@@ -245,7 +287,10 @@ public class PortalsCommand extends FeatureCommand {
 
                 int delay = 0;
                 if (args.length >= 4) {
-                    try { delay = Math.max(0, Integer.parseInt(args[3])); } catch (NumberFormatException ignored) {}
+                    try {
+                        delay = Math.max(0, Integer.parseInt(args[3]));
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
 
                 def.setSound(resolved.get(), delay);
@@ -259,7 +304,10 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
             case "setparticle" -> {
-                if (args.length < 3) { usage(sender, "setparticle <id> <minecraft:key|none> [delayTicks]"); return true; }
+                if (args.length < 3) {
+                    usage(sender, "setparticle <id> <minecraft:key|none> [delayTicks]");
+                    return true;
+                }
                 String id = args[1];
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
@@ -287,7 +335,10 @@ public class PortalsCommand extends FeatureCommand {
 
                 int delay = 0;
                 if (args.length >= 4) {
-                    try { delay = Math.max(0, Integer.parseInt(args[3])); } catch (NumberFormatException ignored) {}
+                    try {
+                        delay = Math.max(0, Integer.parseInt(args[3]));
+                    } catch (NumberFormatException ignored) {
+                    }
                 }
 
                 def.setParticle(resolved.get(), delay);
@@ -303,7 +354,10 @@ public class PortalsCommand extends FeatureCommand {
 
             // >>> NEW: /portals info <id>
             case "info" -> {
-                if (args.length < 2) { usage(sender, "info <id>"); return true; }
+                if (args.length < 2) {
+                    usage(sender, "info <id>");
+                    return true;
+                }
                 String id = args[1];
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
@@ -315,23 +369,35 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
 
-            default -> { return true; }
+            default -> {
+                return true;
+            }
         }
     }
 
-    private void usage(CommandSender s, String u) { s.sendMessage("§cGebruik: /portals " + u); }
+    private void usage(CommandSender s, String u) {
+        s.sendMessage("§cGebruik: /portals " + u);
+    }
 
     private static String format(double d) {
-        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long)Math.rint(d)) : String.format(Locale.ROOT, "%.3f", d);
+        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(Locale.ROOT, "%.3f", d);
     }
-    private static String format(float f) { return String.format(Locale.ROOT, "%.1f", f); }
-    private static String stripSlash(String s) { return s.startsWith("/") ? s.substring(1) : s; }
+
+    private static String format(float f) {
+        return String.format(Locale.ROOT, "%.1f", f);
+    }
+
+    private static String stripSlash(String s) {
+        return s.startsWith("/") ? s.substring(1) : s;
+    }
 
     private String dash() {
         return "-";
     }
 
-    /** Sends a compact info sheet for a single portal. */
+    /**
+     * Sends a compact info sheet for a single portal.
+     */
     private void sendPortalInfo(CommandSender sender, PortalDefinition def) {
         var lh = feature.getLocalizationHandler();
 
@@ -391,18 +457,18 @@ public class PortalsCommand extends FeatureCommand {
         if (!sender.hasPermission(ADMIN_PERM)) return Collections.emptyList();
 
         if (args.length == 1) {
-            return Stream.of("create","delete","select","wand","saveregion","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info","list")
+            return Stream.of("create", "delete", "select", "wand", "saveregion", "setmode", "setteleport", "setcommand", "setserver", "setblock", "setsound", "setparticle", "info", "list")
                     .filter(opt -> opt.startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .collect(Collectors.toList());
         }
-        if (args.length == 2 && Stream.of("delete","select","setmode","setteleport","setcommand","setserver","setblock","setsound","setparticle","info").anyMatch(args[0]::equalsIgnoreCase)) {
+        if (args.length == 2 && Stream.of("delete", "select", "setmode", "setteleport", "setcommand", "setserver", "setblock", "setsound", "setparticle", "info").anyMatch(args[0]::equalsIgnoreCase)) {
             return registry.all().stream().map(PortalDefinition::id).filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("setmode")) {
-            return Stream.of("teleport","command","server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+            return Stream.of("teleport", "command", "server").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("setcommand")) {
-            return Stream.of("player","console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+            return Stream.of("player", "console").filter(opt -> opt.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("setblock")) {
             String partial = args[2].toLowerCase(Locale.ROOT);

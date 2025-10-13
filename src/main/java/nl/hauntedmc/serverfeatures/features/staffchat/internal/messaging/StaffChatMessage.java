@@ -12,9 +12,9 @@ public final class StaffChatMessage extends AbstractEventMessage {
     @SuppressWarnings("unused")
     private StaffChatMessage() {
         super("staffchat");
-        this.prefix       = null;
-        this.message      = null;
-        this.senderName   = null;
+        this.prefix = null;
+        this.message = null;
+        this.senderName = null;
         this.senderServer = null;
     }
 
@@ -24,9 +24,9 @@ public final class StaffChatMessage extends AbstractEventMessage {
                             String senderName,
                             String senderServer) {
         super(type);
-        this.prefix       = prefix;
-        this.message      = message;
-        this.senderName   = senderName;
+        this.prefix = prefix;
+        this.message = message;
+        this.senderName = senderName;
         this.senderServer = senderServer;
     }
 

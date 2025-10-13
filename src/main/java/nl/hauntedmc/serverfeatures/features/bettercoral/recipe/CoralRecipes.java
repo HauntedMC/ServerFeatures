@@ -25,29 +25,29 @@ public final class CoralRecipes {
         this.cookTime = feature.getConfigHandler().node("furnace").get("cook_time_ticks").as(Integer.class, 20);
         this.exp = feature.getConfigHandler().node("furnace").get("experience").as(Float.class, 0.0F);
 
-        put(Material.TUBE_CORAL_BLOCK,  Material.DEAD_TUBE_CORAL_BLOCK);
+        put(Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
         put(Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
-        put(Material.BUBBLE_CORAL_BLOCK,Material.DEAD_BUBBLE_CORAL_BLOCK);
-        put(Material.FIRE_CORAL_BLOCK,  Material.DEAD_FIRE_CORAL_BLOCK);
-        put(Material.HORN_CORAL_BLOCK,  Material.DEAD_HORN_CORAL_BLOCK);
+        put(Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
+        put(Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
+        put(Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
 
-        put(Material.TUBE_CORAL,  Material.DEAD_TUBE_CORAL);
+        put(Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
         put(Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
-        put(Material.BUBBLE_CORAL,Material.DEAD_BUBBLE_CORAL);
-        put(Material.FIRE_CORAL,  Material.DEAD_FIRE_CORAL);
-        put(Material.HORN_CORAL,  Material.DEAD_HORN_CORAL);
+        put(Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
+        put(Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
+        put(Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
 
-        put(Material.TUBE_CORAL_FAN,  Material.DEAD_TUBE_CORAL_FAN);
+        put(Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
         put(Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
-        put(Material.BUBBLE_CORAL_FAN,Material.DEAD_BUBBLE_CORAL_FAN);
-        put(Material.FIRE_CORAL_FAN,  Material.DEAD_FIRE_CORAL_FAN);
-        put(Material.HORN_CORAL_FAN,  Material.DEAD_HORN_CORAL_FAN);
+        put(Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
+        put(Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
+        put(Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
 
-        put(Material.TUBE_CORAL_WALL_FAN,  Material.DEAD_TUBE_CORAL_WALL_FAN);
+        put(Material.TUBE_CORAL_WALL_FAN, Material.DEAD_TUBE_CORAL_WALL_FAN);
         put(Material.BRAIN_CORAL_WALL_FAN, Material.DEAD_BRAIN_CORAL_WALL_FAN);
-        put(Material.BUBBLE_CORAL_WALL_FAN,Material.DEAD_BUBBLE_CORAL_WALL_FAN);
-        put(Material.FIRE_CORAL_WALL_FAN,  Material.DEAD_FIRE_CORAL_WALL_FAN);
-        put(Material.HORN_CORAL_WALL_FAN,  Material.DEAD_HORN_CORAL_WALL_FAN);
+        put(Material.BUBBLE_CORAL_WALL_FAN, Material.DEAD_BUBBLE_CORAL_WALL_FAN);
+        put(Material.FIRE_CORAL_WALL_FAN, Material.DEAD_FIRE_CORAL_WALL_FAN);
+        put(Material.HORN_CORAL_WALL_FAN, Material.DEAD_HORN_CORAL_WALL_FAN);
     }
 
     private void put(Material live, Material dead) {

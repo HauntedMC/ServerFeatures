@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 
 public final class CommandOverride {
 
-    private CommandOverride() {}
+    private CommandOverride() {
+    }
 
     public static void unregisterVanillaRestart(Server server, FeatureLogger logger) {
         try {
@@ -70,7 +71,10 @@ public final class CommandOverride {
             for (String key : restartKeys) {
                 Command existing = known.get(key);
                 if (existing != null && existing != yourRestartCommand) {
-                    try { existing.unregister(map); } catch (Throwable ignored) {}
+                    try {
+                        existing.unregister(map);
+                    } catch (Throwable ignored) {
+                    }
                     known.remove(key);
                 }
             }

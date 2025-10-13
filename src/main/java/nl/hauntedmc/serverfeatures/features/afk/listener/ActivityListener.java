@@ -24,7 +24,9 @@ public class ActivityListener implements Listener {
 
     private final AFK feature;
 
-    public ActivityListener(AFK feature) { this.feature = feature; }
+    public ActivityListener(AFK feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
@@ -150,7 +152,8 @@ public class ActivityListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent e) {
-        var from = e.getFrom(); var to = e.getTo();
+        var from = e.getFrom();
+        var to = e.getTo();
         Movement mv = new Movement(
                 from.getX(), from.getY(), from.getZ(), from.getYaw(), from.getPitch(),
                 to.getX(), to.getY(), to.getZ(), to.getYaw(), to.getPitch()

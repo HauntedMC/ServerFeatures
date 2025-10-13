@@ -48,9 +48,9 @@ public class EventBusHandler {
         if (msg == null || msg.getUsername() == null || msg.getServiceName() == null) return;
 
         final String service = msg.getServiceName();
-        final String user    = msg.getUsername();
-        final String addr    = msg.getAddress() == null ? "-" : msg.getAddress();
-        final long   ts      = msg.getVoteTimestamp();
+        final String user = msg.getUsername();
+        final String addr = msg.getAddress() == null ? "-" : msg.getAddress();
+        final long ts = msg.getVoteTimestamp();
 
         // ensure main thread
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
@@ -81,12 +81,12 @@ public class EventBusHandler {
             Class<?> eventCls = Class.forName("com.vexsoftware.votifier.model.VotifierEvent", false, getClass().getClassLoader());
 
             voteCtorNoArgs = voteCls.getConstructor();
-            eventCtor      = eventCls.getConstructor(voteCls);
+            eventCtor = eventCls.getConstructor(voteCls);
 
             setServiceName = voteCls.getMethod("setServiceName", String.class);
-            setUsername    = voteCls.getMethod("setUsername", String.class);
-            setAddress     = voteCls.getMethod("setAddress", String.class);
-            setTimeStamp   = voteCls.getMethod("setTimeStamp", String.class);
+            setUsername = voteCls.getMethod("setUsername", String.class);
+            setAddress = voteCls.getMethod("setAddress", String.class);
+            setTimeStamp = voteCls.getMethod("setTimeStamp", String.class);
 
             return true;
         } catch (Throwable t) {

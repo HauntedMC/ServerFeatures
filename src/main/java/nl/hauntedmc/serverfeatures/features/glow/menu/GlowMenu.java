@@ -21,14 +21,15 @@ import java.util.List;
  * - First and last column are always empty to create margins.
  * - Options render in rows 2..5 (index 1..4), columns 2..8 (index 1..7), i.e., a 4 x 7 grid = 28 slots.
  * - Last row (row 6, index 5) contains:
- *     - Slot (5,1) = Remove Glow button
- *     - Slot (5,4) = Current Glow status (center)
- *     - Slot (5,7) = Close button
+ * - Slot (5,1) = Remove Glow button
+ * - Slot (5,4) = Current Glow status (center)
+ * - Slot (5,7) = Close button
  * All lore lines are preceded by an empty line for nicer spacing.
  */
 public final class GlowMenu {
 
-    private GlowMenu() {}
+    private GlowMenu() {
+    }
 
     // Empty line component for lore spacing
     private static final Component EMPTY_LORE = Component.text(" ");
@@ -58,7 +59,7 @@ public final class GlowMenu {
         // Last row controls
         int removeSlot = slotIndex(5, 1); // row 5, col 1 (0-indexed rows/cols)
         int statusSlot = slotIndex(5, 4); // center
-        int closeSlot  = slotIndex(5, 7);
+        int closeSlot = slotIndex(5, 7);
 
         builder.item(removeSlot, removeItem(feature));
         builder.item(statusSlot, statusItem(feature, player));

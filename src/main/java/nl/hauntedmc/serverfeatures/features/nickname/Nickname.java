@@ -48,7 +48,7 @@ public class Nickname extends BukkitBaseFeature<Meta> {
                 "&n", "§n", "<underline>",
                 "&m", "§m", "<strikethrough>",
                 "&k", "§k", "<obfuscated>"
-                ));
+        ));
         return defaults;
     }
 
@@ -85,7 +85,8 @@ public class Nickname extends BukkitBaseFeature<Meta> {
     }
 
     @Override
-    public void disable() {}
+    public void disable() {
+    }
 
     public ORMContext getOrmContext() {
         return ormContext;

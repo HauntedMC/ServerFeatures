@@ -15,7 +15,9 @@ public class SanctionsDataService {
         this.feature = feature;
     }
 
-    /** Query the DB for an active MUTE for a given UUID. Returns the newest active mute if present. */
+    /**
+     * Query the DB for an active MUTE for a given UUID. Returns the newest active mute if present.
+     */
     public Optional<SanctionEntity> findActiveMuteByUuid(String uuid) {
         return feature.getOrm().runInTransaction(session ->
                 session.createQuery(
@@ -37,7 +39,9 @@ public class SanctionsDataService {
         });
     }
 
-    /** Deactivate a sanction by ID, if currently active. */
+    /**
+     * Deactivate a sanction by ID, if currently active.
+     */
     public void deactivateById(Long id) {
         feature.getOrm().runInTransaction(session -> {
             SanctionEntity s = session.get(SanctionEntity.class, id);
@@ -48,12 +52,16 @@ public class SanctionsDataService {
         });
     }
 
-    /** Remaining duration string for a temporary mute. */
+    /**
+     * Remaining duration string for a temporary mute.
+     */
     public String remaining(Instant now, Instant expiresAt) {
         if (expiresAt == null) return "permanent";
         long seconds = Math.max(0, expiresAt.getEpochSecond() - now.getEpochSecond());
-        long days = seconds / 86400; seconds %= 86400;
-        long hours = seconds / 3600; seconds %= 3600;
+        long days = seconds / 86400;
+        seconds %= 86400;
+        long hours = seconds / 3600;
+        seconds %= 3600;
         long minutes = seconds / 60;
         StringBuilder sb = new StringBuilder();
         if (days > 0) sb.append(days).append("d ");
@@ -64,7 +72,9 @@ public class SanctionsDataService {
     }
 
 
-    /** Null-safe sanitize reason for display (simple trim). */
+    /**
+     * Null-safe sanitize reason for display (simple trim).
+     */
     public String sanitize(String reason) {
         if (reason == null) return "-";
         String r = reason.trim();

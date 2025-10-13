@@ -49,8 +49,8 @@ public final class LimitSpawnersListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityRemove(EntityRemoveFromWorldEvent event) {
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() ->
-            handler.unregisterIfTracked(event.getEntity())
-        , BukkitTime.ticks(5));
+                        handler.unregisterIfTracked(event.getEntity())
+                , BukkitTime.ticks(5));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

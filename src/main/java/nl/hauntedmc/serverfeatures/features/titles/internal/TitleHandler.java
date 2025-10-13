@@ -20,8 +20,8 @@ public class TitleHandler {
     public TitleHandler(Titles feature) {
         this.feature = feature;
         fadeIn = (int) feature.getConfigHandler().getSetting("fade-in");
-        stay =  (int) feature.getConfigHandler().getSetting("stay");
-        fadeOut =  (int) feature.getConfigHandler().getSetting("fade-out");
+        stay = (int) feature.getConfigHandler().getSetting("stay");
+        fadeOut = (int) feature.getConfigHandler().getSetting("fade-out");
         delay = (int) feature.getConfigHandler().getSetting("delay");
     }
 
@@ -29,11 +29,11 @@ public class TitleHandler {
         Component title = feature.getLocalizationHandler().getMessage("titles.join_title").forAudience(player).build();
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         Component subtitle = feature.getLocalizationHandler().getMessage("titles.join_subtitle").forAudience(player).with("server", serverName).build();
-        Title.Times times = Title.Times.times(Duration.ofMillis(50L *fadeIn), Duration.ofMillis(50L * stay), Duration.ofMillis(50L * fadeOut));
+        Title.Times times = Title.Times.times(Duration.ofMillis(50L * fadeIn), Duration.ofMillis(50L * stay), Duration.ofMillis(50L * fadeOut));
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-                    player.sendTitlePart(TitlePart.TIMES, times);
-                    player.sendTitlePart(TitlePart.SUBTITLE, subtitle);
-                    player.sendTitlePart(TitlePart.TITLE, title);
+            player.sendTitlePart(TitlePart.TIMES, times);
+            player.sendTitlePart(TitlePart.SUBTITLE, subtitle);
+            player.sendTitlePart(TitlePart.TITLE, title);
         }, BukkitTime.ticks(delay));
     }
 }

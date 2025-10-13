@@ -17,15 +17,16 @@ import java.util.Optional;
 /**
  * Paged Balloons selection menu with the same visual style as Glow.
  * Layout (6 rows total):
- *   - Row 0: filler (glass)
- *   - Rows 1..3: content grid (3 x 7, inner columns 1..7)
- *   - Row 4: filler (glass)  <-- kept empty as requested
- *   - Row 5: controls (prev @45, remove @46, status @49, close @52, next @53)
+ * - Row 0: filler (glass)
+ * - Rows 1..3: content grid (3 x 7, inner columns 1..7)
+ * - Row 4: filler (glass)  <-- kept empty as requested
+ * - Row 5: controls (prev @45, remove @46, status @49, close @52, next @53)
  * If the player lacks permission for a balloon, it renders as BARRIER with a "locked" lore.
  */
 public final class BalloonsMenu {
 
-    private BalloonsMenu() {}
+    private BalloonsMenu() {
+    }
 
     private static final Component EMPTY_LORE = Component.text(" ");
     private static final int LORE_MAX_WIDTH = 30;
@@ -43,7 +44,7 @@ public final class BalloonsMenu {
 
         int removeSlot = 46; // last row
         int statusSlot = 49; // last row, middle
-        int closeSlot  = 52; // last row, near next
+        int closeSlot = 52; // last row, near next
 
         PagedMenu<BalloonDefinition> menu = PagedMenu.<BalloonDefinition>builder(gui)
                 .title(feature.getLocalizationHandler().getMessage("balloons.menu.title").build())
@@ -67,7 +68,9 @@ public final class BalloonsMenu {
         gui.openRoot(player, menu);
     }
 
-    /** rows = number of rows (starting at 1), cols = number of columns (starting at 1). */
+    /**
+     * rows = number of rows (starting at 1), cols = number of columns (starting at 1).
+     */
     private static List<Integer> computeGridSlots(int rows, int cols) {
         // rows 1..rows, cols 1..cols within a 9-wide inventory, leaving outer margins (col 0 and 8 empty)
         List<Integer> result = new ArrayList<>(rows * cols);
@@ -79,7 +82,9 @@ public final class BalloonsMenu {
         return result;
     }
 
-    /** Maps our (row, col) with margins to inventory slot index. */
+    /**
+     * Maps our (row, col) with margins to inventory slot index.
+     */
     private static int slotIndex(int row, int col) {
         // Inventory is 9-wide, 0-indexed rows in Bukkit. Here we treat 'row' and 'col' as the inner grid coords.
         return row * 9 + col;

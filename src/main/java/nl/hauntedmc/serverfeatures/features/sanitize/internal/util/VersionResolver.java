@@ -10,7 +10,8 @@ import java.util.regex.Matcher;
 
 public final class VersionResolver {
 
-    private VersionResolver() {}
+    private VersionResolver() {
+    }
 
     public static String resolveVersion(Server server, FeatureLogger log) {
         try {
@@ -19,7 +20,8 @@ public final class VersionResolver {
             if (v instanceof String s && !s.isBlank()) {
                 return s.trim();
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
         String bukkit = Bukkit.getBukkitVersion();
         if (!bukkit.isBlank()) {

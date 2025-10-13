@@ -27,6 +27,7 @@ public class LagMonitor extends BukkitBaseFeature<Meta> {
         defaults.put("discordWebhookURL", "https://discordhook.url");
         return defaults;
     }
+
     /**
      * If you have any default messages you want to provide, you can add them here.
      * For example:

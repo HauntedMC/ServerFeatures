@@ -20,7 +20,7 @@ public class CommandLogService {
      * Slaat een geverifieerde command-executie op in de database.
      * "server" komt van de globale setting "server_name".
      *
-     * @param source     CommandSender (speler, console, rcon, enz.)
+     * @param source      CommandSender (speler, console, rcon, enz.)
      * @param fullCommand command zonder leading slash
      */
     public void logServerCommand(CommandSender source, String fullCommand) {

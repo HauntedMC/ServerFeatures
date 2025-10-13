@@ -42,6 +42,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         messages.add("commandrelay.relayed", "&aCommand relayed naar {target}: {cmd}");
         return messages;
     }
+
     @Override
     public void initialize() {
         // Init Redis messaging
@@ -78,7 +79,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
 
         // Fetch settings
         boolean listen = (Boolean) getConfigHandler().getSetting("listening");
-        boolean send   = (Boolean) getConfigHandler().getSetting("sending");
+        boolean send = (Boolean) getConfigHandler().getSetting("sending");
         String serverName = (String) getConfigHandler().getGlobalSetting("server_name");
 
         // If listening, subscribe to incoming commands for this server

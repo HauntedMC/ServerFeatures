@@ -4,5 +4,6 @@ import org.bukkit.entity.Player;
 
 interface RankResolver {
     String getRank(Player player);
+
     boolean isReady();
 }

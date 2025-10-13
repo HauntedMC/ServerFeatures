@@ -15,27 +15,39 @@ public final class ConfigNode {
         this.path = path == null ? "" : path;
     }
 
-    /** Create a node from a raw (possibly ConfigurationSection) value. */
+    /**
+     * Create a node from a raw (possibly ConfigurationSection) value.
+     */
     public static ConfigNode ofRaw(Object raw, String path) {
         return new ConfigNode(ConfigTypes.toPlain(raw), path);
     }
 
-    /** @return true if this node is null/absent. */
-    public boolean isNull() { return value == null; }
+    /**
+     * @return true if this node is null/absent.
+     */
+    public boolean isNull() {
+        return value == null;
+    }
 
-    /** Return this node as a given type or default if missing/invalid. */
+    /**
+     * Return this node as a given type or default if missing/invalid.
+     */
     public <T> T as(Class<T> type, T defaultValue) {
         return ConfigTypes.convertOrDefault(value, type, defaultValue);
     }
 
-    /** Return this node as the given type (throws if invalid/missing). */
+    /**
+     * Return this node as the given type (throws if invalid/missing).
+     */
     public <T> T asRequired(Class<T> type) {
         T v = ConfigTypes.convert(value, type);
         if (v == null) throw new IllegalStateException("Required config missing at '" + path + "'");
         return v;
     }
 
-    /** If this is a map node, return child node by key. */
+    /**
+     * If this is a map node, return child node by key.
+     */
     @SuppressWarnings("unchecked")
     public ConfigNode get(String key) {
         if (!(value instanceof Map<?, ?> m)) return new ConfigNode(null, childPath(key));
@@ -43,7 +55,9 @@ public final class ConfigNode {
         return new ConfigNode(ConfigTypes.toPlain(raw), childPath(key));
     }
 
-    /** Dotted-path traversal (e.g., "items.cosmetic-item.slot"). */
+    /**
+     * Dotted-path traversal (e.g., "items.cosmetic-item.slot").
+     */
     public ConfigNode getAt(String dottedPath) {
         if (dottedPath == null || dottedPath.isBlank()) return this;
         String[] parts = dottedPath.split("\\.");
@@ -52,7 +66,9 @@ public final class ConfigNode {
         return cur;
     }
 
-    /** If this is a map node, returns keys. */
+    /**
+     * If this is a map node, returns keys.
+     */
     @SuppressWarnings("unchecked")
     public Set<String> keys() {
         if (value instanceof Map<?, ?> m) {
@@ -63,7 +79,9 @@ public final class ConfigNode {
         return Collections.emptySet();
     }
 
-    /** If this is a map node, returns children as nodes. */
+    /**
+     * If this is a map node, returns children as nodes.
+     */
     @SuppressWarnings("unchecked")
     public Map<String, ConfigNode> children() {
         if (!(value instanceof Map<?, ?> m)) return Map.of();
@@ -75,17 +93,23 @@ public final class ConfigNode {
         return out;
     }
 
-    /** Returns a list of T, converting elements as needed. */
+    /**
+     * Returns a list of T, converting elements as needed.
+     */
     public <T> List<T> listOf(Class<T> elemType) {
         return ConfigTypes.convertList(value, elemType);
     }
 
-    /** Returns a Map<String,V> converting values to V. */
+    /**
+     * Returns a Map<String,V> converting values to V.
+     */
     public <V> Map<String, V> mapValues(Class<V> valueType) {
         return ConfigTypes.convertMapValues(value, valueType);
     }
 
-    /** Convenience: merge multiple string-list fields under this (map) node (accept single string or list). */
+    /**
+     * Convenience: merge multiple string-list fields under this (map) node (accept single string or list).
+     */
     public List<String> mergedStringList(String... keys) {
         if (!(value instanceof Map<?, ?> m) || keys == null) return List.of();
         ArrayList<String> out = new ArrayList<>();
@@ -98,14 +122,23 @@ public final class ConfigNode {
         return out;
     }
 
-    /** Underlying normalized value (Map/List/scalar). */
-    public Object raw() { return value; }
+    /**
+     * Underlying normalized value (Map/List/scalar).
+     */
+    public Object raw() {
+        return value;
+    }
 
-    public String path() { return path; }
+    public String path() {
+        return path;
+    }
 
     private String childPath(String key) {
         return path.isEmpty() ? key : path + "." + key;
     }
 
-    @Override public String toString() { return "ConfigNode(" + path + ")"; }
+    @Override
+    public String toString() {
+        return "ConfigNode(" + path + ")";
+    }
 }

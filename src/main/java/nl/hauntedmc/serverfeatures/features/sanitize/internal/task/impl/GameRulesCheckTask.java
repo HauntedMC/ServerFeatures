@@ -32,7 +32,9 @@ public class GameRulesCheckTask implements SanitizeTask {
     }
 
     @Override
-    public String name() { return "GameRulesCheck"; }
+    public String name() {
+        return "GameRulesCheck";
+    }
 
     @Override
     public SanitizeResult run(SanitizeContext ctx) {
@@ -99,7 +101,8 @@ public class GameRulesCheckTask implements SanitizeTask {
                 if (!GameRule.class.isAssignableFrom(f.getType())) continue;
                 Object v = f.get(null);
                 if (v instanceof GameRule<?> gr) out.add(gr);
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
         // If reflection didn’t find any (very unlikely), fall back to the string names available from a world
         if (out.isEmpty()) {
@@ -111,7 +114,8 @@ public class GameRulesCheckTask implements SanitizeTask {
                         GameRule<?> gr = GameRule.getByName(n);
                         if (gr != null) out.add(gr);
                     }
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {
+                }
             }
         }
         // Keep a stable order by rule name

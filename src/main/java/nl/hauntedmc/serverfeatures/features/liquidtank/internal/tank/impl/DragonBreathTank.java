@@ -9,63 +9,63 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public class DragonBreathTank extends AbstractTank {
-	private static final TankType type = TankType.DRAGON_BREATH;
+    private static final TankType type = TankType.DRAGON_BREATH;
 
     public DragonBreathTank(Location location, int amount, LiquidTank feature) {
-		super(location, amount, feature);
-	}
+        super(location, amount, feature);
+    }
 
-	public static TankType getType() {
-		return type;
-	}
+    public static TankType getType() {
+        return type;
+    }
 
-	@Override
-	protected String getLiquidHeadUrl() {
-		return HeadURL.dragonBreathB64;
-	}
+    @Override
+    protected String getLiquidHeadUrl() {
+        return HeadURL.dragonBreathB64;
+    }
 
-	@Override
-	public void onInteract(Player paramPlayer) {
-		if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.DRAGON_BREATH) {
-			if (getQuantity() + 1 <= getMaxQuantity()) {
-				changeItemFromPlayer(paramPlayer, new ItemStack(Material.GLASS_BOTTLE));
-				setQuantity(getQuantity() + 1);
-				updateVisuals();
-			}
-		} else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
-			if (getQuantity() == 1) {
-				changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
-				AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
-				abstractTank.playTitle(paramPlayer);
-				abstractTank.updateVisuals();
-				return;
-			}
-			if (getQuantity() > 1) {
-				changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
-				setQuantity(getQuantity() - 1);
-				updateVisuals();
-			}
-		}
-		playTitle(paramPlayer);
-	}
+    @Override
+    public void onInteract(Player paramPlayer) {
+        if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.DRAGON_BREATH) {
+            if (getQuantity() + 1 <= getMaxQuantity()) {
+                changeItemFromPlayer(paramPlayer, new ItemStack(Material.GLASS_BOTTLE));
+                setQuantity(getQuantity() + 1);
+                updateVisuals();
+            }
+        } else if (paramPlayer.getInventory().getItemInMainHand().getType() == Material.GLASS_BOTTLE) {
+            if (getQuantity() == 1) {
+                changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
+                AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
+                abstractTank.playTitle(paramPlayer);
+                abstractTank.updateVisuals();
+                return;
+            }
+            if (getQuantity() > 1) {
+                changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
+                setQuantity(getQuantity() - 1);
+                updateVisuals();
+            }
+        }
+        playTitle(paramPlayer);
+    }
 
-	@Override
-	public String getChatColor() {
-		return "&d";
-	}
+    @Override
+    public String getChatColor() {
+        return "&d";
+    }
 
-	@Override
-	public TankType getTankType() {
-		return TankType.DRAGON_BREATH;
-	}
+    @Override
+    public TankType getTankType() {
+        return TankType.DRAGON_BREATH;
+    }
 
-	@Override
-	public int getMaxQuantity() {
+    @Override
+    public int getMaxQuantity() {
         return 128;
-	}
+    }
 
-	@Override
-	protected void showParticles() {
-		// this tank doesn't have particles
-	}
+    @Override
+    protected void showParticles() {
+        // this tank doesn't have particles
+    }
 }

@@ -49,12 +49,16 @@ public class FeatureLifecycleManager {
         return dataManager;
     }
 
-    /** Access to the cache manager for this feature. */
+    /**
+     * Access to the cache manager for this feature.
+     */
     public FeatureCacheManager getCacheManager() {
         return cacheManager;
     }
 
-    /** Per-feature GUI manager */
+    /**
+     * Per-feature GUI manager
+     */
     public FeatureGUIManager getGuiManager() {
         return guiManager;
     }

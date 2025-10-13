@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 public class ActionbarMessage {
     private final String messageKey;
     private final long duration;
+
     private ActionbarMessage(Builder builder) {
         this.messageKey = builder.messageKey;
         this.duration = builder.duration;

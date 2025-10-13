@@ -39,7 +39,9 @@ public class TeleportService {
     /* Public API - Commands         */
     /* ----------------------------- */
 
-    /** /randomtp */
+    /**
+     * /randomtp
+     */
     public void randomTp(CommandSender actor, Player target) {
         if (!checkAndStartCooldown(actor, target, TeleportAction.RANDOM_TP)) return;
 
@@ -73,7 +75,9 @@ public class TeleportService {
         });
     }
 
-    /** /tppos <x> <y> <z> */
+    /**
+     * /tppos <x> <y> <z>
+     */
     public void tpPos(CommandSender actor, Player target, int x, int y, int z) {
         if (!checkAndStartCooldown(actor, target, TeleportAction.TP_POS)) return;
 

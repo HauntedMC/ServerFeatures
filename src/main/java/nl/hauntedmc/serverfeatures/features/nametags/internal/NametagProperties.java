@@ -21,8 +21,8 @@ import java.util.Optional;
  * LayoutManager encapsulates the metadata for a nametag and exposes a full
  * API for every network protocol field. Each field is accessible via a
  * dedicated getter and setter so that you can write code such as:
- *     properties.setIsSeeThrough(true);
- *     properties.setTextDisplayAlignment(TextDisplayAlignment.CENTER);
+ * properties.setIsSeeThrough(true);
+ * properties.setTextDisplayAlignment(TextDisplayAlignment.CENTER);
  * Internally the LayoutManager takes care of adding, updating, or removing
  * the corresponding EntityData entries.
  */
@@ -558,8 +558,8 @@ public class NametagProperties {
         return (getTextDisplayFlags() & TextDisplayFlag.USE_DEFAULT_BG.getBit()) != 0;
     }
 
-    private static final byte ALIGNMENT_MASK  = 0x18; // bits 3 and 4
-    private static final int  ALIGNMENT_SHIFT = 3;
+    private static final byte ALIGNMENT_MASK = 0x18; // bits 3 and 4
+    private static final int ALIGNMENT_SHIFT = 3;
 
     public void setTextDisplayAlignment(TextDisplayAlignment alignment) {
 

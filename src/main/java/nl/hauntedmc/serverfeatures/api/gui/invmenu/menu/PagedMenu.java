@@ -17,13 +17,13 @@ import java.util.function.Function;
 
 /**
  * Multi-page menu with prev/next navigation and optional page info.
- *
+ * <p>
  * New API:
- *  - You can customize the labels of the prev/next buttons via the Builder:
- *      .prevLabel(Component.text("Vorige"))
- *      .nextLabel(Component.text("Volgende"))
- *  - When on the first page, the Prev button is hidden (slot gets the filler if present).
- *  - When on the last page, the Next button is hidden (slot gets the filler if present).
+ * - You can customize the labels of the prev/next buttons via the Builder:
+ * .prevLabel(Component.text("Vorige"))
+ * .nextLabel(Component.text("Volgende"))
+ * - When on the first page, the Prev button is hidden (slot gets the filler if present).
+ * - When on the last page, the Next button is hidden (slot gets the filler if present).
  */
 public final class PagedMenu<T> extends GuiMenu {
 
@@ -72,7 +72,9 @@ public final class PagedMenu<T> extends GuiMenu {
         this.fillerItem = filler == null ? null : filler.clone();
     }
 
-    public static <T> Builder<T> builder(FeatureGUIManager gui) { return new Builder<>(gui); }
+    public static <T> Builder<T> builder(FeatureGUIManager gui) {
+        return new Builder<>(gui);
+    }
 
     @Override
     public Component titleFor(Player p) {
@@ -167,9 +169,13 @@ public final class PagedMenu<T> extends GuiMenu {
         super.handleClick(p, slot, e);
     }
 
-    public int pageIndex() { return pageIndex; }
+    public int pageIndex() {
+        return pageIndex;
+    }
 
-    /** Clamp and set the current page index. */
+    /**
+     * Clamp and set the current page index.
+     */
     public void setPageIndex(int page) {
         if (page < 0) page = 0;
         int perPage = contentSlots.size();
@@ -201,28 +207,90 @@ public final class PagedMenu<T> extends GuiMenu {
             this.gui = Objects.requireNonNull(gui, "gui");
         }
 
-        public Builder<T> title(Component t) { this.title = t; return this; }
-        public Builder<T> size(int s) { this.size = s; return this; }
-        public Builder<T> showPageInTitle(boolean b) { this.pageInTitle = b; return this; }
-        public Builder<T> filler(ItemStack i) { this.filler = i; return this; }
-        public Builder<T> item(int slot, GuiItem item) { this.items.put(slot, item); return this; }
-        public Builder<T> backButton(boolean enabled) { this.backButton = enabled; return this; }
-        public Builder<T> backButtonSlot(int slot) { this.backSlot = slot; return this; }
+        public Builder<T> title(Component t) {
+            this.title = t;
+            return this;
+        }
 
-        public Builder<T> entries(List<T> es) { this.entries = es; return this; }
-        public Builder<T> renderer(Function<T, GuiItem> r) { this.renderer = r; return this; }
-        public Builder<T> contentSlots(List<Integer> s) { this.contentSlots = s; return this; }
-        public Builder<T> prevSlot(int s) { this.prevSlot = s; return this; }
-        public Builder<T> nextSlot(int s) { this.nextSlot = s; return this; }
-        public Builder<T> pageInfoSlot(Optional<Integer> s) { this.pageInfoSlot = s; return this; }
+        public Builder<T> size(int s) {
+            this.size = s;
+            return this;
+        }
 
-        /** Set the label (display name) for the "previous page" button. */
-        public Builder<T> prevLabel(Component label) { this.prevLabel = label; return this; }
+        public Builder<T> showPageInTitle(boolean b) {
+            this.pageInTitle = b;
+            return this;
+        }
 
-        /** Set the label (display name) for the "next page" button. */
-        public Builder<T> nextLabel(Component label) { this.nextLabel = label; return this; }
+        public Builder<T> filler(ItemStack i) {
+            this.filler = i;
+            return this;
+        }
 
-        /** Convenience setter for both labels at once. */
+        public Builder<T> item(int slot, GuiItem item) {
+            this.items.put(slot, item);
+            return this;
+        }
+
+        public Builder<T> backButton(boolean enabled) {
+            this.backButton = enabled;
+            return this;
+        }
+
+        public Builder<T> backButtonSlot(int slot) {
+            this.backSlot = slot;
+            return this;
+        }
+
+        public Builder<T> entries(List<T> es) {
+            this.entries = es;
+            return this;
+        }
+
+        public Builder<T> renderer(Function<T, GuiItem> r) {
+            this.renderer = r;
+            return this;
+        }
+
+        public Builder<T> contentSlots(List<Integer> s) {
+            this.contentSlots = s;
+            return this;
+        }
+
+        public Builder<T> prevSlot(int s) {
+            this.prevSlot = s;
+            return this;
+        }
+
+        public Builder<T> nextSlot(int s) {
+            this.nextSlot = s;
+            return this;
+        }
+
+        public Builder<T> pageInfoSlot(Optional<Integer> s) {
+            this.pageInfoSlot = s;
+            return this;
+        }
+
+        /**
+         * Set the label (display name) for the "previous page" button.
+         */
+        public Builder<T> prevLabel(Component label) {
+            this.prevLabel = label;
+            return this;
+        }
+
+        /**
+         * Set the label (display name) for the "next page" button.
+         */
+        public Builder<T> nextLabel(Component label) {
+            this.nextLabel = label;
+            return this;
+        }
+
+        /**
+         * Convenience setter for both labels at once.
+         */
         public Builder<T> navLabels(Component prev, Component next) {
             this.prevLabel = prev;
             this.nextLabel = next;
@@ -231,7 +299,8 @@ public final class PagedMenu<T> extends GuiMenu {
 
         public PagedMenu<T> build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");
-            if (contentSlots == null || contentSlots.isEmpty()) throw new IllegalArgumentException("contentSlots cannot be empty");
+            if (contentSlots == null || contentSlots.isEmpty())
+                throw new IllegalArgumentException("contentSlots cannot be empty");
             if (prevSlot < 0 || prevSlot >= size || nextSlot < 0 || nextSlot >= size) {
                 throw new IllegalArgumentException("Prev/Next slots must be within inventory bounds");
             }

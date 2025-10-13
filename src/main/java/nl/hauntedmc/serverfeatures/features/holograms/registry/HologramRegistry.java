@@ -92,7 +92,7 @@ public final class HologramRegistry {
 
         for (HologramDefinition def : byId.values()) {
             List<Component> lines = new ArrayList<>();
-            String base = "holograms.hologram." + def.id + ".";
+            String base = "holograms.hologram." + def.id() + ".";
 
             // Scan sequentially until a gap or <end>; generous cap to avoid runaway.
             boolean stop = false;
@@ -110,9 +110,9 @@ public final class HologramRegistry {
             }
 
             if (lines.isEmpty()) {
-                lines.add(Component.text(def.id).decoration(TextDecoration.ITALIC, false));
+                lines.add(Component.text(def.id()).decoration(TextDecoration.ITALIC, false));
             }
-            cachedLines.put(def.id.toLowerCase(Locale.ROOT), List.copyOf(lines));
+            cachedLines.put(def.id().toLowerCase(Locale.ROOT), List.copyOf(lines));
         }
     }
 

@@ -10,7 +10,8 @@ import org.bukkit.util.Vector;
  */
 public final class Distance {
 
-    private Distance() {}
+    private Distance() {
+    }
 
     public static void line(Entity parrot, Player player) {
         if (parrot.getWorld() != player.getWorld()) return;

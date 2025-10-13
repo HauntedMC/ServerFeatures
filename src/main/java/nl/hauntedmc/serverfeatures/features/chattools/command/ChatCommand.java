@@ -29,22 +29,24 @@ public class ChatCommand extends FeatureCommand {
                            String @NotNull [] args) {
 
         if (args.length == 0) {
-            usage(sender); return true;
+            usage(sender);
+            return true;
         }
 
         String sub = args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "lock"   -> lock(sender);
+            case "lock" -> lock(sender);
             case "unlock" -> unlock(sender);
-            case "clear"  -> clear(sender);
-            default       -> usage(sender);
+            case "clear" -> clear(sender);
+            default -> usage(sender);
         }
         return true;
     }
 
     private void lock(CommandSender sender) {
         if (!sender.hasPermission("serverfeatures.feature.chattools.command.chat.lock")) {
-            noPerm(sender); return;
+            noPerm(sender);
+            return;
         }
 
         if (feature.isChatLocked()) {
@@ -68,7 +70,8 @@ public class ChatCommand extends FeatureCommand {
 
     private void unlock(CommandSender sender) {
         if (!sender.hasPermission("serverfeatures.feature.chattools.command.chat.unlock")) {
-            noPerm(sender); return;
+            noPerm(sender);
+            return;
         }
 
         if (!feature.isChatLocked()) {
@@ -91,7 +94,8 @@ public class ChatCommand extends FeatureCommand {
 
     private void clear(CommandSender sender) {
         if (!sender.hasPermission("serverfeatures.feature.chattools.command.chat.clear")) {
-            noPerm(sender); return;
+            noPerm(sender);
+            return;
         }
 
         int lines = (int) feature.getConfigHandler().getSetting("clear_lines");
@@ -114,6 +118,7 @@ public class ChatCommand extends FeatureCommand {
                 .forAudience(s)
                 .build());
     }
+
     private void noPerm(CommandSender s) {
         s.sendMessage(feature.getLocalizationHandler()
                 .getMessage("general.no_permission")

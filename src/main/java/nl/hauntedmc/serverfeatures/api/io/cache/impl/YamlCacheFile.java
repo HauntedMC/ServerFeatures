@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
 
 public class YamlCacheFile implements FileCacheStore {
     private static final String EXP_TS = "expirationTimestamp";
-    private static final String VALUE  = "value";
+    private static final String VALUE = "value";
 
     private final File file;
     private FileConfiguration config;
@@ -24,7 +24,10 @@ public class YamlCacheFile implements FileCacheStore {
         load();
     }
 
-    @Override public File getUnderlyingFile() { return file; }
+    @Override
+    public File getUnderlyingFile() {
+        return file;
+    }
 
     private void ensureFileExists() {
         if (!file.exists()) {
@@ -53,7 +56,7 @@ public class YamlCacheFile implements FileCacheStore {
     public void put(String key, CacheValue value) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(value, "value");
-        Map<String,Object> entry = new LinkedHashMap<>();
+        Map<String, Object> entry = new LinkedHashMap<>();
         entry.put(VALUE, value.getData());
         entry.put(EXP_TS, value.getExpirationTimestamp());
         config.set(key, entry);

@@ -7,5 +7,7 @@ public record FeatureReloadResponse(
         String feature,
         Set<String> reloadedDependents
 ) {
-    public boolean success() { return result == FeatureReloadResult.SUCCESS; }
+    public boolean success() {
+        return result == FeatureReloadResult.SUCCESS;
+    }
 }

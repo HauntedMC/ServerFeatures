@@ -45,7 +45,9 @@ public final class AutoLapisHandler {
         return pdc.has(markerKey, PersistentDataType.BYTE);
     }
 
-    /** Ensure the enchanting inventory has our marker lapis in its secondary slot. */
+    /**
+     * Ensure the enchanting inventory has our marker lapis in its secondary slot.
+     */
     public void ensureMarker(EnchantingInventory inv) {
         ItemStack sec = inv.getSecondary();
         if (!isMarker(sec)) {
@@ -57,7 +59,9 @@ public final class AutoLapisHandler {
         }
     }
 
-    /** Remove marker lapis from enchanting inventory (so it never drops on close). */
+    /**
+     * Remove marker lapis from enchanting inventory (so it never drops on close).
+     */
     public void clearMarker(EnchantingInventory inv) {
         ItemStack sec = inv.getSecondary();
         if (isMarker(sec)) {

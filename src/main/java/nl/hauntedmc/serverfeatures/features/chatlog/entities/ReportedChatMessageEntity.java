@@ -27,7 +27,8 @@ public class ReportedChatMessageEntity {
     @Column(name = "report_id", nullable = false)
     private String reportId;
 
-    public ReportedChatMessageEntity() {}
+    public ReportedChatMessageEntity() {
+    }
 
     public Long getId() {
         return id;
@@ -36,6 +37,7 @@ public class ReportedChatMessageEntity {
     public String getServer() {
         return server;
     }
+
     public void setServer(String server) {
         this.server = server;
     }
@@ -43,6 +45,7 @@ public class ReportedChatMessageEntity {
     public PlayerEntity getPlayer() {
         return player;
     }
+
     public void setPlayer(PlayerEntity player) {
         this.player = player;
     }
@@ -50,6 +53,7 @@ public class ReportedChatMessageEntity {
     public String getMessage() {
         return message;
     }
+
     public void setMessage(String message) {
         this.message = message;
     }
@@ -57,6 +61,7 @@ public class ReportedChatMessageEntity {
     public Long getTimestamp() {
         return timestamp;
     }
+
     public void setTimestamp(Long timestamp) {
         this.timestamp = timestamp;
     }
@@ -64,6 +69,7 @@ public class ReportedChatMessageEntity {
     public String getReportId() {
         return reportId;
     }
+
     public void setReportId(String reportId) {
         this.reportId = reportId;
     }

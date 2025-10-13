@@ -9,14 +9,21 @@ import org.bukkit.event.Listener;
 
 public class VotifierVoteListener implements Listener {
     private final VoteReward feature;
-    public VotifierVoteListener(VoteReward feature) { this.feature = feature; }
+
+    public VotifierVoteListener(VoteReward feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onVotifierEvent(VotifierEvent event) {
         var v = event.getVote();
         String tsStr = v.getTimeStamp();
         long ts;
-        try { ts = Long.parseLong(tsStr); } catch (Exception ignored) { ts = System.currentTimeMillis(); }
+        try {
+            ts = Long.parseLong(tsStr);
+        } catch (Exception ignored) {
+            ts = System.currentTimeMillis();
+        }
         feature.getVoteHandler().handleVote(new IncomingVote(
                 v.getServiceName(),
                 v.getUsername(),

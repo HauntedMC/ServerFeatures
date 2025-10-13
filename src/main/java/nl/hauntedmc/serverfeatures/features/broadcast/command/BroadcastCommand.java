@@ -51,13 +51,13 @@ public class BroadcastCommand extends FeatureCommand {
             return true;
         }
 
-        String mode    = args[0].toLowerCase(Locale.ROOT);
+        String mode = args[0].toLowerCase(Locale.ROOT);
         String message = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
 
         switch (mode) {
-            case "chat"  -> broadcastChat(message, sender);
+            case "chat" -> broadcastChat(message, sender);
             case "title" -> broadcastTitle(message, sender);
-            default      -> {
+            default -> {
                 sender.sendMessage(feature.getLocalizationHandler()
                         .getMessage("broadcast.noMode")
                         .forAudience(sender)
@@ -97,10 +97,10 @@ public class BroadcastCommand extends FeatureCommand {
         if (raw.contains("|")) {
             String[] split = raw.split("\\|", 2);
             titlePart = split[0].trim();
-            subPart   = split[1].trim();
+            subPart = split[1].trim();
         } else {
             titlePart = raw;
-            subPart   = "";
+            subPart = "";
         }
 
         titlePart = TextFormatter.convert(titlePart)
@@ -123,14 +123,14 @@ public class BroadcastCommand extends FeatureCommand {
                 .autoLinkUrls()
                 .toComponent();
 
-        int fadeIn  = (int) feature.getConfigHandler().getSetting("title_fade_in");
-        int stay    = (int) feature.getConfigHandler().getSetting("title_stay");
+        int fadeIn = (int) feature.getConfigHandler().getSetting("title_fade_in");
+        int stay = (int) feature.getConfigHandler().getSetting("title_stay");
         int fadeOut = (int) feature.getConfigHandler().getSetting("title_fade_out");
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.showTitle(Title.title(
                     titlePartComponent, subPartComponent,
-                    Title.Times.times(Duration.ofSeconds(fadeIn/20), Duration.ofSeconds(stay/20), Duration.ofSeconds(fadeOut/20))
+                    Title.Times.times(Duration.ofSeconds(fadeIn / 20), Duration.ofSeconds(stay / 20), Duration.ofSeconds(fadeOut / 20))
             ));
         }
         ack(sender);

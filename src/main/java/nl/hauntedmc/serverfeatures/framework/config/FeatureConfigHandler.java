@@ -120,7 +120,9 @@ public class FeatureConfigHandler extends MainConfigHandler {
         }
     }
 
-    /** New: remove a path (feature-aware). Equivalent to set(null). */
+    /**
+     * New: remove a path (feature-aware). Equivalent to set(null).
+     */
     public void remove(String dottedPath) {
         rw.writeLock().lock();
         try {
@@ -212,7 +214,8 @@ public class FeatureConfigHandler extends MainConfigHandler {
     public final class FeatureBatch {
         private boolean changed = false;
 
-        private FeatureBatch() { }
+        private FeatureBatch() {
+        }
 
         public FeatureBatch put(String dottedPath, Object value) {
             config.set(base(dottedPath), value);

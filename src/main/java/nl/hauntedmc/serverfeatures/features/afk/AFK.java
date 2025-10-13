@@ -18,10 +18,17 @@ public class AFK extends BukkitBaseFeature<Meta> {
     private AfkService service;
     private AfkAPI api;
 
-    public AFK(ServerFeatures plugin) { super(plugin, new Meta()); }
+    public AFK(ServerFeatures plugin) {
+        super(plugin, new Meta());
+    }
 
-    public AfkService getService() { return service; }
-    public AfkAPI getApi() { return api; }
+    public AfkService getService() {
+        return service;
+    }
+
+    public AfkAPI getApi() {
+        return api;
+    }
 
     @Override
     public ConfigMap getDefaultConfig() {
@@ -72,7 +79,9 @@ public class AFK extends BukkitBaseFeature<Meta> {
 
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 () -> {
-                    try { service.tickCheck(); } catch (Throwable t) {
+                    try {
+                        service.tickCheck();
+                    } catch (Throwable t) {
                         getLogger().warning("AFK tick error: " + t.getMessage());
                     }
                 },

@@ -18,6 +18,11 @@ public final class SanitizeResult {
         return new SanitizeResult(false, summary);
     }
 
-    public boolean changed() { return changed; }
-    public String summary() { return summary; }
+    public boolean changed() {
+        return changed;
+    }
+
+    public String summary() {
+        return summary;
+    }
 }

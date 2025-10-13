@@ -19,8 +19,11 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
 
     private static final Charset UTF8 = StandardCharsets.UTF_8;
 
-    /** Keys that must be enforced with the exact value below (order preserved for output). */
+    /**
+     * Keys that must be enforced with the exact value below (order preserved for output).
+     */
     private static final LinkedHashMap<String, String> ENFORCED = new LinkedHashMap<>();
+
     static {
         ENFORCED.put("accepts-transfers", "false");
         ENFORCED.put("allow-flight", "false");
@@ -72,7 +75,9 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("white-list", "false");
     }
 
-    /** Keys that should be grouped and preserved (values are NOT changed). */
+    /**
+     * Keys that should be grouped and preserved (values are NOT changed).
+     */
     private static final List<String> PRESERVE_KEYS = List.of(
             "simulation-distance",
             "view-distance",
@@ -178,7 +183,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
     /**
      * Loose parser for server.properties:
      * - Skips blank lines and comment lines starting with '#'
-         * - Splits on the first '=' or ':' (vanilla supports both)
+     * - Splits on the first '=' or ':' (vanilla supports both)
      * - Trims surrounding whitespace on key and value
      * - Later duplicates overwrite earlier ones (last wins)
      */

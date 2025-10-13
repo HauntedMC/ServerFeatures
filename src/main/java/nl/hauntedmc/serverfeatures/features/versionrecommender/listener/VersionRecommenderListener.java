@@ -33,7 +33,9 @@ public final class VersionRecommenderListener implements Listener {
         feature.getLifecycleManager()
                 .getTaskManager()
                 .scheduleDelayedTask(
-                        () -> { if (player.isOnline()) service.recommendIfNeeded(player); },
+                        () -> {
+                            if (player.isOnline()) service.recommendIfNeeded(player);
+                        },
                         BukkitTime.seconds(delaySeconds)
                 );
     }

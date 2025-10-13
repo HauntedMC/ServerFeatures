@@ -34,10 +34,25 @@ public final class RainbowGlow implements GlowEffect {
     private static final Component NAME = Component.text("Rainbow");
     private static final String PERM = "serverfeatures.feature.glow.effect.rainbow";
 
-    @Override public String id() { return "rainbow"; }
-    @Override public Component displayName(Player viewer) { return NAME; }
-    @Override public String permission() { return PERM; }
-    @Override public boolean isAnimated() { return true; }
+    @Override
+    public String id() {
+        return "rainbow";
+    }
+
+    @Override
+    public Component displayName(Player viewer) {
+        return NAME;
+    }
+
+    @Override
+    public String permission() {
+        return PERM;
+    }
+
+    @Override
+    public boolean isAnimated() {
+        return true;
+    }
 
     @Override
     public NamedTextColor colorAt(Player player, long elapsedSeconds) {

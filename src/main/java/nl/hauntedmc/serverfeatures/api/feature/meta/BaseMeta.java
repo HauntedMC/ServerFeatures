@@ -4,6 +4,7 @@ import java.util.List;
 
 public interface BaseMeta {
     String getFeatureName();
+
     String getFeatureVersion();
 
     default List<String> getDependencies() {

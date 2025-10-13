@@ -14,8 +14,13 @@ public final class AfkDecision {
         this.actions = EnumSet.copyOf(actions);
     }
 
-    public AfkPriority priority() { return priority; }
-    public Set<AfkDecisionType> actions() { return actions; }
+    public AfkPriority priority() {
+        return priority;
+    }
+
+    public Set<AfkDecisionType> actions() {
+        return actions;
+    }
 
     public static AfkDecision of(AfkPriority prio, AfkDecisionType... acts) {
         EnumSet<AfkDecisionType> set = EnumSet.noneOf(AfkDecisionType.class);
@@ -27,5 +32,7 @@ public final class AfkDecision {
         return new AfkDecision(AfkPriority.LOW, EnumSet.noneOf(AfkDecisionType.class));
     }
 
-    public boolean isNoop() { return actions.isEmpty(); }
+    public boolean isNoop() {
+        return actions.isEmpty();
+    }
 }

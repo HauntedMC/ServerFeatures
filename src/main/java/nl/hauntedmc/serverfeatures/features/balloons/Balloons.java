@@ -92,22 +92,22 @@ public class Balloons extends BukkitBaseFeature<Meta> {
                 "displayname", "§bCommand Block Balloon"
         ));
         // Colors
-        defs.put("rood", mapOf("permission","serverfeatures.feature.balloons.rood","item","RED_CONCRETE","displayname","§bRode Ballon"));
-        defs.put("oranje", mapOf("permission","serverfeatures.feature.balloons.oranje","item","ORANGE_CONCRETE","displayname","§bOranje Ballon"));
-        defs.put("geel", mapOf("permission","serverfeatures.feature.balloons.geel","item","YELLOW_CONCRETE","displayname","§bGele Ballon"));
-        defs.put("groen", mapOf("permission","serverfeatures.feature.balloons.groen","item","LIME_CONCRETE","displayname","§bGroene Ballon"));
-        defs.put("donkergroen", mapOf("permission","serverfeatures.feature.balloons.donkergroen","item","GREEN_CONCRETE","displayname","§bDonker Groene Ballon"));
-        defs.put("cyan", mapOf("permission","serverfeatures.feature.balloons.cyan","item","CYAN_CONCRETE","displayname","§bCyan Ballon"));
-        defs.put("blauw", mapOf("permission","serverfeatures.feature.balloons.blauw","item","LIGHT_BLUE_CONCRETE","displayname","§bBlauwe Ballon"));
-        defs.put("donkerblauw", mapOf("permission","serverfeatures.feature.balloons.donkerblauw","item","BLUE_CONCRETE","displayname","§bDonker Blauwe Ballon"));
-        defs.put("paars", mapOf("permission","serverfeatures.feature.balloons.paars","item","PURPLE_CONCRETE","displayname","§bPaarse Ballon"));
-        defs.put("magenta", mapOf("permission","serverfeatures.feature.balloons.magenta","item","MAGENTA_CONCRETE","displayname","§bMagenta Ballon"));
-        defs.put("roze", mapOf("permission","serverfeatures.feature.balloons.roze","item","PINK_CONCRETE","displayname","§bRoze Ballon"));
-        defs.put("wit", mapOf("permission","serverfeatures.feature.balloons.wit","item","WHITE_CONCRETE","displayname","§bWit Ballon"));
-        defs.put("grijs", mapOf("permission","serverfeatures.feature.balloons.grijs","item","LIGHT_GRAY_CONCRETE","displayname","§bGrijze Ballon"));
-        defs.put("donkergrijs", mapOf("permission","serverfeatures.feature.balloons.donkergrijs","item","GRAY_CONCRETE","displayname","§bDonker Grijze Ballon"));
-        defs.put("zwart", mapOf("permission","serverfeatures.feature.balloons.zwart","item","BLACK_CONCRETE","displayname","§bZwarte Ballon"));
-        defs.put("bruin", mapOf("permission","serverfeatures.feature.balloons.bruin","item","BROWN_CONCRETE","displayname","§bBruine Ballon"));
+        defs.put("rood", mapOf("permission", "serverfeatures.feature.balloons.rood", "item", "RED_CONCRETE", "displayname", "§bRode Ballon"));
+        defs.put("oranje", mapOf("permission", "serverfeatures.feature.balloons.oranje", "item", "ORANGE_CONCRETE", "displayname", "§bOranje Ballon"));
+        defs.put("geel", mapOf("permission", "serverfeatures.feature.balloons.geel", "item", "YELLOW_CONCRETE", "displayname", "§bGele Ballon"));
+        defs.put("groen", mapOf("permission", "serverfeatures.feature.balloons.groen", "item", "LIME_CONCRETE", "displayname", "§bGroene Ballon"));
+        defs.put("donkergroen", mapOf("permission", "serverfeatures.feature.balloons.donkergroen", "item", "GREEN_CONCRETE", "displayname", "§bDonker Groene Ballon"));
+        defs.put("cyan", mapOf("permission", "serverfeatures.feature.balloons.cyan", "item", "CYAN_CONCRETE", "displayname", "§bCyan Ballon"));
+        defs.put("blauw", mapOf("permission", "serverfeatures.feature.balloons.blauw", "item", "LIGHT_BLUE_CONCRETE", "displayname", "§bBlauwe Ballon"));
+        defs.put("donkerblauw", mapOf("permission", "serverfeatures.feature.balloons.donkerblauw", "item", "BLUE_CONCRETE", "displayname", "§bDonker Blauwe Ballon"));
+        defs.put("paars", mapOf("permission", "serverfeatures.feature.balloons.paars", "item", "PURPLE_CONCRETE", "displayname", "§bPaarse Ballon"));
+        defs.put("magenta", mapOf("permission", "serverfeatures.feature.balloons.magenta", "item", "MAGENTA_CONCRETE", "displayname", "§bMagenta Ballon"));
+        defs.put("roze", mapOf("permission", "serverfeatures.feature.balloons.roze", "item", "PINK_CONCRETE", "displayname", "§bRoze Ballon"));
+        defs.put("wit", mapOf("permission", "serverfeatures.feature.balloons.wit", "item", "WHITE_CONCRETE", "displayname", "§bWit Ballon"));
+        defs.put("grijs", mapOf("permission", "serverfeatures.feature.balloons.grijs", "item", "LIGHT_GRAY_CONCRETE", "displayname", "§bGrijze Ballon"));
+        defs.put("donkergrijs", mapOf("permission", "serverfeatures.feature.balloons.donkergrijs", "item", "GRAY_CONCRETE", "displayname", "§bDonker Grijze Ballon"));
+        defs.put("zwart", mapOf("permission", "serverfeatures.feature.balloons.zwart", "item", "BLACK_CONCRETE", "displayname", "§bZwarte Ballon"));
+        defs.put("bruin", mapOf("permission", "serverfeatures.feature.balloons.bruin", "item", "BROWN_CONCRETE", "displayname", "§bBruine Ballon"));
         // === Heads ===
         defs.put("paasevent24", mapOf(
                 "permission", "serverfeatures.feature.balloons.paasevent24",
@@ -169,6 +169,11 @@ public class Balloons extends BukkitBaseFeature<Meta> {
         if (handler != null) handler.shutdown();
     }
 
-    public BalloonsHandler getHandler() { return handler; }
-    public BalloonRegistry getRegistry() { return registry; }
+    public BalloonsHandler getHandler() {
+        return handler;
+    }
+
+    public BalloonRegistry getRegistry() {
+        return registry;
+    }
 }

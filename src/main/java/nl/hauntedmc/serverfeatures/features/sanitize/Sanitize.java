@@ -101,7 +101,10 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
         Object v = getConfigHandler().getSetting(key);
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) {
-            try { return Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {}
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException ignored) {
+            }
         }
         return def;
     }

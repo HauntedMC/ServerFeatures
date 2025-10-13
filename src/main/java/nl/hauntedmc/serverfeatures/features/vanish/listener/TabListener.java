@@ -21,7 +21,9 @@ public class TabListener implements Listener {
 
     private final Vanish feature;
 
-    public TabListener(Vanish feature) { this.feature = feature; }
+    public TabListener(Vanish feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onTab(TabCompleteEvent e) {

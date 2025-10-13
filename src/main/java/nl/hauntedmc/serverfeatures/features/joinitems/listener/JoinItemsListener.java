@@ -36,7 +36,7 @@ public final class JoinItemsListener implements Listener {
         final int delay = handler.getJoinDelayTicks();
 
         // Defer to allow world/chunks/other plugins to finish first.
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             if (!player.isOnline()) return;
 
             if (handler.isRemoveOnJoin()) {
@@ -105,7 +105,7 @@ public final class JoinItemsListener implements Listener {
     public void onSwapHands(PlayerSwapHandItemsEvent e) {
         // Prevent moving to/from offhand
         boolean managedMain = handler.isManaged(e.getMainHandItem());
-        boolean managedOff  = handler.isManaged(e.getOffHandItem());
+        boolean managedOff = handler.isManaged(e.getOffHandItem());
         if (!managedMain && !managedOff) return;
 
         // If either side is a protected item, block swap
@@ -127,10 +127,10 @@ public final class JoinItemsListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.NORMAL)
     public void onInventoryClick(InventoryClickEvent e) {
         ItemStack current = e.getCurrentItem();
-        ItemStack cursor  = e.getCursor();
+        ItemStack cursor = e.getCursor();
 
         boolean currentManaged = handler.isManaged(current);
-        boolean cursorManaged  = handler.isManaged(cursor);
+        boolean cursorManaged = handler.isManaged(cursor);
 
         // If neither is managed, nothing to do
         if (!currentManaged && !cursorManaged) return;

@@ -30,7 +30,7 @@ public class ChatHandler {
 
     /**
      * Builds the full rendered message:
-     *   [prefix + name + suffix] + [formatted chat message]
+     * [prefix + name + suffix] + [formatted chat message]
      */
     public Component renderBaseMessage(Player sender, Component messageComponent) {
         Component prefix = buildPrefixComponent(sender);
@@ -38,13 +38,17 @@ public class ChatHandler {
         return prefix.append(chat);
     }
 
-    /** Prefix + name + suffix (click/hover + star tier + placeholders). */
+    /**
+     * Prefix + name + suffix (click/hover + star tier + placeholders).
+     */
     private Component buildPrefixComponent(Player player) {
         String mm = formatPrefix(player); // MiniMessage string
         return MiniMessageFormatter.prefixSerializer.deserialize(mm);
     }
 
-    /** Chat message component (colors/formatting/url handling gated by perms). */
+    /**
+     * Chat message component (colors/formatting/url handling gated by perms).
+     */
     private Component buildChatComponent(Player player, Component messageComponent) {
         // Convert incoming component to legacy text so we can support users typing &/§ codes.
         String rawMessage = ComponentFormatter.serialize(messageComponent).format(ComponentFormatter.Serializer.Format.LEGACY_SECTION).build();

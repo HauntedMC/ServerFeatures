@@ -28,6 +28,7 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
     );
 
     private static final LinkedHashMap<String, Object> ENFORCED_MESSAGES = new LinkedHashMap<>();
+
     static {
         ENFORCED_MESSAGES.put("whitelist", "Op dit moment is deze Gamemode in onderhoud. Probeer het later nog eens.");
         ENFORCED_MESSAGES.put("unknown-command", "Dit commando wordt niet herkend.");
@@ -38,6 +39,7 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
     }
 
     private static final LinkedHashMap<String, Object> ENFORCED_COMMANDS = new LinkedHashMap<>();
+
     static {
         ENFORCED_COMMANDS.put("tab-complete", 1);
         ENFORCED_COMMANDS.put("send-namespaced", false);
@@ -49,6 +51,7 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
     }
 
     private static final LinkedHashMap<String, Object> ENFORCED_SETTINGS = new LinkedHashMap<>();
+
     static {
         ENFORCED_SETTINGS.put("bungeecord", false);
         ENFORCED_SETTINGS.put("save-user-cache-on-stop-only", false);
@@ -67,7 +70,9 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
     }
 
     @Override
-    public String name() { return "SpigotYml"; }
+    public String name() {
+        return "SpigotYml";
+    }
 
     @Override
     public SanitizeResult run(SanitizeContext ctx) throws IOException {
@@ -98,12 +103,12 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
 
         StringBuilder header = new StringBuilder();
         header.append("""
-# Managed by HauntedMC Sanitize
-# Fixed sections: messages, commands, settings (incl. settings.attribute.*.max)
-# Other sections (advancements, stats, world-settings, players, etc.) are preserved untouched.
-# NOTE: inline annotaties uitgeschakeld voor spigot.yml i.v.m. SnakeYAML/Bukkit comment-issue.
-# Controlled paths:
-""");
+                # Managed by HauntedMC Sanitize
+                # Fixed sections: messages, commands, settings (incl. settings.attribute.*.max)
+                # Other sections (advancements, stats, world-settings, players, etc.) are preserved untouched.
+                # NOTE: inline annotaties uitgeschakeld voor spigot.yml i.v.m. SnakeYAML/Bukkit comment-issue.
+                # Controlled paths:
+                """);
         for (String p : controlled) header.append("# - ").append(p).append("\n");
         header.append("\n");
 

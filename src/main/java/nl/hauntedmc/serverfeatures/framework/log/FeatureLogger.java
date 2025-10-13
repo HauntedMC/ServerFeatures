@@ -13,7 +13,7 @@ public class FeatureLogger {
 
     public FeatureLogger(Logger delegate, String featureName) {
         this.delegate = delegate;
-        this.prefix   = "[" + featureName + "] ";
+        this.prefix = "[" + featureName + "] ";
     }
 
     public void info(String msg) {

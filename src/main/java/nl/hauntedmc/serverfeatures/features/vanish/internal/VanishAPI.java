@@ -16,12 +16,16 @@ public class VanishAPI {
         this.feature = feature;
     }
 
-    /** List of currently vanished online players. */
+    /**
+     * List of currently vanished online players.
+     */
     public Set<UUID> getVanishedPlayers() {
         return feature.getService().allVanished();
     }
 
-    /** Number of currently vanished online players. */
+    /**
+     * Number of currently vanished online players.
+     */
     public int getVanishedCount() {
         return feature.getService().countVanished();
     }

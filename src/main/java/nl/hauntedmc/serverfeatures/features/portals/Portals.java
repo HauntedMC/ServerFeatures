@@ -73,7 +73,7 @@ public class Portals extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.registry = new PortalRegistry(this);
         this.registry.reloadFromConfig();
-        this.handler  = new PortalsHandler(this, registry);
+        this.handler = new PortalsHandler(this, registry);
         getLifecycleManager().getListenerManager().registerListener(new PortalsListener(handler));
         getLifecycleManager().getListenerManager().registerListener(new WandListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new PortalOverrideListener(this, handler));
@@ -87,6 +87,11 @@ public class Portals extends BukkitBaseFeature<Meta> {
         getPlugin().getServer().getMessenger().unregisterOutgoingPluginChannel(getPlugin(), "BungeeCord");
     }
 
-    public PortalRegistry getRegistry() { return registry; }
-    public PortalsHandler getHandler() { return handler; }
+    public PortalRegistry getRegistry() {
+        return registry;
+    }
+
+    public PortalsHandler getHandler() {
+        return handler;
+    }
 }

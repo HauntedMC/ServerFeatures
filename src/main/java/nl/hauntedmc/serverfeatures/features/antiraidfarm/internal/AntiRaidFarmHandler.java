@@ -26,12 +26,16 @@ public final class AntiRaidFarmHandler {
                 .build();
     }
 
-    /** Permission bypass. Keep hard-coded to match current behavior. */
+    /**
+     * Permission bypass. Keep hard-coded to match current behavior.
+     */
     public boolean isBypassed(Player p) {
         return p != null && p.hasPermission("serverfeatures.feature.antiraidfarm.bypass");
     }
 
-    /** Remaining seconds (rounded up) if on cooldown; otherwise empty. */
+    /**
+     * Remaining seconds (rounded up) if on cooldown; otherwise empty.
+     */
     public OptionalLong remainingSeconds(UUID playerId, long nowMillis) {
         Long last = lastRaidCache.getIfPresent(playerId);
         if (last == null) return OptionalLong.empty();
@@ -42,7 +46,9 @@ public final class AntiRaidFarmHandler {
         return OptionalLong.of(secondsUp);
     }
 
-    /** Marks a successful trigger (starts cooldown). */
+    /**
+     * Marks a successful trigger (starts cooldown).
+     */
     public void markTriggered(UUID playerId, long nowMillis) {
         lastRaidCache.put(playerId, nowMillis);
     }
@@ -81,6 +87,9 @@ public final class AntiRaidFarmHandler {
         return out;
     }
 
-    /** POJO for displaying in command. */
-    public record CooldownEntry(String name, UUID uuid, long remainingSeconds, int totalSeconds) {}
+    /**
+     * POJO for displaying in command.
+     */
+    public record CooldownEntry(String name, UUID uuid, long remainingSeconds, int totalSeconds) {
+    }
 }

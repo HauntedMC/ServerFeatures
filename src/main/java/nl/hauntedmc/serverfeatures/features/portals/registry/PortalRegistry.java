@@ -219,6 +219,11 @@ public final class PortalRegistry {
         return Optional.ofNullable(byId.get(id.toLowerCase(Locale.ROOT)));
     }
 
-    public Collection<PortalDefinition> all() { return List.copyOf(byId.values()); }
-    public int size() { return byId.size(); }
+    public Collection<PortalDefinition> all() {
+        return List.copyOf(byId.values());
+    }
+
+    public int size() {
+        return byId.size();
+    }
 }

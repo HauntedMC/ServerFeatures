@@ -35,7 +35,9 @@ public abstract class FeatureCommand extends Command {
     }
 
 
-    /** Bukkit will not be used for completions; global listener handles everything. */
+    /**
+     * Bukkit will not be used for completions; global listener handles everything.
+     */
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
         return Collections.emptyList();

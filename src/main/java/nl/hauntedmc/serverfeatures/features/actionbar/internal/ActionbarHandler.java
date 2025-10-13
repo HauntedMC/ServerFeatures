@@ -122,7 +122,7 @@ public class ActionbarHandler {
         message = TextFormatter.convert(message)
                 .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .preprocess(s -> {
-                        s = PlaceholderAPIHook.applyPlaceholders(s, player);
+                    s = PlaceholderAPIHook.applyPlaceholders(s, player);
                     return s;
                 })
                 .toMiniMessage();

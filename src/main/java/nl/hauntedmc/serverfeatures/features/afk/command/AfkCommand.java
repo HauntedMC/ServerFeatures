@@ -22,8 +22,14 @@ public class AfkCommand extends FeatureCommand {
     public boolean execute(@NotNull CommandSender sender,
                            @NotNull String label,
                            String @NotNull [] args) {
-        if (!(sender instanceof Player p)) { usage(sender); return true; }
-        if (!sender.hasPermission("serverfeatures.feature.afk.command.afk.toggle")) { noPerm(sender); return true; }
+        if (!(sender instanceof Player p)) {
+            usage(sender);
+            return true;
+        }
+        if (!sender.hasPermission("serverfeatures.feature.afk.command.afk.toggle")) {
+            noPerm(sender);
+            return true;
+        }
         boolean turnOn = !feature.getService().isAfk(p.getUniqueId());
         feature.getService().setAfk(p, turnOn);
         return true;

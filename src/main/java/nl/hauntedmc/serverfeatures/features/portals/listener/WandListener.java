@@ -65,7 +65,7 @@ public final class WandListener implements Listener {
                 p.sendMessage(feature.getLocalizationHandler().getMessage("portals.pos1.set")
                         .with("world", world)
                         .with("x", x)
-                        .with ("y", y)
+                        .with("y", y)
                         .with("z", z)
                         .forAudience(p).build());
             } else { // RIGHT_CLICK_BLOCK
@@ -73,7 +73,7 @@ public final class WandListener implements Listener {
                 p.sendMessage(feature.getLocalizationHandler().getMessage("portals.pos2.set")
                         .with("world", world)
                         .with("x", x)
-                        .with ("y", y)
+                        .with("y", y)
                         .with("z", z)
                         .forAudience(p).build());
             }

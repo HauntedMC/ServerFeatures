@@ -15,14 +15,17 @@ public class InteractionListener implements Listener {
 
     private final Vanish feature;
 
-    public InteractionListener(Vanish feature) { this.feature = feature; }
+    public InteractionListener(Vanish feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onDamage(EntityDamageByEntityEvent e) {
         if (!(boolean) feature.getConfigHandler().getSetting("prevent_damage_and_interact")) return;
 
         if (e.getEntity() instanceof Player victim && feature.getService().isPlayerVanished(victim)) {
-            e.setCancelled(true); return;
+            e.setCancelled(true);
+            return;
         }
         if (e.getDamager() instanceof Player damager && feature.getService().isPlayerVanished(damager)) {
             e.setCancelled(true);
@@ -34,7 +37,8 @@ public class InteractionListener implements Listener {
         if (!(boolean) feature.getConfigHandler().getSetting("prevent_damage_and_interact")) return;
 
         if (e.getRightClicked() instanceof Player p && feature.getService().isPlayerVanished(p)) {
-            e.setCancelled(true); return;
+            e.setCancelled(true);
+            return;
         }
         if (feature.getService().isPlayerVanished(e.getPlayer())) {
             e.setCancelled(true);

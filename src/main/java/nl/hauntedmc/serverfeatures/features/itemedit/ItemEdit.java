@@ -23,8 +23,8 @@ public class ItemEdit extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("blockedWords", List.of(
-                "kut",
-                "godverdomme"
+                        "kut",
+                        "godverdomme"
                 )
         );
         defaults.put("blockedAnvilItems", List.of("CHEST", "HOPPER"));

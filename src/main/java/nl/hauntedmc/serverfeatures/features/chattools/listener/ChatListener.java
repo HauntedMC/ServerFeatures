@@ -22,8 +22,8 @@ public class ChatListener implements Listener {
 
         event.setCancelled(true);
         event.getPlayer().sendMessage(feature.getLocalizationHandler()
-                        .getMessage("chattools.locked_cant_chat")
-                        .forAudience(event.getPlayer())
-                        .build());
+                .getMessage("chattools.locked_cant_chat")
+                .forAudience(event.getPlayer())
+                .build());
     }
 }

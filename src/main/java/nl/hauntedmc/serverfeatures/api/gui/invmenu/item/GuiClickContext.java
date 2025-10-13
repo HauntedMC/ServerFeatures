@@ -19,20 +19,58 @@ public final class GuiClickContext {
         this.event = event;
     }
 
-    public GuiMenu menu() { return menu; }
-    public int slot() { return slot; }
-    public InventoryClickEvent rawEvent() { return event; }
-    public Player player() { return (Player) event.getWhoClicked(); }
+    public GuiMenu menu() {
+        return menu;
+    }
 
-    public boolean isLeftClick()  { return event.getClick() == ClickType.LEFT || event.getClick() == ClickType.SHIFT_LEFT; }
-    public boolean isRightClick() { return event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT; }
-    public boolean isShiftClick() { return event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT; }
-    public boolean isNumberKey()  { return event.getClick() == ClickType.NUMBER_KEY; }
-    public boolean isMiddleClick(){ return event.getClick() == ClickType.MIDDLE; }
+    public int slot() {
+        return slot;
+    }
 
-    /** Navigation helpers routed via the menu's per-feature GUI manager. */
-    public void openChild(GuiMenu child) { menu.guiManager().openChild(player(), child); }
-    public void openRoot(GuiMenu root)   { menu.guiManager().openRoot(player(), root); }
-    public void goBack()                 { menu.guiManager().goBack(player()); }
-    public void reopenSame()             { menu.guiManager().reopenSame(player(), menu); }
+    public InventoryClickEvent rawEvent() {
+        return event;
+    }
+
+    public Player player() {
+        return (Player) event.getWhoClicked();
+    }
+
+    public boolean isLeftClick() {
+        return event.getClick() == ClickType.LEFT || event.getClick() == ClickType.SHIFT_LEFT;
+    }
+
+    public boolean isRightClick() {
+        return event.getClick() == ClickType.RIGHT || event.getClick() == ClickType.SHIFT_RIGHT;
+    }
+
+    public boolean isShiftClick() {
+        return event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT;
+    }
+
+    public boolean isNumberKey() {
+        return event.getClick() == ClickType.NUMBER_KEY;
+    }
+
+    public boolean isMiddleClick() {
+        return event.getClick() == ClickType.MIDDLE;
+    }
+
+    /**
+     * Navigation helpers routed via the menu's per-feature GUI manager.
+     */
+    public void openChild(GuiMenu child) {
+        menu.guiManager().openChild(player(), child);
+    }
+
+    public void openRoot(GuiMenu root) {
+        menu.guiManager().openRoot(player(), root);
+    }
+
+    public void goBack() {
+        menu.guiManager().goBack(player());
+    }
+
+    public void reopenSame() {
+        menu.guiManager().reopenSame(player(), menu);
+    }
 }

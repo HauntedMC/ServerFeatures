@@ -31,8 +31,8 @@ public class VillagerAIHandler {
     }
 
     public void toggleVillagerAI(Villager vil, Player player) {
-        if(vil.isAware()) {
-            if(hasCooldown(vil, player))
+        if (vil.isAware()) {
+            if (hasCooldown(vil, player))
                 return;
             vil.setAware(false);
             setDisabledByBlock(vil, true);
@@ -42,8 +42,8 @@ public class VillagerAIHandler {
                     .build());
         } else {
             // Re-Enabling AI
-            
-            if(hasCooldown(vil, player))
+
+            if (hasCooldown(vil, player))
                 return;
             vil.setAware(true);
             setNewCooldown(vil, cooldown);
@@ -59,11 +59,13 @@ public class VillagerAIHandler {
         NamespacedKey key = new NamespacedKey(feature.getPlugin(), DISABLED_BY_BLOCK_KEY);
         container.set(key, PersistentDataType.STRING, disabledByBlock.toString());
     }
+
     public boolean hasDisabledByBlock(Villager v) {
         PersistentDataContainer container = v.getPersistentDataContainer();
         NamespacedKey key = new NamespacedKey(feature.getPlugin(), DISABLED_BY_BLOCK_KEY);
         return container.has(key, PersistentDataType.STRING);
     }
+
     public boolean getDisabledByBlock(Villager v) {
         PersistentDataContainer container = v.getPersistentDataContainer();
         NamespacedKey key = new NamespacedKey(feature.getPlugin(), DISABLED_BY_BLOCK_KEY);
@@ -90,7 +92,7 @@ public class VillagerAIHandler {
 
     public void restock(Villager v) {
         List<MerchantRecipe> recipes = v.getRecipes();
-        for (MerchantRecipe r: recipes) {
+        for (MerchantRecipe r : recipes) {
             r.setUses(0);
         }
     }
@@ -146,7 +148,7 @@ public class VillagerAIHandler {
             setNewTime(vil);
     }
 
-    public boolean hasCooldown(Villager vil, Player player){
+    public boolean hasCooldown(Villager vil, Player player) {
         if (player.hasPermission("serverfeatures.feature.villageroptimizer.toggle.bypass"))
             return false;
 
@@ -162,7 +164,7 @@ public class VillagerAIHandler {
 
             player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.cooldownBlockMessage")
                     .forAudience(player)
-                    .with("time_min",  min)
+                    .with("time_min", min)
                     .with("time_sec", sec)
                     .build());
             return true;

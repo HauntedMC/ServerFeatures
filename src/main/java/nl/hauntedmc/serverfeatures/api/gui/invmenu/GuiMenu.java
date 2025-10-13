@@ -72,39 +72,65 @@ public abstract class GuiMenu implements InventoryHolder {
         this.backSlot = backSlot;
     }
 
-    /** Access to the per-feature GUI manager. */
-    public FeatureGUIManager guiManager() { return gui; }
+    /**
+     * Access to the per-feature GUI manager.
+     */
+    public FeatureGUIManager guiManager() {
+        return gui;
+    }
 
-    /** Called before rendering and before inventory creation. */
+    /**
+     * Called before rendering and before inventory creation.
+     */
     public void prepare(boolean child) {
         if (child && addBackButton && backSlot < 0) backSlot = size - 1;
     }
 
-    /** Called after the menu has been opened for the player. */
+    /**
+     * Called after the menu has been opened for the player.
+     */
     public void onOpen(Player p) {
         if (openSound != null) p.playSound(p.getLocation(), openSound, openVol, openPitch);
     }
 
-    /** Called when the menu closes. */
+    /**
+     * Called when the menu closes.
+     */
     public void onClose(Player p, InventoryCloseEvent.Reason reason) {
         if (closeSound != null) p.playSound(p.getLocation(), closeSound, closeVol, closePitch);
     }
 
-    /** Called when the user taps the back button. */
+    /**
+     * Called when the user taps the back button.
+     */
     protected void onBack(Player p) {
         if (backSound != null) p.playSound(p.getLocation(), backSound, backVol, backPitch);
     }
 
-    /** Whether the manager should reopen the same menu after a close. */
-    public boolean shouldReopen() { return requestReopen; }
+    /**
+     * Whether the manager should reopen the same menu after a close.
+     */
+    public boolean shouldReopen() {
+        return requestReopen;
+    }
 
-    /** Request that the manager reopens the same menu next tick after close. */
-    public void requestReopen() { this.requestReopen = true; }
+    /**
+     * Request that the manager reopens the same menu next tick after close.
+     */
+    public void requestReopen() {
+        this.requestReopen = true;
+    }
 
-    /** Internal: manager clears the reopen request after honoring it. */
-    public void clearReopenRequest() { this.requestReopen = false; }
+    /**
+     * Internal: manager clears the reopen request after honoring it.
+     */
+    public void clearReopenRequest() {
+        this.requestReopen = false;
+    }
 
-    /** Which close reasons are allowed to trigger a reopen. */
+    /**
+     * Which close reasons are allowed to trigger a reopen.
+     */
     public boolean allowReopenFor(InventoryCloseEvent.Reason reason) {
         return switch (reason) {
             case UNLOADED, DISCONNECT, OPEN_NEW, TELEPORT, DEATH, PLUGIN -> false;
@@ -112,16 +138,24 @@ public abstract class GuiMenu implements InventoryHolder {
         };
     }
 
-    /** Calculate the title to use for this player. */
-    public Component titleFor(Player p) { return baseTitle; }
+    /**
+     * Calculate the title to use for this player.
+     */
+    public Component titleFor(Player p) {
+        return baseTitle;
+    }
 
-    /** Create a fresh inventory for this menu (Adventure title supported). */
+    /**
+     * Create a fresh inventory for this menu (Adventure title supported).
+     */
     public Inventory createInventory(Component title) {
         this.inventory = Bukkit.createInventory(this, size, title);
         return this.inventory;
     }
 
-    /** Populate items into the inventory. */
+    /**
+     * Populate items into the inventory.
+     */
     public void populate(Player p, Inventory inv) {
         if (filler != null) {
             for (int i = 0; i < size; i++) inv.setItem(i, filler);
@@ -131,10 +165,15 @@ public abstract class GuiMenu implements InventoryHolder {
         afterPopulate(p, inv);
     }
 
-    /** Extension point for subclasses after base population. */
-    protected void afterPopulate(Player p, Inventory inv) {}
+    /**
+     * Extension point for subclasses after base population.
+     */
+    protected void afterPopulate(Player p, Inventory inv) {
+    }
 
-    /** Place all fixed items into their slots, respecting visibility and replacements. */
+    /**
+     * Place all fixed items into their slots, respecting visibility and replacements.
+     */
     protected void placeFixedItems(Player p, Inventory inv) {
         for (Map.Entry<Integer, GuiItem> e : fixedItems.entrySet()) {
             int slot = e.getKey();
@@ -149,7 +188,9 @@ public abstract class GuiMenu implements InventoryHolder {
         }
     }
 
-    /** Place the back button item into the configured backSlot, if valid. */
+    /**
+     * Place the back button item into the configured backSlot, if valid.
+     */
     protected void placeBackButton(Inventory inv) {
         if (backSlot < 0 || backSlot >= size) return;
         inv.setItem(backSlot, GuiItemHelper.backArrow());
@@ -170,10 +211,17 @@ public abstract class GuiMenu implements InventoryHolder {
         gi.click(p, new GuiClickContext(this, slot, e));
     }
 
-    @Override public @NotNull Inventory getInventory() { return inventory; }
+    @Override
+    public @NotNull Inventory getInventory() {
+        return inventory;
+    }
 
-    /** Ownership check by InventoryHolder identity. */
-    public boolean owns(Inventory inv) { return inv != null && inv.getHolder() == this; }
+    /**
+     * Ownership check by InventoryHolder identity.
+     */
+    public boolean owns(Inventory inv) {
+        return inv != null && inv.getHolder() == this;
+    }
 
     /* ---------- Validation helpers for builders ---------- */
 
@@ -205,16 +253,35 @@ public abstract class GuiMenu implements InventoryHolder {
     ) {
         ensureSlotsInBounds(reserved, size, who + ".reservedSlots");
         for (int s : fixed.keySet()) {
-            if (reserved.contains(s)) throw new IllegalArgumentException(who + ": fixed item collides with reserved slot " + s);
+            if (reserved.contains(s))
+                throw new IllegalArgumentException(who + ": fixed item collides with reserved slot " + s);
         }
         if (backEnabled && backSlot >= 0) {
-            if (reserved.contains(backSlot)) throw new IllegalArgumentException(who + ": back button collides with reserved slot " + backSlot);
+            if (reserved.contains(backSlot))
+                throw new IllegalArgumentException(who + ": back button collides with reserved slot " + backSlot);
         }
     }
 
     /* ---------- Optional UX setters ---------- */
 
-    public GuiMenu openSound(Sound s, float vol, float pitch) { this.openSound = s; this.openVol = vol; this.openPitch = pitch; return this; }
-    public GuiMenu backSound(Sound s, float vol, float pitch) { this.backSound = s; this.backVol = vol; this.backPitch = pitch; return this; }
-    public GuiMenu closeSound(Sound s, float vol, float pitch) { this.closeSound = s; this.closeVol = vol; this.closePitch = pitch; return this; }
+    public GuiMenu openSound(Sound s, float vol, float pitch) {
+        this.openSound = s;
+        this.openVol = vol;
+        this.openPitch = pitch;
+        return this;
+    }
+
+    public GuiMenu backSound(Sound s, float vol, float pitch) {
+        this.backSound = s;
+        this.backVol = vol;
+        this.backPitch = pitch;
+        return this;
+    }
+
+    public GuiMenu closeSound(Sound s, float vol, float pitch) {
+        this.closeSound = s;
+        this.closeVol = vol;
+        this.closePitch = pitch;
+        return this;
+    }
 }

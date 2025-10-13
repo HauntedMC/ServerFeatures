@@ -11,26 +11,35 @@ import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 @Table(name = "player_glow_states")
 public class PlayerGlowStateEntity {
 
-    /** Primary key equals the player's id in PlayerEntity */
+    /**
+     * Primary key equals the player's id in PlayerEntity
+     */
     @Id
     @Column(name = "player_id")
     private Long playerId;
 
-    /** One-to-one link to PlayerEntity sharing the same PK */
+    /**
+     * One-to-one link to PlayerEntity sharing the same PK
+     */
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId
     @JoinColumn(name = "player_id", nullable = false)
     private PlayerEntity player;
 
-    /** Whether glow is enabled for this player */
+    /**
+     * Whether glow is enabled for this player
+     */
     @Column(name = "enabled", nullable = false)
     private boolean enabled;
 
-    /** Identifier of the current glow effect (e.g. "red", "rainbow"). Nullable when disabled. */
+    /**
+     * Identifier of the current glow effect (e.g. "red", "rainbow"). Nullable when disabled.
+     */
     @Column(name = "effect_id", length = 100)
     private String effectId;
 
-    public PlayerGlowStateEntity() {}
+    public PlayerGlowStateEntity() {
+    }
 
     public Long getPlayerId() {
         return playerId;

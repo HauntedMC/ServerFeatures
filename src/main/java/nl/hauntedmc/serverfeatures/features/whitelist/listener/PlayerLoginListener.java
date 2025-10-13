@@ -15,9 +15,9 @@ import java.util.UUID;
  * Disallow non-whitelisted players during the async pre-login phase.
  * This avoids the client hanging on "Reconfiguring" (which can happen if you kick on Join).
  * Bypass logic:
- *  - If LuckPerms is present, we resolve the user's permission data and check
- *    "serverfeatures.feature.whitelist.bypass" asynchronously.
- *  - Otherwise we fall back to checking if the player is OP (customize as needed).
+ * - If LuckPerms is present, we resolve the user's permission data and check
+ * "serverfeatures.feature.whitelist.bypass" asynchronously.
+ * - Otherwise we fall back to checking if the player is OP (customize as needed).
  */
 public class PlayerLoginListener implements Listener {
 

@@ -23,14 +23,30 @@ public class PlayerVanishEntity {
     @Column(name = "vanished", nullable = false)
     private boolean vanished;
 
-    public PlayerVanishEntity() {}
+    public PlayerVanishEntity() {
+    }
 
-    public Long getPlayerId() { return playerId; }
-    public void setPlayerId(Long playerId) { this.playerId = playerId; }
+    public Long getPlayerId() {
+        return playerId;
+    }
 
-    public PlayerEntity getPlayer() { return player; }
-    public void setPlayer(PlayerEntity player) { this.player = player; }
+    public void setPlayerId(Long playerId) {
+        this.playerId = playerId;
+    }
 
-    public boolean isVanished() { return vanished; }
-    public void setVanished(boolean vanished) { this.vanished = vanished; }
+    public PlayerEntity getPlayer() {
+        return player;
+    }
+
+    public void setPlayer(PlayerEntity player) {
+        this.player = player;
+    }
+
+    public boolean isVanished() {
+        return vanished;
+    }
+
+    public void setVanished(boolean vanished) {
+        this.vanished = vanished;
+    }
 }

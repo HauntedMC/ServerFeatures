@@ -14,11 +14,11 @@ import java.util.Map;
 
 /**
  * Modern Holograms feature based on TextDisplay entities.
- *
+ * <p>
  * Lines are NOT defined in config. Instead, we read sequential message keys:
- *   holograms.hologram.<id>.0
- *   holograms.hologram.<id>.1
- *   ...
+ * holograms.hologram.<id>.0
+ * holograms.hologram.<id>.1
+ * ...
  * until a key is missing; or a line contains the <end> marker (which is removed from output).
  */
 public final class Holograms extends BukkitBaseFeature<Meta> {
@@ -26,7 +26,9 @@ public final class Holograms extends BukkitBaseFeature<Meta> {
     private HologramRegistry registry;
     private HologramHandler handler;
 
-    public Holograms(ServerFeatures plugin) { super(plugin, new Meta()); }
+    public Holograms(ServerFeatures plugin) {
+        super(plugin, new Meta());
+    }
 
     @Override
     public ConfigMap getDefaultConfig() {
@@ -88,8 +90,13 @@ public final class Holograms extends BukkitBaseFeature<Meta> {
         if (handler != null) handler.removeAll();
     }
 
-    public HologramRegistry getRegistry() { return registry; }
-    public HologramHandler getHandler() { return handler; }
+    public HologramRegistry getRegistry() {
+        return registry;
+    }
+
+    public HologramHandler getHandler() {
+        return handler;
+    }
 
     private static Map<String, Object> mapOf(Object... kv) {
         Map<String, Object> m = new LinkedHashMap<>();

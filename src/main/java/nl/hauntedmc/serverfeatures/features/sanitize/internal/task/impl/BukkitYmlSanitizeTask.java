@@ -20,6 +20,7 @@ public class BukkitYmlSanitizeTask implements SanitizeTask {
     );
 
     private static final LinkedHashMap<String, Object> ENFORCED_SETTINGS = new LinkedHashMap<>();
+
     static {
         ENFORCED_SETTINGS.put("use-map-color-cache", true);
         ENFORCED_SETTINGS.put("warn-on-overload", true);
@@ -34,7 +35,9 @@ public class BukkitYmlSanitizeTask implements SanitizeTask {
     }
 
     @Override
-    public String name() { return "BukkitYml"; }
+    public String name() {
+        return "BukkitYml";
+    }
 
     @Override
     public SanitizeResult run(SanitizeContext ctx) throws IOException {
@@ -87,11 +90,11 @@ public class BukkitYmlSanitizeTask implements SanitizeTask {
         String dumped = YamlSanitizeUtil.appendControlComments(dumpedRaw, controlled);
 
         String header = """
-# Managed by HauntedMC Sanitize
-# Fixed keys: settings.* (except allow-end), chunk-gc.period-in-ticks, aliases
-# Free sections preserved: spawn-limits, ticks-per, worlds
-# Note: Controlled entries are annotated inline with " # controlled by Sanitize".
-""";
+                # Managed by HauntedMC Sanitize
+                # Fixed keys: settings.* (except allow-end), chunk-gc.period-in-ticks, aliases
+                # Free sections preserved: spawn-limits, ticks-per, worlds
+                # Note: Controlled entries are annotated inline with " # controlled by Sanitize".
+                """;
 
         StringBuilder out = new StringBuilder();
         out.append(header).append(dumped);

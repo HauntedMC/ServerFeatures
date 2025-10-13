@@ -90,7 +90,7 @@ public class TPSMonitorService {
     }
 
     private void sendDiscordAlert(String avgTps) {
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendNotification(avgTps));
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendNotification(avgTps));
     }
 
 }

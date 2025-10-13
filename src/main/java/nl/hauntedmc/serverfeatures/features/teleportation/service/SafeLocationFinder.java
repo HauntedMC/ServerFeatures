@@ -148,8 +148,8 @@ public class SafeLocationFinder {
         if (feetY + 1 >= world.getMaxHeight()) return false;
 
         Block ground = world.getBlockAt(x, feetY - 1, z);
-        Block feet   = world.getBlockAt(x, feetY, z);
-        Block head   = world.getBlockAt(x, feetY + 1, z);
+        Block feet = world.getBlockAt(x, feetY, z);
+        Block head = world.getBlockAt(x, feetY + 1, z);
 
         // Ground must be solid and not passable, and not in disabled list
         var groundType = ground.getType();

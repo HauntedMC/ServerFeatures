@@ -15,7 +15,9 @@ import java.util.List;
 public class CacheSanitizeTask implements SanitizeTask {
 
     @Override
-    public String name() { return "Cache"; }
+    public String name() {
+        return "Cache";
+    }
 
     @Override
     public SanitizeResult run(SanitizeContext ctx) throws IOException {
@@ -56,12 +58,12 @@ public class CacheSanitizeTask implements SanitizeTask {
 
         StringBuilder sb = new StringBuilder();
         sb.append("Kept: ").append(kept.isEmpty() ? "none present" : String.join(", ", kept))
-          .append("; Removed ").append(deleted).append("/").append(toRemove.size()).append(" jar(s)");
+                .append("; Removed ").append(deleted).append("/").append(toRemove.size()).append(" jar(s)");
         if (!others.isEmpty()) sb.append(" [candidates: ").append(String.join(", ", others)).append("]");
         if (!failed.isEmpty()) sb.append(" [failed: ").append(String.join(", ", failed)).append("]");
 
         boolean changed = deleted > 0 || !failed.isEmpty();
         return changed ? SanitizeResult.changed(sb.toString())
-                       : SanitizeResult.unchanged("No files removed. " + sb);
+                : SanitizeResult.unchanged("No files removed. " + sb);
     }
 }

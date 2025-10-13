@@ -14,9 +14,9 @@ import java.util.Map;
 
 /**
  * JoinItems feature:
- *  - Gives configured items at fixed inventory slots after join (with a delay).
- *  - Items are tagged via PDC for robust identification.
- *  - Enforces immovable/undroppable/etc. protections and executes commands on click.
+ * - Gives configured items at fixed inventory slots after join (with a delay).
+ * - Items are tagged via PDC for robust identification.
+ * - Enforces immovable/undroppable/etc. protections and executes commands on click.
  */
 public final class JoinItems extends BukkitBaseFeature<Meta> {
 

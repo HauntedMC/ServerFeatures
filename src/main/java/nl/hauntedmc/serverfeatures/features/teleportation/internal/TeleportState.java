@@ -69,9 +69,9 @@ public class TeleportState {
 
         @Override
         public boolean equals(Object o) {
-                if (this == o) return true;
-                if (!(o instanceof CooldownKey(UUID id, TeleportAction action1))) return false;
-                return java.util.Objects.equals(playerId, id) && action == action1;
-            }
+            if (this == o) return true;
+            if (!(o instanceof CooldownKey(UUID id, TeleportAction action1))) return false;
+            return java.util.Objects.equals(playerId, id) && action == action1;
+        }
     }
 }

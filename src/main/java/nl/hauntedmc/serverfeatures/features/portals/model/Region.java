@@ -20,13 +20,33 @@ public final class Region {
         this.maxZ = Math.max(z1, z2);
     }
 
-    public String worldName() { return worldName; }
-    public int minX() { return minX; }
-    public int minY() { return minY; }
-    public int minZ() { return minZ; }
-    public int maxX() { return maxX; }
-    public int maxY() { return maxY; }
-    public int maxZ() { return maxZ; }
+    public String worldName() {
+        return worldName;
+    }
+
+    public int minX() {
+        return minX;
+    }
+
+    public int minY() {
+        return minY;
+    }
+
+    public int minZ() {
+        return minZ;
+    }
+
+    public int maxX() {
+        return maxX;
+    }
+
+    public int maxY() {
+        return maxY;
+    }
+
+    public int maxZ() {
+        return maxZ;
+    }
 
     public boolean contains(Location loc) {
         if (loc == null || loc.getWorld() == null) return false;

@@ -24,14 +24,19 @@ import java.util.stream.Collectors;
  * after creating the ItemStack.
  */
 public final class GuiItemHelper {
-    private GuiItemHelper() {}
+    private GuiItemHelper() {
+    }
 
-    /** Ensure a component renders without italics. */
+    /**
+     * Ensure a component renders without italics.
+     */
     private static Component noItalics(Component c) {
         return c.decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Apply no-italics to a list of components. */
+    /**
+     * Apply no-italics to a list of components.
+     */
     private static List<Component> noItalics(List<Component> cs) {
         return cs.stream().map(GuiItemHelper::noItalics).collect(Collectors.toList());
     }
@@ -52,7 +57,9 @@ public final class GuiItemHelper {
         return is;
     }
 
-    /** Generic button-style item with a display name and optional lore (non-italic by default). */
+    /**
+     * Generic button-style item with a display name and optional lore (non-italic by default).
+     */
     public static ItemStack menuItem(Material type, Component name, Component... lore) {
         ItemStack is = new ItemStack(type);
         ItemMeta meta = is.getItemMeta();
@@ -73,22 +80,30 @@ public final class GuiItemHelper {
         return is;
     }
 
-    /** Paper info card with a name and optional lore (non-italic by default). */
+    /**
+     * Paper info card with a name and optional lore (non-italic by default).
+     */
     public static ItemStack info(Component name, Component... lore) {
         return menuItem(Material.CLOCK, name, lore);
     }
 
-    /** Neutral glass filler pane. */
+    /**
+     * Neutral glass filler pane.
+     */
     public static ItemStack filler() {
         return menuItem(Material.GRAY_STAINED_GLASS_PANE, Component.text(" "));
     }
 
-    /** Standard back arrow item. */
+    /**
+     * Standard back arrow item.
+     */
     public static ItemStack backArrow() {
         return menuItem(Material.ARROW, Component.text("Back"));
     }
 
-    /** Empty gui item factory that renders AIR. */
+    /**
+     * Empty gui item factory that renders AIR.
+     */
     public static GuiItem empty() {
         return GuiItem.builder().factory(p -> new ItemStack(Material.AIR)).build();
     }

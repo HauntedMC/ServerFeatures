@@ -14,9 +14,12 @@ import java.util.Map;
  * - Converts Lists (with nested normalization) and Maps with typed values
  */
 public final class ConfigTypes {
-    private ConfigTypes() {}
+    private ConfigTypes() {
+    }
 
-    /** Deeply normalizes ConfigurationSection -> Map and nested Lists/Maps. */
+    /**
+     * Deeply normalizes ConfigurationSection -> Map and nested Lists/Maps.
+     */
     public static Object toPlain(Object value) {
         switch (value) {
             case null -> {
@@ -157,7 +160,11 @@ public final class ConfigTypes {
     }
 
     private static <T> T tryConvert(Object v, Class<T> type) {
-        try { return convert(v, type); } catch (Exception ignored) { return null; }
+        try {
+            return convert(v, type);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static IllegalArgumentException typeError(String expected, Object got) {

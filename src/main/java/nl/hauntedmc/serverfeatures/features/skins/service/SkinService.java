@@ -25,13 +25,13 @@ public class SkinService {
 
     // Mojang endpoints
     private static final String URL_NAME_TO_UUID = "https://api.mojang.com/users/profiles/minecraft/";
-    private static final String URL_SESSION      = "https://sessionserver.mojang.com/session/minecraft/profile/";
+    private static final String URL_SESSION = "https://sessionserver.mojang.com/session/minecraft/profile/";
 
     // HTTP
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration REQ_TIMEOUT     = Duration.ofSeconds(8);
-    private static final int      MAX_RETRIES     = 2;   // total requests = 1 + retries
-    private static final long     BASE_BACKOFF_MS = 250; // + jitter
+    private static final Duration REQ_TIMEOUT = Duration.ofSeconds(8);
+    private static final int MAX_RETRIES = 2;   // total requests = 1 + retries
+    private static final long BASE_BACKOFF_MS = 250; // + jitter
 
     private final Skins feature;
     private final SkinState state;
@@ -45,8 +45,8 @@ public class SkinService {
     private final Map<UUID, CacheEntry<ProfileData>> uuidToProfileCache = new ConcurrentHashMap<>();
 
     // TTLs
-    private static final long TTL_NAME_UUID_MS   = Duration.ofMinutes(5).toMillis();
-    private static final long TTL_PROFILE_MS     = Duration.ofMinutes(2).toMillis();
+    private static final long TTL_NAME_UUID_MS = Duration.ofMinutes(5).toMillis();
+    private static final long TTL_PROFILE_MS = Duration.ofMinutes(2).toMillis();
 
     public SkinService(Skins feature) {
         this.feature = feature;
@@ -280,7 +280,9 @@ public class SkinService {
         return FormatPatterns.MC_NAME.matcher(name).matches();
     }
 
-    /** Returns true if the caller may proceed; otherwise sends cooldown message and returns false. */
+    /**
+     * Returns true if the caller may proceed; otherwise sends cooldown message and returns false.
+     */
     private boolean checkAndMaybeStartCooldown(UUID uuid, CommandSender actor) {
         int cd = state.getCooldownSeconds();
         if (cd <= 0) return true;
@@ -454,7 +456,8 @@ public class SkinService {
                 long sec = Long.parseLong(v);
                 return Math.max(1000L, sec * 1000L);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return backoffMs(attempt);
     }
 
@@ -464,7 +467,11 @@ public class SkinService {
     }
 
     private static void sleepQuiet(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static boolean isOk(HttpResponse<String> resp) {
@@ -475,17 +482,20 @@ public class SkinService {
     /* Small cache helpers                                     */
     /* ------------------------------------------------------- */
 
-    private static final class CacheEntry<T> {
-        final long expiresAt;
-        final T value;
-        CacheEntry(T value, long ttlMs) {
-            this.value = value;
-            this.expiresAt = System.currentTimeMillis() + ttlMs;
-        }
-        boolean fresh() { return System.currentTimeMillis() < expiresAt; }
-    }
+    private record CacheEntry<T>(T value, long expiresAt) {
+            private CacheEntry(T value, long expiresAt) {
+                this.value = value;
+                this.expiresAt = System.currentTimeMillis() + expiresAt;
+            }
 
-    private interface SupplierWithException<T> { T get(); }
+            boolean fresh() {
+                return System.currentTimeMillis() < expiresAt;
+            }
+        }
+
+    private interface SupplierWithException<T> {
+        T get();
+    }
 
     private static <K, V> V cachedOr(Map<K, CacheEntry<V>> map, K key, long ttlMs, SupplierWithException<V> supplier) {
         try {

@@ -18,13 +18,15 @@ import java.util.stream.Collectors;
  */
 public class ScoreboardManager {
 
-    private static final String GLOW_PREFIX  = "sf_glow_";
-    private static final String OBJ_NAME     = "ServerSB";
+    private static final String GLOW_PREFIX = "sf_glow_";
+    private static final String OBJ_NAME = "ServerSB";
 
     private static final Map<UUID, Scoreboard> boards = new ConcurrentHashMap<>();
     private static final Map<UUID, NamedTextColor> glowColors = new ConcurrentHashMap<>();
 
-    /** Called on PlayerJoinEvent */
+    /**
+     * Called on PlayerJoinEvent
+     */
     public static void onPlayerJoin(Player player) {
         // Create personal board
         Scoreboard board = Bukkit.getScoreboardManager().getNewScoreboard();
@@ -56,12 +58,16 @@ public class ScoreboardManager {
     }
 
 
-    /** Called on PlayerQuitEvent */
+    /**
+     * Called on PlayerQuitEvent
+     */
     public static void onPlayerQuit(Player player) {
         internalQuitCleanup(player, /*resetSidebar=*/false);
     }
 
-    /** Call during plugin enable to attach personal boards for players already online. */
+    /**
+     * Call during plugin enable to attach personal boards for players already online.
+     */
     public static void initializeOnlinePlayers(Logger logger) {
         int initialized = 0;
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -186,7 +192,9 @@ public class ScoreboardManager {
         player.setGlowing(true);
     }
 
-    /** Disable glow (fall back to WHITE) */
+    /**
+     * Disable glow (fall back to WHITE)
+     */
     public static void removeGlow(Player player) {
         setGlow(player, NamedTextColor.WHITE);
         player.setGlowing(false);

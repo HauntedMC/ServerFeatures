@@ -19,15 +19,15 @@ public class Broadcast extends BukkitBaseFeature<Meta> {
         cfg.put("enabled", false);
         cfg.put("title_fade_in", 20);
         cfg.put("title_stay", 100);
-        cfg.put("title_fade_out",20);
+        cfg.put("title_fade_out", 20);
         return cfg;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
-        m.add("broadcast.usage",  "&eGebruik: /broadcast <title|chat> <bericht>");
-        m.add("broadcast.sent",   "&aBroadcast verstuurd.");
+        m.add("broadcast.usage", "&eGebruik: /broadcast <title|chat> <bericht>");
+        m.add("broadcast.sent", "&aBroadcast verstuurd.");
         m.add("broadcast.noMode", "&cOngeldige optie. Gebruik 'title' of 'chat'.");
         return m;
     }
@@ -39,6 +39,7 @@ public class Broadcast extends BukkitBaseFeature<Meta> {
                 .registerFeatureCommand(new BroadcastCommand(this));
     }
 
-    @Override public void disable() {
+    @Override
+    public void disable() {
     }
 }

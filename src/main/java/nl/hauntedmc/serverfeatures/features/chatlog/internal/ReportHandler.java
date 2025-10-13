@@ -41,6 +41,6 @@ public class ReportHandler {
     }
 
     public void sendDiscordNotifaction(String creator, List<String> reportedPlayers, String serverName, String chatlogLink) {
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendNotification(creator, reportedPlayers, serverName, chatlogLink));
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendNotification(creator, reportedPlayers, serverName, chatlogLink));
     }
 }

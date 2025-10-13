@@ -8,7 +8,9 @@ import org.bukkit.entity.Player;
 import java.util.Locale;
 import java.util.Map;
 
-/** Static, single-color glow effect. */
+/**
+ * Static, single-color glow effect.
+ */
 public final class StaticColorGlow implements GlowEffect {
 
     private final NamedTextColor color;
@@ -45,20 +47,39 @@ public final class StaticColorGlow implements GlowEffect {
         this.displayName = Component.text(pretty(base));
     }
 
-    @Override public String id() { return id; }
-    @Override public Component displayName(Player viewer) { return displayName; }
-    @Override public String permission() { return permission; }
-    @Override public NamedTextColor colorAt(Player player, long elapsedSeconds) { return color; }
-    @Override public Material menuMaterial() { return material; }
+    @Override
+    public String id() {
+        return id;
+    }
+
+    @Override
+    public Component displayName(Player viewer) {
+        return displayName;
+    }
+
+    @Override
+    public String permission() {
+        return permission;
+    }
+
+    @Override
+    public NamedTextColor colorAt(Player player, long elapsedSeconds) {
+        return color;
+    }
+
+    @Override
+    public Material menuMaterial() {
+        return material;
+    }
 
     private static String pretty(String raw) {
-        String[] parts = raw.replace('_',' ').split(" ");
+        String[] parts = raw.replace('_', ' ').split(" ");
         StringBuilder sb = new StringBuilder();
         for (String p : parts) {
             if (p.isEmpty()) continue;
             sb.append(Character.toUpperCase(p.charAt(0)))
-              .append(p.substring(1))
-              .append(' ');
+                    .append(p.substring(1))
+                    .append(' ');
         }
         return sb.toString().trim();
     }

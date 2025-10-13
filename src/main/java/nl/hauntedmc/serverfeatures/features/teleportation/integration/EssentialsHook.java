@@ -18,6 +18,7 @@ public class EssentialsHook {
         if (essentials == null) return;
         try {
             essentials.getUser(player).setLastLocation();
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 }

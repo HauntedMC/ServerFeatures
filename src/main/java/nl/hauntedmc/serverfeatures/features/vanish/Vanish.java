@@ -42,11 +42,22 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         super(plugin, new Meta());
     }
 
-    public VanishService getService() { return service; }
+    public VanishService getService() {
+        return service;
+    }
 
-    public VanishRepository getRepository() { return repository; }
-    public ORMContext getOrmContext() { return ormContext; }
-    public EventBusHandler getEventBusHandler() { return eventBusHandler; }
+    public VanishRepository getRepository() {
+        return repository;
+    }
+
+    public ORMContext getOrmContext() {
+        return ormContext;
+    }
+
+    public EventBusHandler getEventBusHandler() {
+        return eventBusHandler;
+    }
+
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
@@ -113,7 +124,11 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         // Actionbar loop
         int interval = Math.max(5, (int) getConfigHandler().getSetting("actionbar_interval_ticks"));
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try { service.tickActionBars(); } catch (Throwable t) { getLogger().warning("Actionbar tick error: " + t.getMessage()); }
+            try {
+                service.tickActionBars();
+            } catch (Throwable t) {
+                getLogger().warning("Actionbar tick error: " + t.getMessage());
+            }
         }, BukkitTime.ticks(interval), BukkitTime.ticks(interval));
 
         // Register PlaceholderAPI expansion

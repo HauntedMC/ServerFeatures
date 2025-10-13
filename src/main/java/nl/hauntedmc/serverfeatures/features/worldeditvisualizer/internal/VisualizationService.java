@@ -45,13 +45,17 @@ public final class VisualizationService {
         return enabled.contains(p.getUniqueId());
     }
 
-    /** Active if enabled OR a visual handle exists (guards against leftover renders). */
+    /**
+     * Active if enabled OR a visual handle exists (guards against leftover renders).
+     */
     public boolean isActive(Player p) {
         UUID id = p.getUniqueId();
         return enabled.contains(id) || shown.containsKey(id);
     }
 
-    /** Idempotent toggle: if active -> disable+clear, else -> clear stale, enable+render once. */
+    /**
+     * Idempotent toggle: if active -> disable+clear, else -> clear stale, enable+render once.
+     */
     public boolean toggle(Player p) {
         if (isActive(p)) {
             disable(p, true);
@@ -64,7 +68,9 @@ public final class VisualizationService {
         }
     }
 
-    /** Enable; always ensures only a single fresh render exists. */
+    /**
+     * Enable; always ensures only a single fresh render exists.
+     */
     public boolean enable(Player p) {
         clear(p);
         last.remove(p.getUniqueId());
@@ -222,13 +228,20 @@ public final class VisualizationService {
 
     private record SelectionSnapshot(UUID world, BlockVector3 min, BlockVector3 max,
                                      BlockVector3 pos1, BlockVector3 pos2) {
-        @Override public boolean equals(Object o) {
+        @Override
+        public boolean equals(Object o) {
             if (this == o) return true;
-            if (!(o instanceof SelectionSnapshot s)) return false;
-            return Objects.equals(world, s.world) &&
-                    min.equals(s.min) && max.equals(s.max) &&
-                    pos1.equals(s.pos1) && pos2.equals(s.pos2);
+            if (!(o instanceof SelectionSnapshot(
+                    UUID world1, BlockVector3 min1, BlockVector3 max1, BlockVector3 pos3, BlockVector3 pos4
+            ))) return false;
+            return Objects.equals(world, world1) &&
+                    min.equals(min1) && max.equals(max1) &&
+                    pos1.equals(pos3) && pos2.equals(pos4);
         }
-        @Override public int hashCode() { return Objects.hash(world, min, max, pos1, pos2); }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(world, min, max, pos1, pos2);
+        }
     }
 }

@@ -124,9 +124,9 @@ public class SilkSpawnerCommand extends FeatureCommand {
         sender.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("silkspawners.give_success")
-                        .with("player",   targetName)
-                        .with("type",     typeName)
-                        .with("amount",  amount)
+                        .with("player", targetName)
+                        .with("type", typeName)
+                        .with("amount", amount)
                         .forAudience(sender)
                         .build()
         );
@@ -134,8 +134,8 @@ public class SilkSpawnerCommand extends FeatureCommand {
         target.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("silkspawners.receive_success")
-                        .with("type",     typeName)
-                        .with("amount",   amount)
+                        .with("type", typeName)
+                        .with("amount", amount)
                         .forAudience(target)
                         .build()
         );

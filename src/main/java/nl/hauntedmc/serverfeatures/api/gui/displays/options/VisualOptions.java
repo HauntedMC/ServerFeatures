@@ -58,28 +58,61 @@ public final class VisualOptions {
         this.labelTextStrategy = b.labelTextStrategy;
     }
 
-    public Material edgeMaterial() { return edgeMaterial; }
-    public Material cornerMaterial() { return cornerMaterial; }
+    public Material edgeMaterial() {
+        return edgeMaterial;
+    }
+
+    public Material cornerMaterial() {
+        return cornerMaterial;
+    }
+
     public Material materialForNamedPoint(String key) {
         return namedPointMaterials.getOrDefault(key, cornerMaterial);
     }
 
-    public NamedTextColor edgeGlow() { return edgeGlow; }
-    public NamedTextColor cornerGlow() { return cornerGlow; }
+    public NamedTextColor edgeGlow() {
+        return edgeGlow;
+    }
+
+    public NamedTextColor cornerGlow() {
+        return cornerGlow;
+    }
+
     public NamedTextColor glowForNamedPoint(String key) {
         return namedPointGlow.getOrDefault(key, cornerGlow);
     }
 
-    public float edgeScale() { return edgeScale; }
-    public float cornerScale() { return cornerScale; }
-    public double edgeStepBlocks() { return edgeStepBlocks; }
+    public float edgeScale() {
+        return edgeScale;
+    }
 
-    public boolean labelEnabled() { return labelEnabled; }
-    public double labelYOffset() { return labelYOffset; }
-    public float labelScale() { return labelScale; }
-    public LabelTextStrategy labelTextStrategy() { return labelTextStrategy; }
+    public float cornerScale() {
+        return cornerScale;
+    }
 
-    public static Builder builder() { return new Builder(); }
+    public double edgeStepBlocks() {
+        return edgeStepBlocks;
+    }
+
+    public boolean labelEnabled() {
+        return labelEnabled;
+    }
+
+    public double labelYOffset() {
+        return labelYOffset;
+    }
+
+    public float labelScale() {
+        return labelScale;
+    }
+
+    public LabelTextStrategy labelTextStrategy() {
+        return labelTextStrategy;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static final class Builder {
         private Material edgeMaterial = Material.WHITE_STAINED_GLASS;
@@ -104,23 +137,73 @@ public final class VisualOptions {
             return Math.max(0.01f, Math.min(1.0f, s));
         }
 
-        public Builder edgeMaterial(Material m) { this.edgeMaterial = Objects.requireNonNull(m); return this; }
-        public Builder cornerMaterial(Material m) { this.cornerMaterial = Objects.requireNonNull(m); return this; }
-        public Builder namedPointMaterial(String key, Material m) { this.namedPointMaterials.put(key, Objects.requireNonNull(m)); return this; }
+        public Builder edgeMaterial(Material m) {
+            this.edgeMaterial = Objects.requireNonNull(m);
+            return this;
+        }
 
-        public Builder edgeGlow(NamedTextColor c) { this.edgeGlow = Objects.requireNonNull(c); return this; }
-        public Builder cornerGlow(NamedTextColor c) { this.cornerGlow = Objects.requireNonNull(c); return this; }
-        public Builder namedPointGlow(String key, NamedTextColor c) { this.namedPointGlow.put(key, Objects.requireNonNull(c)); return this; }
+        public Builder cornerMaterial(Material m) {
+            this.cornerMaterial = Objects.requireNonNull(m);
+            return this;
+        }
 
-        public Builder edgeScale(float s) { this.edgeScale = clampScale(s); return this; }
-        public Builder cornerScale(float s) { this.cornerScale = clampScale(s); return this; }
-        public Builder edgeStepBlocks(double step) { this.edgeStepBlocks = Math.max(0.25d, step); return this; }
+        public Builder namedPointMaterial(String key, Material m) {
+            this.namedPointMaterials.put(key, Objects.requireNonNull(m));
+            return this;
+        }
 
-        public Builder labelsEnabled(boolean enabled) { this.labelEnabled = enabled; return this; }
-        public Builder labelYOffset(double y) { this.labelYOffset = y; return this; }
-        public Builder labelScale(float s) { this.labelScale = Math.max(0.25f, s); return this; }
-        public Builder labelTextStrategy(LabelTextStrategy strategy) { this.labelTextStrategy = Objects.requireNonNull(strategy); return this; }
+        public Builder edgeGlow(NamedTextColor c) {
+            this.edgeGlow = Objects.requireNonNull(c);
+            return this;
+        }
 
-        public VisualOptions build() { return new VisualOptions(this); }
+        public Builder cornerGlow(NamedTextColor c) {
+            this.cornerGlow = Objects.requireNonNull(c);
+            return this;
+        }
+
+        public Builder namedPointGlow(String key, NamedTextColor c) {
+            this.namedPointGlow.put(key, Objects.requireNonNull(c));
+            return this;
+        }
+
+        public Builder edgeScale(float s) {
+            this.edgeScale = clampScale(s);
+            return this;
+        }
+
+        public Builder cornerScale(float s) {
+            this.cornerScale = clampScale(s);
+            return this;
+        }
+
+        public Builder edgeStepBlocks(double step) {
+            this.edgeStepBlocks = Math.max(0.25d, step);
+            return this;
+        }
+
+        public Builder labelsEnabled(boolean enabled) {
+            this.labelEnabled = enabled;
+            return this;
+        }
+
+        public Builder labelYOffset(double y) {
+            this.labelYOffset = y;
+            return this;
+        }
+
+        public Builder labelScale(float s) {
+            this.labelScale = Math.max(0.25f, s);
+            return this;
+        }
+
+        public Builder labelTextStrategy(LabelTextStrategy strategy) {
+            this.labelTextStrategy = Objects.requireNonNull(strategy);
+            return this;
+        }
+
+        public VisualOptions build() {
+            return new VisualOptions(this);
+        }
     }
 }

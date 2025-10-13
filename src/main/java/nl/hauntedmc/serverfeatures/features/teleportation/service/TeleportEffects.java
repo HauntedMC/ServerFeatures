@@ -4,7 +4,9 @@ import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
-/** Small helper for FX, configurable via "play_sounds". */
+/**
+ * Small helper for FX, configurable via "play_sounds".
+ */
 public class TeleportEffects {
 
     private final Teleportation feature;
@@ -23,6 +25,7 @@ public class TeleportEffects {
         try {
             p.playSound(p.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 10f, 1.5f);
             p.playSound(p.getLocation(), Sound.ENTITY_ENDER_DRAGON_FLAP, 10f, 1.5f);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 }

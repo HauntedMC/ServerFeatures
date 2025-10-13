@@ -22,8 +22,8 @@ public class VillagerRestockHandler {
         long min = (totalsec - sec) / 60;
         player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.nextRestock")
                 .forAudience(player)
-                .with("time_min",  min)
-                .with("time_sec",  sec)
+                .with("time_min", min)
+                .with("time_sec", sec)
                 .build());
     }
 

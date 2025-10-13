@@ -31,7 +31,9 @@ public final class HologramHandler {
         this.registry = registry;
     }
 
-    /** Remove any existing and spawn all, logging missing worlds. */
+    /**
+     * Remove any existing and spawn all, logging missing worlds.
+     */
     public void spawnAllSafe() {
         removeAll();
         for (HologramDefinition def : registry.all()) {
@@ -54,37 +56,46 @@ public final class HologramHandler {
     }
 
     private void spawn(HologramDefinition def, World world) {
-        Component text = registry.joinedText(def.id);
-        Location loc = new Location(world, def.x, def.y, def.z, def.yaw, def.pitch);
+        Component text = registry.joinedText(def.id());
+        Location loc = new Location(world, def.x(), def.y(), def.z(), def.yaw(), def.pitch());
 
         TextDisplay td = world.spawn(loc, TextDisplay.class, d -> {
             d.text(text);
-            d.setBillboard(def.billboard);
-            d.setAlignment(def.alignment);
-            if (def.lineWidth > 0) d.setLineWidth(def.lineWidth);
+            d.setBillboard(def.billboard());
+            d.setAlignment(def.alignment());
+            if (def.lineWidth() > 0) d.setLineWidth(def.lineWidth());
 
-            d.setSeeThrough(def.seeThrough);
-            d.setShadowed(def.shadowed);
+            d.setSeeThrough(def.seeThrough());
+            d.setShadowed(def.shadowed());
 
-            if (def.useDefaultBackground) {
+            if (def.useDefaultBackground()) {
                 d.setDefaultBackground(true);
             } else {
                 d.setDefaultBackground(false);
-                if (def.backgroundARGB != null) d.setBackgroundColor(argbToColor(def.backgroundARGB));
+                if (def.backgroundARGB() != null) d.setBackgroundColor(argbToColor(def.backgroundARGB()));
             }
 
-            d.setGlowing(def.glow);
-            if (def.glow && def.glowColorARGB != null) {
-                try { d.setGlowColorOverride(argbToColor(def.glowColorARGB)); } catch (Throwable ignored) {}
-            }
-
-            if (def.viewRange != null) { try { d.setViewRange(def.viewRange); } catch (Throwable ignored) {} }
-            if (def.brightnessBlock != null || def.brightnessSky != null) {
+            d.setGlowing(def.glow());
+            if (def.glow() && def.glowColorARGB() != null) {
                 try {
-                    int block = clamp(def.brightnessBlock, 0, 15, 0);
-                    int sky = clamp(def.brightnessSky, 0, 15, 0);
+                    d.setGlowColorOverride(argbToColor(def.glowColorARGB()));
+                } catch (Throwable ignored) {
+                }
+            }
+
+            if (def.viewRange() != null) {
+                try {
+                    d.setViewRange(def.viewRange());
+                } catch (Throwable ignored) {
+                }
+            }
+            if (def.brightnessBlock() != null || def.brightnessSky() != null) {
+                try {
+                    int block = clamp(def.brightnessBlock(), 0, 15, 0);
+                    int sky = clamp(def.brightnessSky(), 0, 15, 0);
                     d.setBrightness(new Display.Brightness(block, sky));
-                } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {
+                }
             }
 
             try {
@@ -93,12 +104,13 @@ public final class HologramHandler {
                 AxisAngle4f left = new AxisAngle4f(0f, 0f, 0f, 0f);
                 AxisAngle4f right = new AxisAngle4f(0f, 0f, 0f, 0f);
                 d.setTransformation(new Transformation(translation, left, scale, right));
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
 
             d.setPersistent(false);
         });
 
-        spawned.computeIfAbsent(def.id, k -> new ArrayList<>()).add(td.getUniqueId());
+        spawned.computeIfAbsent(def.id(), k -> new ArrayList<>()).add(td.getUniqueId());
     }
 
     public void remove(String hologramId) {

@@ -30,9 +30,12 @@ public final class SimpleMenu extends GuiMenu {
         super(gui, baseTitle, size, showPageInTitle, filler, items, addBackButton, backSlot);
     }
 
-    public static Builder builder(FeatureGUIManager gui) { return new Builder(gui); }
+    public static Builder builder(FeatureGUIManager gui) {
+        return new Builder(gui);
+    }
 
-    @Override protected void afterPopulate(Player p, Inventory inv) { /* no-op */ }
+    @Override
+    protected void afterPopulate(Player p, Inventory inv) { /* no-op */ }
 
     public static final class Builder {
         private final FeatureGUIManager gui;
@@ -48,13 +51,40 @@ public final class SimpleMenu extends GuiMenu {
             this.gui = Objects.requireNonNull(gui, "gui");
         }
 
-        public Builder title(Component t) { this.title = t; return this; }
-        public Builder size(int s) { this.size = s; return this; }
-        public Builder showPageInTitle(boolean b) { this.pageInTitle = b; return this; }
-        public Builder filler(ItemStack i) { this.filler = i; return this; }
-        public Builder item(int slot, GuiItem item) { this.items.put(slot, item); return this; }
-        public Builder backButton(boolean enabled) { this.backButton = enabled; return this; }
-        public Builder backButtonSlot(int slot) { this.backSlot = slot; return this; }
+        public Builder title(Component t) {
+            this.title = t;
+            return this;
+        }
+
+        public Builder size(int s) {
+            this.size = s;
+            return this;
+        }
+
+        public Builder showPageInTitle(boolean b) {
+            this.pageInTitle = b;
+            return this;
+        }
+
+        public Builder filler(ItemStack i) {
+            this.filler = i;
+            return this;
+        }
+
+        public Builder item(int slot, GuiItem item) {
+            this.items.put(slot, item);
+            return this;
+        }
+
+        public Builder backButton(boolean enabled) {
+            this.backButton = enabled;
+            return this;
+        }
+
+        public Builder backButtonSlot(int slot) {
+            this.backSlot = slot;
+            return this;
+        }
 
         public SimpleMenu build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");

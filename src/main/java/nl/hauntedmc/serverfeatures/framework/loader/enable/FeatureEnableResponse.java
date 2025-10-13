@@ -7,5 +7,7 @@ public record FeatureEnableResponse(
         Set<String> missingPlugins,
         Set<String> missingFeatures
 ) {
-    public boolean success() { return result == FeatureEnableResult.SUCCESS; }
+    public boolean success() {
+        return result == FeatureEnableResult.SUCCESS;
+    }
 }

@@ -154,12 +154,7 @@ public class LiquidTankDataHandler {
     // helpers
     // -----------------
 
-    private static final class ParsedKey {
-        final int x, y, z;
-        final String worldName;
-        ParsedKey(int x, int y, int z, String worldName) {
-            this.x = x; this.y = y; this.z = z; this.worldName = worldName;
-        }
+    private record ParsedKey(int x, int y, int z, String worldName) {
     }
 
     /**

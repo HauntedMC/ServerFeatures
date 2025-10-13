@@ -63,7 +63,9 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
         this.timeoutSeconds = timeoutSeconds;
     }
 
-    public static Builder builder(BukkitBaseFeature<?> feature) { return new Builder(feature); }
+    public static Builder builder(BukkitBaseFeature<?> feature) {
+        return new Builder(feature);
+    }
 
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
@@ -151,17 +153,60 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
             this.feature = feature;
         }
 
-        public Builder title(Component t) { this.title = t; return this; }
-        public Builder prompt(Component p) { this.promptLine = p; return this; }
-        public Builder onSubmit(Consumer<String> c) { this.onSubmit = c; return this; }
-        public Builder onCancel(Runnable r) { this.onCancel = r; return this; }
-        public Builder size(int s) { this.size = s; return this; }
-        public Builder filler(ItemStack i) { this.filler = i; return this; }
-        public Builder infoSlot(int s) { this.infoSlot = s; return this; }
-        public Builder cancelSlot(int s) { this.cancelSlot = s; return this; }
-        public Builder backButton(boolean b) { this.backButton = b; return this; }
-        public Builder backButtonSlot(int s) { this.backSlot = s; return this; }
-        public Builder timeoutSeconds(int secs) { this.timeoutSeconds = Math.max(0, secs); return this; }
+        public Builder title(Component t) {
+            this.title = t;
+            return this;
+        }
+
+        public Builder prompt(Component p) {
+            this.promptLine = p;
+            return this;
+        }
+
+        public Builder onSubmit(Consumer<String> c) {
+            this.onSubmit = c;
+            return this;
+        }
+
+        public Builder onCancel(Runnable r) {
+            this.onCancel = r;
+            return this;
+        }
+
+        public Builder size(int s) {
+            this.size = s;
+            return this;
+        }
+
+        public Builder filler(ItemStack i) {
+            this.filler = i;
+            return this;
+        }
+
+        public Builder infoSlot(int s) {
+            this.infoSlot = s;
+            return this;
+        }
+
+        public Builder cancelSlot(int s) {
+            this.cancelSlot = s;
+            return this;
+        }
+
+        public Builder backButton(boolean b) {
+            this.backButton = b;
+            return this;
+        }
+
+        public Builder backButtonSlot(int s) {
+            this.backSlot = s;
+            return this;
+        }
+
+        public Builder timeoutSeconds(int secs) {
+            this.timeoutSeconds = Math.max(0, secs);
+            return this;
+        }
 
         public ModalPromptMenu build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");

@@ -35,12 +35,12 @@ public class BossbarRegistry {
             String id = entry.getKey();
             ConfigNode n = entry.getValue();
 
-            String key            = n.get("message_key").as(String.class, id); // default to id
-            long durationTicks    = n.get("duration").as(Long.class, 100L);
-            BarColor color        = n.get("color").as(BarColor.class, BarColor.WHITE);
-            BarStyle style        = n.get("style").as(BarStyle.class, BarStyle.SOLID);
-            boolean autoFade      = n.get("autoFade").as(Boolean.class, false);
-            double initialProg    = n.get("initialProgress").as(Double.class, 1.0);
+            String key = n.get("message_key").as(String.class, id); // default to id
+            long durationTicks = n.get("duration").as(Long.class, 100L);
+            BarColor color = n.get("color").as(BarColor.class, BarColor.WHITE);
+            BarStyle style = n.get("style").as(BarStyle.class, BarStyle.SOLID);
+            boolean autoFade = n.get("autoFade").as(Boolean.class, false);
+            double initialProg = n.get("initialProgress").as(Double.class, 1.0);
 
             if (initialProg < 0.0) initialProg = 0.0;
             if (initialProg > 1.0) initialProg = 1.0;

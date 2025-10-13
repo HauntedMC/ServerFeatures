@@ -15,7 +15,9 @@ public class GriefPreventionHook {
         this.gp = (p instanceof GriefPrevention) ? (GriefPrevention) p : null;
     }
 
-    /** @return true if location is inside a claim (unsuitable for randomtp) */
+    /**
+     * @return true if location is inside a claim (unsuitable for randomtp)
+     */
     public boolean isInClaim(Location loc) {
         if (gp == null) return false;
         try {

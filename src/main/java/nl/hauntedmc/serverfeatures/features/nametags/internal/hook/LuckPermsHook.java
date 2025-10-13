@@ -30,7 +30,7 @@ public class LuckPermsHook {
 
             eventBus.subscribe(feature.getPlugin(), LogReceiveEvent.class, e -> {
                 @NonNull Optional<UUID> uuid = e.getEntry().getTarget().getUniqueId();
-                if (uuid.isEmpty()){
+                if (uuid.isEmpty()) {
                     return;
                 }
                 Player player = Bukkit.getPlayer(uuid.get());

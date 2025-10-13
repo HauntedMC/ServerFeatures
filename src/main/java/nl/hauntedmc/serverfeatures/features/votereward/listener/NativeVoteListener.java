@@ -9,7 +9,10 @@ import org.bukkit.event.Listener;
 
 public class NativeVoteListener implements Listener {
     private final VoteReward feature;
-    public NativeVoteListener(VoteReward feature) { this.feature = feature; }
+
+    public NativeVoteListener(VoteReward feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onHauntedVote(VoteEvent event) {

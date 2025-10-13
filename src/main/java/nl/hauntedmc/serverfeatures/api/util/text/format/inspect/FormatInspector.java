@@ -45,7 +45,8 @@ public final class FormatInspector {
             return true;
         if (kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_SECTION) && FormatPatterns.SEC_BUNGEE_HEX.matcher(s).find())
             return true;
-        if (kinds.contains(TextFormatter.InputFormat.HEX_MINI) && FormatPatterns.MINI_HEX_TAG.matcher(s).find()) return true;
+        if (kinds.contains(TextFormatter.InputFormat.HEX_MINI) && FormatPatterns.MINI_HEX_TAG.matcher(s).find())
+            return true;
 
         return wantMini && FormatPatterns.ANY_MINI_TAG.matcher(s).find();
     }

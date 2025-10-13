@@ -11,17 +11,27 @@ import org.bukkit.entity.Player;
  */
 public interface GlowEffect {
 
-    /** Stable, unique identifier (machine-friendly). Example: "red", "rainbow". */
+    /**
+     * Stable, unique identifier (machine-friendly). Example: "red", "rainbow".
+     */
     String id();
 
-    /** Player-facing name, e.g., "Red", "Rainbow". */
+    /**
+     * Player-facing name, e.g., "Red", "Rainbow".
+     */
     Component displayName(Player viewer);
 
-    /** Specific permission string for this effect. */
+    /**
+     * Specific permission string for this effect.
+     */
     String permission();
 
-    /** Whether the effect is animated over time. */
-    default boolean isAnimated() { return false; }
+    /**
+     * Whether the effect is animated over time.
+     */
+    default boolean isAnimated() {
+        return false;
+    }
 
     /**
      * Color to apply after a number of elapsed seconds since the effect

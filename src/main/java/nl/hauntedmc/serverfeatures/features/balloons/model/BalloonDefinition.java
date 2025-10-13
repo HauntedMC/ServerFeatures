@@ -42,12 +42,25 @@ public final class BalloonDefinition {
         this.skullTextureBase64 = skullTextureBase64;
     }
 
-    public String id() { return id; }
-    public String permission() { return permission; }
-    public Component displayName() { return displayName; }
+    public String id() {
+        return id;
+    }
 
-    public boolean isHead() { return skullTextureBase64 != null && !skullTextureBase64.isBlank(); }
-    public boolean isItem() { return itemMaterial != null; }
+    public String permission() {
+        return permission;
+    }
+
+    public Component displayName() {
+        return displayName;
+    }
+
+    public boolean isHead() {
+        return skullTextureBase64 != null && !skullTextureBase64.isBlank();
+    }
+
+    public boolean isItem() {
+        return itemMaterial != null;
+    }
 
     /**
      * Helmet item to render on the floating ArmorStand.

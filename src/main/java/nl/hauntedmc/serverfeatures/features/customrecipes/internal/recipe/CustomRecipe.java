@@ -11,8 +11,8 @@ public interface CustomRecipe {
      * Creates a recipe (wrapped in RecipeData) from the given configuration.
      *
      * @param feature The feature instance.
-     * @param key    The NamespacedKey for the recipe.
-     * @param config The configuration map for this recipe.
+     * @param key     The NamespacedKey for the recipe.
+     * @param config  The configuration map for this recipe.
      * @return A RecipeData object if creation succeeded; otherwise null.
      */
     RecipeData createRecipe(CustomRecipes feature, NamespacedKey key, Map<?, ?> config);

@@ -39,12 +39,12 @@ public class EcoUtil {
         // Base price
         ConfigNode basePrices = node("base-prices");
         double baseDefault = basePrices.get("default").as(Double.class, 0.0);
-        double basePrice   = basePrices.get(matKey).as(Double.class, baseDefault);
+        double basePrice = basePrices.get(matKey).as(Double.class, baseDefault);
 
         // Price per durability point
         ConfigNode perPointCfg = node("price-per-durability-point");
         double ppDefault = perPointCfg.get("default").as(Double.class, 0.0);
-        double perPoint  = perPointCfg.get(matKey).as(Double.class, ppDefault);
+        double perPoint = perPointCfg.get(matKey).as(Double.class, ppDefault);
 
         double durabilityCost = 0.0;
         ItemMeta meta = item.getItemMeta();

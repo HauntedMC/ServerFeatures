@@ -88,7 +88,14 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
     public void disable() {
     }
 
-    /** Used by listener to queue/replay votes */
-    public CacheDirectory getPlayerCacheDir() { return playerCacheDir; }
-    public VoteHandler getVoteHandler() { return voteHandler; }
+    /**
+     * Used by listener to queue/replay votes
+     */
+    public CacheDirectory getPlayerCacheDir() {
+        return playerCacheDir;
+    }
+
+    public VoteHandler getVoteHandler() {
+        return voteHandler;
+    }
 }

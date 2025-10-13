@@ -39,8 +39,8 @@ public class VillagerOptimizer extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-        messages.add("villageroptimizer.AIdisabled",  "&7De AI van deze Villager is &cuitgeschakeld&7, je kunt nu traden.");
-        messages.add("villageroptimizer.AIenabled",  "&7De AI van deze Villager is &aingeschakeld&7, je kunt nu breeden en farmen.");
+        messages.add("villageroptimizer.AIdisabled", "&7De AI van deze Villager is &cuitgeschakeld&7, je kunt nu traden.");
+        messages.add("villageroptimizer.AIenabled", "&7De AI van deze Villager is &aingeschakeld&7, je kunt nu breeden en farmen.");
         messages.add("villageroptimizer.cooldownBlockMessage", "&cJe kan de AI van deze villager weer aanpassen over {time_min} minuten en {time_sec} seconden.");
         messages.add("villageroptimizer.cooldownLevelupMessage", "&eDe villager is aan het levelen! Je kunt de villager weer gebruiken over {time_sec} &eseconden.");
         messages.add("villageroptimizer.nextRestock", "&eDe volgende restock van deze villager is over {time_min} &eminuten en {time_sec} &eseconden.");

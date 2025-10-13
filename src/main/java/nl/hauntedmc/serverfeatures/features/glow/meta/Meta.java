@@ -19,5 +19,7 @@ public class Meta implements BaseMeta {
     }
 
     @Override
-    public List<String> getDependencies() { return List.of("Nametags"); }
+    public List<String> getDependencies() {
+        return List.of("Nametags");
+    }
 }

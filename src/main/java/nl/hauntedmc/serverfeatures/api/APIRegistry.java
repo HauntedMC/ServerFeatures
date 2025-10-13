@@ -11,7 +11,8 @@ public final class APIRegistry {
 
     private static final ConcurrentHashMap<Class<?>, Object> SERVICES = new ConcurrentHashMap<>();
 
-    private APIRegistry() {}
+    private APIRegistry() {
+    }
 
     public static <T> void register(Class<T> type, T instance) {
         if (type == null || instance == null) {

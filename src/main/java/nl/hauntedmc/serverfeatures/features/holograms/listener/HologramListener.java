@@ -20,7 +20,7 @@ public final class HologramListener implements Listener {
     public void onWorldLoad(WorldLoadEvent e) {
         World world = e.getWorld();
         for (HologramDefinition def : feature.getRegistry().all()) {
-            if (def.worldName.equalsIgnoreCase(world.getName())) {
+            if (def.worldName().equalsIgnoreCase(world.getName())) {
                 feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(feature.getHandler()::spawnAllSafe);
                 break;
             }

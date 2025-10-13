@@ -23,7 +23,7 @@ public class NametagListener implements Listener {
     @EventHandler
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), BukkitTime.ticks(10L));
+        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()), BukkitTime.ticks(10L));
     }
 
     @EventHandler

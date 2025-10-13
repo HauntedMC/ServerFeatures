@@ -16,30 +16,73 @@ public final class AfkPlayerState {
 
     private final Deque<Long> antiTimes = new ArrayDeque<>();
 
-    public boolean isAfk() { return afk; }
-    public void setAfk(boolean afk) { this.afk = afk; }
+    public boolean isAfk() {
+        return afk;
+    }
 
-    public boolean isSuspicious() { return suspicious; }
-    public void setSuspicious(boolean suspicious) { this.suspicious = suspicious; }
+    public void setAfk(boolean afk) {
+        this.afk = afk;
+    }
 
-    public long lastActivity() { return lastActivity; }
-    public void touchActivity(long ts) { this.lastActivity = ts; }
+    public boolean isSuspicious() {
+        return suspicious;
+    }
 
-    public long afkSince() { return afkSince; }
-    public void setAfkSince(long ts) { this.afkSince = ts; }
+    public void setSuspicious(boolean suspicious) {
+        this.suspicious = suspicious;
+    }
 
-    public long lastMove() { return lastMove; }
-    public void setLastMove(long ts) { this.lastMove = ts; }
+    public long lastActivity() {
+        return lastActivity;
+    }
 
-    public long lastAux() { return lastAux; }
-    public void setLastAux(long ts) { this.lastAux = ts; }
+    public void touchActivity(long ts) {
+        this.lastActivity = ts;
+    }
 
-    public Deque<Long> antiTimes() { return antiTimes; }
-    public void clearAntiTimes() { antiTimes.clear(); }
+    public long afkSince() {
+        return afkSince;
+    }
 
-    public long afkLockUntil() { return afkLockUntil; }
-    public void setAfkLockUntil(long ts) { this.afkLockUntil = ts; }
-    public boolean isAfkLocked(long now) { return afkLockUntil > now; }
+    public void setAfkSince(long ts) {
+        this.afkSince = ts;
+    }
+
+    public long lastMove() {
+        return lastMove;
+    }
+
+    public void setLastMove(long ts) {
+        this.lastMove = ts;
+    }
+
+    public long lastAux() {
+        return lastAux;
+    }
+
+    public void setLastAux(long ts) {
+        this.lastAux = ts;
+    }
+
+    public Deque<Long> antiTimes() {
+        return antiTimes;
+    }
+
+    public void clearAntiTimes() {
+        antiTimes.clear();
+    }
+
+    public long afkLockUntil() {
+        return afkLockUntil;
+    }
+
+    public void setAfkLockUntil(long ts) {
+        this.afkLockUntil = ts;
+    }
+
+    public boolean isAfkLocked(long now) {
+        return afkLockUntil > now;
+    }
 
     public void resetComboSignals() {
         this.lastMove = 0L;

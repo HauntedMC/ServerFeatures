@@ -8,7 +8,7 @@ import org.bukkit.potion.PotionType;
 import java.util.Objects;
 
 public class PotionUtils {
-	public static boolean isWaterBottle(ItemStack paramItemStack) {
-		return paramItemStack.getType() == Material.POTION && Objects.requireNonNull(((PotionMeta) paramItemStack.getItemMeta()).getBasePotionType()) == PotionType.WATER;
-	}
+    public static boolean isWaterBottle(ItemStack paramItemStack) {
+        return paramItemStack.getType() == Material.POTION && Objects.requireNonNull(((PotionMeta) paramItemStack.getItemMeta()).getBasePotionType()) == PotionType.WATER;
+    }
 }

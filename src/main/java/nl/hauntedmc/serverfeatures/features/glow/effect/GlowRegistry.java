@@ -19,7 +19,9 @@ public final class GlowRegistry {
         register(new HauntedGlow());
     }
 
-    /** All registered effects in display order. */
+    /**
+     * All registered effects in display order.
+     */
     public List<GlowEffect> all() {
         return List.copyOf(byId.values());
     }

@@ -37,6 +37,7 @@ public class UpdateProperties {
 
         /**
          * Set whether the update is forced.
+         *
          * @param forced true if the update should be forced.
          * @return this Builder instance.
          */
@@ -47,6 +48,7 @@ public class UpdateProperties {
 
         /**
          * Set whether only the nametag owner should be updated.
+         *
          * @param ownerOnly true if only the owner should be updated.
          * @return this Builder instance.
          */
@@ -57,6 +59,7 @@ public class UpdateProperties {
 
         /**
          * Set the delay (in ticks) before sending update packets.
+         *
          * @param delay the delay in ticks.
          * @return this Builder instance.
          */
@@ -67,6 +70,7 @@ public class UpdateProperties {
 
         /**
          * Set whether the nametag text should be updated.
+         *
          * @param updateText true if only the text should be updated.
          * @return this Builder instance.
          */
@@ -78,6 +82,7 @@ public class UpdateProperties {
 
         /**
          * Build and return the UpdateProperty instance.
+         *
          * @return a new UpdateProperty with the configured values.
          */
         public UpdateProperties build() {

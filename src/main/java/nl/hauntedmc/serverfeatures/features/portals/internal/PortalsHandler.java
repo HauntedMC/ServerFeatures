@@ -224,7 +224,9 @@ public final class PortalsHandler {
     }
 
 
-    /** Send a legacy BungeeCord/Velocity plugin message to connect the player to another server. */
+    /**
+     * Send a legacy BungeeCord/Velocity plugin message to connect the player to another server.
+     */
     private void connectPlayerToServer(Player player, String serverName) {
         try (ByteArrayOutputStream b = new ByteArrayOutputStream();
              DataOutputStream out = new DataOutputStream(b)) {
@@ -290,7 +292,7 @@ public final class PortalsHandler {
         return true;
     }
 
-    public enum ExclusiveBlockResult { SET, CLEARED, INVALID, NOT_FOUND }
+    public enum ExclusiveBlockResult {SET, CLEARED, INVALID, NOT_FOUND}
 
     public ExclusiveBlockResult setExclusiveBlock(String id, String blockName) {
         Optional<PortalDefinition> opt = registry.get(id);

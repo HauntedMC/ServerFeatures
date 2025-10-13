@@ -61,7 +61,7 @@ public class ChatHandler {
                     .with("message", message)
                     .build());
             logBlockedMessage("[FILTERED] ", message, player);
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Taalgebruik", finalMessage));
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendFilterNotification(player.getName(), "Taalgebruik", finalMessage));
             return true;
         }
 
@@ -74,7 +74,7 @@ public class ChatHandler {
                     .with("message", message)
                     .build());
             logBlockedMessage("[IP FILTERED] ", message, player);
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [IP]", finalMessage));
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendFilterNotification(player.getName(), "Reclame [IP]", finalMessage));
             return true;
         }
 
@@ -87,7 +87,7 @@ public class ChatHandler {
                     .with("message", message)
                     .build());
             logBlockedMessage("[LINK FILTERED] ", message, player);
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask( () -> discordService.sendFilterNotification(player.getName(), "Reclame [Link]", finalMessage));
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendFilterNotification(player.getName(), "Reclame [Link]", finalMessage));
             return true;
         }
 
@@ -231,7 +231,7 @@ public class ChatHandler {
 
         return false;
     }
-    
+
 
     private void notifySender(Player sender, Component message) {
         Component notifyMessage = prefix.append(message);
@@ -247,6 +247,6 @@ public class ChatHandler {
     }
 
     private void logBlockedMessage(String tag, String message, Player player) {
-        feature.getLogger().info(tag + player.getName()+": "+ message);
+        feature.getLogger().info(tag + player.getName() + ": " + message);
     }
 }

@@ -33,9 +33,11 @@ public final class CuboidRegionShape implements RegionShape {
         int[] xs = new int[]{minX, maxX};
         int[] ys = new int[]{minY, maxY};
         int[] zs = new int[]{minZ, maxZ};
-        for (int x : xs) for (int y : ys) for (int z : zs) {
-            corners.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
-        }
+        for (int x : xs)
+            for (int y : ys)
+                for (int z : zs) {
+                    corners.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+                }
         return corners;
     }
 
@@ -47,23 +49,26 @@ public final class CuboidRegionShape implements RegionShape {
         int[] zs = new int[]{minZ, maxZ};
 
         // X-edges
-        for (int y : ys) for (int z : zs) {
-            for (double x = minX; x <= maxX + 1e-6; x += stepBlocks) {
-                out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+        for (int y : ys)
+            for (int z : zs) {
+                for (double x = minX; x <= maxX + 1e-6; x += stepBlocks) {
+                    out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+                }
             }
-        }
         // Y-edges
-        for (int x : xs) for (int z : zs) {
-            for (double y = minY; y <= maxY + 1e-6; y += stepBlocks) {
-                out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+        for (int x : xs)
+            for (int z : zs) {
+                for (double y = minY; y <= maxY + 1e-6; y += stepBlocks) {
+                    out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+                }
             }
-        }
         // Z-edges
-        for (int x : xs) for (int y : ys) {
-            for (double z = minZ; z <= maxZ + 1e-6; z += stepBlocks) {
-                out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+        for (int x : xs)
+            for (int y : ys) {
+                for (double z = minZ; z <= maxZ + 1e-6; z += stepBlocks) {
+                    out.add(new Vector(x + 0.5, y + 0.5, z + 0.5));
+                }
             }
-        }
         return out;
     }
 

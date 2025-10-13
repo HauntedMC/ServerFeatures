@@ -40,7 +40,8 @@ public class CommandExecutionEntity {
     @Column(name = "timestamp", nullable = false)
     private Long timestamp;
 
-    public CommandExecutionEntity() {}
+    public CommandExecutionEntity() {
+    }
 
     public Long getId() {
         return id;
@@ -49,6 +50,7 @@ public class CommandExecutionEntity {
     public String getServer() {
         return server;
     }
+
     public void setServer(String server) {
         this.server = server;
     }
@@ -56,6 +58,7 @@ public class CommandExecutionEntity {
     public PlayerEntity getPlayer() {
         return player;
     }
+
     public void setPlayer(PlayerEntity player) {
         this.player = player;
     }
@@ -63,6 +66,7 @@ public class CommandExecutionEntity {
     public String getSource() {
         return source;
     }
+
     public void setSource(String source) {
         this.source = source;
     }
@@ -70,6 +74,7 @@ public class CommandExecutionEntity {
     public String getCommand() {
         return command;
     }
+
     public void setCommand(String command) {
         this.command = command;
     }
@@ -77,6 +82,7 @@ public class CommandExecutionEntity {
     public Long getTimestamp() {
         return timestamp;
     }
+
     public void setTimestamp(Long timestamp) {
         this.timestamp = timestamp;
     }

@@ -30,8 +30,8 @@ public class RestartService {
     public RestartService(Restart feature) {
         this.feature = feature;
 
-        int fadeInTicks  = feature.getInt("title_fade_in", 20);
-        int stayTicks    = feature.getInt("title_stay", 100);
+        int fadeInTicks = feature.getInt("title_fade_in", 20);
+        int stayTicks = feature.getInt("title_stay", 100);
         int fadeOutTicks = feature.getInt("title_fade_out", 20);
         this.titleTimes = Title.Times.times(
                 Duration.ofMillis(fadeInTicks * TICK_MS),
@@ -76,7 +76,7 @@ public class RestartService {
         final long token = sequenceToken.incrementAndGet();
 
         int first = scheduleDesc.getFirst();
-        int last  = scheduleDesc.getLast();
+        int last = scheduleDesc.getLast();
 
         announceRemaining(first);
 
@@ -113,11 +113,11 @@ public class RestartService {
                         .getMessage("restart.countdown.now.title")
                         .forAudience(p)
                         .build();
-                sub   = feature.getLocalizationHandler()
+                sub = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.now.subtitle")
                         .forAudience(p)
                         .build();
-                chat  = feature.getLocalizationHandler()
+                chat = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.now.chat")
                         .forAudience(p)
                         .build();
@@ -127,12 +127,12 @@ public class RestartService {
                         .forAudience(p)
                         .with("readable", t.readable())
                         .build();
-                sub   = feature.getLocalizationHandler()
+                sub = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.subtitle")
                         .forAudience(p)
                         .with("readable", t.readable())
                         .build();
-                chat  = feature.getLocalizationHandler()
+                chat = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.chat")
                         .forAudience(p)
                         .with("readable", t.readable())
@@ -187,7 +187,8 @@ public class RestartService {
                 try {
                     int v = Integer.parseInt(String.valueOf(o).trim());
                     if (v >= 0) out.add(v);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
         }
 

@@ -23,20 +23,33 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class VanishService {
 
-    public static final String PERM_TOGGLE_SELF   = "serverfeatures.feature.vanish.command.vanish.toggle";
-    public static final String PERM_SEE           = "serverfeatures.feature.vanish.see";
+    public static final String PERM_TOGGLE_SELF = "serverfeatures.feature.vanish.command.vanish.toggle";
+    public static final String PERM_SEE = "serverfeatures.feature.vanish.see";
 
     private final Vanish feature;
 
     // In-memory runtime state for online players
     private final Set<UUID> vanished = ConcurrentHashMap.newKeySet();
 
-    public VanishService(Vanish feature) { this.feature = feature; }
+    public VanishService(Vanish feature) {
+        this.feature = feature;
+    }
 
-    public boolean isVanished(UUID id) { return vanished.contains(id); }
-    public boolean isPlayerVanished(Player p) { return p != null && isVanished(p.getUniqueId()); }
-    public Set<UUID> allVanished() { return Collections.unmodifiableSet(vanished); }
-    public int countVanished() { return vanished.size(); }
+    public boolean isVanished(UUID id) {
+        return vanished.contains(id);
+    }
+
+    public boolean isPlayerVanished(Player p) {
+        return p != null && isVanished(p.getUniqueId());
+    }
+
+    public Set<UUID> allVanished() {
+        return Collections.unmodifiableSet(vanished);
+    }
+
+    public int countVanished() {
+        return vanished.size();
+    }
 
     /* ------------------------ Public API ------------------------ */
 
@@ -95,7 +108,10 @@ public class VanishService {
             // In case default gamemode is re-applied by the server after join, enforce spectator shortly after
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
                 if (p.isOnline() && isPlayerVanished(p)) {
-                    try { p.setGameMode(GameMode.SPECTATOR); } catch (Throwable ignored) {}
+                    try {
+                        p.setGameMode(GameMode.SPECTATOR);
+                    } catch (Throwable ignored) {
+                    }
                 }
             }, BukkitTime.ticks(2L));
 
@@ -125,7 +141,10 @@ public class VanishService {
 
         // Collisions off
         if ((boolean) feature.getConfigHandler().getSetting("disable_collisions")) {
-            try { p.setCollidable(false); } catch (Throwable ignored) {}
+            try {
+                p.setCollidable(false);
+            } catch (Throwable ignored) {
+            }
         }
 
         // Optional invisible flag; restore safely on unvanish
@@ -136,7 +155,10 @@ public class VanishService {
         }
 
         // Force spectator gamemode while vanished
-        try { p.setGameMode(GameMode.SPECTATOR); } catch (Throwable ignored) {}
+        try {
+            p.setGameMode(GameMode.SPECTATOR);
+        } catch (Throwable ignored) {
+        }
     }
 
     private void removeVanish(Player p) {
@@ -146,7 +168,10 @@ public class VanishService {
 
         // Show to everyone again
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            try { viewer.showPlayer(feature.getPlugin(), p); } catch (Throwable ignored) {}
+            try {
+                viewer.showPlayer(feature.getPlugin(), p);
+            } catch (Throwable ignored) {
+            }
         }
 
         // Collisions off
@@ -171,7 +196,10 @@ public class VanishService {
         for (UUID id : vanished) {
             Player v = Bukkit.getPlayer(id);
             if (v != null && v.isOnline() && !viewer.equals(v)) {
-                try { viewer.hidePlayer(feature.getPlugin(), v); } catch (Throwable ignored) {}
+                try {
+                    viewer.hidePlayer(feature.getPlugin(), v);
+                } catch (Throwable ignored) {
+                }
             }
         }
     }
@@ -181,11 +209,12 @@ public class VanishService {
         if (!viewer.isOnline() || !target.isOnline()) return;
         if (viewer.equals(target)) return;
         boolean targetVanished = isVanished(target.getUniqueId());
-        boolean viewerCanSee  = viewer.hasPermission(PERM_SEE);
+        boolean viewerCanSee = viewer.hasPermission(PERM_SEE);
         try {
             if (targetVanished && !viewerCanSee) viewer.hidePlayer(feature.getPlugin(), target);
             else viewer.showPlayer(feature.getPlugin(), target);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     /* -------------------- Notifications/UI ---------------------- */
@@ -205,7 +234,10 @@ public class VanishService {
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (exclude != null && p.getUniqueId().equals(exclude)) continue;
             if (p.hasPermission(PERM_TOGGLE_SELF)) {
-                try { p.sendMessage(message); } catch (Throwable ignored) {}
+                try {
+                    p.sendMessage(message);
+                } catch (Throwable ignored) {
+                }
             }
         }
     }
@@ -215,8 +247,11 @@ public class VanishService {
         for (UUID id : vanished) {
             Player p = Bukkit.getPlayer(id);
             if (p != null && p.isOnline()) {
-                try { p.sendActionBar(feature.getLocalizationHandler()
-                        .getMessage("vanish.actionbar").forAudience(p).build()); } catch (Throwable ignored) {}
+                try {
+                    p.sendActionBar(feature.getLocalizationHandler()
+                            .getMessage("vanish.actionbar").forAudience(p).build());
+                } catch (Throwable ignored) {
+                }
             }
         }
     }

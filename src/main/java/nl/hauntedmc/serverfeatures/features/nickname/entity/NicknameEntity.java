@@ -19,7 +19,8 @@ public class NicknameEntity {
     @Column(name = "nickname", nullable = false)
     private String nickname;
 
-    public NicknameEntity() {}
+    public NicknameEntity() {
+    }
 
     public NicknameEntity(PlayerEntity player, String nickname) {
         this.playerId = player.getId();

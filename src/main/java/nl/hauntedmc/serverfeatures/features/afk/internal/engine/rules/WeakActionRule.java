@@ -63,7 +63,10 @@ public final class WeakActionRule implements AfkRule {
         long[] out = new long[Math.max(0, count - 1)];
         int i = 0;
         for (Long t : ts) {
-            if (prev == Long.MIN_VALUE) { prev = t; continue; }
+            if (prev == Long.MIN_VALUE) {
+                prev = t;
+                continue;
+            }
             out[i++] = Math.max(0, t - prev);
             prev = t;
         }
@@ -71,12 +74,18 @@ public final class WeakActionRule implements AfkRule {
     }
 
     private static double mean(long[] a) {
-        long sum = 0; for (long v : a) sum += v; return sum / (double) a.length;
+        long sum = 0;
+        for (long v : a) sum += v;
+        return sum / (double) a.length;
     }
 
     private static double stddev(long[] a, double mean) {
         if (a.length == 0) return 0;
-        double acc = 0; for (long v : a) { double d = v - mean; acc += d * d; }
+        double acc = 0;
+        for (long v : a) {
+            double d = v - mean;
+            acc += d * d;
+        }
         return Math.sqrt(acc / a.length);
     }
 }

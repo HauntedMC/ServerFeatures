@@ -245,7 +245,7 @@ public class MainConfigHandler {
         return null;
     }
 
-    private enum ConfigValueKind { MAP, LIST, BOOLEAN, NUMBER, STRING, OTHER }
+    private enum ConfigValueKind {MAP, LIST, BOOLEAN, NUMBER, STRING, OTHER}
 
     private ConfigValueKind classifyConfigType(Object value) {
         return switch (value) {

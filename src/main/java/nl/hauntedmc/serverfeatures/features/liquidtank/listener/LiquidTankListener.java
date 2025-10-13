@@ -62,7 +62,7 @@ public class LiquidTankListener implements Listener {
                     !ComponentFormatter.deserialize(feature.getTankManager().getItemName()).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent().equals(display)) {
                 return;
             }
-            if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {
+            if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use") || !(boolean) feature.getConfigHandler().getSetting("enable-permission")) {
                 if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.limit.bypass") || feature.getTankManager().canPlaceTank(blockPlaceEvent.getBlock().getLocation())) {
                     feature.getTankManager().createLiquidTank(blockPlaceEvent.getBlock().getLocation());
 
@@ -137,7 +137,7 @@ public class LiquidTankListener implements Listener {
                 playerInteractEvent.setCancelled(true);
             }
         }
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->  {
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
             try {
                 AbstractTank liquidTank = feature.getTankManager().getTank(Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getLocation());
                 if (liquidTank != null) {
@@ -145,7 +145,7 @@ public class LiquidTankListener implements Listener {
                     if (!player.hasPermission("serverfeatures.feature.liquidtank.use") && (boolean) feature.getConfigHandler().getSetting("enable-permission")) {
                         return;
                     }
-                    feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->  liquidTank.onInteract(player));
+                    feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> liquidTank.onInteract(player));
                 }
             } catch (Exception exception) {
                 // empty catch block

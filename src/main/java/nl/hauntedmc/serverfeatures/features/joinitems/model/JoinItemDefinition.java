@@ -10,18 +10,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Immutable definition of a join item parsed from config. */
-public final class JoinItemDefinition {
-
-    private final String id;
-    private final Material material;
-    private final int slot;
-    private final Component name;
-    private final List<Component> lore;
-    private final List<String> commands;
-    private final boolean locked;
-    private final boolean unmovable;
-    private final boolean undroppable;
+/**
+ * Immutable definition of a join item parsed from config.
+ */
+public record JoinItemDefinition(String id, Material material, int slot, Component name, List<Component> lore,
+                                 List<String> commands, boolean locked, boolean unmovable, boolean undroppable) {
 
     public JoinItemDefinition(
             String id, Material material, int slot,
@@ -38,16 +31,6 @@ public final class JoinItemDefinition {
         this.unmovable = unmovable;
         this.undroppable = undroppable;
     }
-
-    public String id() { return id; }
-    public Material material() { return material; }
-    public int slot() { return slot; }
-    public Component name() { return name; }
-    public List<Component> lore() { return lore; }
-    public List<String> commands() { return commands; }
-    public boolean locked() { return locked; }
-    public boolean unmovable() { return unmovable; }
-    public boolean undroppable() { return undroppable; }
 
     // Utility: parse &-codes into Components
     public static Component toComponent(String s) {

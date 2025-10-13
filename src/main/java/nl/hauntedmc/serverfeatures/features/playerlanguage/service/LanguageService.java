@@ -48,7 +48,9 @@ public class LanguageService implements LanguageAPI {
         });
     }
 
-    /** Clear per-session state on quit. */
+    /**
+     * Clear per-session state on quit.
+     */
     public void forget(UUID uuid) {
         langCache.remove(uuid);
         idCache.remove(uuid);

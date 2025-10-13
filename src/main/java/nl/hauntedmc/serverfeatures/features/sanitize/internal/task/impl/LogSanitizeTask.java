@@ -82,8 +82,8 @@ public class LogSanitizeTask implements SanitizeTask {
 
         StringBuilder sb = new StringBuilder();
         sb.append("Retention: ").append(retentionDays)
-          .append(" day(s), threshold < ").append(threshold)
-          .append("; Removed ").append(deleted).append("/").append(candidates).append(" candidate file(s)");
+                .append(" day(s), threshold < ").append(threshold)
+                .append("; Removed ").append(deleted).append("/").append(candidates).append(" candidate file(s)");
         if (!failed.isEmpty()) sb.append(" [failed: ").append(String.join(", ", failed)).append("]");
 
         boolean changed = deleted > 0 || !failed.isEmpty();

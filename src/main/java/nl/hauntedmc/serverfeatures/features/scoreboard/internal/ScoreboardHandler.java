@@ -31,7 +31,9 @@ public class ScoreboardHandler {
         this.refreshInterval = (int) feature.getConfigHandler().getSetting("refresh_interval");
     }
 
-    /** Immediately recalc & push the sidebar for one player */
+    /**
+     * Immediately recalc & push the sidebar for one player
+     */
     public void updateScoreboardContent(Player player) {
         Component title = i18n.getMessage("scoreboard.title").forAudience(player).build();
         List<Component> lines = new ArrayList<>();
@@ -50,7 +52,9 @@ public class ScoreboardHandler {
         ScoreboardManager.updateSidebar(player, title, lines, oldLines);
     }
 
-    /** Runs forceUpdate once every `refreshInterval` ticks for all online players */
+    /**
+     * Runs forceUpdate once every `refreshInterval` ticks for all online players
+     */
     public void startUpdater() {
         feature.getLifecycleManager().getTaskManager()
                 .scheduleRepeatingTask(() ->

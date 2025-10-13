@@ -33,9 +33,13 @@ public class VanishCommand extends FeatureCommand {
         // /vanish <p> [on|off] -> set other (admin)
 
         if (args.length == 0) {
-            if (!(sender instanceof Player self)) { usage(sender); return true; }
+            if (!(sender instanceof Player self)) {
+                usage(sender);
+                return true;
+            }
             if (!sender.hasPermission("serverfeatures.feature.vanish.command.vanish.toggle")) {
-                noPerm(sender); return true;
+                noPerm(sender);
+                return true;
             }
             boolean desired = !feature.getService().isPlayerVanished(self);
             feature.getService().setVanished(self, desired);
@@ -50,14 +54,19 @@ public class VanishCommand extends FeatureCommand {
 
         // Self on/off
         if (args.length == 1 && (args[0].equalsIgnoreCase("on") || args[0].equalsIgnoreCase("off"))) {
-            if (!(sender instanceof Player self)) { usage(sender); return true; }
+            if (!(sender instanceof Player self)) {
+                usage(sender);
+                return true;
+            }
             if (!sender.hasPermission("serverfeatures.feature.vanish.command.vanish.toggle")) {
-                noPerm(sender); return true;
+                noPerm(sender);
+                return true;
             }
             boolean desired = args[0].equalsIgnoreCase("on");
             boolean current = feature.getService().isPlayerVanished(self);
             if (current == desired) {
-                alreadyState(sender); return true;
+                alreadyState(sender);
+                return true;
             }
             feature.getService().setVanished(self, desired);
 
@@ -72,7 +81,8 @@ public class VanishCommand extends FeatureCommand {
 
         // Others
         if (!sender.hasPermission("serverfeatures.feature.vanish.command.vanish.others")) {
-            noPerm(sender); return true;
+            noPerm(sender);
+            return true;
         }
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null) {
@@ -90,7 +100,8 @@ public class VanishCommand extends FeatureCommand {
         }
         boolean current = feature.getService().isPlayerVanished(target);
         if (current == desired) {
-            alreadyState(sender); return true;
+            alreadyState(sender);
+            return true;
         }
 
         feature.getService().setVanished(target, desired);
@@ -118,12 +129,14 @@ public class VanishCommand extends FeatureCommand {
                 .forAudience(s)
                 .build());
     }
+
     private void noPerm(CommandSender s) {
         s.sendMessage(feature.getLocalizationHandler()
                 .getMessage("general.no_permission")
                 .forAudience(s)
                 .build());
     }
+
     private void alreadyState(CommandSender s) {
         s.sendMessage(feature.getLocalizationHandler()
                 .getMessage("vanish.already_state")

@@ -49,23 +49,33 @@ public final class GuiItem {
         this.cooldownMillis = Math.max(0, cooldownMillis);
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    /** Whether this item is visible to the player, based on predicate and permission. */
+    /**
+     * Whether this item is visible to the player, based on predicate and permission.
+     */
     public boolean visibleTo(Player p) {
         boolean vis = visibility == null || visibility.test(p);
         boolean permOk = permission == null || permission.isBlank() || p.hasPermission(permission);
         return vis && permOk;
     }
 
-    /** Replacement to render when not visible. Returns null if no replacement configured. */
+    /**
+     * Replacement to render when not visible. Returns null if no replacement configured.
+     */
     public ItemStack replacementOrNull(Player p) {
         if (visibleTo(p)) return null;
         return replacementIfNoPerm != null ? replacementIfNoPerm.apply(p) : null;
     }
 
-    /** Render the ItemStack for this player. */
-    public ItemStack renderFor(Player p) { return factory.apply(p); }
+    /**
+     * Render the ItemStack for this player.
+     */
+    public ItemStack renderFor(Player p) {
+        return factory.apply(p);
+    }
 
     /**
      * Handle a click on this item.
@@ -104,16 +114,52 @@ public final class GuiItem {
         private boolean closeOnClick = false;
         private long cooldownMillis = 0;
 
-        public Builder factory(Function<Player, ItemStack> f) { this.factory = f; return this; }
-        public Builder visibleWhen(Predicate<Player> v) { this.visibility = v; return this; }
-        public Builder permission(String perm) { this.permission = perm; return this; }
-        public Builder onClick(Consumer<GuiClickContext> c) { this.onClick = c; return this; }
-        public Builder replacementIfNoPerm(Function<Player, ItemStack> r) { this.replacementIfNoPerm = r; return this; }
-        public Builder confirm(Function<Player, ConfirmationMenu> f) { this.requiresConfirmation = true; this.confirmationFactory = f; return this; }
-        /** Close the menu after the click action completes. */
-        public Builder closeMenuOnClick(boolean b) { this.closeOnClick = b; return this; }
-        /** Debounce spam-clicking of this item, in milliseconds. */
-        public Builder cooldownMillis(long ms) { this.cooldownMillis = Math.max(0, ms); return this; }
+        public Builder factory(Function<Player, ItemStack> f) {
+            this.factory = f;
+            return this;
+        }
+
+        public Builder visibleWhen(Predicate<Player> v) {
+            this.visibility = v;
+            return this;
+        }
+
+        public Builder permission(String perm) {
+            this.permission = perm;
+            return this;
+        }
+
+        public Builder onClick(Consumer<GuiClickContext> c) {
+            this.onClick = c;
+            return this;
+        }
+
+        public Builder replacementIfNoPerm(Function<Player, ItemStack> r) {
+            this.replacementIfNoPerm = r;
+            return this;
+        }
+
+        public Builder confirm(Function<Player, ConfirmationMenu> f) {
+            this.requiresConfirmation = true;
+            this.confirmationFactory = f;
+            return this;
+        }
+
+        /**
+         * Close the menu after the click action completes.
+         */
+        public Builder closeMenuOnClick(boolean b) {
+            this.closeOnClick = b;
+            return this;
+        }
+
+        /**
+         * Debounce spam-clicking of this item, in milliseconds.
+         */
+        public Builder cooldownMillis(long ms) {
+            this.cooldownMillis = Math.max(0, ms);
+            return this;
+        }
 
         public GuiItem build() {
             if (factory == null) throw new IllegalArgumentException("GuiItem.factory cannot be null");

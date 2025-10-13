@@ -22,9 +22,13 @@ public final class LimitSpawnersHandler {
     private final int maxSpawn;
     private final boolean removeOnChunkUnload;
 
-    /** Per-spawner set of currently alive entity UUIDs (best-effort, pruned lazily). */
+    /**
+     * Per-spawner set of currently alive entity UUIDs (best-effort, pruned lazily).
+     */
     private final Map<SpawnerKey, Set<UUID>> buckets = new ConcurrentHashMap<>();
-    /** Reverse index for O(1) lookups on death/remove/transform. */
+    /**
+     * Reverse index for O(1) lookups on death/remove/transform.
+     */
     private final Map<UUID, SpawnerKey> reverse = new ConcurrentHashMap<>();
 
     public LimitSpawnersHandler(LimitSpawners feature) {
@@ -35,6 +39,7 @@ public final class LimitSpawnersHandler {
 
     /**
      * Attempt to register a newly spawned entity for a specific spawner.
+     *
      * @return true if allowed, false if the spawner is at/over the cap.
      */
     public boolean tryRegisterSpawn(LivingEntity e, SpawnerKey key) {

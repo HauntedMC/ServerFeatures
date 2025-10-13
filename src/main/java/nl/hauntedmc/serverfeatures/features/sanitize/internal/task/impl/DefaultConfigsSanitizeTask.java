@@ -22,6 +22,7 @@ public class DefaultConfigsSanitizeTask implements SanitizeTask {
     private static final Charset UTF8 = StandardCharsets.UTF_8;
 
     private static final LinkedHashMap<String, String> REQUIRED = new LinkedHashMap<>();
+
     static {
         REQUIRED.put("banned-ips.json", "[]");
         REQUIRED.put("banned-players.json", "[]");
@@ -76,10 +77,10 @@ public class DefaultConfigsSanitizeTask implements SanitizeTask {
         }
 
         StringBuilder sb = new StringBuilder();
-        if (!created.isEmpty())  sb.append("created: ").append(String.join(", ", created)).append("; ");
-        if (!updated.isEmpty())  sb.append("updated: ").append(String.join(", ", updated)).append("; ");
+        if (!created.isEmpty()) sb.append("created: ").append(String.join(", ", created)).append("; ");
+        if (!updated.isEmpty()) sb.append("updated: ").append(String.join(", ", updated)).append("; ");
         if (!unchanged.isEmpty()) sb.append("unchanged: ").append(String.join(", ", unchanged)).append("; ");
-        if (!failed.isEmpty())   sb.append("failed: ").append(String.join(", ", failed)).append("; ");
+        if (!failed.isEmpty()) sb.append("failed: ").append(String.join(", ", failed)).append("; ");
 
         boolean changed = !created.isEmpty() || !updated.isEmpty() || !failed.isEmpty();
         return changed

@@ -40,7 +40,9 @@ public final class ConfirmationMenu extends GuiMenu {
         this.noSlot = noSlot;
     }
 
-    public static Builder builder(FeatureGUIManager gui) { return new Builder(gui); }
+    public static Builder builder(FeatureGUIManager gui) {
+        return new Builder(gui);
+    }
 
     @Override
     protected void afterPopulate(Player p, Inventory inv) {
@@ -81,16 +83,55 @@ public final class ConfirmationMenu extends GuiMenu {
             this.gui = java.util.Objects.requireNonNull(gui, "gui");
         }
 
-        public Builder title(Component t) { this.title = t; return this; }
-        public Builder question(Component q) { this.question = q; return this; }
-        public Builder size(int s) { this.size = s; return this; }
-        public Builder filler(org.bukkit.inventory.ItemStack i) { this.filler = i; return this; }
-        public Builder onConfirm(Runnable r) { this.onConfirm = r; return this; }
-        public Builder onCancel(Runnable r) { this.onCancel = r; return this; }
-        public Builder yesSlot(int s) { this.yesSlot = s; return this; }
-        public Builder noSlot(int s) { this.noSlot = s; return this; }
-        public Builder backButton(boolean b) { this.backButton = b; return this; }
-        public Builder backButtonSlot(int s) { this.backSlot = s; return this; }
+        public Builder title(Component t) {
+            this.title = t;
+            return this;
+        }
+
+        public Builder question(Component q) {
+            this.question = q;
+            return this;
+        }
+
+        public Builder size(int s) {
+            this.size = s;
+            return this;
+        }
+
+        public Builder filler(org.bukkit.inventory.ItemStack i) {
+            this.filler = i;
+            return this;
+        }
+
+        public Builder onConfirm(Runnable r) {
+            this.onConfirm = r;
+            return this;
+        }
+
+        public Builder onCancel(Runnable r) {
+            this.onCancel = r;
+            return this;
+        }
+
+        public Builder yesSlot(int s) {
+            this.yesSlot = s;
+            return this;
+        }
+
+        public Builder noSlot(int s) {
+            this.noSlot = s;
+            return this;
+        }
+
+        public Builder backButton(boolean b) {
+            this.backButton = b;
+            return this;
+        }
+
+        public Builder backButtonSlot(int s) {
+            this.backSlot = s;
+            return this;
+        }
 
         public ConfirmationMenu build() {
             if (size <= 0 || size % 9 != 0 || size > 54) throw new IllegalArgumentException("Invalid size");

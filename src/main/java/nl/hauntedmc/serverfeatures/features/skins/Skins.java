@@ -30,30 +30,30 @@ public class Skins extends BukkitBaseFeature<Meta> {
         MessageMap m = new MessageMap();
 
         // Usage
-        m.add("skins.usage.self",   "&eGebruik: /skin <naam|remove>");
-        m.add("skins.usage.other",  "&eGebruik: /skin <speler> <naam|remove>");
+        m.add("skins.usage.self", "&eGebruik: /skin <naam|remove>");
+        m.add("skins.usage.other", "&eGebruik: /skin <speler> <naam|remove>");
 
         // Success feedback (self)
-        m.add("skins.applied.self",         "&aJe skin is aangepast naar &e{skin}&a.");
-        m.add("skins.removed.self",         "&aJe aangepaste skin is verwijderd.");
-        m.add("skins.none_applied.self",    "&eJe hebt momenteel geen aangepaste skin.");
+        m.add("skins.applied.self", "&aJe skin is aangepast naar &e{skin}&a.");
+        m.add("skins.removed.self", "&aJe aangepaste skin is verwijderd.");
+        m.add("skins.none_applied.self", "&eJe hebt momenteel geen aangepaste skin.");
 
         // Success feedback (staff -> other)
-        m.add("skins.applied.other",        "&aSkin van &e{player}&a is aangepast naar &e{skin}&a.");
-        m.add("skins.removed.other",        "&aAangepaste skin van &e{player}&a is verwijderd.");
-        m.add("skins.none_applied.other",   "&e{player}&e heeft momenteel geen aangepaste skin.");
-        m.add("skins.notify_target_applied","&eJe skin is aangepast naar &6{skin}&e door een staff-lid.");
-        m.add("skins.notify_target_removed","&eJe aangepaste skin is verwijderd door een staff-lid.");
+        m.add("skins.applied.other", "&aSkin van &e{player}&a is aangepast naar &e{skin}&a.");
+        m.add("skins.removed.other", "&aAangepaste skin van &e{player}&a is verwijderd.");
+        m.add("skins.none_applied.other", "&e{player}&e heeft momenteel geen aangepaste skin.");
+        m.add("skins.notify_target_applied", "&eJe skin is aangepast naar &6{skin}&e door een staff-lid.");
+        m.add("skins.notify_target_removed", "&eJe aangepaste skin is verwijderd door een staff-lid.");
 
         // Errors / validation
-        m.add("skins.invalid_name",         "&cOngeldige Minecraft-naam: &e{skin}&c. (3-16 tekens: letters, cijfers, underscore)");
-        m.add("skins.player_not_found",     "&cSpeler niet gevonden of offline: &e{player}&c.");
-        m.add("skins.lookup_failed",        "&cKon de skin niet ophalen voor &e{skin}&c. Probeer het later opnieuw.");
-        m.add("skins.cooldown_active",      "&cJe kunt dit nog niet doen. Wacht &e{seconds}s&c.");
+        m.add("skins.invalid_name", "&cOngeldige Minecraft-naam: &e{skin}&c. (3-16 tekens: letters, cijfers, underscore)");
+        m.add("skins.player_not_found", "&cSpeler niet gevonden of offline: &e{player}&c.");
+        m.add("skins.lookup_failed", "&cKon de skin niet ophalen voor &e{skin}&c. Probeer het later opnieuw.");
+        m.add("skins.cooldown_active", "&cJe kunt dit nog niet doen. Wacht &e{seconds}s&c.");
 
         // Progress / info
-        m.add("skins.working",              "&7Bezig met het ophalen en toepassen van de skin &f{skin}&7...");
-        m.add("skins.removing",             "&7Bezig met het verwijderen van jouw aangepaste skin...");
+        m.add("skins.working", "&7Bezig met het ophalen en toepassen van de skin &f{skin}&7...");
+        m.add("skins.removing", "&7Bezig met het verwijderen van jouw aangepaste skin...");
 
         return m;
     }

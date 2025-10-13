@@ -6,7 +6,8 @@ import org.yaml.snakeyaml.Yaml;
 import java.util.*;
 
 public final class YamlSanitizeUtil {
-    private YamlSanitizeUtil() {}
+    private YamlSanitizeUtil() {
+    }
 
     /* ---------- YAML dumper ---------- */
 
@@ -42,7 +43,7 @@ public final class YamlSanitizeUtil {
 
     public static Object cloneForYaml(Object v) {
         if (v instanceof Map<?, ?> m) return toLinkedMap(m);
-        if (v instanceof List<?> l)  return new ArrayList<>(l);
+        if (v instanceof List<?> l) return new ArrayList<>(l);
         return v;
     }
 
@@ -82,7 +83,7 @@ public final class YamlSanitizeUtil {
         }
         String leaf = parts[parts.length - 1];
         Object want = cloneForYaml(value);
-        Object cur  = m.get(leaf);
+        Object cur = m.get(leaf);
         if (!Objects.equals(cur, want)) {
             m.put(leaf, want);
         }
@@ -195,7 +196,10 @@ public final class YamlSanitizeUtil {
             char c = trimmedLine.charAt(i);
             if (c == '\'' && !inD) inS = !inS;
             else if (c == '"' && !inS) inD = !inD;
-            else if (c == ':' && !inS && !inD) { idx = i; break; }
+            else if (c == ':' && !inS && !inD) {
+                idx = i;
+                break;
+            }
         }
         if (idx <= 0) return null;
         String key = trimmedLine.substring(0, idx).trim();
@@ -207,12 +211,16 @@ public final class YamlSanitizeUtil {
     }
 
     private static boolean isLeafKeyValue(String trimmedLine) {
-        int colon = -1; boolean inS=false, inD=false;
+        int colon = -1;
+        boolean inS = false, inD = false;
         for (int i = 0; i < trimmedLine.length(); i++) {
             char c = trimmedLine.charAt(i);
             if (c == '\'' && !inD) inS = !inS;
             else if (c == '"' && !inS) inD = !inD;
-            else if (c == ':' && !inS && !inD) { colon = i; break; }
+            else if (c == ':' && !inS && !inD) {
+                colon = i;
+                break;
+            }
         }
         if (colon < 0) return false;
         String after = trimmedLine.substring(colon + 1).trim();

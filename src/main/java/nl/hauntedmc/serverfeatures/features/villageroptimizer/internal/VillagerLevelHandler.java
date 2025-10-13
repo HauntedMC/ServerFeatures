@@ -36,11 +36,11 @@ public class VillagerLevelHandler {
 
         if (vilLevel < newLevel) {
             feature.getVillagerAIHandler().setLevelCooldown(vil, cooldown);
-            vil.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, (int)(cooldown * 20)+20, 120, false, false));
+            vil.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, (int) (cooldown * 20) + 20, 120, false, false));
             vil.setAware(true);
         } else return;
 
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask( () -> vil.setAware(false), BukkitTime.ticks(100L));
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> vil.setAware(false), BukkitTime.ticks(100L));
     }
 
     private long calculateVillagerLevel(Villager vil) {

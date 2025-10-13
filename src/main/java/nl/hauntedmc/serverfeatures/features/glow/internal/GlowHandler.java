@@ -106,18 +106,24 @@ public class GlowHandler {
         activeEffects.remove(player.getUniqueId());
     }
 
-    /** Returns whether this feature believes the player currently has any glow active. */
+    /**
+     * Returns whether this feature believes the player currently has any glow active.
+     */
     public boolean hasActiveGlow(Player player) {
         return activeEffects.containsKey(player.getUniqueId());
     }
 
-    /** Returns the current glow effect tracked by this feature, if any. */
+    /**
+     * Returns the current glow effect tracked by this feature, if any.
+     */
     public Optional<GlowEffect> getActiveGlow(Player player) {
         GlowEffect a = activeEffects.get(player.getUniqueId());
         return a == null ? Optional.empty() : Optional.of(a);
     }
 
-    /** Drive animations and keep static effects consistent (cheap). */
+    /**
+     * Drive animations and keep static effects consistent (cheap).
+     */
     private void tick() {
         long now = Instant.now().getEpochSecond();
         for (Map.Entry<UUID, GlowEffect> entry : activeEffects.entrySet()) {

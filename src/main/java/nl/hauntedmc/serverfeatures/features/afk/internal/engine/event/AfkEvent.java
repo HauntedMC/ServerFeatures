@@ -18,11 +18,25 @@ public final class AfkEvent {
         this.movement = movement;
     }
 
-    public Player player() { return player; }
-    public AfkEventType type() { return type; }
-    public long timestamp() { return ts; }
-    public String payload() { return payload; }
-    public Movement movement() { return movement; }
+    public Player player() {
+        return player;
+    }
+
+    public AfkEventType type() {
+        return type;
+    }
+
+    public long timestamp() {
+        return ts;
+    }
+
+    public String payload() {
+        return payload;
+    }
+
+    public Movement movement() {
+        return movement;
+    }
 
     public static AfkEvent simple(Player p, AfkEventType t) {
         return new AfkEvent(p, t, System.currentTimeMillis(), null, null);

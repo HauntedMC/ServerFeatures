@@ -44,7 +44,7 @@ public class DurabilityAlertHandler {
         double percentage = ((double) remaining / maxDurability) * 100;
 
         if (percentage <= this.defaultValue) {
-            sendWarning(player, item.effectiveName(), Math.max(remaining-1, 0));
+            sendWarning(player, item.effectiveName(), Math.max(remaining - 1, 0));
         }
     }
 

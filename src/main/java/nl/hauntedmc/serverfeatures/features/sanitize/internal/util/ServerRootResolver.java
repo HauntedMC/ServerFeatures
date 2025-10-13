@@ -11,7 +11,8 @@ import java.io.File;
  */
 public final class ServerRootResolver {
 
-    private ServerRootResolver() {}
+    private ServerRootResolver() {
+    }
 
     public static File resolve(Plugin plugin, FeatureLogger log) {
         try {

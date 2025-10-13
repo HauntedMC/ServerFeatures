@@ -26,9 +26,9 @@ public class MuteRegistry {
         }
 
         public boolean isExpiredNow() {
-                return expiresAt != null && expiresAt.isBefore(Instant.now());
-            }
+            return expiresAt != null && expiresAt.isBefore(Instant.now());
         }
+    }
 
     private final SanctionsDataService service;
 
@@ -59,7 +59,9 @@ public class MuteRegistry {
         return Optional.ofNullable(muted.get(uuid));
     }
 
-    /** Refresh all tracked mutes from DB (called by the global sweeper). */
+    /**
+     * Refresh all tracked mutes from DB (called by the global sweeper).
+     */
     public void refreshAll() {
         if (muted.isEmpty()) return;
         for (UUID uuid : new ArrayList<>(muted.keySet())) {

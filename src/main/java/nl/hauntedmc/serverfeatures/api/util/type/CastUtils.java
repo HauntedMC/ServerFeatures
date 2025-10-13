@@ -6,7 +6,8 @@ import java.util.List;
 
 public class CastUtils {
 
-    private CastUtils(){}
+    private CastUtils() {
+    }
 
     public static <T> List<T> safeCastToList(Object obj, Class<T> clazz) {
         if (obj instanceof List<?> rawList) {

@@ -13,7 +13,9 @@ public class VisibilityListener implements Listener {
 
     private final Vanish feature;
 
-    public VisibilityListener(Vanish feature) { this.feature = feature; }
+    public VisibilityListener(Vanish feature) {
+        this.feature = feature;
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent e) {

@@ -8,7 +8,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 
 public final class SafeFs {
 
-    private SafeFs() {}
+    private SafeFs() {
+    }
 
     /**
      * Recursively deletes a file or directory tree. Returns true if fully deleted, false otherwise.

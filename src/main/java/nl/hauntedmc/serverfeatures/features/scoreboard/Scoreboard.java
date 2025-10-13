@@ -34,7 +34,7 @@ public class Scoreboard extends BukkitBaseFeature<Meta> {
         messages.add("scoreboard.line2", "empty2");
         messages.add("scoreboard.line3", "empty3");
         messages.add("scoreboard.line4", "");
-        messages.add("scoreboard.line5","");
+        messages.add("scoreboard.line5", "");
         messages.add("scoreboard.line6", "");
         messages.add("scoreboard.line7", "");
         messages.add("scoreboard.line8", "");

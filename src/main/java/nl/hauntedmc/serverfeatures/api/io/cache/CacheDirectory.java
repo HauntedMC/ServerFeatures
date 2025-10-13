@@ -26,7 +26,9 @@ public class CacheDirectory {
         }
     }
 
-    /** The underlying directory on disk. */
+    /**
+     * The underlying directory on disk.
+     */
     public File getDirectory() {
         return dir;
     }

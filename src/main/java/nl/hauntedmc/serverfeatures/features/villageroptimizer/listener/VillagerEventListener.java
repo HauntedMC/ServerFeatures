@@ -95,7 +95,7 @@ public class VillagerEventListener implements Listener {
                 if (vilLevelCooldown > currentTime) {
                     player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.cooldownLevelupMessage")
                             .forAudience(player)
-                            .with("time_sec",  sec)
+                            .with("time_sec", sec)
                             .build());
                     vil.shakeHead();
                     e.setCancelled(true);

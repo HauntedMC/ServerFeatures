@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condit
 import me.libraryaddict.disguise.DisguiseAPI;
 import org.bukkit.entity.Player;
 
-public class DisguiseCondition  extends PlayerVisibilityCondition {
+public class DisguiseCondition extends PlayerVisibilityCondition {
 
     @Override
     public boolean isVisible(Player viewer, Player target) {

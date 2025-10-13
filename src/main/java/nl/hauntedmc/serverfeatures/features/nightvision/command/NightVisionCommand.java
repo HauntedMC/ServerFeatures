@@ -45,8 +45,7 @@ public class NightVisionCommand extends FeatureCommand {
                     .forAudience(player)
                     .with("status", "&cuitgeschakeld")
                     .build());
-        }
-        else {
+        } else {
             if (player.hasPotionEffect(PotionEffectType.NIGHT_VISION)) {
                 player.removePotionEffect(PotionEffectType.NIGHT_VISION);
             }

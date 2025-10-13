@@ -149,7 +149,10 @@ public class AfkService implements AfkServiceFacade {
                     int kickAfter = getInt("kick_timeout_seconds", 3600);
                     if (kickAfter > 0 && now - s.afkSince() >= kickAfter * 1000L) {
                         Component msg = feature.getLocalizationHandler().getMessage("afk.kicked").forAudience(p).build();
-                        try { p.kick(msg); } catch (Throwable ignored) {}
+                        try {
+                            p.kick(msg);
+                        } catch (Throwable ignored) {
+                        }
                         states.remove(p.getUniqueId());
                     }
                 }
@@ -160,7 +163,8 @@ public class AfkService implements AfkServiceFacade {
     private void sendSelf(Player p, String key) {
         try {
             p.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(p).build());
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     private boolean broadcast() {
@@ -175,23 +179,67 @@ public class AfkService implements AfkServiceFacade {
                         .getMessage(key)
                         .with("name", name)
                         .forAudience(pl).build());
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
         }
     }
 
     // --- AfkServiceFacade (config bridge) ---
 
-    @Override public double moveThreshold() { return getDouble("movement_distance_threshold", 0.15D); }
-    @Override public float rotateThreshold() { return (float) getDouble("rotation_threshold_degrees", 10.0D); }
-    @Override public long comboWindowMs() { return getInt("combo_window_seconds", 30) * 1000L; }
-    @Override public boolean antiEnabled() { return getBool("anti_afk.enabled", true); }
-    @Override public long antiWindowMs() { return getInt("anti_afk.track_window_seconds", 120) * 1000L; }
-    @Override public int antiMinSamples() { return getInt("anti_afk.min_samples", 6); }
-    @Override public long antiMeanMinMs() { return getInt("anti_afk.mean_min_ms", 800); }
-    @Override public long antiMeanMaxMs() { return getInt("anti_afk.mean_max_ms", 15000); }
-    @Override public long antiStddevMaxMs() { return getInt("anti_afk.stddev_max_ms", 120); }
-    @Override public long antiLockMs() { return getInt("anti_afk.lock_seconds", 60) * 1000L; }
-    @Override public double verticalEpsilon() { return getDouble("movement_vertical_epsilon", 0.05D); }
+    @Override
+    public double moveThreshold() {
+        return getDouble("movement_distance_threshold", 0.15D);
+    }
+
+    @Override
+    public float rotateThreshold() {
+        return (float) getDouble("rotation_threshold_degrees", 10.0D);
+    }
+
+    @Override
+    public long comboWindowMs() {
+        return getInt("combo_window_seconds", 30) * 1000L;
+    }
+
+    @Override
+    public boolean antiEnabled() {
+        return getBool("anti_afk.enabled", true);
+    }
+
+    @Override
+    public long antiWindowMs() {
+        return getInt("anti_afk.track_window_seconds", 120) * 1000L;
+    }
+
+    @Override
+    public int antiMinSamples() {
+        return getInt("anti_afk.min_samples", 6);
+    }
+
+    @Override
+    public long antiMeanMinMs() {
+        return getInt("anti_afk.mean_min_ms", 800);
+    }
+
+    @Override
+    public long antiMeanMaxMs() {
+        return getInt("anti_afk.mean_max_ms", 15000);
+    }
+
+    @Override
+    public long antiStddevMaxMs() {
+        return getInt("anti_afk.stddev_max_ms", 120);
+    }
+
+    @Override
+    public long antiLockMs() {
+        return getInt("anti_afk.lock_seconds", 60) * 1000L;
+    }
+
+    @Override
+    public double verticalEpsilon() {
+        return getDouble("movement_vertical_epsilon", 0.05D);
+    }
 
 
     @Override
@@ -208,10 +256,12 @@ public class AfkService implements AfkServiceFacade {
         Object o = feature.getConfigHandler().getSetting(key);
         return (o instanceof Boolean b) ? b : def;
     }
+
     private int getInt(String key, int def) {
         Object o = feature.getConfigHandler().getSetting(key);
         return (o instanceof Number n) ? n.intValue() : def;
     }
+
     private double getDouble(String key, double def) {
         Object o = feature.getConfigHandler().getSetting(key);
         return (o instanceof Number n) ? n.doubleValue() : def;

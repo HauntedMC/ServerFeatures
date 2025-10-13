@@ -12,14 +12,15 @@ import java.util.regex.Pattern;
 
 public class JsonCacheFile implements FileCacheStore {
     private static final String EXP_TS = "expirationTimestamp";
-    private static final String VALUE  = "value";
+    private static final String VALUE = "value";
 
     private final File file;
     private final Gson gson = new Gson();
     // key → single { "value": Map, "expirationTimestamp": long }
     private Map<String, Map<String, Object>> rawMap;
     private static final Type RAW_MAP_TYPE =
-            new TypeToken<Map<String, Map<String, Object>>>() {}.getType();
+            new TypeToken<Map<String, Map<String, Object>>>() {
+            }.getType();
 
     public JsonCacheFile(File file) {
         this.file = Objects.requireNonNull(file, "file");
@@ -27,7 +28,10 @@ public class JsonCacheFile implements FileCacheStore {
         load();
     }
 
-    @Override public File getUnderlyingFile() { return file; }
+    @Override
+    public File getUnderlyingFile() {
+        return file;
+    }
 
     private void ensureFileExists() {
         if (!file.exists()) {
@@ -61,7 +65,7 @@ public class JsonCacheFile implements FileCacheStore {
     public void put(String key, CacheValue value) {
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(value, "value");
-        Map<String,Object> entry = new LinkedHashMap<>();
+        Map<String, Object> entry = new LinkedHashMap<>();
         entry.put(VALUE, value.getData());
         entry.put(EXP_TS, value.getExpirationTimestamp());
         rawMap.put(key, entry);
@@ -72,8 +76,8 @@ public class JsonCacheFile implements FileCacheStore {
     public void cleanupExpired() {
         long now = System.currentTimeMillis();
         rawMap.entrySet().removeIf(e -> {
-            Map<String,Object> ent = e.getValue();
-            long ts = ((Number)ent.getOrDefault(EXP_TS, -1L)).longValue();
+            Map<String, Object> ent = e.getValue();
+            long ts = ((Number) ent.getOrDefault(EXP_TS, -1L)).longValue();
             return ts >= 0 && now > ts;
         });
         if (rawMap.isEmpty()) {
@@ -86,11 +90,11 @@ public class JsonCacheFile implements FileCacheStore {
     @Override
     public CacheValue get(String key) {
         cleanupExpired();
-        Map<String,Object> entry = rawMap.get(key);
+        Map<String, Object> entry = rawMap.get(key);
         if (entry == null) return null;
         @SuppressWarnings("unchecked")
-        Map<String,Object> data = (Map<String,Object>) entry.get(VALUE);
-        long ts = ((Number)entry.getOrDefault(EXP_TS, -1L)).longValue();
+        Map<String, Object> data = (Map<String, Object>) entry.get(VALUE);
+        long ts = ((Number) entry.getOrDefault(EXP_TS, -1L)).longValue();
         return CacheValue.of(data, ts);
     }
 

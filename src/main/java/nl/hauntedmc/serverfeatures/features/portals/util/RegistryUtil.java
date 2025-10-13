@@ -15,18 +15,23 @@ import java.util.stream.Stream;
 
 public final class RegistryUtil {
 
-    private RegistryUtil() {}
+    private RegistryUtil() {
+    }
 
     // ---- Registries (Paper 1.21+)
     public static Registry<@NotNull Sound> soundRegistry() {
         return RegistryAccess.registryAccess().getRegistry(RegistryKey.SOUND_EVENT);
     }
+
     public static Registry<@NotNull Particle> particleRegistry() {
         return RegistryAccess.registryAccess().getRegistry(RegistryKey.PARTICLE_TYPE);
     }
 
     // ---- Keys
-    /** Accepts "minecraft:key" or plain "key" (assumes minecraft namespace). Lowercases safely. */
+
+    /**
+     * Accepts "minecraft:key" or plain "key" (assumes minecraft namespace). Lowercases safely.
+     */
     public static NamespacedKey toKey(String s) {
         if (s == null || s.isBlank()) return null;
         String norm = s.contains(":") ? s.toLowerCase(Locale.ROOT) : ("minecraft:" + s.toLowerCase(Locale.ROOT));
@@ -38,6 +43,7 @@ public final class RegistryUtil {
         NamespacedKey k = toKey(keyLike);
         return k == null ? Optional.empty() : Optional.ofNullable(soundRegistry().get(k));
     }
+
     public static Optional<Particle> resolveParticle(String keyLike) {
         NamespacedKey k = toKey(keyLike);
         return k == null ? Optional.empty() : Optional.ofNullable(particleRegistry().get(k));
@@ -48,6 +54,7 @@ public final class RegistryUtil {
         NamespacedKey k = soundRegistry().getKey(s);
         return k != null ? k.asString() : "<unregistered>";
     }
+
     public static String keyString(Particle p) {
         NamespacedKey k = particleRegistry().getKey(p);
         return k != null ? k.asString() : "<unregistered>";

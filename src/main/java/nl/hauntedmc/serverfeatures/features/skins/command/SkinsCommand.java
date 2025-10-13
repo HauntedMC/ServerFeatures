@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 
 public class SkinsCommand extends FeatureCommand {
 
-    private static final String PERM_SELF   = "serverfeatures.feature.skins.command.skin.self";
+    private static final String PERM_SELF = "serverfeatures.feature.skins.command.skin.self";
     private static final String PERM_OTHERS = "serverfeatures.feature.skins.command.skin.others";
 
     private final Skins feature;
@@ -42,7 +42,8 @@ public class SkinsCommand extends FeatureCommand {
                 return true;
             }
             if (!sender.hasPermission(PERM_SELF)) {
-                noPerm(sender); return true;
+                noPerm(sender);
+                return true;
             }
 
             String sub = args[0];
@@ -57,7 +58,8 @@ public class SkinsCommand extends FeatureCommand {
         // /skin <player> <name|remove>
         if (args.length == 2) {
             if (!sender.hasPermission(PERM_OTHERS)) {
-                noPerm(sender); return true;
+                noPerm(sender);
+                return true;
             }
 
             String playerName = args[0];

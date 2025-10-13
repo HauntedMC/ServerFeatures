@@ -12,17 +12,40 @@ import java.sql.DriverManager;
  */
 public class SqliteCacheFile implements CacheStore {
     private final File file;
+
     public SqliteCacheFile(File file) {
         this.file = file;
-        try { file.getParentFile().mkdirs(); file.createNewFile(); }
-        catch(IOException e){ throw new RuntimeException(e); }
+        try {
+            file.getParentFile().mkdirs();
+            file.createNewFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
-    @Override public File getUnderlyingFile() { return file; }
+
+    @Override
+    public File getUnderlyingFile() {
+        return file;
+    }
+
     public Connection getConnection() {
-        try { return DriverManager.getConnection("jdbc:sqlite:"+file.getAbsolutePath()); }
-        catch(Exception ex){ throw new RuntimeException(ex); }
+        try {
+            return DriverManager.getConnection("jdbc:sqlite:" + file.getAbsolutePath());
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
-    @Override public void cleanupExpired() { /* no-op */ }
-    @Override public void delete() { if(!file.delete())file.deleteOnExit(); }
-    @Override public boolean isEmpty() { return false; }
+
+    @Override
+    public void cleanupExpired() { /* no-op */ }
+
+    @Override
+    public void delete() {
+        if (!file.delete()) file.deleteOnExit();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return false;
+    }
 }

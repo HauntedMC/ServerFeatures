@@ -11,7 +11,7 @@ import java.util.Optional;
  * Boundary logic:
  * - Outer bounds: WorldBorder (recommended). Can be disabled via respect_world_border=false.
  * - Inner bounds: configured rectangle (min_x..max_x, min_z..max_z) as a reserved/no-TP region.
- *   NOTE: Inner bounds are only used by RandomTP (not by direct /tppos).
+ * NOTE: Inner bounds are only used by RandomTP (not by direct /tppos).
  */
 public class TeleportBounds {
 
@@ -19,6 +19,7 @@ public class TeleportBounds {
         public boolean contains(int x, int z) {
             return x >= minX && x <= maxX && z >= minZ && z <= maxZ;
         }
+
         public Rect normalized() {
             int nMinX = Math.min(minX, maxX);
             int nMaxX = Math.max(minX, maxX);
@@ -26,7 +27,8 @@ public class TeleportBounds {
             int nMaxZ = Math.max(minZ, maxZ);
             return new Rect(nMinX, nMaxX, nMinZ, nMaxZ);
         }
-        public Map<String,String> asPlaceholders() {
+
+        public Map<String, String> asPlaceholders() {
             Rect n = normalized();
             return Map.of(
                     "min_x", String.valueOf(n.minX),
@@ -48,7 +50,9 @@ public class TeleportBounds {
         return (v instanceof Boolean b) ? b : true;
     }
 
-    /** Inner rectangle as reserved/no-teleport area. Disabled if 0..0..0..0. */
+    /**
+     * Inner rectangle as reserved/no-teleport area. Disabled if 0..0..0..0.
+     */
     public Optional<Rect> innerRect() {
         int minX = getInt("min_x", 0);
         int maxX = getInt("max_x", 0);
@@ -74,7 +78,9 @@ public class TeleportBounds {
         return new Rect(minX, maxX, minZ, maxZ);
     }
 
-    /** Outer-only check: used by /tppos (unless bypass). */
+    /**
+     * Outer-only check: used by /tppos (unless bypass).
+     */
     public boolean withinOuter(World world, int x, int z) {
         return outerRect(world).contains(x, z);
     }

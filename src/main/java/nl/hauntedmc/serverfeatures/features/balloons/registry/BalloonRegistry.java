@@ -89,8 +89,10 @@ public final class BalloonRegistry {
     private static Component toComponent(String s) {
         if (s == null || s.isBlank()) return Component.empty();
         // Support both '&' and '§' style color codes. Fallback to plain text.
-        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_SECTION).features(ComponentFormatter.Feature.COLORS).toComponent();
-        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
+        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0)
+            return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_SECTION).features(ComponentFormatter.Feature.COLORS).toComponent();
+        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0)
+            return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
         return Component.text(s);
     }
 }

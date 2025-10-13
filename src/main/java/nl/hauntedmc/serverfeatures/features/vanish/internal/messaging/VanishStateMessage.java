@@ -19,8 +19,8 @@ public final class VanishStateMessage extends AbstractEventMessage {
         super("vanish_update");
         this.playerUuid = null;
         this.playerName = null;
-        this.vanished   = false;
-        this.server     = null;
+        this.vanished = false;
+        this.server = null;
     }
 
     public VanishStateMessage(String type,
@@ -31,8 +31,8 @@ public final class VanishStateMessage extends AbstractEventMessage {
         super(type);
         this.playerUuid = playerUuid;
         this.playerName = playerName;
-        this.vanished   = vanished;
-        this.server     = server;
+        this.vanished = vanished;
+        this.server = server;
     }
 
     public String getPlayerUuid() {

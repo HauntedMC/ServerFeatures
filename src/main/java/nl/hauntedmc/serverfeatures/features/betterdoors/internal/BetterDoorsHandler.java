@@ -47,7 +47,9 @@ public final class BetterDoorsHandler {
 
     /* ===== Door pairing helpers ===== */
 
-    /** Normalize to bottom half of a door. */
+    /**
+     * Normalize to bottom half of a door.
+     */
     public Optional<Block> bottomHalf(Block doorBlock) {
         if (!(doorBlock.getBlockData() instanceof Door d)) return Optional.empty();
         if (d.getHalf() == Bisected.Half.BOTTOM) return Optional.of(doorBlock);
@@ -69,7 +71,7 @@ public final class BetterDoorsHandler {
 
         BlockFace perpendicular = switch (facing) {
             case NORTH, SOUTH -> (hinge == Door.Hinge.LEFT ? BlockFace.WEST : BlockFace.EAST);
-            case EAST, WEST   -> (hinge == Door.Hinge.LEFT ? BlockFace.SOUTH : BlockFace.NORTH);
+            case EAST, WEST -> (hinge == Door.Hinge.LEFT ? BlockFace.SOUTH : BlockFace.NORTH);
             default -> null;
         };
         if (perpendicular == null) return Optional.empty();
@@ -85,7 +87,9 @@ public final class BetterDoorsHandler {
         return bottomHalf(neighbor);
     }
 
-    /** Set open state on a door (both halves move together by vanilla). */
+    /**
+     * Set open state on a door (both halves move together by vanilla).
+     */
     public void setDoorOpen(Block doorBlock, boolean open) {
         BlockData bd = doorBlock.getBlockData();
         if (!(bd instanceof Door d)) return;
@@ -99,17 +103,19 @@ public final class BetterDoorsHandler {
      */
     public void mirrorNextTick(Block primaryDoorAnyHalf) {
         bottomHalf(primaryDoorAnyHalf).ifPresent(primaryBottom ->
-            findPaired(primaryBottom).ifPresent(neighborBottom ->
-                Bukkit.getScheduler().runTask(feature.getPlugin(), () -> {
-                    BlockData bd = primaryBottom.getBlockData();
-                    if (!(bd instanceof Door primary)) return;
-                    setDoorOpen(neighborBottom, primary.isOpen());
-                })
-            )
+                findPaired(primaryBottom).ifPresent(neighborBottom ->
+                        Bukkit.getScheduler().runTask(feature.getPlugin(), () -> {
+                            BlockData bd = primaryBottom.getBlockData();
+                            if (!(bd instanceof Door primary)) return;
+                            setDoorOpen(neighborBottom, primary.isOpen());
+                        })
+                )
         );
     }
 
-    /** Mirror immediately to a known state (used for redstone). */
+    /**
+     * Mirror immediately to a known state (used for redstone).
+     */
     public void mirrorImmediate(Block primaryDoorAnyHalf, boolean open) {
         bottomHalf(primaryDoorAnyHalf).flatMap(this::findPaired).ifPresent(neighborBottom -> setDoorOpen(neighborBottom, open));
     }

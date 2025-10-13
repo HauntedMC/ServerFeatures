@@ -10,7 +10,7 @@ public final class CommandRelayMessage extends AbstractEventMessage {
     @SuppressWarnings("unused")
     private CommandRelayMessage() {
         super("commandrelay");
-        this.command      = null;
+        this.command = null;
         this.originServer = null;
     }
 
@@ -20,7 +20,7 @@ public final class CommandRelayMessage extends AbstractEventMessage {
      */
     public CommandRelayMessage(String command, String originServer) {
         super("commandrelay");
-        this.command      = command;
+        this.command = command;
         this.originServer = originServer;
     }
 

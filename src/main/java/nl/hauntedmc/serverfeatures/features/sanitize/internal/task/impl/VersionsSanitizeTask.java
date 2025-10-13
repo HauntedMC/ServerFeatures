@@ -15,7 +15,9 @@ import java.util.List;
 public class VersionsSanitizeTask implements SanitizeTask {
 
     @Override
-    public String name() { return "Versions"; }
+    public String name() {
+        return "Versions";
+    }
 
     @Override
     public SanitizeResult run(SanitizeContext ctx) throws IOException {
@@ -53,12 +55,12 @@ public class VersionsSanitizeTask implements SanitizeTask {
 
         StringBuilder sb = new StringBuilder();
         sb.append("Keep: ").append(keepFolder).append("; Removed ").append(deleted)
-          .append("/").append(toRemove.size()).append(" folder(s)");
+                .append("/").append(toRemove.size()).append(" folder(s)");
         if (!present.isEmpty()) sb.append(" [present: ").append(String.join(", ", present)).append("]");
         if (!failed.isEmpty()) sb.append(" [failed: ").append(String.join(", ", failed)).append("]");
 
         boolean changed = deleted > 0 || !failed.isEmpty();
         return changed ? SanitizeResult.changed(sb.toString())
-                       : SanitizeResult.unchanged("No folders removed. " + sb);
+                : SanitizeResult.unchanged("No folders removed. " + sb);
     }
 }

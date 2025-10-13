@@ -16,7 +16,7 @@ public class DiscordService {
     /**
      * Sends a TPS warning notification to Discord as an embed with orange color.
      *
-     * @param avgTPS     The average TPS recorded.
+     * @param avgTPS The average TPS recorded.
      */
     public void sendNotification(String avgTPS) {
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");

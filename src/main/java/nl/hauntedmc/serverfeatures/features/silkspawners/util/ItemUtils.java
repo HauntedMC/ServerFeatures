@@ -22,7 +22,7 @@ public class ItemUtils {
         BlockStateMeta meta = (BlockStateMeta) spawnerItem.getItemMeta();
         if (meta != null) {
             String pretty = Arrays.stream(type.name().split("_"))
-                    .map(part -> part.substring(0,1).toUpperCase() + part.substring(1).toLowerCase())
+                    .map(part -> part.substring(0, 1).toUpperCase() + part.substring(1).toLowerCase())
                     .collect(Collectors.joining(" "));
 
             CreatureSpawner csm = (CreatureSpawner) meta.getBlockState();

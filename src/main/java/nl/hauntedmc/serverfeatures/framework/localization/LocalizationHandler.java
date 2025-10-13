@@ -79,11 +79,11 @@ public class LocalizationHandler {
     /**
      * Entry point for retrieving a localized message.
      * Usage:
-     *   Component comp = localizationHandler
-     *       .getMessage("welcome.message")
-     *       .forAudience(player)
-     *       .withPlaceholders(Map.of("player", player.getName()))
-     *       .build();
+     * Component comp = localizationHandler
+     * .getMessage("welcome.message")
+     * .forAudience(player)
+     * .withPlaceholders(Map.of("player", player.getName()))
+     * .build();
      */
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
@@ -118,9 +118,20 @@ public class LocalizationHandler {
             return this;
         }
 
-        public MessageBuilder with(String key, String value)        { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addString(key, value).build(); return this; }
-        public MessageBuilder with(String key, Number value)        { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addNumber(key, value).build(); return this; }
-        public MessageBuilder with(String key, Component value)     { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addComponent(key, value).build(); return this; }
+        public MessageBuilder with(String key, String value) {
+            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addString(key, value).build();
+            return this;
+        }
+
+        public MessageBuilder with(String key, Number value) {
+            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addNumber(key, value).build();
+            return this;
+        }
+
+        public MessageBuilder with(String key, Component value) {
+            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addComponent(key, value).build();
+            return this;
+        }
 
         public MessageBuilder autoLinkUrls(boolean on) {
             this.autoLinkUrls = on;
