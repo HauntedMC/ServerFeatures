@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm.listener;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.AntiRaidFarm;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.internal.AntiRaidFarmHandler;
 import org.bukkit.entity.Player;
@@ -8,8 +7,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.raid.RaidTriggerEvent;
-
-import java.util.Map;
 
 public final class AntiRaidFarmListener implements Listener {
 

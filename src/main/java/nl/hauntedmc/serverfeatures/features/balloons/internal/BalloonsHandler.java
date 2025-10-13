@@ -6,11 +6,17 @@ import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import nl.hauntedmc.serverfeatures.features.balloons.util.Distance;
 import org.bukkit.Location;
 import org.bukkit.Particle;
-import org.bukkit.entity.*;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Parrot;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**

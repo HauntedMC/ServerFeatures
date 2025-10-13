@@ -1,9 +1,11 @@
 package nl.hauntedmc.serverfeatures.framework.loader;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.loader.dependency.DependencyCheckResult;
+import nl.hauntedmc.serverfeatures.framework.loader.dependency.FeatureDependencyManager;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResult;
 import nl.hauntedmc.serverfeatures.framework.loader.enable.FeatureEnableResponse;
@@ -12,8 +14,6 @@ import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResponse
 import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResult;
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResult;
-import nl.hauntedmc.serverfeatures.framework.loader.dependency.DependencyCheckResult;
-import nl.hauntedmc.serverfeatures.framework.loader.dependency.FeatureDependencyManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 
 import java.lang.reflect.Method;

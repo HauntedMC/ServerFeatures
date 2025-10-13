@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal;
 
+import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.service.NicknameService;
 import org.bukkit.OfflinePlayer;

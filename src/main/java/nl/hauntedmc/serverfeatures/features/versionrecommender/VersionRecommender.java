@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.versionrecommender;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.internal.RecommendationService;
-import nl.hauntedmc.serverfeatures.api.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.listener.VersionRecommenderListener;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.meta.Meta;
 

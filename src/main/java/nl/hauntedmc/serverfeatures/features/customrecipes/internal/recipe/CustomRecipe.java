@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import org.bukkit.NamespacedKey;
+
 import java.util.Map;
 
 public interface CustomRecipe {

@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.votifier;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.votifier.internal.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.votifier.messaging.VoteMessage;

@@ -1,15 +1,18 @@
 // File: MainConfigHandler.java
 package nl.hauntedmc.serverfeatures.framework.config;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigTypes;
 import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 
-import java.util.*;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import java.util.logging.Logger;

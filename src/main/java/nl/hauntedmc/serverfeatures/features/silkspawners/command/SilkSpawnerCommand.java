@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.silkspawners.SilkSpawners;
 import nl.hauntedmc.serverfeatures.features.silkspawners.util.ItemUtils;
 import org.bukkit.Bukkit;
@@ -69,7 +69,7 @@ public class SilkSpawnerCommand extends FeatureCommand {
             sender.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("silkspawners.player_not_found")
-                            .withPlaceholders(Map.of("player", targetName))
+                            .with("player", targetName)
                             .forAudience(sender)
                             .build()
             );
@@ -84,7 +84,7 @@ public class SilkSpawnerCommand extends FeatureCommand {
             sender.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("silkspawners.invalid_mobtype")
-                            .withPlaceholders(Map.of("type", typeName))
+                            .with("type", typeName)
                             .forAudience(sender)
                             .build()
             );
@@ -124,10 +124,9 @@ public class SilkSpawnerCommand extends FeatureCommand {
         sender.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("silkspawners.give_success")
-                        .withPlaceholders(Map.of(
-                                "player",   targetName,
-                                "type",     typeName,
-                                "amount",   String.valueOf(amount)))
+                        .with("player",   targetName)
+                        .with("type",     typeName)
+                        .with("amount",  amount)
                         .forAudience(sender)
                         .build()
         );
@@ -135,9 +134,8 @@ public class SilkSpawnerCommand extends FeatureCommand {
         target.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("silkspawners.receive_success")
-                        .withPlaceholders(Map.of(
-                                "type",     typeName,
-                                "amount",   String.valueOf(amount)))
+                        .with("type",     typeName)
+                        .with("amount",   amount)
                         .forAudience(target)
                         .build()
         );

@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
-import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarColor;
+import org.bukkit.boss.BarFlag;
 import org.bukkit.boss.BarStyle;
 
 import java.util.Collections;

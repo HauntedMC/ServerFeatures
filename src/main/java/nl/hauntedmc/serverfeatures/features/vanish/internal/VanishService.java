@@ -99,7 +99,7 @@ public class VanishService {
             // Notify staff that this person joined vanished (only staff with toggle perm)
             broadcastToVanishingStaff(
                     feature.getLocalizationHandler().getMessage("vanish.staff_joined_vanished")
-                            .withPlaceholders(Map.of("name", p.getName()))
+                            .with("name", p.getName())
                             .build(),
                     p.getUniqueId()
             );
@@ -191,9 +191,8 @@ public class VanishService {
         final String key = enabled ? "vanish.staff_enabled" : "vanish.staff_disabled";
         Component msg = feature.getLocalizationHandler()
                 .getMessage(key)
-                .withPlaceholders(Map.of(
-                        "actor", actor != null ? actor.getName() : "Console",
-                        "target", target != null ? target.getName() : "Onbekend"))
+                .with("actor", actor != null ? actor.getName() : "Console")
+                .with("target", target != null ? target.getName() : "Onbekend")
                 .build();
         UUID exclude = actor != null ? actor.getUniqueId() : null;
         broadcastToVanishingStaff(msg, exclude);

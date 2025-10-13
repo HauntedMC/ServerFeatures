@@ -10,12 +10,9 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Bukkit;
 
-import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -157,7 +154,7 @@ public final class ComponentCodec {
         private final EnumSet<Feature> features = EnumSet.noneOf(Feature.class);
 
         private boolean sanitizeUnknownTags = true;
-        private boolean strict = true;
+        private boolean strict = false;
         private UnaryOperator<String> preprocessor;
         private final Set<TagResolver> extraResolvers = new LinkedHashSet<>();
         private final Set<String> allowedCustomTagNames = new java.util.HashSet<>();
@@ -347,6 +344,7 @@ public final class ComponentCodec {
         private static final Pattern OPEN_TAG    = Pattern.compile("(?i)<([a-z_][a-z0-9_\\-]*)[^>]*>");
         private static final Pattern CLOSE_TAG   = Pattern.compile("(?i)</([a-z_][a-z0-9_\\-]*)\\s*>");
         private static final Pattern NEWLINE_TAG = Pattern.compile("(?i)<(newline|br)>");
+        private static final String END_TOKEN = "end";
 
         private static final Map<String, Boolean> NAMED_COLOR = Map.ofEntries(
                 e("black"), e("dark_blue"), e("dark_green"), e("dark_aqua"), e("dark_red"),
@@ -393,6 +391,8 @@ public final class ComponentCodec {
             if (features.contains(Feature.SELECTOR))              { allowed.add("selector"); allowed.add("sel"); }
             if (features.contains(Feature.SCORE))                  allowed.add("score");
             if (features.contains(Feature.NBT))                   { allowed.add("nbt"); allowed.add("data"); }
+
+            allowed.add(END_TOKEN);
 
             if (!features.contains(Feature.NEWLINE) && out.indexOf('<') >= 0) {
                 out = NEWLINE_TAG.matcher(out).replaceAll("");

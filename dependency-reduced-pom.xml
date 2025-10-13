@@ -16,6 +16,17 @@
     <finalName>${project.name}</finalName>
     <plugins>
       <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
           <source>21</source>
@@ -58,10 +69,6 @@
             </goals>
             <configuration>
               <relocations>
-                <relocation>
-                  <pattern>nl.hauntedmc.commonlib</pattern>
-                  <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commonlib</shadedPattern>
-                </relocation>
                 <relocation>
                   <pattern>io.github.classgraph</pattern>
                   <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>

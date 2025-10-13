@@ -3,8 +3,6 @@ package nl.hauntedmc.serverfeatures.features.enderframe.meta;
 
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
-import java.util.List;
-
 public class Meta implements BaseMeta {
 
     @Override

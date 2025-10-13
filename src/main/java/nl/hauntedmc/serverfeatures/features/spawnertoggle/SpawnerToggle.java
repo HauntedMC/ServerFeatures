@@ -3,9 +3,9 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
@@ -16,8 +16,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.Player;
-
-import java.util.Map;
 
 public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 

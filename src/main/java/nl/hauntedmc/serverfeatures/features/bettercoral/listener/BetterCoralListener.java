@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.bettercoral.listener;
 
-import nl.hauntedmc.serverfeatures.features.bettercoral.BetterCoral;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

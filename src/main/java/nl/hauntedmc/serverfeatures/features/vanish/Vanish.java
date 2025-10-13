@@ -1,7 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.vanish;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
@@ -10,6 +8,8 @@ import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.APIRegistry;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.vanish.command.VanishCommand;

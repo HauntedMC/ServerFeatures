@@ -4,7 +4,6 @@ import nl.hauntedmc.serverfeatures.api.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.VersionRecommender;
 import org.bukkit.entity.Player;
 
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -39,7 +38,8 @@ public final class RecommendationService {
             player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("versionrecommender.warn-older")
-                            .withPlaceholders(Map.of("version", clientName, "server", serverName))
+                            .with("version", clientName)
+                            .with("server", serverName)
                             .forAudience(player)
                             .build()
             );
@@ -50,7 +50,8 @@ public final class RecommendationService {
             player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("versionrecommender.warn-newer")
-                            .withPlaceholders(Map.of("version", clientName, "server", serverName))
+                            .with("version", clientName)
+                            .with("server", serverName)
                             .forAudience(player)
                             .build()
             );

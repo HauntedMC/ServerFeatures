@@ -4,14 +4,11 @@ import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 import nl.hauntedmc.serverfeatures.features.teleportation.integration.EssentialsHook;
 import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportAction;
 import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportState;
-import nl.hauntedmc.serverfeatures.features.teleportation.util.Msg;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
-
-import java.util.Map;
 
 public class TeleportService {
 
@@ -46,7 +43,10 @@ public class TeleportService {
     public void randomTp(CommandSender actor, Player target) {
         if (!checkAndStartCooldown(actor, target, TeleportAction.RANDOM_TP)) return;
 
-        Msg.send(feature, actor, "teleportation.working.randomtp", Map.of());
+        actor.sendMessage(feature.getLocalizationHandler()
+                .getMessage("teleportation.working.randomtp")
+                .forAudience(actor)
+                .build());
 
         // Run synchronously (world access is not thread-safe)
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
@@ -56,13 +56,20 @@ public class TeleportService {
             if (to == null) {
                 state.reset(target.getUniqueId(), TeleportAction.RANDOM_TP); // allow retry
                 int attempts = finder.maxAttempts();
-                Msg.send(feature, actor, "teleportation.randomtp.no_safe_found",
-                        Map.of("attempts", String.valueOf(attempts)));
+                actor.sendMessage(feature.getLocalizationHandler()
+                        .getMessage("teleportation.randomtp.no_safe_found")
+                        .forAudience(actor)
+                        .with("attempts", attempts)
+                        .build());
                 return;
             }
 
-            performTeleport(actor, target, to, TeleportAction.RANDOM_TP,
-                    () -> Msg.send(feature, actor, "teleportation.success.randomtp", Map.of()));
+            performTeleport(actor, target, to, TeleportAction.RANDOM_TP, () ->
+                    actor.sendMessage(feature.getLocalizationHandler()
+                            .getMessage("teleportation.success.randomtp")
+                            .forAudience(actor)
+                            .build())
+            );
         });
     }
 
@@ -72,12 +79,18 @@ public class TeleportService {
 
         // Only outer (WorldBorder) check for /tppos unless actor has override
         if (!actor.hasPermission("serverfeatures.feature.teleportation.bypass.worldborder") && !bounds.withinOuter(target.getWorld(), x, z)) {
-            Msg.send(feature, actor, "teleportation.tppos.outside_worldborder", Map.of());
+            actor.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("teleportation.tppos.outside_worldborder")
+                    .forAudience(actor)
+                    .build());
             state.reset(target.getUniqueId(), TeleportAction.TP_POS);
             return;
         }
 
-        Msg.send(feature, actor, "teleportation.working.tppos", Map.of());
+        actor.sendMessage(feature.getLocalizationHandler()
+                .getMessage("teleportation.working.tppos")
+                .forAudience(actor)
+                .build());
 
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             World world = target.getWorld();
@@ -85,12 +98,19 @@ public class TeleportService {
             Location safe = finder.findSafeForTpPos(world, x, y, z);
             if (safe == null) {
                 state.reset(target.getUniqueId(), TeleportAction.TP_POS);
-                Msg.send(feature, actor, "teleportation.tppos.not_safe", Map.of());
+                actor.sendMessage(feature.getLocalizationHandler()
+                        .getMessage("teleportation.tppos.not_safe")
+                        .forAudience(actor)
+                        .build());
                 return;
             }
 
-            performTeleport(actor, target, safe, TeleportAction.TP_POS,
-                    () -> Msg.send(feature, actor, "teleportation.success.tppos", Map.of()));
+            performTeleport(actor, target, safe, TeleportAction.TP_POS, () ->
+                    actor.sendMessage(feature.getLocalizationHandler()
+                            .getMessage("teleportation.success.tppos")
+                            .forAudience(actor)
+                            .build())
+            );
         });
     }
 
@@ -115,7 +135,10 @@ public class TeleportService {
 
             if (!ok) {
                 state.reset(target.getUniqueId(), action);
-                Msg.send(feature, actor, "teleportation.error.internal", Map.of());
+                actor.sendMessage(feature.getLocalizationHandler()
+                        .getMessage("teleportation.error.internal")
+                        .forAudience(actor)
+                        .build());
                 return;
             }
 
@@ -127,7 +150,10 @@ public class TeleportService {
 
         } catch (Throwable t) {
             state.reset(target.getUniqueId(), action);
-            Msg.send(feature, actor, "teleportation.error.internal", Map.of());
+            actor.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("teleportation.error.internal")
+                    .forAudience(actor)
+                    .build());
         }
     }
 
@@ -138,8 +164,11 @@ public class TeleportService {
         if (state.tryStart(target.getUniqueId(), action, now)) return true;
 
         long remaining = state.remainingCooldownSeconds(target.getUniqueId(), action, now);
-        Msg.send(feature, actor, "teleportation.cooldown_active",
-                Map.of("seconds", String.valueOf(remaining)));
+        actor.sendMessage(feature.getLocalizationHandler()
+                .getMessage("teleportation.cooldown_active")
+                .forAudience(actor)
+                .with("seconds", remaining)
+                .build());
         return false;
     }
 }

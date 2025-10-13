@@ -8,7 +8,9 @@ import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 public final class RegistryUtil {

@@ -10,7 +10,9 @@ import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Paged Balloons selection menu with the same visual style as Glow.

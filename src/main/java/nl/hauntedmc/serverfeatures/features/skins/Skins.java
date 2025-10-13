@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.skins;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.skins.command.SkinsCommand;
 import nl.hauntedmc.serverfeatures.features.skins.internal.SkinState;

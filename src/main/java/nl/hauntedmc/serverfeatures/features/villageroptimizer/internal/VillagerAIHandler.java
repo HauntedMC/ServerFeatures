@@ -163,7 +163,8 @@ public class VillagerAIHandler {
 
             player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.cooldownBlockMessage")
                     .forAudience(player)
-                    .withPlaceholders(Map.of("time_min",  Long.toString(min), "time_sec",  Long.toString(sec)))
+                    .with("time_min",  min)
+                    .with("time_sec", sec)
                     .build());
             return true;
         }

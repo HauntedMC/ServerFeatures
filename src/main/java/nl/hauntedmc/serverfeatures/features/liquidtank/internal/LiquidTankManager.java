@@ -5,7 +5,8 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.config.LiquidTankDataHand
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.*;
-import org.bukkit.*;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.event.Listener;
 
 import java.util.List;

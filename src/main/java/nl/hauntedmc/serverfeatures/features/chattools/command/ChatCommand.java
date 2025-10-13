@@ -1,14 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.chattools.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.chattools.ChatTools;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 

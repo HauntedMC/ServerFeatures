@@ -1,6 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**

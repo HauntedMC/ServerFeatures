@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.restart.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import nl.hauntedmc.serverfeatures.features.restart.internal.RestartService;
 import org.bukkit.command.CommandSender;

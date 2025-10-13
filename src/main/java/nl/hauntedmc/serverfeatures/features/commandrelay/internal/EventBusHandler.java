@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay.internal;
 
-import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.Subscription;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
 import nl.hauntedmc.serverfeatures.features.commandrelay.internal.messaging.CommandRelayMessage;
 import org.bukkit.Bukkit;

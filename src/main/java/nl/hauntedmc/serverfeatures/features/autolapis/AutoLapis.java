@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.autolapis;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.autolapis.internal.AutoLapisHandler;
 import nl.hauntedmc.serverfeatures.features.autolapis.listener.AutoLapisListener;

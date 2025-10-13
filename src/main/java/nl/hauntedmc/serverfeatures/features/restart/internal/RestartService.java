@@ -119,23 +119,20 @@ public class RestartService {
                         .forAudience(p)
                         .build();
             } else {
-                Map<String,String> ph = Map.of(
-                        "readable", t.readable()
-                );
                 title = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.title")
                         .forAudience(p)
-                        .withPlaceholders(ph)
+                        .with("readable", t.readable())
                         .build();
                 sub   = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.subtitle")
                         .forAudience(p)
-                        .withPlaceholders(ph)
+                        .with("readable", t.readable())
                         .build();
                 chat  = feature.getLocalizationHandler()
                         .getMessage("restart.countdown.chat")
                         .forAudience(p)
-                        .withPlaceholders(ph)
+                        .with("readable", t.readable())
                         .build();
             }
 

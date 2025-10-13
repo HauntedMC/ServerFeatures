@@ -1,14 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.vanish.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -96,13 +99,13 @@ public class VanishCommand extends FeatureCommand {
         // Informeer de target zelf (alleen als online)
         target.sendMessage(feature.getLocalizationHandler()
                 .getMessage(desired ? "vanish.target_enabled_by_other" : "vanish.target_disabled_by_other")
-                .withPlaceholders(Map.of("actor", sender.getName()))
+                .with("actor", sender.getName())
                 .forAudience(target)
                 .build());
 
         sender.sendMessage(feature.getLocalizationHandler()
                 .getMessage(desired ? "vanish.enabled_other" : "vanish.disabled_other")
-                .withPlaceholders(Map.of("target", target.getName()))
+                .with("target", target.getName())
                 .forAudience(sender)
                 .build());
 

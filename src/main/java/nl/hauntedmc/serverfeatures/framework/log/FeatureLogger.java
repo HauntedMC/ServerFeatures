@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.framework.log;
 
-import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Delegates to a standard java.util.Logger,

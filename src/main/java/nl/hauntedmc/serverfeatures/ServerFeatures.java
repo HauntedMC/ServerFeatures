@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
-import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
-import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;

@@ -1,8 +1,10 @@
 name: ${project.name}
-main: ${project.groupId}.${project.name}
 version: ${project.version}
+main: ${project.groupId}.${project.name}
+description: HauntedMC Feature Framework (Platform=Paper)
 author: HauntedMC
-api-version: 1.19
+website: https://hauntedmc.nl
+api-version: 1.21
 depend: [DataRegistry, DataProvider]
 softdepend: [packetevents, PlaceholderAPI]
 

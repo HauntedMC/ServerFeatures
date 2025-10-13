@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.commandrelay.command.CommandRelayCommand;
 import nl.hauntedmc.serverfeatures.features.commandrelay.internal.EventBusHandler;

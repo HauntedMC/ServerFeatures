@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
+import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.NametagUpdater;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.PassengerHandler;

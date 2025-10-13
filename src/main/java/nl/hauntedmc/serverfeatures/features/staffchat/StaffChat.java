@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.staffchat;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannelHandler;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.EventBusHandler;

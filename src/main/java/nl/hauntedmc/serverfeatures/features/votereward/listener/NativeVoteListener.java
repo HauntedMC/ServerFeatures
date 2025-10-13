@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.votereward.listener;
 
-import nl.hauntedmc.serverfeatures.features.votifier.event.VoteEvent;
 import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
 import nl.hauntedmc.serverfeatures.features.votereward.internal.IncomingVote;
+import nl.hauntedmc.serverfeatures.features.votifier.event.VoteEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;

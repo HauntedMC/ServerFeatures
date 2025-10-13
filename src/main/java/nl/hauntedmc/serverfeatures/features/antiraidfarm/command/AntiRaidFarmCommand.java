@@ -1,8 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm.command;
 
-import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.AntiRaidFarm;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.internal.AntiRaidFarmHandler;
 import org.bukkit.command.CommandSender;
@@ -10,7 +9,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.stream.Stream;
 
 public final class AntiRaidFarmCommand extends FeatureCommand {

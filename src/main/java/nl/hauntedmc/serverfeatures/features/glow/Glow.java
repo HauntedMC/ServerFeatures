@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.glow;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowRegistry;
 import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;

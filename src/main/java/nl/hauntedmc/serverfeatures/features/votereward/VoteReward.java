@@ -1,15 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.votereward;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.votereward.internal.VoteHandler;
 import nl.hauntedmc.serverfeatures.features.votereward.listener.NativeVoteListener;
 import nl.hauntedmc.serverfeatures.features.votereward.listener.VoteJoinListener;
 import nl.hauntedmc.serverfeatures.features.votereward.listener.VotifierVoteListener;
 import nl.hauntedmc.serverfeatures.features.votereward.meta.Meta;
-import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureCacheManager;
 import org.bukkit.Bukkit;
 

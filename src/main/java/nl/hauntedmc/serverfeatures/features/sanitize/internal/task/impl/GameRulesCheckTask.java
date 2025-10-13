@@ -10,7 +10,10 @@ import org.bukkit.World;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Checks all known GameRules in all worlds and warns if a value differs from its default.

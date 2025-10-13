@@ -10,7 +10,8 @@ import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Builds and opens the Glow selection menu.

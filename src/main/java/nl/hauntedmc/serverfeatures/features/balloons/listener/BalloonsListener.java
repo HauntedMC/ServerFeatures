@@ -1,11 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.balloons.listener;
 
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
-import org.bukkit.entity.*;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Parrot;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.*;
-import org.bukkit.event.player.*;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityMountEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.PlayerLeashEntityEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerUnleashEntityEvent;
 
 /**
  * Event wiring for balloons (no persistence, no item mode).

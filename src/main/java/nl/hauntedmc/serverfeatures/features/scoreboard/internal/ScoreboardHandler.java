@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 

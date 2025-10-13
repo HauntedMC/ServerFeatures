@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.config;
 
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;

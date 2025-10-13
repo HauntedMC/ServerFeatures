@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.framework.localization;
 
-import nl.hauntedmc.serverfeatures.api.io.localization.Language;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
-import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
+import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
@@ -94,6 +94,9 @@ public class LocalizationHandler {
         private Audience audience;
         private MessagePlaceholders placeholders = MessagePlaceholders.empty();
 
+        private boolean autoLinkUrls = false;
+        private boolean autoLinkUnderline = true;
+
         private MessageBuilder(String key) {
             this.key = key;
         }
@@ -119,6 +122,15 @@ public class LocalizationHandler {
         public MessageBuilder with(String key, Number value)        { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addNumber(key, value).build(); return this; }
         public MessageBuilder with(String key, Component value)     { this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addComponent(key, value).build(); return this; }
 
+        public MessageBuilder autoLinkUrls(boolean on) {
+            this.autoLinkUrls = on;
+            return this;
+        }
+
+        public MessageBuilder autoLinkUnderline(boolean on) {
+            this.autoLinkUnderline = on;
+            return this;
+        }
 
         /**
          * Build and return the configured message component.
@@ -144,11 +156,15 @@ public class LocalizationHandler {
                     })
                     .toMiniMessage();
 
-            return ComponentCodec.deserialize(messageString)
+            ComponentCodec.Converter converter = ComponentCodec.deserialize(messageString)
                     .expect(TextCodec.Input.MINIMESSAGE)
-                    .features(ComponentCodec.ALL_DEFAULTS())
-                    .autoLinkUrls()
-                    .toComponent();
+                    .features(ComponentCodec.ALL_DEFAULTS());
+
+            if (autoLinkUrls) {
+                converter.autoLinkUrls(autoLinkUnderline);
+            }
+
+            return converter.toComponent();
         }
 
     }

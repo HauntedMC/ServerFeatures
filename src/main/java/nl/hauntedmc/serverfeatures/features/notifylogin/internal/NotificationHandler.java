@@ -22,7 +22,10 @@ public class NotificationHandler {
                 return;
             }
             for (Player p : Bukkit.getOnlinePlayers()) {
-                p.sendMessage(feature.getLocalizationHandler().getMessage("notifylogin.supremeplus").forAudience(p).withPlaceholders(Map.of("name", player.getName())).build());
+                p.sendMessage(feature.getLocalizationHandler().getMessage("notifylogin.supremeplus")
+                        .forAudience(p)
+                        .with("name", player.getName())
+                        .build());
             }
         }
     }

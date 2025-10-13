@@ -1,14 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 public class CommandRelayCommand extends FeatureCommand {
     private final CommandRelay feature;

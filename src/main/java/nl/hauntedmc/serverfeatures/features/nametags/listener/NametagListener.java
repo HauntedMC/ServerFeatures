@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
-
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -11,7 +10,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
-
 import org.jetbrains.annotations.NotNull;
 
 public class NametagListener implements Listener {

@@ -5,9 +5,9 @@ import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 
 public final class BetterDoorsListener implements Listener {

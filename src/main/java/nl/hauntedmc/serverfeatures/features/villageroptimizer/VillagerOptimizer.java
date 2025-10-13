@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.villageroptimizer;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.villageroptimizer.listener.VillagerEventListener;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.internal.VillagerAIHandler;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.internal.VillagerLevelHandler;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.internal.VillagerRestockHandler;
+import nl.hauntedmc.serverfeatures.features.villageroptimizer.listener.VillagerEventListener;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.meta.Meta;
 
 import java.util.List;

@@ -14,7 +14,9 @@ import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.*;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
@@ -68,7 +70,13 @@ public class SkinService {
     public void applySkin(CommandSender actor, Player target, String donorName, boolean isSelf) {
         final String cleaned = donorName.trim();
         if (!isValidName(cleaned)) {
-            sendSync(actor, "skins.invalid_name", Map.of("skin", cleaned));
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                    actor.sendMessage(feature.getLocalizationHandler()
+                            .getMessage("skins.invalid_name")
+                            .forAudience(actor)
+                            .with("skin", cleaned)
+                            .build())
+            );
             return;
         }
 
@@ -79,14 +87,27 @@ public class SkinService {
             }
         }
 
-        sendSync(actor, "skins.working", Map.of("skin", cleaned));
+        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                actor.sendMessage(feature.getLocalizationHandler()
+                        .getMessage("skins.working")
+                        .forAudience(actor)
+                        .with("skin", cleaned)
+                        .build())
+        );
+
         feature.getLogger().info(actor.getName() + " requested skin '" + cleaned + "' for " + target.getName());
 
         feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
             try {
                 ProfileData donor = fetchOfficialProfileByName(cleaned);
                 if (donor == null || donor.texturesProp == null) {
-                    scheduleSend(actor, "skins.lookup_failed", Map.of("skin", cleaned));
+                    feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                            actor.sendMessage(feature.getLocalizationHandler()
+                                    .getMessage("skins.lookup_failed")
+                                    .forAudience(actor)
+                                    .with("skin", cleaned)
+                                    .build())
+                    );
                     feature.getLogger().warning("Failed to resolve official textures for '" + cleaned + "'");
                     if (isSelf && !actor.hasPermission("serverfeatures.feature.skins.bypass.cooldown")) {
                         state.clearLastUse(target.getUniqueId());
@@ -109,13 +130,22 @@ public class SkinService {
                     Bukkit.getPluginManager().callEvent(new SkinUpdateEvent(now, SkinUpdateType.SET, donor.name()));
 
                     if (isSelf) {
-                        send(actor, "skins.applied.self", Map.of("skin", donor.name));
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.applied.self")
+                                .forAudience(actor)
+                                .with("skin", donor.name)
+                                .build());
                     } else {
-                        send(actor, "skins.applied.other", Map.of("player", now.getName(), "skin", donor.name));
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.applied.other")
+                                .forAudience(actor)
+                                .with("player", now.getName())
+                                .with("skin", donor.name)
+                                .build());
                         now.sendMessage(feature.getLocalizationHandler()
                                 .getMessage("skins.notify_target_applied")
-                                .withPlaceholders(Map.of("skin", donor.name))
                                 .forAudience(now)
+                                .with("skin", donor.name)
                                 .build());
                     }
 
@@ -124,7 +154,13 @@ public class SkinService {
 
             } catch (Throwable ex) {
                 feature.getLogger().warning("Exception while resolving skin '" + cleaned + "': " + ex);
-                scheduleSend(actor, "skins.lookup_failed", Map.of("skin", cleaned));
+                feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.lookup_failed")
+                                .forAudience(actor)
+                                .with("skin", cleaned)
+                                .build())
+                );
                 if (isSelf && !actor.hasPermission("serverfeatures.feature.skins.bypass.cooldown")) {
                     state.clearLastUse(target.getUniqueId());
                 }
@@ -142,15 +178,31 @@ public class SkinService {
 
         if (!state.hasCustomSkin(uuid)) {
             if (isSelf) {
-                sendSync(actor, "skins.none_applied.self", Map.of());
+                feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.none_applied.self")
+                                .forAudience(actor)
+                                .build())
+                );
             } else {
-                sendSync(actor, "skins.none_applied.other", Map.of("player", target.getName()));
+                feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.none_applied.other")
+                                .forAudience(actor)
+                                .with("player", target.getName())
+                                .build())
+                );
             }
             return;
         }
 
         if (isSelf) {
-            sendSync(actor, "skins.removing", Map.of());
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                    actor.sendMessage(feature.getLocalizationHandler()
+                            .getMessage("skins.removing")
+                            .forAudience(actor)
+                            .build())
+            );
         }
 
         feature.getLogger().info(actor.getName() + " requested skin removal for " + target.getName());
@@ -176,9 +228,16 @@ public class SkinService {
 
                     state.markCustomSkin(uuid, false);
                     if (isSelf) {
-                        send(actor, "skins.removed.self", Map.of());
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.removed.self")
+                                .forAudience(actor)
+                                .build());
                     } else {
-                        send(actor, "skins.removed.other", Map.of("player", now.getName()));
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage("skins.removed.other")
+                                .forAudience(actor)
+                                .with("player", now.getName())
+                                .build());
                         now.sendMessage(feature.getLocalizationHandler()
                                 .getMessage("skins.notify_target_removed")
                                 .forAudience(now)
@@ -195,9 +254,16 @@ public class SkinService {
                     if (now != null && now.isOnline()) {
                         state.markCustomSkin(uuid, false);
                         if (isSelf) {
-                            send(actor, "skins.removed.self", Map.of());
+                            actor.sendMessage(feature.getLocalizationHandler()
+                                    .getMessage("skins.removed.self")
+                                    .forAudience(actor)
+                                    .build());
                         } else {
-                            send(actor, "skins.removed.other", Map.of("player", now.getName()));
+                            actor.sendMessage(feature.getLocalizationHandler()
+                                    .getMessage("skins.removed.other")
+                                    .forAudience(actor)
+                                    .with("player", now.getName())
+                                    .build());
                             now.sendMessage(feature.getLocalizationHandler()
                                     .getMessage("skins.notify_target_removed")
                                     .forAudience(now)
@@ -228,7 +294,13 @@ public class SkinService {
 
         if (last != 0L && elapsed < cd) {
             long remaining = cd - elapsed;
-            sendSync(actor, "skins.cooldown_active", Map.of("seconds", String.valueOf(remaining)));
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() ->
+                    actor.sendMessage(feature.getLocalizationHandler()
+                            .getMessage("skins.cooldown_active")
+                            .forAudience(actor)
+                            .with("seconds", String.valueOf(remaining))
+                            .build())
+            );
             return false;
         }
 
@@ -249,23 +321,6 @@ public class SkinService {
         profile.getProperties().removeIf(p -> "textures".equals(p.getName()));
         profile.setProperty(donor.texturesProp);
         target.setPlayerProfile(profile);
-    }
-
-    private void send(CommandSender audience, String key, Map<String, String> placeholders) {
-        var msg = feature.getLocalizationHandler().getMessage(key);
-        if (placeholders != null && !placeholders.isEmpty()) {
-            msg = msg.withPlaceholders(placeholders);
-        }
-        audience.sendMessage(msg.forAudience(audience).build());
-    }
-
-    private void scheduleSend(CommandSender audience, String key, Map<String, String> placeholders) {
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> send(audience, key, placeholders));
-    }
-
-    /** Convenience: always send on main thread. */
-    private void sendSync(CommandSender audience, String key, Map<String, String> placeholders) {
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> send(audience, key, placeholders));
     }
 
     /* ------------------------------------------------------- */

@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.hook;
 
 import net.kyori.adventure.text.Component;
-
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import org.bukkit.entity.Player;
 

@@ -6,7 +6,10 @@ import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class ActionbarCommand extends FeatureCommand {
     private final Actionbar feature;

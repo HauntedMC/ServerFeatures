@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.afk.internal.engine.rules;
 
-import nl.hauntedmc.serverfeatures.features.afk.internal.engine.*;
+import nl.hauntedmc.serverfeatures.features.afk.internal.engine.AfkServiceFacade;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkDecision;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkDecisionType;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkPriority;

@@ -2,15 +2,14 @@ package nl.hauntedmc.serverfeatures.features.staffchat.listener;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
 import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.features.staffchat.StaffChat;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannel;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannelHandler;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.StaffChatMessage;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.entity.Player;
-
-import nl.hauntedmc.serverfeatures.features.staffchat.StaffChat;
 
 public class ChatListener implements Listener {
 

@@ -31,7 +31,7 @@ public class VillagerLevelHandler {
         if (vilLevelCooldown > currentTime) {
             player.sendMessage(feature.getLocalizationHandler().getMessage("villageroptimizer.cooldownLevelupMessage")
                     .forAudience(player)
-                    .withPlaceholders(Map.of("time_sec",  Long.toString(sec)))
+                    .with("time_sec", sec)
                     .build());
             return;
         }

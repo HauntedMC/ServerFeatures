@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.api.gui.displays.options;
 
-import org.bukkit.Material;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Material;
 
 import java.util.HashMap;
 import java.util.Map;

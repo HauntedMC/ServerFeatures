@@ -2,7 +2,9 @@ package nl.hauntedmc.serverfeatures.api.gui.displays.shape;
 
 import org.bukkit.util.Vector;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Axis-aligned cuboid region shape, with optional named points (e.g., pos1/pos2).

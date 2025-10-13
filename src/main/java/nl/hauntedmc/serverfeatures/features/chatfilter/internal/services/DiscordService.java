@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.chatfilter.internal.services;
 import nl.hauntedmc.serverfeatures.api.util.http.DiscordUtils;
 import nl.hauntedmc.serverfeatures.api.util.parse.JsonUtils;
 import nl.hauntedmc.serverfeatures.features.chatfilter.ChatFilter;
+
 import java.time.Instant;
 
 public class DiscordService {

@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.MiniMessageFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.StarTierModifier;
@@ -47,7 +47,7 @@ public class ChatHandler {
     /** Chat message component (colors/formatting/url handling gated by perms). */
     private Component buildChatComponent(Player player, Component messageComponent) {
         // Convert incoming component to legacy text so we can support users typing &/§ codes.
-        String rawMessage = LegacyComponentSerializer.legacySection().serialize(messageComponent);
+        String rawMessage = ComponentCodec.serialize(messageComponent).format(ComponentCodec.Serializer.Format.LEGACY_SECTION).build();
 
         String filtered = filterChatAttributes(player, rawMessage);
         String miniMsg = translateMinecraftToMiniMessage(filtered, false);

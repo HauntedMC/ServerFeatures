@@ -6,7 +6,9 @@ import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.util.SafeFs;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 

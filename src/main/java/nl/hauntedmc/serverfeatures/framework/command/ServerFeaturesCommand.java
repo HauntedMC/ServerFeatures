@@ -3,13 +3,15 @@ package nl.hauntedmc.serverfeatures.framework.command;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.enable.FeatureEnableResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResponse;
-import org.bukkit.command.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -23,11 +25,13 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         this.plugin = plugin;
     }
 
-
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (args.length == 0) {
-            send("general.usage", sender, MessagePlaceholders.empty());
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("general.usage")
+                    .forAudience(sender)
+                    .build());
             return true;
         }
 
@@ -44,13 +48,25 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
             case "softreload":
                 if (!has(sender, "serverfeatures.command.reload")) return true;
-                if (args.length < 2) { send("command.softreload.usage", sender, MessagePlaceholders.empty()); return true; }
+                if (args.length < 2) {
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.softreload.usage")
+                            .forAudience(sender)
+                            .build());
+                    return true;
+                }
                 handleSoftReload(sender, args[1]);
                 return true;
 
             case "reload":
                 if (!has(sender, "serverfeatures.command.reload")) return true;
-                if (args.length < 2) { send("command.reload.usage", sender, MessagePlaceholders.empty()); return true; }
+                if (args.length < 2) {
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.reload.usage")
+                            .forAudience(sender)
+                            .build());
+                    return true;
+                }
                 handleReload(sender, args[1]);
                 return true;
 
@@ -70,15 +86,24 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
                 if (!has(sender, "serverfeatures.command.reloadlocal")) return true;
                 try {
                     plugin.getLocalizationHandler().reloadLocalization();
-                    send("command.reloadlocal.success", sender, MessagePlaceholders.empty());
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.reloadlocal.success")
+                            .forAudience(sender)
+                            .build());
                 } catch (Throwable t) {
                     plugin.getLogger().warning("Localization reload failed: " + t.getMessage());
-                    send("command.reloadlocal.fail", sender, MessagePlaceholders.empty());
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.reloadlocal.fail")
+                            .forAudience(sender)
+                            .build());
                 }
                 return true;
 
             default:
-                send("general.unknown_command", sender, MessagePlaceholders.empty());
+                sender.sendMessage(plugin.getLocalizationHandler()
+                        .getMessage("general.unknown_command")
+                        .forAudience(sender)
+                        .build());
                 return true;
         }
     }
@@ -86,18 +111,49 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
     private void handleEnable(CommandSender sender, String feature) {
         FeatureEnableResponse resp = plugin.getFeatureLoadManager().enableFeature(feature);
         switch (resp.result()) {
-            case SUCCESS -> send("command.enable.success", sender, Map.of("feature", feature));
-            case NOT_FOUND -> send("command.enable.not_found", sender, Map.of("feature", feature));
-            case ALREADY_LOADED -> send("command.enable.already_loaded", sender, Map.of("feature", feature));
+            case SUCCESS -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.enable.success")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            case NOT_FOUND -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.enable.not_found")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            case ALREADY_LOADED -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.enable.already_loaded")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
             case MISSING_PLUGIN_DEPENDENCY -> {
                 String plugins = String.join(", ", resp.missingPlugins());
-                send("command.enable.missing_plugin_dependency", sender, Map.of("feature", feature, "plugins", plugins));
+                sender.sendMessage(plugin.getLocalizationHandler()
+                        .getMessage("command.enable.missing_plugin_dependency")
+                        .forAudience(sender)
+                        .with("feature", feature)
+                        .with("plugins", plugins)
+                        .build());
             }
+
             case MISSING_FEATURE_DEPENDENCY -> {
                 String deps = String.join(", ", resp.missingFeatures());
-                send("command.enable.missing_feature_dependency", sender, Map.of("feature", feature, "features", deps));
+                sender.sendMessage(plugin.getLocalizationHandler()
+                        .getMessage("command.enable.missing_feature_dependency")
+                        .forAudience(sender)
+                        .with("feature", feature)
+                        .with("features", deps)
+                        .build());
             }
-            default -> send("command.enable.failed", sender, Map.of("feature", feature));
+
+            default -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.enable.failed")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
         }
     }
 
@@ -106,25 +162,55 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         switch (resp.result()) {
             case SUCCESS -> {
                 if (!resp.alsoDisabledDependents().isEmpty()) {
-                    send("command.disable.success_with_dependents", sender, Map.of(
-                            "feature", feature,
-                            "dependents", String.join(", ", resp.alsoDisabledDependents())
-                    ));
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.disable.success_with_dependents")
+                            .forAudience(sender)
+                            .with("feature", feature)
+                            .with("dependents", String.join(", ", resp.alsoDisabledDependents()))
+                            .build());
                 } else {
-                    send("command.disable.success", sender, Map.of("feature", feature));
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.disable.success")
+                            .forAudience(sender)
+                            .with("feature", feature)
+                            .build());
                 }
             }
-            case NOT_LOADED -> send("command.disable.not_loaded", sender, Map.of("feature", feature));
-            default -> send("command.disable.failed", sender, Map.of("feature", feature));
+
+            case NOT_LOADED -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.disable.not_loaded")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            default -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.disable.failed")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
         }
     }
 
     private void handleSoftReload(CommandSender sender, String feature) {
         FeatureSoftReloadResponse resp = plugin.getFeatureLoadManager().softReloadFeature(feature);
         switch (resp.result()) {
-            case SUCCESS -> send("command.softreload.success", sender, Map.of("feature", feature));
-            case NOT_LOADED -> send("command.softreload.not_loaded", sender, Map.of("feature", feature));
-            default -> send("command.softreload.failed", sender, Map.of("feature", feature));
+            case SUCCESS -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.softreload.success")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            case NOT_LOADED -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.softreload.not_loaded")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            default -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.softreload.failed")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
         }
     }
 
@@ -133,33 +219,44 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         switch (resp.result()) {
             case SUCCESS -> {
                 if (!resp.reloadedDependents().isEmpty()) {
-                    send("command.reload.success_with_dependents", sender, Map.of(
-                            "feature", feature,
-                            "dependents", String.join(", ", resp.reloadedDependents())
-                    ));
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.reload.success_with_dependents")
+                            .forAudience(sender)
+                            .with("feature", feature)
+                            .with("dependents", String.join(", ", resp.reloadedDependents()))
+                            .build());
                 } else {
-                    send("command.reload.success", sender, Map.of("feature", feature));
+                    sender.sendMessage(plugin.getLocalizationHandler()
+                            .getMessage("command.reload.success")
+                            .forAudience(sender)
+                            .with("feature", feature)
+                            .build());
                 }
             }
-            case NOT_LOADED -> send("command.reload.not_loaded", sender, Map.of("feature", feature));
-            default -> send("command.reload.failed", sender, Map.of("feature", feature));
+
+            case NOT_LOADED -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.reload.not_loaded")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
+
+            default -> sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.reload.failed")
+                    .forAudience(sender)
+                    .with("feature", feature)
+                    .build());
         }
     }
 
     private boolean has(CommandSender sender, String perm) {
         if (!sender.hasPermission(perm)) {
-            send("general.no_permission", sender, MessagePlaceholders.empty());
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("general.no_permission")
+                    .forAudience(sender)
+                    .build());
             return false;
         }
         return true;
-    }
-
-    private void send(String key, CommandSender audience, MessagePlaceholders placeholders) {
-        audience.sendMessage(plugin.getLocalizationHandler()
-                .getMessage(key)
-                .forAudience(audience)
-                .withPlaceholders(placeholders)
-                .build());
     }
 
     private void sendPluginStatus(@NotNull CommandSender sender) {
@@ -192,16 +289,25 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         List<BukkitBaseFeature<?>> loadedFeatures = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
 
         if (loadedFeatures.isEmpty()) {
-            send("command.list.empty", sender, Map.of());
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.list.empty")
+                    .forAudience(sender)
+                    .build());
             return;
         }
 
-        send("command.list.header", sender, Map.of());
+        sender.sendMessage(plugin.getLocalizationHandler()
+                .getMessage("command.list.header")
+                .forAudience(sender)
+                .build());
+
         for (BukkitBaseFeature<?> feature : loadedFeatures) {
-            send("command.list.entry", sender, Map.of(
-                    "feature", feature.getFeatureName(),
-                    "version", feature.getFeatureVersion()
-            ));
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.list.entry")
+                    .forAudience(sender)
+                    .with("feature", feature.getFeatureName())
+                    .with("version", feature.getFeatureVersion())
+                    .build());
         }
     }
 
@@ -210,7 +316,6 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         final Locale L = Locale.ROOT;
 
         if (args.length == 1) {
-            // Filter subcommands by the typed prefix
             String prefix = args[0].toLowerCase(L);
             return Stream.of("list", "disable", "enable", "reload", "reloadlocal", "softreload", "status")
                     .filter(s -> s.toLowerCase(L).startsWith(prefix))
@@ -224,14 +329,13 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
 
             return switch (sub) {
                 case "reload", "softreload", "disable" ->
-                    // Only loaded features, filtered by prefix
                         plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                                 .map(BukkitBaseFeature::getFeatureName)
                                 .filter(name -> name != null && name.toLowerCase(L).startsWith(featurePrefix))
                                 .sorted(String.CASE_INSENSITIVE_ORDER)
                                 .toList();
+
                 case "enable" -> {
-                    // Available features that are NOT loaded yet, filtered by prefix
                     Set<String> loadedLower = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures().stream()
                             .map(BukkitBaseFeature::getFeatureName)
                             .filter(Objects::nonNull)
@@ -249,6 +353,6 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
             };
         }
 
-        return java.util.Collections.emptyList();
+        return Collections.emptyList();
     }
 }

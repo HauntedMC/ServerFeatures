@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
+import com.github.retrooper.packetevents.util.Vector3f;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
-import com.github.retrooper.packetevents.util.Vector3f;
 import org.bukkit.Color;
 import org.bukkit.entity.Player;
 

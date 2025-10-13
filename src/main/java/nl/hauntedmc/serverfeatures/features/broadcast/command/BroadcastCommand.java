@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures.features.broadcast.command;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.features.broadcast.Broadcast;
@@ -13,7 +13,10 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 

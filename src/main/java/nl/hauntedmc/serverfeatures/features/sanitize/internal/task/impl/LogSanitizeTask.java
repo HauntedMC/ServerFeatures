@@ -5,7 +5,9 @@ import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeResul
 import nl.hauntedmc.serverfeatures.features.sanitize.internal.task.SanitizeTask;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;

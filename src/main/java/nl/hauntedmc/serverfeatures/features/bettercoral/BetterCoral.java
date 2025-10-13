@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.bettercoral;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.bettercoral.listener.BetterCoralListener;
 import nl.hauntedmc.serverfeatures.features.bettercoral.meta.Meta;

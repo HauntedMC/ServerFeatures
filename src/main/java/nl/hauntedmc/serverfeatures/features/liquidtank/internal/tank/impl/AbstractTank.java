@@ -8,7 +8,10 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.MessageUtils;
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 

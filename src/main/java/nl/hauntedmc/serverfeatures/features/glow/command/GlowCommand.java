@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.glow.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.menu.GlowMenu;
 import org.bukkit.command.CommandSender;

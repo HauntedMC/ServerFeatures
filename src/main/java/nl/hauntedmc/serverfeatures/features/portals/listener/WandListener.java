@@ -65,12 +65,18 @@ public final class WandListener implements Listener {
             if (action == Action.LEFT_CLICK_BLOCK) {
                 handler.setPos1(p, clicked.getLocation());
                 p.sendMessage(feature.getLocalizationHandler().getMessage("portals.pos1.set")
-                        .withPlaceholders(Map.of("world", world, "x", String.valueOf(x), "y", String.valueOf(y), "z", String.valueOf(z)))
+                        .with("world", world)
+                        .with("x", x)
+                        .with ("y", y)
+                        .with("z", z)
                         .forAudience(p).build());
             } else { // RIGHT_CLICK_BLOCK
                 handler.setPos2(p, clicked.getLocation());
                 p.sendMessage(feature.getLocalizationHandler().getMessage("portals.pos2.set")
-                        .withPlaceholders(Map.of("world", world, "x", String.valueOf(x), "y", String.valueOf(y), "z", String.valueOf(z)))
+                        .with("world", world)
+                        .with("x", x)
+                        .with ("y", y)
+                        .with("z", z)
                         .forAudience(p).build());
             }
         }

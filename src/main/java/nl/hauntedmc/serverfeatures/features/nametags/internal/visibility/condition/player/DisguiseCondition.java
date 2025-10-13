@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player;
 
-import org.bukkit.entity.Player;
 import me.libraryaddict.disguise.DisguiseAPI;
+import org.bukkit.entity.Player;
 
 public class DisguiseCondition  extends PlayerVisibilityCondition {
 

@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.antiraidfarm.command.AntiRaidFarmCommand;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.internal.AntiRaidFarmHandler;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.listener.AntiRaidFarmListener;
 import nl.hauntedmc.serverfeatures.features.antiraidfarm.meta.Meta;
-import nl.hauntedmc.serverfeatures.features.antiraidfarm.command.AntiRaidFarmCommand;
 
 public final class AntiRaidFarm extends BukkitBaseFeature<Meta> {
 

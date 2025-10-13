@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.lagmonitor.internal.service;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lagmonitor.LagMonitor;
 import org.bukkit.Bukkit;
+
 import java.util.ArrayDeque;
-import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class TPSMonitorService {
@@ -82,7 +82,11 @@ public class TPSMonitorService {
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         Bukkit.getOnlinePlayers().stream()
                 .filter(player -> player.hasPermission("serverfeatures.feature.lagmonitor.notify"))
-                .forEach(player -> player.sendMessage(feature.getLocalizationHandler().getMessage("lagmonitor.notify_lag").forAudience(player).withPlaceholders(Map.of("tps", avgTps, "server", serverName)).build()));
+                .forEach(player -> player.sendMessage(feature.getLocalizationHandler().getMessage("lagmonitor.notify_lag")
+                        .forAudience(player)
+                        .with("tps", avgTps)
+                        .with("server", serverName)
+                        .build()));
     }
 
     private void sendDiscordAlert(String avgTps) {

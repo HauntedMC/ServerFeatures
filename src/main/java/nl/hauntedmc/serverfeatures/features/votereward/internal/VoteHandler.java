@@ -1,16 +1,18 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
-import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
 import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
+import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class VoteHandler {
 
@@ -61,7 +63,7 @@ public class VoteHandler {
             p.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("votereward.vote_broadcast")
-                            .withPlaceholders(Map.of("player", name))
+                            .with("player", name)
                             .forAudience(p)
                             .build()
             );
@@ -72,7 +74,7 @@ public class VoteHandler {
         player.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("votereward.vote_received")
-                        .withPlaceholders(Map.of("player", player.getName()))
+                        .with("player", player.getName())
                         .forAudience(player)
                         .build()
         );
@@ -112,7 +114,7 @@ public class VoteHandler {
                 player.sendMessage(
                         feature.getLocalizationHandler()
                                 .getMessage("votereward.offline_votes_retrieved")
-                                .withPlaceholders(Map.of("count", String.valueOf(count)))
+                                .with("count", String.valueOf(count))
                                 .forAudience(player)
                                 .build()
                 ), BukkitTime.ticks(msgDelay)

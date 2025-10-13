@@ -2,11 +2,7 @@ package nl.hauntedmc.serverfeatures.api.util.text;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
-import java.util.EnumSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.config;
 
+import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.RecipeFactory;
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;

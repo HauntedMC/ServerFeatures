@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.balloons;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.balloons.command.BalloonsCommand;
 import nl.hauntedmc.serverfeatures.features.balloons.internal.BalloonsHandler;

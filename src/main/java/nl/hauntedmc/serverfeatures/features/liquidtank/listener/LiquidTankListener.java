@@ -1,8 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.listener;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
@@ -57,11 +58,8 @@ public class LiquidTankListener implements Listener {
             ItemMeta meta = blockPlaceEvent.getItemInHand().getItemMeta();
             Component display = (meta != null) ? meta.displayName() : null;
 
-            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER
-                    || display == null
-                    || !LegacyComponentSerializer.legacyAmpersand()
-                    .deserialize(feature.getTankManager().getItemName())
-                    .equals(display)) {
+            if (blockPlaceEvent.getBlock().getType() != Material.HOPPER || display == null ||
+                    !ComponentCodec.deserialize(feature.getTankManager().getItemName()).expect(TextCodec.Input.LEGACY_AMPERSAND).features(ComponentCodec.Feature.COLORS).toComponent().equals(display)) {
                 return;
             }
             if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {

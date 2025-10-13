@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import org.bukkit.NamespacedKey;

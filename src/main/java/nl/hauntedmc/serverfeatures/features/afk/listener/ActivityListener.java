@@ -6,14 +6,18 @@ import nl.hauntedmc.serverfeatures.features.afk.AFK;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.event.AfkEvent;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.event.AfkEventType;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.util.Movement;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
-import org.bukkit.event.*;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.inventory.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.*;
 
 public class ActivityListener implements Listener {

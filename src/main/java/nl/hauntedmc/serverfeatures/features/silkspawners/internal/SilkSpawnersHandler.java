@@ -10,10 +10,10 @@ import org.bukkit.block.CreatureSpawner;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
-import org.bukkit.event.block.BlockBreakEvent;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +45,7 @@ public class SilkSpawnersHandler {
                     feature.getLocalizationHandler()
                             .getMessage("general.no_permission_rank")
                             .forAudience(player)
-                            .withPlaceholders(Map.of("rank", "&6Legend"))
+                            .with("rank", "&6Legend")
                             .build()
             );
             event.setCancelled(true);
@@ -69,7 +69,7 @@ public class SilkSpawnersHandler {
             player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("silkspawners.not_allowed_type")
-                            .withPlaceholders(Map.of("type", typeName))
+                            .with("type", typeName)
                             .forAudience(player)
                             .build()
             );
@@ -101,7 +101,7 @@ public class SilkSpawnersHandler {
         player.sendMessage(
                 feature.getLocalizationHandler()
                         .getMessage("silkspawners.success")
-                        .withPlaceholders(Map.of("type", typeName))
+                        .with("type", typeName)
                         .forAudience(player)
                         .build()
         );
@@ -122,7 +122,7 @@ public class SilkSpawnersHandler {
                     feature.getLocalizationHandler()
                             .getMessage("general.no_permission_rank")
                             .forAudience(player)
-                            .withPlaceholders(Map.of("rank", "&6Legend"))
+                            .with("rank", "&6Legend")
                             .build()
             );
             event.setCancelled(true);
@@ -166,7 +166,7 @@ public class SilkSpawnersHandler {
             player.sendMessage(
                     feature.getLocalizationHandler()
                             .getMessage("silkspawners.not_allowed_type")
-                            .withPlaceholders(Map.of("type", typeName))
+                            .with("type", typeName)
                             .forAudience(player)
                             .build()
             );

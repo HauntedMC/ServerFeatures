@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.nickname.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -29,7 +29,10 @@ public class NickCommand extends FeatureCommand {
         }
 
         if (!player.hasPermission("serverfeatures.feature.nickname.command.nickname")) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank").forAudience(player).withPlaceholders(Map.of("rank", "&6Elite")).build());
+            player.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission_rank")
+                    .forAudience(player)
+                    .with("rank", "&6Elite")
+                    .build());
             return false;
         }
 
@@ -46,7 +49,10 @@ public class NickCommand extends FeatureCommand {
                 boolean succes = feature.getNicknameHandler().setNickname(player, args[0]);
 
                 if (succes) {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set").forAudience(player).withPlaceholders(Map.of("nickname", args[0])).build());
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
+                            .forAudience(player)
+                            .with("nickname", args[0])
+                            .build());
                 }
             }
             return true;
@@ -61,13 +67,23 @@ public class NickCommand extends FeatureCommand {
             if (args[1].equalsIgnoreCase("remove")) {
                 feature.getNicknameHandler().removeNickname(player);
                 target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(target).build());
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed").forAudience(player).withPlaceholders(Map.of("player", target.getName())).build());
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed")
+                        .forAudience(player)
+                        .with("player", target.getName())
+                        .build());
             } else {
                 boolean succes = feature.getNicknameHandler().setNickname(target, args[1]);
 
                 if (succes) {
-                    target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set").forAudience(target).withPlaceholders(Map.of("nickname", args[1])).build());
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set_other").forAudience(player).withPlaceholders(Map.of("player", target.getName(), "nickname", args[1])).build());
+                    target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
+                            .forAudience(target)
+                            .with("nickname", args[1])
+                            .build());
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set_other")
+                            .forAudience(player)
+                            .with("player", target.getName())
+                            .with("nickname", args[1])
+                            .build());
                 }
             }
         }

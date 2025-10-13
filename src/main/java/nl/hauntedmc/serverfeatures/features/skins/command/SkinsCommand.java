@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.skins.command;
 
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import nl.hauntedmc.serverfeatures.features.skins.service.SkinService;
 import org.bukkit.Bukkit;
@@ -60,7 +60,7 @@ public class SkinsCommand extends FeatureCommand {
             String playerName = args[0];
             Player target = Bukkit.getPlayerExact(playerName);
             if (target == null || !target.isOnline()) {
-                send(sender, "skins.player_not_found", Map.of("player", playerName));
+                sender.sendMessage(feature.getLocalizationHandler().getMessage("skins.player_not_found").forAudience(sender).with("player", playerName).build());
                 return true;
             }
 
@@ -107,13 +107,6 @@ public class SkinsCommand extends FeatureCommand {
                 .build());
     }
 
-    private void send(CommandSender audience, String key, Map<String, String> placeholders) {
-        var msg = feature.getLocalizationHandler().getMessage(key);
-        if (placeholders != null && !placeholders.isEmpty()) {
-            msg = msg.withPlaceholders(placeholders);
-        }
-        audience.sendMessage(msg.forAudience(audience).build());
-    }
 
     @Override
     public @NotNull List<String> tabComplete(@NotNull CommandSender sender,

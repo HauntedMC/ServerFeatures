@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -13,7 +13,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -109,7 +110,7 @@ public class BossbarHandler {
 
     private @NotNull String getMessage(Player player, String messageKey) {
         Component messageComponent = feature.getLocalizationHandler().getMessage("bossbar." + messageKey).forAudience(player).build();
-        return LegacyComponentSerializer.legacyAmpersand().serialize(messageComponent);
+        return ComponentCodec.serialize(messageComponent).format(ComponentCodec.Serializer.Format.LEGACY_AMPERSAND).build();
     }
 
     public void showBossbar(Player player) {

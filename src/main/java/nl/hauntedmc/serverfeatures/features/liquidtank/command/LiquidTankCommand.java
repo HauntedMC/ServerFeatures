@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
 import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
 import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 public class LiquidTankCommand extends FeatureCommand {
 
@@ -47,7 +46,10 @@ public class LiquidTankCommand extends FeatureCommand {
         String targetName = args[1];
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.player_offline").forAudience(player).withPlaceholders(Map.of("player", targetName)).build());
+            player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.player_offline")
+                    .forAudience(player)
+                    .with("player", targetName)
+                    .build());
             return true;
         }
 
@@ -67,7 +69,11 @@ public class LiquidTankCommand extends FeatureCommand {
 
         // Give the target the liquid tank item.
         target.getInventory().addItem(getTankItem(amount));
-        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given").forAudience(player).withPlaceholders(Map.of("player", target.getName(), "amount", String.valueOf(amount))).build());
+        player.sendMessage(feature.getLocalizationHandler().getMessage("liquidtank.given")
+                .forAudience(player)
+                .with("player", target.getName())
+                .with("amount", String.valueOf(amount))
+                .build());
         return true;
     }
 

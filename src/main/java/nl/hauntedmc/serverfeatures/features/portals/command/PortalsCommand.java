@@ -63,9 +63,15 @@ public class PortalsCommand extends FeatureCommand {
                 if (args.length < 2) { usage(sender, "create <id>"); return true; }
                 String id = args[1];
                 if (handler.createPortal(id)) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.created").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.created")
+                            .with("id", id)
+                            .forAudience(sender)
+                            .build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.already_exists").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.already_exists")
+                            .with("id", id)
+                            .forAudience(sender)
+                            .build());
                 }
                 return true;
             }
@@ -73,9 +79,15 @@ public class PortalsCommand extends FeatureCommand {
                 if (args.length < 2) { usage(sender, "delete <id>"); return true; }
                 String id = args[1];
                 if (handler.delete(id)) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.deleted").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.deleted")
+                            .with("id", id)
+                            .forAudience(sender)
+                            .build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
+                            .with("id", id)
+                            .forAudience(sender)
+                            .build());
                 }
                 return true;
             }
@@ -84,9 +96,9 @@ public class PortalsCommand extends FeatureCommand {
                 if (args.length < 2) { usage(sender, "select <id>"); return true; }
                 String id = args[1];
                 if (handler.selectPortal(p, id)) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.select.current").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.select.current").with("id", id).forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", id).forAudience(sender).build());
                 }
                 return true;
             }
@@ -113,9 +125,9 @@ public class PortalsCommand extends FeatureCommand {
                 }
                 boolean ok = handler.saveRegionToSelected(p);
                 if (ok) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.region.saved").withPlaceholders(Map.of("id", sel.selectedPortalId)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.region.saved").with("id", sel.selectedPortalId).forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", sel.selectedPortalId)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", sel.selectedPortalId).forAudience(sender).build());
                 }
                 return true;
             }
@@ -125,10 +137,11 @@ public class PortalsCommand extends FeatureCommand {
                 String mode = args[2];
                 if (handler.setMode(id, mode)) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.mode.set")
-                            .withPlaceholders(Map.of("id", id, "mode", mode.toUpperCase(Locale.ROOT)))
+                            .with("id", id)
+                            .with("mode", mode.toUpperCase(Locale.ROOT))
                             .forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", id).forAudience(sender).build());
                 }
                 return true;
             }
@@ -140,13 +153,15 @@ public class PortalsCommand extends FeatureCommand {
                 if (ok) {
                     var l = p.getLocation();
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.teleport.set")
-                            .withPlaceholders(Map.of(
-                                    "world", l.getWorld().getName(),
-                                    "x", format(l.getX()), "y", format(l.getY()), "z", format(l.getZ()),
-                                    "yaw", format(l.getYaw()), "pitch", format(l.getPitch())))
+                            .with("world", l.getWorld().getName())
+                            .with("x", format(l.getX()))
+                            .with("y", format(l.getY()))
+                            .with("z", format(l.getZ()))
+                            .with("yaw", format(l.getYaw()))
+                            .with("pitch", format(l.getPitch()))
                             .forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", id).forAudience(sender).build());
                 }
                 return true;
             }
@@ -158,10 +173,11 @@ public class PortalsCommand extends FeatureCommand {
                 boolean ok = handler.setCommand(id, stripSlash(cmd), ex);
                 if (ok) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.command.set")
-                            .withPlaceholders(Map.of("command", cmd, "executor", ex.name().toLowerCase()))
+                            .with("command", cmd)
+                            .with("executor", ex.name().toLowerCase())
                             .forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", id).forAudience(sender).build());
                 }
                 return true;
             }
@@ -172,10 +188,11 @@ public class PortalsCommand extends FeatureCommand {
                 boolean ok = handler.setServer(id, serverName);
                 if (ok) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.server.set")
-                            .withPlaceholders(Map.of("id", id, "server", serverName))
+                            .with("id", id)
+                            .with("server", serverName)
                             .forAudience(sender).build());
                 } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found").with("id", id).forAudience(sender).build());
                 }
                 return true;
             }
@@ -186,13 +203,16 @@ public class PortalsCommand extends FeatureCommand {
                 PortalsHandler.ExclusiveBlockResult res = handler.setExclusiveBlock(id, blockName);
                 switch (res) {
                     case NOT_FOUND -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     case INVALID -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.invalid")
-                            .withPlaceholders(Map.of("block", blockName)).forAudience(sender).build());
+                            .with("block", blockName).forAudience(sender).build());
                     case CLEARED -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.cleared")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     case SET -> sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.block.set")
-                            .withPlaceholders(Map.of("id", id, "block", blockName.toUpperCase(Locale.ROOT))).forAudience(sender).build());
+                            .with("id", id)
+                            .with("block", blockName.toUpperCase(Locale.ROOT))
+                            .forAudience(sender)
+                            .build());
                 }
                 return true;
             }
@@ -202,7 +222,7 @@ public class PortalsCommand extends FeatureCommand {
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     return true;
                 }
                 PortalDefinition def = defOpt.get();
@@ -212,14 +232,14 @@ public class PortalsCommand extends FeatureCommand {
                     def.clearSound();
                     registry.savePortal(def);
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.cleared")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     return true;
                 }
 
                 Optional<Sound> resolved = RegistryUtil.resolveSound(soundArg);
                 if (resolved.isEmpty()) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.invalid")
-                            .withPlaceholders(Map.of("sound", soundArg)).forAudience(sender).build());
+                            .with("sound", soundArg).forAudience(sender).build());
                     return true;
                 }
 
@@ -232,7 +252,9 @@ public class PortalsCommand extends FeatureCommand {
                 registry.savePortal(def);
 
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.sound.set")
-                        .withPlaceholders(Map.of("id", id, "sound", RegistryUtil.keyString(resolved.get()), "delay", String.valueOf(delay)))
+                        .with("id", id)
+                        .with("sound", RegistryUtil.keyString(resolved.get()))
+                        .with("delay", String.valueOf(delay))
                         .forAudience(sender).build());
                 return true;
             }
@@ -242,7 +264,7 @@ public class PortalsCommand extends FeatureCommand {
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     return true;
                 }
                 PortalDefinition def = defOpt.get();
@@ -252,14 +274,14 @@ public class PortalsCommand extends FeatureCommand {
                     def.clearParticle();
                     registry.savePortal(def);
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.cleared")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     return true;
                 }
 
                 Optional<Particle> resolved = RegistryUtil.resolveParticle(particleArg);
                 if (resolved.isEmpty()) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.invalid")
-                            .withPlaceholders(Map.of("particle", particleArg)).forAudience(sender).build());
+                            .with("particle", particleArg).forAudience(sender).build());
                     return true;
                 }
 
@@ -272,7 +294,9 @@ public class PortalsCommand extends FeatureCommand {
                 registry.savePortal(def);
 
                 sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.particle.set")
-                        .withPlaceholders(Map.of("id", id, "particle", RegistryUtil.keyString(resolved.get()), "delay", String.valueOf(delay)))
+                        .with("id", id)
+                        .with("particle", RegistryUtil.keyString(resolved.get()))
+                        .with("delay", String.valueOf(delay))
                         .forAudience(sender).build());
                 return true;
             }
@@ -284,7 +308,7 @@ public class PortalsCommand extends FeatureCommand {
                 Optional<PortalDefinition> defOpt = registry.get(id);
                 if (defOpt.isEmpty()) {
                     sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.not_found")
-                            .withPlaceholders(Map.of("id", id)).forAudience(sender).build());
+                            .with("id", id).forAudience(sender).build());
                     return true;
                 }
                 sendPortalInfo(sender, defOpt.get());
@@ -312,8 +336,9 @@ public class PortalsCommand extends FeatureCommand {
         var lh = feature.getLocalizationHandler();
 
         sender.sendMessage(lh.getMessage("portals.info.header")
-                .withPlaceholders(Map.of("id", def.id()))
-                .forAudience(sender).build());
+                .with("id", def.id())
+                .forAudience(sender)
+                .build());
 
         // Mode
         sendProp(sender, "Mode", def.mode().name());
@@ -356,7 +381,8 @@ public class PortalsCommand extends FeatureCommand {
 
     private void sendProp(CommandSender sender, String key, String value) {
         sender.sendMessage(feature.getLocalizationHandler().getMessage("portals.info.prop")
-                .withPlaceholders(Map.of("key", key, "value", value))
+                .with("key", key)
+                .with("value", value)
                 .forAudience(sender).build());
     }
 

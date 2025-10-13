@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.commandlogger.listener;
 
+import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -8,10 +9,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
-import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.event.server.RemoteServerCommandEvent;
-
-import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
+import org.bukkit.event.server.ServerCommandEvent;
 
 import java.lang.reflect.Method;
 

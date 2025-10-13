@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.titles;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.titles.internal.TitleHandler;
 import nl.hauntedmc.serverfeatures.features.titles.listener.PlayerLoginListener;

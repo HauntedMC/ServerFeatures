@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal.update;
 
 import nl.hauntedmc.serverfeatures.api.io.packet.BundleDelimiterPacket;
+import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
-import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Player;
 

@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert;
 
+import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.internal.DurabilityAlertHandler;
 import nl.hauntedmc.serverfeatures.features.durabilityalert.listener.DurabilityAlertListener;

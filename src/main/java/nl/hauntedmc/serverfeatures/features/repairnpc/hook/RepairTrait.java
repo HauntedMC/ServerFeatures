@@ -1,27 +1,24 @@
 package nl.hauntedmc.serverfeatures.features.repairnpc.hook;
 
-import java.util.*;
-
 import net.citizensnpcs.api.event.NPCLeftClickEvent;
 import net.citizensnpcs.api.event.NPCRightClickEvent;
 import net.citizensnpcs.api.npc.NPC;
 import net.citizensnpcs.api.trait.Trait;
 import net.citizensnpcs.api.util.DataKey;
-
 import net.milkbowl.vault.economy.Economy;
-
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.features.repairnpc.RepairNPC;
+import nl.hauntedmc.serverfeatures.features.repairnpc.util.EcoUtil;
+import nl.hauntedmc.serverfeatures.features.repairnpc.util.ItemUtil;
 import org.bukkit.Material;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.inventory.ItemStack;
-
-import nl.hauntedmc.serverfeatures.features.repairnpc.RepairNPC;
-import nl.hauntedmc.serverfeatures.features.repairnpc.util.EcoUtil;
-import nl.hauntedmc.serverfeatures.features.repairnpc.util.ItemUtil;
 import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.*;
 
 public class RepairTrait extends Trait {
     private final RepairNPC feature = RepairNPC.getInstance();
@@ -156,8 +153,8 @@ public class RepairTrait extends Trait {
         p.sendMessage(feature.getLocalizationHandler()
                 .getMessage("repairnpc.cost")
                 .forAudience(p)
-                .withPlaceholders(Map.of("price", cost,
-                        "item", hand.getType().name().toLowerCase().replace('_', ' ')))
+                .with("price", cost)
+                .with("item", hand.getType().name().toLowerCase().replace('_', ' '))
                 .build());
     }
 

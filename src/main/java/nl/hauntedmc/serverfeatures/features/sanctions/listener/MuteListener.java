@@ -61,7 +61,7 @@ public class MuteListener implements Listener {
         if (ms.isPermanent()) {
             key = "sanctions.chat_blocked.perm";
             Component msg = feature.getLocalizationHandler().getMessage(key)
-                    .withPlaceholders(Map.of("reason", reason))
+                    .with("reason", reason)
                     .forAudience(player)
                     .build();
             player.sendMessage(msg);
@@ -69,7 +69,8 @@ public class MuteListener implements Listener {
             String remaining = service.remaining(Instant.now(), ms.expiresAt());
             key = "sanctions.chat_blocked.temp";
             Component msg = feature.getLocalizationHandler().getMessage(key)
-                    .withPlaceholders(Map.of("remaining", remaining, "reason", reason))
+                    .with("remaining", remaining)
+                    .with("reason", reason)
                     .forAudience(player)
                     .build();
             player.sendMessage(msg);

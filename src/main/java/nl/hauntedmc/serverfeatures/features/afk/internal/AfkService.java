@@ -2,7 +2,8 @@ package nl.hauntedmc.serverfeatures.features.afk.internal;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.afk.AFK;
-import nl.hauntedmc.serverfeatures.features.afk.internal.engine.*;
+import nl.hauntedmc.serverfeatures.features.afk.internal.engine.AfkEngine;
+import nl.hauntedmc.serverfeatures.features.afk.internal.engine.AfkServiceFacade;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkDecision;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkDecisionType;
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.decision.AfkPriority;
