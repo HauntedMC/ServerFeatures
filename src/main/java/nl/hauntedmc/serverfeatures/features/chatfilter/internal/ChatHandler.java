@@ -29,11 +29,15 @@ public class ChatHandler {
     private final Component prefix = Component.text("[", NamedTextColor.GRAY)
             .append(Component.text("ChatFilter", NamedTextColor.RED))
             .append(Component.text("] ", NamedTextColor.GRAY));
+    private final int minSuffixLength;
+    private final int minPrefixLength;
 
     public ChatHandler(ChatFilter feature) {
         this.feature = feature;
         this.disallowedWords = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("disallowedWords"), String.class);
         this.whitelistedDomains = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("whitelistedDomains"), String.class);
+        this.minPrefixLength = (int) feature.getConfigHandler().getSetting("minPrefixLength");
+        this.minSuffixLength = (int) feature.getConfigHandler().getSetting("minSuffixLength");
         this.discordService = new DiscordService(feature);
     }
 
@@ -222,8 +226,22 @@ public class ChatHandler {
             // Prefix/suffix matching on individual tokens
             for (String token : tokens) {
                 if (token.length() > wlen) {
-                    if (token.startsWith(word) || token.endsWith(word)) {
-                        return true;
+                    // word at the START: need enough suffix padding to allow it through
+                    if (token.startsWith(word)) {
+                        int suffixExtra = token.length() - wlen;
+                        // Block only if the extra suffix is too short
+                        if (suffixExtra < minSuffixLength) {
+                            return true;
+                        }
+                    }
+
+                    // word at the END: need enough prefix padding to allow it through
+                    if (token.endsWith(word)) {
+                        int prefixExtra = token.length() - wlen;
+                        // Block only if the extra prefix is too short
+                        if (prefixExtra < minPrefixLength) {
+                            return true;
+                        }
                     }
                 }
             }

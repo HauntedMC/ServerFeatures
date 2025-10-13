@@ -25,6 +25,9 @@ public class ChatFilter extends BukkitBaseFeature<Meta> {
         // Anti-caps settings
         defaults.put("minCapsLength", 10);
         defaults.put("maxCapsPercentage", 20.0);
+        defaults.put("minPrefixLength", 2);
+        defaults.put("minSuffixLength", 2);
+
         // Word and link filtering
         // Whitelisted domains
         defaults.put("whitelistedDomains", List.of(
