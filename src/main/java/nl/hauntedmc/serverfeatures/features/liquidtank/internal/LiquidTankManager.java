@@ -1,14 +1,18 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal;
 
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.config.LiquidTankDataHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.*;
+import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.event.Listener;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class LiquidTankManager implements Listener {
@@ -21,9 +25,30 @@ public class LiquidTankManager implements Listener {
 
     // Our new data handler for persistence.
     private LiquidTankDataHandler dataHandler;
+    private static final long delay = 100L;
 
     public LiquidTankManager(LiquidTank feature) {
         this.feature = feature;
+    }
+
+
+    public static void gameLoop(LiquidTank feature) {
+        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+            try {
+                gameTick(feature);
+            } catch (Exception ignored) {
+            }
+        }, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
+    }
+
+    private static void gameTick(LiquidTank feature) {
+        ArrayList<AbstractTank> arrayList = new ArrayList<>();
+        for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
+            if (BlockUtils.isLoaded(abstractTank.getLocation()) && abstractTank.getLocation().getBlock().getType() != Material.HOPPER)
+                arrayList.add(abstractTank);
+        }
+        for (AbstractTank abstractTank : arrayList)
+            feature.getTankManager().removeTank(abstractTank);
     }
 
     public void initialize() {
@@ -31,24 +56,15 @@ public class LiquidTankManager implements Listener {
         this.dataHandler = new LiquidTankDataHandler(feature);
         this.dataHandler.loadTanks();
 
-        // Start game loops for each tank type.
-        AbstractTank.gameLoop(feature);
-        EmptyTank.gameLoop(feature);
-        LavaTank.gameLoop(feature);
-        WaterTank.gameLoop(feature);
-        MilkTank.gameLoop(feature);
-        MushroomStewTank.gameLoop(feature);
-        FoodTank.gameLoop(feature);
+        gameLoop(feature);
         ExperienceTank.gameLoop(feature);
-        HoneyTank.gameLoop(feature);
-        DragonBreathTank.gameLoop(feature);
 
         readConfigOptions();
     }
 
     private void readConfigOptions() {
         maxAmountPerChunk = (int) feature.getConfigHandler().getSetting("amount-per-chunk");
-        itemName = ((String) feature.getConfigHandler().getSetting("item-name")).replace("&", "§");
+        itemName = ((String) feature.getConfigHandler().getSetting("item-name"));
         enableItems = (boolean) feature.getConfigHandler().getSetting("enable-items");
     }
 

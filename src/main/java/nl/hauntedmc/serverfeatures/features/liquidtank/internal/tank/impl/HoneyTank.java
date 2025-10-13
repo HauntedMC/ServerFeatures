@@ -1,65 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.type.Beehive;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-
-import java.lang.reflect.Method;
 
 import static org.bukkit.Material.*;
 
 public class HoneyTank extends FoodTank {
     private static final int maxAmount = 128;
 
-    private static final long delay = 20L;
-
     public HoneyTank(Location location, int amount, LiquidTank feature) {
-        super(location, amount, 4, feature);
-    }
-
-    public static void gameLoop(LiquidTank feature) {
-        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try {
-                gameTick(feature);
-            } catch (Exception ignored) {
-            }
-        }, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
-    }
-
-    private static void gameTick(LiquidTank feature) {
-        try {
-            Method method1 = Block.class.getMethod("getBlockData");
-            Method method2 = Block.class.getMethod("setBlockData", BlockData.class);
-            for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
-                if ((abstractTank instanceof HoneyTank || abstractTank instanceof EmptyTank) &&
-                        abstractTank.getQuantity() < abstractTank.getMaxQuantity() &&
-                        BlockUtils.isLoaded(abstractTank.getLocation())) {
-                    Block block = abstractTank.getLocation().clone().add(0.0D, 1.0D, 0.0D).getBlock();
-                    if (method1.invoke(block, new Object[0]) instanceof Beehive beehive) {
-                        if (beehive.getHoneyLevel() > 0) {
-                            beehive.setHoneyLevel(beehive.getHoneyLevel() - 1);
-                            method2.invoke(block, beehive);
-                            if (abstractTank instanceof EmptyTank) {
-                                feature.getTankManager().changeTankType(abstractTank, TankType.HONEY, 1);
-                                continue;
-                            }
-                            abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-                            abstractTank.updateVisuals();
-                        }
-                    }
-                }
-            }
-        } catch (Exception ignored) {
-        }
+        super(location, amount, feature);
     }
 
     @Override

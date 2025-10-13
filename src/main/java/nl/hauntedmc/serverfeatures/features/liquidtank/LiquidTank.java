@@ -6,7 +6,10 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.liquidtank.command.LiquidTankCommand;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.LiquidTankManager;
-import nl.hauntedmc.serverfeatures.features.liquidtank.listener.LiquidTankListener;
+import nl.hauntedmc.serverfeatures.features.liquidtank.listener.TankBlockListener;
+import nl.hauntedmc.serverfeatures.features.liquidtank.listener.TankInteractListener;
+import nl.hauntedmc.serverfeatures.features.liquidtank.listener.TankPlayerListener;
+import nl.hauntedmc.serverfeatures.features.liquidtank.listener.TankWorldListener;
 import nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta;
 
 public class LiquidTank extends BukkitBaseFeature<Meta> {
@@ -40,7 +43,10 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.tankManager = new LiquidTankManager(this);
         this.tankManager.initialize();
-        getLifecycleManager().getListenerManager().registerListener(new LiquidTankListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new TankBlockListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new TankInteractListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new TankPlayerListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new TankWorldListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new LiquidTankCommand(this));
     }
 

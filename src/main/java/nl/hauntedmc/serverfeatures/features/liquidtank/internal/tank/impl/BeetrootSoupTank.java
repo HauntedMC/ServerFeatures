@@ -13,7 +13,7 @@ import static org.bukkit.Material.RED_NETHER_BRICKS;
 
 public class BeetrootSoupTank extends FoodTank {
     public BeetrootSoupTank(Location location, int amount, LiquidTank feature) {
-        super(location, amount, 5, feature);
+        super(location, amount, feature);
     }
 
     @Override

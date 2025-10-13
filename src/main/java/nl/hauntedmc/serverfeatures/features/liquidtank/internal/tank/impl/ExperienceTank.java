@@ -44,77 +44,62 @@ public class ExperienceTank extends AbstractTank {
 
     private static void gameTick(LiquidTank feature) {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
-            if (block.getType() == Material.HOPPER) {
-                AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-                if (abstractTank != null && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode().equals(GameMode.ADVENTURE)) && abstractTank instanceof ExperienceTank)
-                    if (abstractTank.getQuantity() > 100) {
-                        ExperienceUtil.addExp(player, 100);
-                        abstractTank.setQuantity(abstractTank.getQuantity() - 100);
-                        abstractTank.updateVisuals();
-                        abstractTank.showParticles();
-                    } else if (abstractTank.getQuantity() <= 100) {
-                        ExperienceUtil.addExp(player, abstractTank.getQuantity());
-                        AbstractTank abstractTank1 = feature.getTankManager().emptyTank(abstractTank);
-                        abstractTank1.updateVisuals();
-                        abstractTank.showParticles();
+            final GameMode gm = player.getGameMode();
+            final boolean canPlay = (gm == GameMode.SURVIVAL || gm == GameMode.ADVENTURE);
+            if (!canPlay) continue;
+
+            // === WITHDRAW: hopper ~2.75 blocks above the player ===
+            // Use integer 3 blocks for the block check (same as original intent for a block scan).
+            Block above = player.getLocation().add(0, 3, 0).getBlock();
+            if (above.getType() == Material.HOPPER) {
+                AbstractTank tank = feature.getTankManager().getTank(above.getLocation());
+                if (tank instanceof ExperienceTank) {
+                    int qty = tank.getQuantity();
+                    if (qty > 0) {
+                        int transfer = Math.min(100, qty); // up to 100 xp
+                        ExperienceUtil.addExp(player, transfer);
+                        qty -= transfer;
+
+                        if (qty <= 0) {
+                            // Emptied: convert to EMPTY and show effects (match original behavior)
+                            AbstractTank emptied = feature.getTankManager().emptyTank(tank);
+                            emptied.updateVisuals();
+                            tank.showParticles();
+                        } else {
+                            tank.setQuantity(qty);
+                            tank.updateVisuals();
+                            tank.showParticles();
+                        }
                     }
+                }
             }
+
+            // === DEPOSIT: sneaking with hopper slightly below the player ===
             if (player.isSneaking()) {
-                int i = ExperienceUtil.totalExp(player);
-                if (i != 0 && (player.getGameMode().equals(GameMode.SURVIVAL) || player.getGameMode()
-                        .equals(GameMode.ADVENTURE))) {
-                    block = player.getLocation().add(0.0D, -0.1D, 0.0D).getBlock();
-                    if (block.getType() == Material.HOPPER) {
-                        AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-                        if (abstractTank != null) {
-                            if (abstractTank instanceof ExperienceTank && abstractTank.getQuantity() < abstractTank
-                                    .getMaxQuantity()) {
-                                if (abstractTank.getQuantity() + 100 <= abstractTank.getMaxQuantity() && i >= 100) {
-                                    ExperienceUtil.removeExp(player, 100);
-                                    abstractTank.setQuantity(abstractTank.getQuantity() + 100);
-                                    abstractTank.updateVisuals();
-                                    abstractTank.playTitle(player);
-                                    continue;
+                int total = ExperienceUtil.totalExp(player);
+                if (total > 0) {
+                    Block below = player.getLocation().add(0, -1, 0).getBlock(); // ~-0.1D → block directly below
+                    if (below.getType() == Material.HOPPER) {
+                        AbstractTank tank = feature.getTankManager().getTank(below.getLocation());
+                        if (tank != null) {
+                            if (tank instanceof ExperienceTank) {
+                                int qty = tank.getQuantity();
+                                int cap = tank.getMaxQuantity() - qty;
+                                if (cap > 0) {
+                                    int deposit = Math.min(100, Math.min(total, cap));
+                                    ExperienceUtil.removeExp(player, deposit);
+                                    tank.setQuantity(qty + deposit);
+                                    tank.updateVisuals();
+                                    tank.playTitle(player);
                                 }
-                                if (i < 100 && abstractTank
-                                        .getMaxQuantity() - abstractTank.getQuantity() <= i) {
-                                    ExperienceUtil.removeExp(player, abstractTank.getMaxQuantity() - abstractTank.getQuantity());
-                                    abstractTank.setQuantity(abstractTank.getMaxQuantity());
-                                    abstractTank.updateVisuals();
-                                    abstractTank.playTitle(player);
-                                    continue;
-                                }
-                                if (i >= 100 && abstractTank
-                                        .getMaxQuantity() - abstractTank.getQuantity() <= 100) {
-                                    ExperienceUtil.removeExp(player, abstractTank.getMaxQuantity() - abstractTank.getQuantity());
-                                    abstractTank.setQuantity(abstractTank.getMaxQuantity());
-                                    abstractTank.updateVisuals();
-                                    abstractTank.playTitle(player);
-                                    continue;
-                                }
-                                if (i < 100 && abstractTank
-                                        .getMaxQuantity() - abstractTank.getQuantity() > i) {
-                                    ExperienceUtil.removeExp(player, i);
-                                    abstractTank.setQuantity(abstractTank.getQuantity() + i);
-                                    abstractTank.updateVisuals();
-                                    abstractTank.playTitle(player);
-                                }
-                                continue;
-                            }
-                            if (abstractTank instanceof EmptyTank) {
-                                if (i >= 100) {
-                                    ExperienceUtil.removeExp(player, 100);
-                                    abstractTank = feature.getTankManager().changeTankType(abstractTank, TankType.EXPERIENCE, 100);
-                                    abstractTank.updateVisuals();
-                                    abstractTank.playTitle(player);
-                                    continue;
-                                }
-                                ExperienceUtil.removeExp(player, i);
-                                abstractTank = feature.getTankManager().changeTankType(abstractTank, TankType.EXPERIENCE, i);
-                                abstractTank.updateVisuals();
-                                player.updateInventory();
-                                abstractTank.playTitle(player);
+                            } else if (tank instanceof EmptyTank) {
+                                int deposit = Math.min(100, total);
+                                ExperienceUtil.removeExp(player, deposit);
+                                AbstractTank newTank = feature.getTankManager()
+                                        .changeTankType(tank, TankType.EXPERIENCE, deposit);
+                                newTank.updateVisuals();
+                                player.updateInventory(); // kept from your original
+                                newTank.playTitle(player);
                             }
                         }
                     }
@@ -122,6 +107,7 @@ public class ExperienceTank extends AbstractTank {
             }
         }
     }
+
 
     @Override
     protected void updateLiquidLevel() {
@@ -184,7 +170,7 @@ public class ExperienceTank extends AbstractTank {
                 stringBuilder.append("|");
         }
         stringBuilder.append("&7]");
-        MessageUtils.sendTitle(paramPlayer, stringBuilder.toString());
+        MessageUtils.sendActionbar(paramPlayer, stringBuilder.toString());
     }
 
     @Override

@@ -6,7 +6,7 @@ import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import org.bukkit.entity.Player;
 
 public class MessageUtils {
-    public static void sendTitle(Player paramPlayer, String paramString) {
+    public static void sendActionbar(Player paramPlayer, String paramString) {
         Component component = ComponentFormatter.deserialize(paramString).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
 
         paramPlayer.sendActionBar(component);

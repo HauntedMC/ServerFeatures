@@ -6,7 +6,6 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHan
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.MessageUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
@@ -27,8 +26,6 @@ public abstract class AbstractTank {
     private static final int maxAmount = 128;
 
     private static final int cooldownTime = 50;
-
-    private static final long delay = 100L;
 
     private int amount;
 
@@ -80,25 +77,6 @@ public abstract class AbstractTank {
         this.packetHandlerLiquid = packetHandlerLiquid;
     }
 
-    public static void gameLoop(LiquidTank feature) {
-        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try {
-                gameTick(feature);
-            } catch (Exception ignored) {
-            }
-        }, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
-    }
-
-    private static void gameTick(LiquidTank feature) {
-        ArrayList<AbstractTank> arrayList = new ArrayList<>();
-        for (AbstractTank abstractTank : feature.getTankManager().getTankList()) {
-            if (BlockUtils.isLoaded(abstractTank.getLocation()) && abstractTank.getLocation().getBlock().getType() != Material.HOPPER)
-                arrayList.add(abstractTank);
-        }
-        for (AbstractTank abstractTank : arrayList)
-            feature.getTankManager().removeTank(abstractTank);
-    }
-
     public void onInteract(Player paramPlayer) {
     }
 
@@ -143,7 +121,7 @@ public abstract class AbstractTank {
                 stringBuilder.append("|");
         }
         stringBuilder.append("&7]");
-        MessageUtils.sendTitle(paramPlayer, stringBuilder.toString());
+        MessageUtils.sendActionbar(paramPlayer, stringBuilder.toString());
     }
 
     public void clear() {
@@ -159,7 +137,9 @@ public abstract class AbstractTank {
     public void updateVisuals() {
         clear();
         this.packetHandlerGlass = new PacketHandler(getLocation().clone().add(0.5D, 0.4D, 0.5D));
-        this.packetHandlerGlass.setHead(ItemCreator.newItem(Material.GLASS, 1, "", ""));
+        ItemStack glass = new ItemStack(Material.GLASS);
+        glass.setAmount(1);
+        this.packetHandlerGlass.setHead(glass);
         updateLiquidLevel();
         updatePlayerView();
     }

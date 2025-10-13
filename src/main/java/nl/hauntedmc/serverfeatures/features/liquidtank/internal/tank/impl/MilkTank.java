@@ -1,59 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffect;
 
 import static org.bukkit.Material.QUARTZ_BLOCK;
 
 public class MilkTank extends AbstractTank {
     private static final int maxAmount = 128;
 
-    private static final long delay = 20L;
-
     public MilkTank(Location location, int amount, LiquidTank feature) {
         super(location, amount, feature);
-    }
-
-    public static void gameLoop(LiquidTank feature) {
-        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try {
-                gameTick(feature);
-            } catch (Exception ignored) {
-            }
-        }, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
-    }
-
-    private static void gameTick(LiquidTank feature) {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            if (!player.getActivePotionEffects().isEmpty() && (player.getGameMode().equals(GameMode.SURVIVAL) || player
-                    .getGameMode().equals(GameMode.ADVENTURE))) {
-                Block block = player.getLocation().add(0.0D, 2.75D, 0.0D).getBlock();
-                if (block.getType() == Material.HOPPER) {
-                    AbstractTank abstractTank = feature.getTankManager().getTank(block.getLocation());
-                    if (abstractTank instanceof MilkTank) {
-                        abstractTank.showParticles();
-                        for (PotionEffect potionEffect : player.getActivePotionEffects())
-                            player.removePotionEffect(potionEffect.getType());
-                        abstractTank.setQuantity(abstractTank.getQuantity() - 1);
-                        if (abstractTank.getQuantity() == 0) {
-                            feature.getTankManager().emptyTank(abstractTank);
-                            continue;
-                        }
-                        abstractTank.updateVisuals();
-                    }
-                }
-            }
-        }
     }
 
     @Override

@@ -6,11 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
-import java.util.Base64;
 import java.util.UUID;
 
 public class HeadURL {
@@ -32,21 +28,6 @@ public class HeadURL {
 
     public static final String honeyB64 = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNWI3YjE0ZjNjNzg3ODVjMWZkMjQ0MjU1ZTA1ZDUzN2Q2YzU1MTIwNzI2MmE2MGMzODEyNWMwMWY2NjNhMDc1ZSJ9fX0=";
 
-
-    public static String decodeBase64AndGetURL(String base64String) throws ParseException {
-        // Decode Base64 string
-        byte[] decodedBytes = Base64.getDecoder().decode(base64String);
-        String decodedString = new String(decodedBytes);
-
-        // Parse JSON and retrieve URL
-        JSONParser parser = new JSONParser();
-        JSONObject json = (JSONObject) parser.parse(decodedString);
-
-        JSONObject textures = (JSONObject) json.get("textures");
-        JSONObject skin = (JSONObject) textures.get("SKIN");
-
-        return (String) skin.get("url");
-    }
 
     public static ItemStack create(String paramString) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);

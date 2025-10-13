@@ -22,7 +22,9 @@ public class EmptyTank extends AbstractTank {
         clear();
         Location location = new Location(getLocation().getWorld(), getLocation().getX(), getLocation().getY(), getLocation().getZ());
         setPacketArmorstandGlass(new PacketHandler(location.clone().add(0.5D, 0.35D, 0.5D)));
-        getPacketArmorstandGlass().setHead(ItemCreator.newItem(Material.GLASS, 1, "", ""));
+        ItemStack glass = new ItemStack(Material.GLASS);
+        glass.setAmount(1);
+        getPacketArmorstandGlass().setHead(glass);
         updatePlayerView();
     }
 

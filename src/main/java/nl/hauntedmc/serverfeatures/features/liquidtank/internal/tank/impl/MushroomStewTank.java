@@ -1,21 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.BlockUtils;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.HeadURL;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.block.BlockFace;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-
-import java.util.Random;
 
 import static org.bukkit.Material.LIGHT_GRAY_TERRACOTTA;
 import static org.bukkit.Material.TERRACOTTA;
@@ -23,80 +14,8 @@ import static org.bukkit.Material.TERRACOTTA;
 public class MushroomStewTank extends FoodTank {
     private static final int maxAmount = 128;
 
-    private static final long delay = 1200L;
-
     public MushroomStewTank(Location location, int amount, LiquidTank feature) {
-        super(location, amount, 5, feature);
-    }
-
-    public static void gameLoop(LiquidTank feature) {
-        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-            try {
-                gameTick(feature);
-            } catch (Exception ignored) {
-            }
-        }, BukkitTime.ticks(delay), BukkitTime.ticks(delay));
-    }
-
-    private static void gameTick(LiquidTank feature) {
-        for (World world : Bukkit.getWorlds()) {
-            for (Entity entity : world.getEntities()) {
-                if (entity.getType().equals(EntityType.MOOSHROOM)) {
-                    if (BlockUtils.isLoaded(entity.getLocation()) &&
-                            entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getType() == Material.HOPPER) {
-                        Location location = entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getLocation();
-                        Random random = new Random();
-                        if (random.nextInt(5) == 0) {
-                            AbstractTank abstractTank = feature.getTankManager().getTank(location);
-                            if (abstractTank != null) {
-                                switch (abstractTank) {
-                                    case MilkTank ignored1 when abstractTank.getQuantity() < abstractTank
-                                            .getMaxQuantity() -> {
-                                        abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-                                        abstractTank.updateVisuals();
-                                        continue;
-                                    }
-                                    case MushroomStewTank ignored when abstractTank
-                                            .getQuantity() < abstractTank.getMaxQuantity() -> {
-                                        abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-                                        abstractTank.updateVisuals();
-                                        continue;
-                                    }
-                                    case EmptyTank ignored -> {
-                                        AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MUSHROOM_STEW, 1);
-                                        abstractTank1.updateVisuals();
-                                    }
-                                    default -> {
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    continue;
-                }
-                if (entity.getType().equals(EntityType.COW) &&
-                        BlockUtils.isLoaded(entity.getLocation()) &&
-                        entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getType() == Material.HOPPER) {
-                    Location location = entity.getLocation().getBlock().getRelative(BlockFace.DOWN).getLocation();
-                    Random random = new Random();
-                    if (random.nextInt(5) == 0) {
-                        AbstractTank abstractTank = feature.getTankManager().getTank(location);
-                        if (abstractTank != null) {
-                            if (abstractTank instanceof MilkTank && abstractTank.getQuantity() < abstractTank
-                                    .getMaxQuantity()) {
-                                abstractTank.setQuantity(abstractTank.getQuantity() + 1);
-                                abstractTank.updateVisuals();
-                                continue;
-                            }
-                            if (abstractTank instanceof EmptyTank) {
-                                AbstractTank abstractTank1 = feature.getTankManager().changeTankType(abstractTank, TankType.MILK, 1);
-                                abstractTank1.updateVisuals();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        super(location, amount, feature);
     }
 
     @Override

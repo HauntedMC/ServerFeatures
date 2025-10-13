@@ -14,7 +14,7 @@ public class RabbitStewTank extends FoodTank {
     private static final int maxAmount = 128;
 
     public RabbitStewTank(Location location, int amount, LiquidTank feature) {
-        super(location, amount, 12, feature);
+        super(location, amount, feature);
     }
 
     @Override
