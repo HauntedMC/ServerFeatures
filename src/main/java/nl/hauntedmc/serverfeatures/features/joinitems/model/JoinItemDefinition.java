@@ -35,7 +35,7 @@ public record JoinItemDefinition(String id, Material material, int slot, Compone
     // Utility: parse &-codes into Components
     public static Component toComponent(String s) {
         if (s == null || s.isBlank()) return Component.empty();
-        return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
+        return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.MIXED_INPUT).features(ComponentFormatter.ALL_DEFAULTS()).toComponent();
     }
 
     public static List<Component> toComponents(List<String> lines) {
