@@ -5,7 +5,7 @@ import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
 import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureGUIManager;
 import org.bukkit.Material;
@@ -117,7 +117,7 @@ public final class ModalPromptMenu extends GuiMenu implements Listener {
         if (finished) return;
         finished = true;
 
-        String msg = ComponentCodec.serialize(e.message()).format(ComponentCodec.Serializer.Format.PLAIN).build();
+        String msg = ComponentFormatter.serialize(e.message()).format(ComponentFormatter.Serializer.Format.PLAIN).build();
 
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             try {

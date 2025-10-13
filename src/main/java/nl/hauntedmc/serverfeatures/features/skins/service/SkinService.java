@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.skins.service;
 
+import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateType;
@@ -19,12 +20,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.regex.Pattern;
 
 public class SkinService {
-
-    // Mojang username rules: 3-16 characters, letters/digits/underscore
-    private static final Pattern MC_NAME = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
 
     // Mojang endpoints
     private static final String URL_NAME_TO_UUID = "https://api.mojang.com/users/profiles/minecraft/";
@@ -280,7 +277,7 @@ public class SkinService {
     /* ------------------------------------------------------- */
 
     private boolean isValidName(String name) {
-        return MC_NAME.matcher(name).matches();
+        return FormatPatterns.MC_NAME.matcher(name).matches();
     }
 
     /** Returns true if the caller may proceed; otherwise sends cooldown message and returns false. */

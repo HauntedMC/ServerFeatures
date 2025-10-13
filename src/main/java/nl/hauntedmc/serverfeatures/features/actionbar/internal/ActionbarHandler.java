@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -119,17 +119,17 @@ public class ActionbarHandler {
     }
 
     private void sendActionbar(Player player, String message) {
-        message = TextCodec.convert(message)
-                .expect(TextCodec.Input.MIXED_INPUT)
+        message = TextFormatter.convert(message)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .preprocess(s -> {
                         s = PlaceholderAPIHook.applyPlaceholders(s, player);
                     return s;
                 })
                 .toMiniMessage();
 
-        Component messageComponent = ComponentCodec.deserialize(message)
-                .expect(TextCodec.Input.MINIMESSAGE)
-                .features(ComponentCodec.ALL_DEFAULTS())
+        Component messageComponent = ComponentFormatter.deserialize(message)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS())
                 .autoLinkUrls()
                 .toComponent();
 

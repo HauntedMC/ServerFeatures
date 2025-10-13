@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.joinitems.model;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import org.bukkit.Material;
 
 import java.util.ArrayList;
@@ -52,7 +52,7 @@ public final class JoinItemDefinition {
     // Utility: parse &-codes into Components
     public static Component toComponent(String s) {
         if (s == null || s.isBlank()) return Component.empty();
-        return ComponentCodec.deserialize(s).expect(TextCodec.Input.LEGACY_AMPERSAND).features(ComponentCodec.Feature.COLORS).toComponent();
+        return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
     }
 
     public static List<Component> toComponents(List<String> lines) {

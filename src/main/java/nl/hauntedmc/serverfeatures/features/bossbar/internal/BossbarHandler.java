@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
@@ -110,7 +110,7 @@ public class BossbarHandler {
 
     private @NotNull String getMessage(Player player, String messageKey) {
         Component messageComponent = feature.getLocalizationHandler().getMessage("bossbar." + messageKey).forAudience(player).build();
-        return ComponentCodec.serialize(messageComponent).format(ComponentCodec.Serializer.Format.LEGACY_AMPERSAND).build();
+        return ComponentFormatter.serialize(messageComponent).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
     }
 
     public void showBossbar(Player player) {

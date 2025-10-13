@@ -14,7 +14,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
 public class MuteListener implements Listener {

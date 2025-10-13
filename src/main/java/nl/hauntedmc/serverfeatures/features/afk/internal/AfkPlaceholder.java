@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.afk.internal;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.afk.AFK;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -35,7 +35,7 @@ public class AfkPlaceholder extends PlaceholderExpansion {
             try {
                 Object audience = (player != null && player.getPlayer() != null) ? player.getPlayer() : Bukkit.getConsoleSender();
                 Component comp = feature.getLocalizationHandler().getMessage(key).forAudience((Audience) audience).build();
-                return ComponentCodec.serialize(comp).format(ComponentCodec.Serializer.Format.LEGACY_AMPERSAND).build();
+                return ComponentFormatter.serialize(comp).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
             } catch (Throwable t) {
                 return isAfk ? "AFK" : "Active";
             }

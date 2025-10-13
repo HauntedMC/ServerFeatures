@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.command;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -82,10 +82,10 @@ public class LiquidTankCommand extends FeatureCommand {
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
 
         String raw = String.valueOf(feature.getConfigHandler().getSetting("item-name"));
-        Component display = ComponentCodec
+        Component display = ComponentFormatter
                 .deserialize(raw)
-                .expect(TextCodec.Input.ANY_LEGACY)
-                .features(ComponentCodec.Feature.COLORS)
+                .expect(TextFormatter.InputFormat.ANY_LEGACY)
+                .features(ComponentFormatter.Feature.COLORS)
                 .toComponent();
         meta.displayName(display);
         item.setItemMeta(meta);

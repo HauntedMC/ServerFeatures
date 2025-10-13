@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.api.command;
 
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -11,7 +12,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Pattern;
 
 public abstract class FeatureCommand extends Command {
 
@@ -45,14 +45,13 @@ public abstract class FeatureCommand extends Command {
         if (raw == null || raw.isEmpty()) return List.of();
         String primary = name.toLowerCase(Locale.ROOT);
         LinkedHashSet<String> out = new LinkedHashSet<>();
-        Pattern ALIAS_ALLOWED = Pattern.compile("^[a-z0-9_\\-]+$");
         for (String alias : raw) {
             if (alias == null) continue;
             String t = alias.trim().toLowerCase(Locale.ROOT);
             if (t.isEmpty()) continue;
             if (t.equals(primary)) continue;
             if (t.contains(" ")) throw new IllegalArgumentException("Alias must not contain spaces: '" + alias + "'");
-            if (!ALIAS_ALLOWED.matcher(t).matches()) {
+            if (!FormatPatterns.BUKKIT_ALIAS_FORMAT.matcher(t).matches()) {
                 throw new IllegalArgumentException("Alias contains invalid characters (allowed: a-z, 0-9, '_', '-'): '" + alias + "'");
             }
             out.add(t);

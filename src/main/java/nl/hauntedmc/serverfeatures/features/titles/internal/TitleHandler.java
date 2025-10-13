@@ -8,7 +8,6 @@ import nl.hauntedmc.serverfeatures.features.titles.Titles;
 import org.bukkit.entity.Player;
 
 import java.time.Duration;
-import java.util.Map;
 
 public class TitleHandler {
 

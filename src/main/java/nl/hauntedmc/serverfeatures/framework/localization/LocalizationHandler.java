@@ -8,9 +8,9 @@ import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
 import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.MessagePlaceholders;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -145,8 +145,8 @@ public class LocalizationHandler {
         }
 
         private Component renderComponent(String messageString) {
-            messageString = TextCodec.convert(messageString)
-                    .expect(TextCodec.Input.MIXED_INPUT)
+            messageString = TextFormatter.convert(messageString)
+                    .expect(TextFormatter.InputFormat.MIXED_INPUT)
                     .preprocess(s -> {
                         if (audience instanceof Player p) {
                             s = PlaceholderAPIHook.applyPlaceholders(s, p);
@@ -156,9 +156,9 @@ public class LocalizationHandler {
                     })
                     .toMiniMessage();
 
-            ComponentCodec.Converter converter = ComponentCodec.deserialize(messageString)
-                    .expect(TextCodec.Input.MINIMESSAGE)
-                    .features(ComponentCodec.ALL_DEFAULTS());
+            ComponentFormatter.Converter converter = ComponentFormatter.deserialize(messageString)
+                    .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                    .features(ComponentFormatter.ALL_DEFAULTS());
 
             if (autoLinkUrls) {
                 converter.autoLinkUrls(autoLinkUnderline);

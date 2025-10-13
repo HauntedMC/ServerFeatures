@@ -6,7 +6,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
 import java.util.List;
-import java.util.Map;
 
 public class VillagerRestockHandler {
     private final VillagerOptimizer feature;

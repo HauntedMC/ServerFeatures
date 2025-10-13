@@ -14,8 +14,6 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.Map;
-
 public final class WandListener implements Listener {
 
     private final Portals feature;

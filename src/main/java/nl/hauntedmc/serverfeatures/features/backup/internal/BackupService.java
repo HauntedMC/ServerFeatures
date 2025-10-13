@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.backup.internal;
 
+import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
 import nl.hauntedmc.serverfeatures.features.backup.Backup;
 import nl.hauntedmc.serverfeatures.features.backup.internal.util.ServerRootResolver;
 import nl.hauntedmc.serverfeatures.features.backup.internal.util.ZipUtil;
@@ -13,17 +14,11 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class BackupService {
-
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-    private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("dd-MM-yyyy_HHmmss");
-    private static final Pattern DATE_IN_NAME = Pattern.compile(".*?(\\d{2}-\\d{2}-\\d{4}).*");
 
     private final Backup feature;
 
@@ -59,14 +54,14 @@ public class BackupService {
 
         // Calendar day (no multiple per day)
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        String todayPrefix = zipPrefix + DATE_FMT.format(today);
+        String todayPrefix = zipPrefix + FormatPatterns.DATE_FMT.format(today);
         boolean alreadyExists = hasBackupWithPrefix(backupsDir, todayPrefix);
 
         if (alreadyExists) {
             feature.getLogger().info("A backup for today already exists (prefix: " + todayPrefix + "). Skipping creation.");
         } else {
             // Build target zip name
-            String zipName = zipPrefix + TS_FMT.format(LocalDateTime.now(ZoneId.systemDefault())) + ".zip";
+            String zipName = zipPrefix + FormatPatterns.TS_FMT.format(LocalDateTime.now(ZoneId.systemDefault())) + ".zip";
             Path zipPath = backupsDir.resolve(zipName);
 
             // Resolve & validate targets
@@ -192,10 +187,10 @@ public class BackupService {
     }
 
     private static Optional<LocalDate> extractDate(String filename) {
-        Matcher m = DATE_IN_NAME.matcher(filename);
+        Matcher m = FormatPatterns.DATE_IN_NAME.matcher(filename);
         if (m.matches()) {
             try {
-                return Optional.of(LocalDate.parse(m.group(1), DATE_FMT));
+                return Optional.of(LocalDate.parse(m.group(1), FormatPatterns.DATE_FMT));
             } catch (Throwable ignored) {
             }
         }

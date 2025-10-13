@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
@@ -37,7 +37,7 @@ public class ScoreboardHandler {
         List<Component> lines = new ArrayList<>();
         for (int i = 1; i <= MAX_LINES; i++) {
             Component c = i18n.getMessage("scoreboard.line" + i).forAudience(player).build();
-            String s = ComponentCodec.serialize(c).format(ComponentCodec.Serializer.Format.LEGACY_AMPERSAND).build();
+            String s = ComponentFormatter.serialize(c).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
             if (s.startsWith("<end>")) break;
             lines.add(c);
         }

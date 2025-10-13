@@ -1,16 +1,14 @@
 package nl.hauntedmc.serverfeatures.features.sanitize.internal.util;
 
+import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
 
 import java.lang.reflect.Method;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public final class VersionResolver {
-
-    private static final Pattern MC_IN_VERSION = Pattern.compile("\\(MC:\\s*([0-9]+(?:\\.[0-9]+){1,2})\\)");
 
     private VersionResolver() {}
 
@@ -30,7 +28,7 @@ public final class VersionResolver {
         }
 
         String serverVersion = server.getVersion();
-        Matcher m = MC_IN_VERSION.matcher(serverVersion);
+        Matcher m = FormatPatterns.MC_IN_VERSION.matcher(serverVersion);
         if (m.find()) {
             return m.group(1);
         }

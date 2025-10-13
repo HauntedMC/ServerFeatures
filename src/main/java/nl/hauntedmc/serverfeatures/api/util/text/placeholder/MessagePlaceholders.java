@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.api.util.text;
+package nl.hauntedmc.serverfeatures.api.util.text.placeholder;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -10,9 +10,6 @@ import java.util.Objects;
 
 /**
  * Strongly-typed placeholder bag.
- * Supports String, Number, boolean (as text), and Component values.
- * String/Number/boolean are applied to the raw string before MiniMessage parsing
- * (with MiniMessage tag-escaping). Component values are applied *after* parsing.
  */
 public final class MessagePlaceholders {
 
@@ -24,7 +21,7 @@ public final class MessagePlaceholders {
             String token = token(e.getKey());
             Value value = e.getValue();
             if (!e.getValue().isComponent()) {
-                out = out.replace(token, value.asEscapedString());
+                out = out.replace(token, value.getString());
             } else {
                 String mm = MiniMessage.miniMessage().serialize(value.asComponentOrNull());
                 out = out.replace(token, mm);
@@ -40,12 +37,6 @@ public final class MessagePlaceholders {
         return "{" + key + "}";
     }
 
-    /**
-     * Escapes a value for safe MiniMessage injection.
-     */
-    private static String escapeMM(String s) {
-        return MiniMessage.miniMessage().escapeTags(s);
-    }
 
     // ---- Value kinds ----
     private sealed interface Value permits StrVal, NumVal, CompVal {
@@ -58,13 +49,13 @@ public final class MessagePlaceholders {
         }
 
         /**
-         * String form used for *pre-parse* replacement (non-components only).
+         * Gets the value as a string
          */
-        default String asEscapedString() {
+        default String getString() {
             return switch (this) {
-                case StrVal sv -> escapeMM(sv.value());
-                case NumVal nv -> escapeMM(String.valueOf(nv.value()));
-                default -> throw new IllegalStateException("Component values are not replaced pre-parse");
+                case StrVal sv ->sv.value();
+                case NumVal nv -> String.valueOf(nv.value());
+                default -> throw new IllegalStateException("Invald type");
             };
         }
     }

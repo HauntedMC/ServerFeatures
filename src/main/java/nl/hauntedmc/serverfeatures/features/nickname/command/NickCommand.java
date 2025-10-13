@@ -10,7 +10,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class NickCommand extends FeatureCommand {
 
@@ -47,11 +46,12 @@ public class NickCommand extends FeatureCommand {
                 player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(player).build());
             } else {
                 boolean succes = feature.getNicknameHandler().setNickname(player, args[0]);
+                String nickname = feature.getNicknameHandler().getNickname(player).orElse(args[0]);
 
                 if (succes) {
                     player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
                             .forAudience(player)
-                            .with("nickname", args[0])
+                            .with("nickname", nickname)
                             .build());
                 }
             }
@@ -73,16 +73,16 @@ public class NickCommand extends FeatureCommand {
                         .build());
             } else {
                 boolean succes = feature.getNicknameHandler().setNickname(target, args[1]);
-
+                String nickname = feature.getNicknameHandler().getNickname(target).orElse(args[1]);
                 if (succes) {
                     target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
                             .forAudience(target)
-                            .with("nickname", args[1])
+                            .with("nickname", nickname)
                             .build());
                     player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set_other")
                             .forAudience(player)
                             .with("player", target.getName())
-                            .with("nickname", args[1])
+                            .with("nickname", nickname)
                             .build());
                 }
             }

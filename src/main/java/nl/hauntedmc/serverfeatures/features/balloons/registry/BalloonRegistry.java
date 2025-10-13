@@ -2,8 +2,9 @@ package nl.hauntedmc.serverfeatures.features.balloons.registry;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;
@@ -88,8 +89,8 @@ public final class BalloonRegistry {
     private static Component toComponent(String s) {
         if (s == null || s.isBlank()) return Component.empty();
         // Support both '&' and '§' style color codes. Fallback to plain text.
-        if (s.indexOf('§') >= 0) return ComponentCodec.deserialize(s).expect(TextCodec.Input.LEGACY_SECTION).features(ComponentCodec.Feature.COLORS).toComponent();
-        if (s.indexOf('&') >= 0) return ComponentCodec.deserialize(s).expect(TextCodec.Input.LEGACY_AMPERSAND).features(ComponentCodec.Feature.COLORS).toComponent();
+        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_SECTION).features(ComponentFormatter.Feature.COLORS).toComponent();
+        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent();
         return Component.text(s);
     }
 }

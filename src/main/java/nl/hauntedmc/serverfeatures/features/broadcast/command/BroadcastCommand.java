@@ -4,8 +4,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.broadcast.Broadcast;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -72,13 +72,13 @@ public class BroadcastCommand extends FeatureCommand {
     /*  Chat broadcast                                   */
     /* ------------------------------------------------- */
     private void broadcastChat(String message, CommandSender sender) {
-        message = TextCodec.convert(message)
-                .expect(TextCodec.Input.MIXED_INPUT)
+        message = TextFormatter.convert(message)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .toMiniMessage();
 
-        Component messageComponent = ComponentCodec.deserialize(message)
-                .expect(TextCodec.Input.MINIMESSAGE)
-                .features(ComponentCodec.ALL_DEFAULTS())
+        Component messageComponent = ComponentFormatter.deserialize(message)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS())
                 .autoLinkUrls()
                 .toComponent();
 
@@ -103,23 +103,23 @@ public class BroadcastCommand extends FeatureCommand {
             subPart   = "";
         }
 
-        titlePart = TextCodec.convert(titlePart)
-                .expect(TextCodec.Input.MIXED_INPUT)
+        titlePart = TextFormatter.convert(titlePart)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .toMiniMessage();
 
-        Component titlePartComponent = ComponentCodec.deserialize(titlePart)
-                .expect(TextCodec.Input.MINIMESSAGE)
-                .features(ComponentCodec.ALL_DEFAULTS())
+        Component titlePartComponent = ComponentFormatter.deserialize(titlePart)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS())
                 .autoLinkUrls()
                 .toComponent();
 
-        subPart = TextCodec.convert(subPart)
-                .expect(TextCodec.Input.MIXED_INPUT)
+        subPart = TextFormatter.convert(subPart)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .toMiniMessage();
 
-        Component subPartComponent = ComponentCodec.deserialize(subPart)
-                .expect(TextCodec.Input.MINIMESSAGE)
-                .features(ComponentCodec.ALL_DEFAULTS())
+        Component subPartComponent = ComponentFormatter.deserialize(subPart)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS())
                 .autoLinkUrls()
                 .toComponent();
 

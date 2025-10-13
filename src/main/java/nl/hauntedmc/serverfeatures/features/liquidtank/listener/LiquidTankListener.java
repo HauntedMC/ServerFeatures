@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.listener;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.ComponentCodec;
-import nl.hauntedmc.serverfeatures.api.util.text.TextCodec;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
@@ -59,7 +59,7 @@ public class LiquidTankListener implements Listener {
             Component display = (meta != null) ? meta.displayName() : null;
 
             if (blockPlaceEvent.getBlock().getType() != Material.HOPPER || display == null ||
-                    !ComponentCodec.deserialize(feature.getTankManager().getItemName()).expect(TextCodec.Input.LEGACY_AMPERSAND).features(ComponentCodec.Feature.COLORS).toComponent().equals(display)) {
+                    !ComponentFormatter.deserialize(feature.getTankManager().getItemName()).expect(TextFormatter.InputFormat.LEGACY_AMPERSAND).features(ComponentFormatter.Feature.COLORS).toComponent().equals(display)) {
                 return;
             }
             if (blockPlaceEvent.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use") || !(boolean)feature.getConfigHandler().getSetting("enable-permission")) {

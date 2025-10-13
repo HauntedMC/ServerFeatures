@@ -17,8 +17,6 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.TradeSelectEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 
-import java.util.Map;
-
 public class VillagerEventListener implements Listener {
 
     private final VillagerAIHandler villagerAIHandler;

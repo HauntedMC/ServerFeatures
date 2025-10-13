@@ -7,8 +7,6 @@ import org.bukkit.entity.Villager;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.Map;
-
 public class VillagerLevelHandler {
 
     private final VillagerOptimizer feature;

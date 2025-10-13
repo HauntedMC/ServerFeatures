@@ -16,7 +16,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public class SilkSpawnersHandler {
