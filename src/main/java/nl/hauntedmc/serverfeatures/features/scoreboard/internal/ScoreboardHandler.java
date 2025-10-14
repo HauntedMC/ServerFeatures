@@ -39,7 +39,7 @@ public class ScoreboardHandler {
         List<Component> lines = new ArrayList<>();
         for (int i = 1; i <= MAX_LINES; i++) {
             Component c = i18n.getMessage("scoreboard.line" + i).forAudience(player).build();
-            String s = ComponentFormatter.serialize(c).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
+            String s = ComponentFormatter.serialize(c).format(ComponentFormatter.Serializer.Format.PLAIN).build();
             if (s.startsWith("<end>")) break;
             lines.add(c);
         }

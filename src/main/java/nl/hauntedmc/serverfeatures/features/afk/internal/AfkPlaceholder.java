@@ -54,7 +54,7 @@ public class AfkPlaceholder extends PlaceholderExpansion {
             try {
                 Object audience = (player != null && player.getPlayer() != null) ? player.getPlayer() : Bukkit.getConsoleSender();
                 Component comp = feature.getLocalizationHandler().getMessage(key).forAudience((Audience) audience).build();
-                return ComponentFormatter.serialize(comp).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
+                return ComponentFormatter.serialize(comp).format(ComponentFormatter.Serializer.Format.MINIMESSAGE).build();
             } catch (Throwable t) {
                 return isAfk ? "AFK" : "Active";
             }
