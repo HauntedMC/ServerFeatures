@@ -3,139 +3,106 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
-import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
-import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
-import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 public class FeatureCommandManager {
     private final ServerFeatures plugin;
     private final CommandMap commandMap;
 
-    // Concurrent maps so reads are safe off-thread; mutations are still marshalled to main.
-    private final Map<String, FeatureCommand> registeredCommands = new ConcurrentHashMap<>();
-    private final Map<String, BrigadierCommand> registeredBrigadierCommands = new ConcurrentHashMap<>();
-
-    // Debounce sync when triggered off-thread
-    private final AtomicBoolean syncQueued = new AtomicBoolean(false);
+    private final Map<String, FeatureCommand> registeredCommands = new HashMap<>();
+    private final Map<String, BrigadierCommand> registeredBrigadierCommands = new HashMap<>();
 
     public FeatureCommandManager(ServerFeatures plugin) {
         this.plugin = plugin;
         this.commandMap = plugin.getServer().getCommandMap();
     }
 
-    /* ========================== Bukkit / Legacy ========================== */
-
     /**
      * Registers a Bukkit command at runtime (thread-safe).
      */
     public void registerFeatureCommand(FeatureCommand command) {
-        final String name = command.getName();
-        // Atomic dup check first to avoid scheduling useless work
-        if (registeredCommands.putIfAbsent(name, command) != null) {
-            plugin.getLogger().warning("Command " + name + " is already registered.");
+        String commandName = command.getName();
+        if (commandMap == null) {
+            plugin.getLogger().severe("CommandMap is not initialized. Cannot register command: " + commandName);
             return;
         }
-        runOnMain(() -> {
-            if (commandMap == null) {
-                plugin.getLogger().severe("CommandMap is not initialized. Cannot register command: " + name);
-                registeredCommands.remove(name, command);
-                return;
-            }
-            // Register with Bukkit
-            commandMap.register(plugin.getName(), command);
-            plugin.getLogger().info("Registered command: " + name);
-            syncCommands();
-        });
-    }
+        if (registeredCommands.containsKey(commandName)) {
+            plugin.getLogger().warning("Command " + commandName + " is already registered.");
+            return;
+        }
 
-    /**
-     * Unregisters a Bukkit command at runtime (thread-safe).
-     */
-    public void unregisterFeatureCommand(String commandName) {
-        runOnMain(() -> {
-            doUnregisterBukkit(commandName); // no sync inside
-            syncCommands();                  // single sync for the single op
-        });
+        commandMap.register(plugin.getName(), command);
+        registeredCommands.put(commandName, command);
+        plugin.getLogger().info("Registered command: " + commandName);
     }
 
     /**
      * Unregisters all Bukkit commands owned by this feature (thread-safe).
      */
     public void unregisterAllFeatureCommands() {
-        // snapshot off-thread is fine
         List<String> names = new ArrayList<>(registeredCommands.keySet());
-        runOnMain(() -> {
-            for (String n : names) {
-                doUnregisterBukkit(n);       // no sync inside
-            }
-            syncCommands();                  // one sync after the batch
-        });
+        for (String n : names) doUnregisterBukkit(n);
     }
 
     /**
      * Unregisters a Bukkit command at runtime (thread-safe).
      */
     private void doUnregisterBukkit(String commandName) {
-        final Logger log = plugin.getLogger();
+        Logger log = plugin.getLogger();
 
-        // Remove from our registry first; idempotent if already removed
-        FeatureCommand cmd = registeredCommands.remove(commandName);
-        if (cmd == null) {
+        FeatureCommand command = registeredCommands.remove(commandName);
+        if (command == null) {
             log.warning("Command " + commandName + " is not registered.");
             return;
         }
 
-        // Unregister from the CommandMap
+        // Unregister from the CommandMap API
         try {
-            cmd.unregister(commandMap);
+            command.unregister(commandMap);
         } catch (Throwable t) {
             log.warning("CommandMap#unregister failed for " + commandName + ": " + t.getMessage());
         }
 
-        // Hard purge from knownCommands (primary + namespaced + aliases)
+        // Aggressively purge from knownCommands: primary, namespaced, aliases
         try {
-            Map<String, Command> known = getKnownCommands(cmd);
-            known.entrySet().removeIf(e -> e.getValue() == cmd);
+            Map<String, Command> known = commandMap.getKnownCommands();
+            final String nsPrefix = plugin.getName().toLowerCase(Locale.ROOT) + ":";
+            final String primary = command.getName().toLowerCase(Locale.ROOT);
+
+            // collect keys to remove
+            List<String> keys = new ArrayList<>();
+            keys.add(primary);
+            keys.add(nsPrefix + primary);
+
+            List<String> aliases = command.getAliases();
+            for (String a : aliases) {
+                if (a == null || a.isBlank()) continue;
+                final String al = a.toLowerCase(Locale.ROOT);
+                keys.add(al);
+                keys.add(nsPrefix + al);
+            }
+
+            // Remove exact matches that map to this command
+            for (String k : keys) {
+                Command mapped = known.get(k);
+                if (mapped == command) {
+                    known.remove(k);
+                }
+            }
+
+            // Safety net: remove any remaining entries that still reference this Command instance
+            known.entrySet().removeIf(e -> e.getValue() == command);
 
             log.info("Unregistered command: " + commandName);
         } catch (Throwable t) {
             log.warning("Failed to fully purge '" + commandName + "' from knownCommands: " + t.getMessage());
         }
+
     }
-
-    private @NotNull Map<String, Command> getKnownCommands(FeatureCommand cmd) {
-        Map<String, Command> known = commandMap.getKnownCommands();
-        final String nsPrefix = plugin.getName().toLowerCase(Locale.ROOT) + ":";
-        final String primary = cmd.getName().toLowerCase(Locale.ROOT);
-
-        List<String> keys = new ArrayList<>();
-        keys.add(primary);
-        keys.add(nsPrefix + primary);
-
-        List<String> aliases = cmd.getAliases();
-        for (String a : aliases) {
-            if (a == null || a.isBlank()) continue;
-            final String al = a.toLowerCase(Locale.ROOT);
-            keys.add(al);
-            keys.add(nsPrefix + al);
-        }
-
-        for (String k : keys) {
-            Command mapped = known.get(k);
-            if (mapped == cmd) known.remove(k);
-        }
-        return known;
-    }
-
-    /* ============================= Brigadier ============================= */
 
     /**
      * Register a Brigadier root command at runtime (thread-safe).
@@ -146,10 +113,7 @@ public class FeatureCommandManager {
             plugin.getLogger().warning("[Brigadier] Already registered: " + key);
             return;
         }
-        runOnMain(() -> {
-            plugin.getBrigadierDispatcher().attachBrigadierCommand(command);
-            syncCommands();
-        });
+        plugin.getBrigadierDispatcher().attachBrigadierCommand(command);
     }
 
 
@@ -160,13 +124,8 @@ public class FeatureCommandManager {
         if (registeredBrigadierCommands.isEmpty()) return;
         Collection<BrigadierCommand> snapshot = new ArrayList<>(registeredBrigadierCommands.values());
         registeredBrigadierCommands.clear();
-        runOnMain(() -> {
-            snapshot.forEach(cmd -> plugin.getBrigadierDispatcher().detachBrigadierCommand(cmd));
-            syncCommands();
-        });
+        snapshot.forEach(cmd -> plugin.getBrigadierDispatcher().detachBrigadierCommand(cmd));
     }
-
-    /* ========================== Combined helpers ========================= */
 
     /**
      * Total count across Bukkit + Brigadier.
@@ -202,60 +161,5 @@ public class FeatureCommandManager {
 
     public int getRegisteredBrigadierCommandCount() {
         return registeredBrigadierCommands.size();
-    }
-
-    /* ============================ Sync helpers =========================== */
-
-    /**
-     * Ensure code runs on the primary server thread.
-     */
-    private void runOnMain(Runnable r) {
-        if (Bukkit.isPrimaryThread()) r.run();
-        else Bukkit.getScheduler().runTask(plugin, r);
-    }
-
-    /**
-     * Sync Bukkit/Brig trees with the client.
-     * - If on main: do it now.
-     * - If off-thread: debounce to one run later this tick.
-     */
-    private void syncCommands() {
-        if (Bukkit.isPrimaryThread()) {
-            doSyncCommands();
-            return;
-        }
-        // Debounce off-thread calls
-        if (syncQueued.compareAndSet(false, true)) {
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                try {
-                    doSyncCommands();
-                } finally {
-                    syncQueued.set(false);
-                }
-            });
-        }
-    }
-
-    /**
-     * Actual sync work (must be called on main).
-     */
-    private void doSyncCommands() {
-        try {
-            Method m = plugin.getServer().getClass().getMethod("syncCommands");
-            m.setAccessible(true);
-            m.invoke(plugin.getServer());
-        } catch (NoSuchMethodException ignored) {
-            // Older impls; it's OK to only push to players.
-        } catch (Throwable t) {
-            plugin.getLogger().warning("syncCommands() failed: " + t.getMessage());
-        }
-
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            try {
-                p.updateCommands();
-            } catch (Throwable t) {
-                plugin.getLogger().warning("Failed to update commands for " + p.getName() + ": " + t.getMessage());
-            }
-        }
     }
 }

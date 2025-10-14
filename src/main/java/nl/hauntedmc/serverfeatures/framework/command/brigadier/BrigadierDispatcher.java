@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class BrigadierDispatcher {
 
@@ -22,6 +23,8 @@ public class BrigadierDispatcher {
     private static Field F_CHILDREN;
     private static Field F_LITERALS;
     private static Field F_ARGUMENTS;
+
+    private final ReentrantLock writeLock = new ReentrantLock();
 
     static {
         try {
@@ -67,9 +70,6 @@ public class BrigadierDispatcher {
         return mGetDisp.invoke(cmds);
     }
 
-    /**
-     * Attach (register) a Brig root literal + alias redirects directly to the dispatcher. Replaces existing literal.
-     */
     public void attachBrigadierCommand(BrigadierCommand cmd) {
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
@@ -78,33 +78,32 @@ public class BrigadierDispatcher {
             return;
         }
 
-        RootCommandNode<CommandSourceStack> root = disp.getRoot();
+        writeLock.lock();
+        try {
+            RootCommandNode<CommandSourceStack> root = disp.getRoot();
 
-        // Remove existing literal/aliases first (clean replace)
-        if (root.getChild(cmd.name()) != null) {
-            removeRootLiteral(disp, cmd.name());
-        }
-        for (String alias : cmd.aliases()) {
-            if (root.getChild(alias) != null) {
-                removeRootLiteral(disp, alias);
+            if (root.getChild(cmd.name()) != null) {
+                removeRootLiteral(disp, cmd.name());
             }
-        }
-
-        // Add primary node
-        var node = cmd.buildTree();
-        root.addChild(node);
-
-        // Add aliases as redirects to the primary
-        for (String alias : cmd.aliases()) {
-            if (root.getChild(alias) == null) {
-                root.addChild(Commands.literal(alias).redirect(node).build());
+            for (String alias : cmd.aliases()) {
+                if (root.getChild(alias) != null) {
+                    removeRootLiteral(disp, alias);
+                }
             }
+
+            var node = cmd.buildTree();
+            root.addChild(node);
+
+            for (String alias : cmd.aliases()) {
+                if (root.getChild(alias) == null) {
+                    root.addChild(Commands.literal(alias).redirect(node).build());
+                }
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 
-    /**
-     * Detach (HARD remove) a Brig root literal + aliases from the dispatcher.
-     */
     public void detachBrigadierCommand(BrigadierCommand cmd) {
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
@@ -113,13 +112,17 @@ public class BrigadierDispatcher {
             return;
         }
 
-        boolean changed = removeRootLiteral(disp, cmd.name());
-        for (String alias : cmd.aliases()) {
-            changed |= removeRootLiteral(disp, alias);
-        }
-
-        if (!changed) {
-            plugin.getLogger().info("[Brigadier] No dispatcher changes for /" + cmd.name() + " (already absent?)");
+        writeLock.lock();
+        try {
+            boolean changed = removeRootLiteral(disp, cmd.name());
+            for (String alias : cmd.aliases()) {
+                changed |= removeRootLiteral(disp, alias);
+            }
+            if (!changed) {
+                plugin.getLogger().info("[Brigadier] No dispatcher changes for /" + cmd.name() + " (already absent?)");
+            }
+        } finally {
+            writeLock.unlock();
         }
     }
 

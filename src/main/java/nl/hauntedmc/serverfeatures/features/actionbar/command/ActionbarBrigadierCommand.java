@@ -51,7 +51,6 @@ public final class ActionbarBrigadierCommand implements BrigadierCommand {
 
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
-
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
                 .requires(src -> src.getSender().hasPermission(BASE))
 

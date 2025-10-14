@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
+import nl.hauntedmc.serverfeatures.framework.command.sync.CommandSync;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
@@ -49,6 +50,7 @@ public class ServerFeatures extends JavaPlugin {
         }
 
         featureLoadManager.initializeFeatures();
+        CommandSync.apply(this);
     }
 
     @Override
@@ -62,6 +64,7 @@ public class ServerFeatures extends JavaPlugin {
             getLogger().warning("Scoreboard shutdown cleanup error: " + t.getMessage());
         }
         getLogger().info("ServerFeatures is shutting down...");
+        CommandSync.apply(this);
     }
 
     private void registerFrameworkCommand() {
@@ -116,4 +119,6 @@ public class ServerFeatures extends JavaPlugin {
     public BrigadierDispatcher getBrigadierDispatcher() {
         return brigadierDispatcher;
     }
+
+
 }

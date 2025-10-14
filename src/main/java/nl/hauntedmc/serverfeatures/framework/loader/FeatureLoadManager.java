@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.framework.loader;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
+import nl.hauntedmc.serverfeatures.framework.command.sync.CommandSync;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.loader.dependency.DependencyCheckResult;
 import nl.hauntedmc.serverfeatures.framework.loader.dependency.FeatureDependencyManager;
@@ -131,6 +132,8 @@ public class FeatureLoadManager {
             return new FeatureEnableResponse(FeatureEnableResult.FAILED, Set.of(), Set.of());
         }
 
+        CommandSync.apply(plugin);
+
         return new FeatureEnableResponse(FeatureEnableResult.SUCCESS, Set.of(), Set.of());
     }
 
@@ -155,6 +158,7 @@ public class FeatureLoadManager {
             mainConfigHandler.setFeatureEnabled(featureName, false);
             featureRegistry.deregisterLoadedFeature(featureName);
             plugin.getLogger().info("Feature disabled: " + featureName);
+            CommandSync.apply(plugin);
             return new FeatureDisableResponse(FeatureDisableResult.SUCCESS, featureName, dependents);
         } catch (Throwable t) {
             plugin.getLogger().log(Level.SEVERE, "Disable failed: " + featureName, t);

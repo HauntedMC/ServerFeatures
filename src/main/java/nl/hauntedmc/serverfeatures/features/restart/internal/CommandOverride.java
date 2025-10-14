@@ -36,7 +36,6 @@ public final class CommandOverride {
                 }
             }
 
-            syncCommands(server, logger);
         } catch (Throwable t) {
             logger.warning("Could not unregister default /restart: " + t.getMessage());
         }
@@ -82,7 +81,6 @@ public final class CommandOverride {
                 known.put(key, yourRestartCommand);
             }
 
-            syncCommands(server, logger);
         } catch (Throwable t) {
             logger.warning("Could not takeover /restart: " + t.getMessage());
         }
@@ -94,15 +92,6 @@ public final class CommandOverride {
         return k.equals("restart") || k.endsWith(":restart");
     }
 
-    private static void syncCommands(Server server, FeatureLogger logger) {
-        try {
-            Method m = server.getClass().getMethod("syncCommands");
-            m.setAccessible(true);
-            m.invoke(server);
-        } catch (Throwable t) {
-            logger.warning("Could not sync commands after rebind: " + t.getMessage());
-        }
-    }
 
     private static CommandMap obtainCommandMap(Server server) throws Exception {
         Method m = server.getClass().getMethod("getCommandMap");
