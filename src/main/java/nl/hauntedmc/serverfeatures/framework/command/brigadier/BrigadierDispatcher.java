@@ -6,7 +6,7 @@ import com.mojang.brigadier.tree.RootCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.command.brigadier.FeatureBrigadierCommand;
+import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
@@ -39,7 +39,9 @@ public class BrigadierDispatcher {
         this.plugin = plugin;
     }
 
-    /** Resolve Brigadier dispatcher via CraftServer → MinecraftServer → Commands → dispatcher. Safe to call many times. */
+    /**
+     * Resolve Brigadier dispatcher via CraftServer → MinecraftServer → Commands → dispatcher. Safe to call many times.
+     */
     public void resolveDispatcher() {
         if (this.dispatcher != null) return;
         try {
@@ -57,16 +59,18 @@ public class BrigadierDispatcher {
 
     private Object getBrigadierDispatcher() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Object craftServer = plugin.getServer(); // CraftServer
-        Method mGetServer  = craftServer.getClass().getMethod("getServer"); // -> MinecraftServer
-        Object mcServer    = mGetServer.invoke(craftServer);
-        Method mGetCmds    = mcServer.getClass().getMethod("getCommands"); // -> command holder
-        Object cmds        = mGetCmds.invoke(mcServer);
-        Method mGetDisp    = cmds.getClass().getMethod("getDispatcher");
+        Method mGetServer = craftServer.getClass().getMethod("getServer"); // -> MinecraftServer
+        Object mcServer = mGetServer.invoke(craftServer);
+        Method mGetCmds = mcServer.getClass().getMethod("getCommands"); // -> command holder
+        Object cmds = mGetCmds.invoke(mcServer);
+        Method mGetDisp = cmds.getClass().getMethod("getDispatcher");
         return mGetDisp.invoke(cmds);
     }
 
-    /** Attach (register) a Brig root literal + alias redirects directly to the dispatcher. Replaces existing literal. */
-    public void attachBrigadierCommand(FeatureBrigadierCommand cmd) {
+    /**
+     * Attach (register) a Brig root literal + alias redirects directly to the dispatcher. Replaces existing literal.
+     */
+    public void attachBrigadierCommand(BrigadierCommand cmd) {
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
         if (disp == null) {
@@ -101,7 +105,7 @@ public class BrigadierDispatcher {
     /**
      * Detach (HARD remove) a Brig root literal + aliases from the dispatcher.
      */
-    public void detachBrigadierCommand(FeatureBrigadierCommand cmd) {
+    public void detachBrigadierCommand(BrigadierCommand cmd) {
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
         if (disp == null) {
@@ -119,7 +123,9 @@ public class BrigadierDispatcher {
         }
     }
 
-    /** Removes a root literal by name from the dispatcher’s root node. Returns true if anything changed. */
+    /**
+     * Removes a root literal by name from the dispatcher’s root node. Returns true if anything changed.
+     */
     @SuppressWarnings("unchecked")
     public static boolean removeRootLiteral(CommandDispatcher<CommandSourceStack> dispatcher, String literal) {
         if (dispatcher == null || literal == null || literal.isEmpty() || F_CHILDREN == null) return false;
@@ -141,6 +147,7 @@ public class BrigadierDispatcher {
             return false;
         }
     }
+
     public @Nullable CommandDispatcher<CommandSourceStack> getDispatcher() {
         return dispatcher;
     }

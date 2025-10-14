@@ -39,13 +39,17 @@ public class FeatureTaskManager {
      * Public API — thin wrappers over generic helpers
      * ---------------------------------------------------------------------- */
 
-    /** Runs a one-time synchronous task immediately. */
+    /**
+     * Runs a one-time synchronous task immediately.
+     */
     public BukkitTask scheduleOneTimeTask(Runnable task) {
         Objects.requireNonNull(task, "task");
         return scheduleOnce(r -> Bukkit.getScheduler().runTask(plugin, r), task);
     }
 
-    /** Runs a one-time synchronous task with a delay (using Time). */
+    /**
+     * Runs a one-time synchronous task with a delay (using Time).
+     */
     public BukkitTask scheduleDelayedTask(Runnable task, BukkitTime delay) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
@@ -54,7 +58,9 @@ public class FeatureTaskManager {
     }
 
 
-    /** Runs a repeating synchronous task with no initial delay (using Time for period). */
+    /**
+     * Runs a repeating synchronous task with no initial delay (using Time for period).
+     */
     public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime period) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(period, "period");
@@ -63,7 +69,9 @@ public class FeatureTaskManager {
         return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimer(plugin, r, d, p), task);
     }
 
-    /** Runs a repeating synchronous task with no initial delay (using Time for period). */
+    /**
+     * Runs a repeating synchronous task with no initial delay (using Time for period).
+     */
     public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime delay, BukkitTime period) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(period, "period");
@@ -72,13 +80,17 @@ public class FeatureTaskManager {
         return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimer(plugin, r, d, p), task);
     }
 
-    /** Runs an asynchronous one-time task. */
+    /**
+     * Runs an asynchronous one-time task.
+     */
     public BukkitTask scheduleAsyncTask(Runnable task) {
         Objects.requireNonNull(task, "task");
         return scheduleOnce(r -> Bukkit.getScheduler().runTaskAsynchronously(plugin, r), task);
     }
 
-    /** Runs an asynchronous one-time task with a delay (using Time). */
+    /**
+     * Runs an asynchronous one-time task with a delay (using Time).
+     */
     public BukkitTask scheduleAsyncDelayedTask(Runnable task, BukkitTime delay) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
@@ -86,7 +98,9 @@ public class FeatureTaskManager {
         return scheduleOnce(r -> Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, r, d), task);
     }
 
-    /** Runs an asynchronous repeating task (using Time). */
+    /**
+     * Runs an asynchronous repeating task (using Time).
+     */
     public BukkitTask scheduleAsyncRepeatingTask(Runnable task, BukkitTime delay, BukkitTime period) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
@@ -100,7 +114,9 @@ public class FeatureTaskManager {
      * Management
      * ---------------------------------------------------------------------- */
 
-    /** Cancels a task and removes it from tracking. */
+    /**
+     * Cancels a task and removes it from tracking.
+     */
     public void cancelTask(BukkitTask task) {
         if (task != null) {
             task.cancel();
@@ -108,12 +124,16 @@ public class FeatureTaskManager {
         }
     }
 
-    /** Returns true if the task is queued (per Bukkit scheduler). */
+    /**
+     * Returns true if the task is queued (per Bukkit scheduler).
+     */
     public boolean isTaskQueued(int taskID) {
         return Bukkit.getScheduler().isQueued(taskID);
     }
 
-    /** Returns true if the task is currently running (per Bukkit scheduler). */
+    /**
+     * Returns true if the task is currently running (per Bukkit scheduler).
+     */
     public boolean isTaskRunning(int taskID) {
         return Bukkit.getScheduler().isCurrentlyRunning(taskID);
     }
@@ -131,7 +151,9 @@ public class FeatureTaskManager {
         }
     }
 
-    /** Number of tasks currently tracked. */
+    /**
+     * Number of tasks currently tracked.
+     */
     public int getActiveTaskCount() {
         synchronized (scheduledTasks) {
             return scheduledTasks.size();
@@ -175,12 +197,16 @@ public class FeatureTaskManager {
         return bukkitTask;
     }
 
-    /** Clamp delay to >= 0 ticks. */
+    /**
+     * Clamp delay to >= 0 ticks.
+     */
     private static long clampDelay(BukkitTime t) {
         return Math.max(0L, t.toTicks());
     }
 
-    /** Clamp period to at least 1 tick (Bukkit requirement). */
+    /**
+     * Clamp period to at least 1 tick (Bukkit requirement).
+     */
     private static long clampPeriod(BukkitTime t) {
         return Math.max(1L, t.toTicks());
     }

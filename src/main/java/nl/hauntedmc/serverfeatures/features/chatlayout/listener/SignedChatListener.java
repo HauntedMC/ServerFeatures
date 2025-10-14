@@ -31,12 +31,11 @@ public class SignedChatListener implements Listener {
 
             // Show staff delete control in FRONT when:
             if (audience instanceof Player viewer)
-                     if (viewer.hasPermission("admin.remove")) {
-                         return staffRemoveButton(base, event.signedMessage());
-                     }
-                    else if (viewer.hasPermission("staff.remove") && (!senderIsStaff || sender == viewer)) {
-                        return staffRemoveButton(base, event.signedMessage());
-                    }
+                if (viewer.hasPermission("admin.remove")) {
+                    return staffRemoveButton(base, event.signedMessage());
+                } else if (viewer.hasPermission("staff.remove") && (!senderIsStaff || sender == viewer)) {
+                    return staffRemoveButton(base, event.signedMessage());
+                }
             // Normal viewers (and staff viewing staff messages) just see the base layout
             return base;
         });

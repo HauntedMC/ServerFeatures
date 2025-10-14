@@ -6,20 +6,25 @@ import java.nio.file.Path;
 /**
  * Test path utilities.
  * Layout convention:
- *   <tmp>/features/<feature>/<scenario>/server-root/...
+ * <tmp>/features/<feature>/<scenario>/server-root/...
  */
 public final class TestPaths {
 
-    private TestPaths() {}
+    private TestPaths() {
+    }
 
-    /** <tmp>/features/<feature>/<scenario> */
+    /**
+     * <tmp>/features/<feature>/<scenario>
+     */
     public static Path features(Path tmpRoot, String featureName, String scenario) {
         Path p = tmpRoot.resolve("features").resolve(featureName).resolve(scenario);
         mkdirs(p);
         return p;
     }
 
-    /** <tmp>/features/.../server-root */
+    /**
+     * <tmp>/features/.../server-root
+     */
     public static Path serverRoot(Path scenarioRoot) {
         Path p = scenarioRoot.resolve("server-root");
         mkdirs(p);

@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
-import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
+import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
@@ -101,9 +101,19 @@ public class ServerFeatures extends JavaPlugin {
     }
 
     /* ============================== ACCESSORS ============================== */
+    public FeatureLoadManager getFeatureLoadManager() {
+        return featureLoadManager;
+    }
 
-    public FeatureLoadManager getFeatureLoadManager() { return featureLoadManager; }
-    public MainConfigHandler getConfigHandler() { return mainConfigHandler; }
-    public LocalizationHandler getLocalizationHandler() { return localizationHandler; }
-    public BrigadierDispatcher getBrigadierDispatcher() { return brigadierDispatcher; }
+    public MainConfigHandler getConfigHandler() {
+        return mainConfigHandler;
+    }
+
+    public LocalizationHandler getLocalizationHandler() {
+        return localizationHandler;
+    }
+
+    public BrigadierDispatcher getBrigadierDispatcher() {
+        return brigadierDispatcher;
+    }
 }

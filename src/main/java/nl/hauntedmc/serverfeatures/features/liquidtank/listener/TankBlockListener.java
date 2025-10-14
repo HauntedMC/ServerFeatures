@@ -1,13 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.listener;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.ExperienceTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.MessageUtils;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;

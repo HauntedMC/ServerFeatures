@@ -4,5 +4,7 @@ public record FeatureSoftReloadResponse(
         FeatureSoftReloadResult result,
         String feature
 ) {
-    public boolean success() { return result == FeatureSoftReloadResult.SUCCESS; }
+    public boolean success() {
+        return result == FeatureSoftReloadResult.SUCCESS;
+    }
 }

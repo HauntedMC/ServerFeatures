@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
-import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.ItemCreator;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.util.PotionUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;

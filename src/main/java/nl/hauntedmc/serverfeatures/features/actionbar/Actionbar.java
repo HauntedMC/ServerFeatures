@@ -58,7 +58,7 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.actionbarHandler = new ActionbarHandler(this);
         getLifecycleManager().getCommandManager().registerFeatureCommand(new ActionbarCommand(this));
-        getLifecycleManager().getCommandManager().registerBrigadierFeatureCommand(new ActionbarBrigadierCommand(this));
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(new ActionbarBrigadierCommand(this));
         actionbarHandler.startMessageCycle();
     }
 

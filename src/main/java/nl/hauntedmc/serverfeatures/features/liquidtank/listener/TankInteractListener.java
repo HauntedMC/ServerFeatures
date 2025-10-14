@@ -73,7 +73,6 @@ public class TankInteractListener implements Listener {
     }
 
 
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void InventoryMoveItemEvent(InventoryMoveItemEvent inventoryMoveItemEvent) {
         AbstractTank liquidTank;

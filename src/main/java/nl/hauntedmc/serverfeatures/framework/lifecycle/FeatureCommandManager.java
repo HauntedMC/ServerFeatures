@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
-import nl.hauntedmc.serverfeatures.api.command.brigadier.FeatureBrigadierCommand;
+import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -21,7 +21,7 @@ public class FeatureCommandManager {
 
     // Concurrent maps so reads are safe off-thread; mutations are still marshalled to main.
     private final Map<String, FeatureCommand> registeredCommands = new ConcurrentHashMap<>();
-    private final Map<String, FeatureBrigadierCommand> registeredBrigadierCommands = new ConcurrentHashMap<>();
+    private final Map<String, BrigadierCommand> registeredBrigadierCommands = new ConcurrentHashMap<>();
 
     // Debounce sync when triggered off-thread
     private final AtomicBoolean syncQueued = new AtomicBoolean(false);
@@ -33,7 +33,9 @@ public class FeatureCommandManager {
 
     /* ========================== Bukkit / Legacy ========================== */
 
-    /** Registers a Bukkit command at runtime (thread-safe). */
+    /**
+     * Registers a Bukkit command at runtime (thread-safe).
+     */
     public void registerFeatureCommand(FeatureCommand command) {
         final String name = command.getName();
         // Atomic dup check first to avoid scheduling useless work
@@ -54,7 +56,9 @@ public class FeatureCommandManager {
         });
     }
 
-    /** Unregisters a Bukkit command at runtime (thread-safe). */
+    /**
+     * Unregisters a Bukkit command at runtime (thread-safe).
+     */
     public void unregisterFeatureCommand(String commandName) {
         runOnMain(() -> {
             doUnregisterBukkit(commandName); // no sync inside
@@ -62,7 +66,9 @@ public class FeatureCommandManager {
         });
     }
 
-    /** Unregisters all Bukkit commands owned by this feature (thread-safe). */
+    /**
+     * Unregisters all Bukkit commands owned by this feature (thread-safe).
+     */
     public void unregisterAllFeatureCommands() {
         // snapshot off-thread is fine
         List<String> names = new ArrayList<>(registeredCommands.keySet());
@@ -74,7 +80,9 @@ public class FeatureCommandManager {
         });
     }
 
-    /** Unregisters a Bukkit command at runtime (thread-safe). */
+    /**
+     * Unregisters a Bukkit command at runtime (thread-safe).
+     */
     private void doUnregisterBukkit(String commandName) {
         final Logger log = plugin.getLogger();
 
@@ -106,7 +114,7 @@ public class FeatureCommandManager {
     private @NotNull Map<String, Command> getKnownCommands(FeatureCommand cmd) {
         Map<String, Command> known = commandMap.getKnownCommands();
         final String nsPrefix = plugin.getName().toLowerCase(Locale.ROOT) + ":";
-        final String primary  = cmd.getName().toLowerCase(Locale.ROOT);
+        final String primary = cmd.getName().toLowerCase(Locale.ROOT);
 
         List<String> keys = new ArrayList<>();
         keys.add(primary);
@@ -129,8 +137,10 @@ public class FeatureCommandManager {
 
     /* ============================= Brigadier ============================= */
 
-    /** Register a Brigadier root command at runtime (thread-safe). */
-    public void registerBrigadierFeatureCommand(FeatureBrigadierCommand command) {
+    /**
+     * Register a Brigadier root command at runtime (thread-safe).
+     */
+    public void registerBrigadierCommand(BrigadierCommand command) {
         final String key = command.name().toLowerCase(Locale.ROOT);
         if (registeredBrigadierCommands.putIfAbsent(key, command) != null) {
             plugin.getLogger().warning("[Brigadier] Already registered: " + key);
@@ -143,10 +153,12 @@ public class FeatureCommandManager {
     }
 
 
-    /** HARD-unregister all Brigadier root commands owned by this feature (thread-safe). */
+    /**
+     * HARD-unregister all Brigadier root commands owned by this feature (thread-safe).
+     */
     public void unregisterAllBrigadierCommands() {
         if (registeredBrigadierCommands.isEmpty()) return;
-        Collection<FeatureBrigadierCommand> snapshot = new ArrayList<>(registeredBrigadierCommands.values());
+        Collection<BrigadierCommand> snapshot = new ArrayList<>(registeredBrigadierCommands.values());
         registeredBrigadierCommands.clear();
         runOnMain(() -> {
             snapshot.forEach(cmd -> plugin.getBrigadierDispatcher().detachBrigadierCommand(cmd));
@@ -156,12 +168,16 @@ public class FeatureCommandManager {
 
     /* ========================== Combined helpers ========================= */
 
-    /** Total count across Bukkit + Brigadier. */
+    /**
+     * Total count across Bukkit + Brigadier.
+     */
     public int getTotalRegisteredCommandCount() {
         return registeredCommands.size() + registeredBrigadierCommands.size();
     }
 
-    /** Combined, case-insensitive set of all primary command names (snapshot, unmodifiable). */
+    /**
+     * Combined, case-insensitive set of all primary command names (snapshot, unmodifiable).
+     */
     public Set<String> getAllRegisteredCommandNames() {
         LinkedHashSet<String> names = new LinkedHashSet<>();
         names.addAll(registeredCommands.keySet());
@@ -169,7 +185,9 @@ public class FeatureCommandManager {
         return Collections.unmodifiableSet(names);
     }
 
-    /** Safe snapshots (unmodifiable) for off-thread reads. */
+    /**
+     * Safe snapshots (unmodifiable) for off-thread reads.
+     */
     public Map<String, FeatureCommand> getRegisteredFeatureCommands() {
         return Map.copyOf(registeredCommands);
     }
@@ -178,7 +196,7 @@ public class FeatureCommandManager {
         return registeredCommands.size();
     }
 
-    public Map<String, FeatureBrigadierCommand> getRegisteredBrigadierCommands() {
+    public Map<String, BrigadierCommand> getRegisteredBrigadierCommands() {
         return Map.copyOf(registeredBrigadierCommands);
     }
 
@@ -188,7 +206,9 @@ public class FeatureCommandManager {
 
     /* ============================ Sync helpers =========================== */
 
-    /** Ensure code runs on the primary server thread. */
+    /**
+     * Ensure code runs on the primary server thread.
+     */
     private void runOnMain(Runnable r) {
         if (Bukkit.isPrimaryThread()) r.run();
         else Bukkit.getScheduler().runTask(plugin, r);
@@ -207,13 +227,18 @@ public class FeatureCommandManager {
         // Debounce off-thread calls
         if (syncQueued.compareAndSet(false, true)) {
             Bukkit.getScheduler().runTask(plugin, () -> {
-                try { doSyncCommands(); }
-                finally { syncQueued.set(false); }
+                try {
+                    doSyncCommands();
+                } finally {
+                    syncQueued.set(false);
+                }
             });
         }
     }
 
-    /** Actual sync work (must be called on main). */
+    /**
+     * Actual sync work (must be called on main).
+     */
     private void doSyncCommands() {
         try {
             Method m = plugin.getServer().getClass().getMethod("syncCommands");

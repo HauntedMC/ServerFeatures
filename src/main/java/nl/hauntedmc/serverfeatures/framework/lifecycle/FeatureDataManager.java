@@ -21,6 +21,7 @@ public class FeatureDataManager {
 
     /**
      * Constructs a new FeatureDataManager.
+     *
      * @param plugin your main plugin class (for logging, etc.)
      */
     public FeatureDataManager(ServerFeatures plugin) {
@@ -44,9 +45,9 @@ public class FeatureDataManager {
      * Registers a connection (DatabaseProvider) for the given identifier, using the specified
      * database type and connection name.
      *
-     * @param identifier       a label for the provider
-     * @param databaseType     the type of database (e.g. MYSQL, MONGODB, etc.)
-     * @param connectionName   the name or key used to differentiate the database config
+     * @param identifier     a label for the provider
+     * @param databaseType   the type of database (e.g. MYSQL, MONGODB, etc.)
+     * @param connectionName the name or key used to differentiate the database config
      * @return an Optional containing the DatabaseProvider if registration was successful; empty otherwise
      */
     public Optional<DatabaseProvider> registerConnection(String identifier, DatabaseType databaseType, String connectionName) {
@@ -56,7 +57,7 @@ public class FeatureDataManager {
             return Optional.empty();
         }
 
-        DatabaseProvider provider =  dataProviderAPI.registerDatabase(featureName, databaseType, connectionName);
+        DatabaseProvider provider = dataProviderAPI.registerDatabase(featureName, databaseType, connectionName);
         if (provider == null || !provider.isConnected()) {
             plugin.getLogger().severe("Database Provider is not connected.");
             return Optional.empty();
@@ -68,6 +69,7 @@ public class FeatureDataManager {
 
     /**
      * Retrieves the DatabaseProvider associated with the given identifier.
+     *
      * @param identifier the key used to register the provider
      * @return an Optional containing the DatabaseProvider, or empty if none is found
      */
@@ -100,6 +102,7 @@ public class FeatureDataManager {
 
     /**
      * Retrieves the single ORMContext that this manager holds, if any.
+     *
      * @return an Optional of the current ORMContext
      */
     public Optional<ORMContext> getORMContext() {

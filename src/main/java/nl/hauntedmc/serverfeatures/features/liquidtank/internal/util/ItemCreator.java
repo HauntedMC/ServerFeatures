@@ -13,11 +13,17 @@ import org.bukkit.persistence.PersistentDataType;
 
 public final class ItemCreator {
 
-    private ItemCreator() {}
+    private ItemCreator() {
+    }
 
     // PDC keys (item-only; no blockstate needed)
-    private static NamespacedKey keyKind(LiquidTank feature)   { return new NamespacedKey(feature.getPlugin(), "lt_kind"); }
-    private static NamespacedKey keyVer(LiquidTank feature)    { return new NamespacedKey(feature.getPlugin(), "lt_ver"); }
+    private static NamespacedKey keyKind(LiquidTank feature) {
+        return new NamespacedKey(feature.getPlugin(), "lt_kind");
+    }
+
+    private static NamespacedKey keyVer(LiquidTank feature) {
+        return new NamespacedKey(feature.getPlugin(), "lt_ver");
+    }
 
     /**
      * Create a legit Liquid Tank item (HOPPER) with display name and PDC marker.
@@ -38,7 +44,7 @@ public final class ItemCreator {
         // Stamp PDC so we can trust this item on placement
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         pdc.set(keyKind(feature), PersistentDataType.STRING, "liquid_tank");
-        pdc.set(keyVer(feature),  PersistentDataType.INTEGER, 1);
+        pdc.set(keyVer(feature), PersistentDataType.INTEGER, 1);
 
         item.setItemMeta(meta);
         return item;

@@ -8,7 +8,8 @@ import java.nio.file.StandardOpenOption;
 
 public final class TestFs {
 
-    private TestFs() {}
+    private TestFs() {
+    }
 
     public static Path touch(Path file) {
         try {

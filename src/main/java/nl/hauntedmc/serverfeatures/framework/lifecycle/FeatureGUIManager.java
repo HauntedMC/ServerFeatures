@@ -32,8 +32,8 @@ public final class FeatureGUIManager implements Listener {
     private final FeatureTaskManager taskManager;
 
     private final Map<UUID, Deque<GuiMenu>> backStacks = new ConcurrentHashMap<>();
-    private final Map<UUID, GuiMenu> openMenus  = new ConcurrentHashMap<>();
-    private final Map<UUID, Long>    clickDebounce = new ConcurrentHashMap<>();
+    private final Map<UUID, GuiMenu> openMenus = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> clickDebounce = new ConcurrentHashMap<>();
 
     private static final long CLICK_DEBOUNCE_MS = 120L;
 
@@ -42,7 +42,9 @@ public final class FeatureGUIManager implements Listener {
         this.taskManager = Objects.requireNonNull(taskManager, "taskManager");
     }
 
-    /** Clear all in-memory state. Intended for feature unload. */
+    /**
+     * Clear all in-memory state. Intended for feature unload.
+     */
     public void shutdown() {
         try {
             // Best effort: close any still-open inventories
@@ -59,14 +61,18 @@ public final class FeatureGUIManager implements Listener {
         }
     }
 
-    /** Open a new root menu, clearing the back stack. */
+    /**
+     * Open a new root menu, clearing the back stack.
+     */
     public void openRoot(Player p, GuiMenu menu) {
         if (!isUsable(p)) return;
         backStacks.computeIfAbsent(p.getUniqueId(), k -> new ArrayDeque<>()).clear();
         openInternal(p, menu, false, OpenSemantics.REPLACE);
     }
 
-    /** Open a child menu, pushing the current menu. */
+    /**
+     * Open a child menu, pushing the current menu.
+     */
     public void openChild(Player p, GuiMenu menu) {
         if (!isUsable(p)) return;
         GuiMenu current = openMenus.get(p.getUniqueId());
@@ -76,7 +82,9 @@ public final class FeatureGUIManager implements Listener {
         openInternal(p, menu, true, OpenSemantics.REPLACE);
     }
 
-    /** Reopen same instance (pagination/refresh). */
+    /**
+     * Reopen same instance (pagination/refresh).
+     */
     public void reopenSame(Player p, GuiMenu sameMenu) {
         if (!isUsable(p)) return;
         GuiMenu current = openMenus.get(p.getUniqueId());
@@ -84,7 +92,9 @@ public final class FeatureGUIManager implements Listener {
         openInternal(p, sameMenu, false, OpenSemantics.REOPEN);
     }
 
-    /** Navigate back if possible. */
+    /**
+     * Navigate back if possible.
+     */
     public boolean goBack(Player p) {
         Deque<GuiMenu> stack = backStacks.get(p.getUniqueId());
         if (stack == null || stack.isEmpty()) return false;
@@ -97,7 +107,7 @@ public final class FeatureGUIManager implements Listener {
         return openMenus.containsKey(p.getUniqueId());
     }
 
-    private enum OpenSemantics { REPLACE, REOPEN }
+    private enum OpenSemantics {REPLACE, REOPEN}
 
     private boolean isUsable(Player p) {
         return p != null && p.isOnline() && !p.isDead();

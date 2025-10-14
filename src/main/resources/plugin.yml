@@ -5,8 +5,8 @@ description: HauntedMC Feature Framework (Platform=Paper)
 author: HauntedMC
 website: https://hauntedmc.nl
 api-version: 1.21
-depend: [DataRegistry, DataProvider]
-softdepend: [packetevents, PlaceholderAPI]
+depend: [ DataRegistry, DataProvider ]
+softdepend: [ packetevents, PlaceholderAPI ]
 
 commands:
   serverfeatures:

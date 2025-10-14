@@ -483,15 +483,15 @@ public class SkinService {
     /* ------------------------------------------------------- */
 
     private record CacheEntry<T>(T value, long expiresAt) {
-            private CacheEntry(T value, long expiresAt) {
-                this.value = value;
-                this.expiresAt = System.currentTimeMillis() + expiresAt;
-            }
-
-            boolean fresh() {
-                return System.currentTimeMillis() < expiresAt;
-            }
+        private CacheEntry(T value, long expiresAt) {
+            this.value = value;
+            this.expiresAt = System.currentTimeMillis() + expiresAt;
         }
+
+        boolean fresh() {
+            return System.currentTimeMillis() < expiresAt;
+        }
+    }
 
     private interface SupplierWithException<T> {
         T get();

@@ -25,14 +25,16 @@ public class FeatureCacheManager {
     /**
      * Get (or create) the cache subdirectory for this feature + identifier.
      * Example:
-     *   getCacheDirectory("voteRewards", "queue")
-     *     ⇒ plugins/.../cache/voteRewards-queue/
+     * getCacheDirectory("voteRewards", "queue")
+     * ⇒ plugins/.../cache/voteRewards-queue/
      */
     public CacheDirectory getCacheDirectory(String featureName, String cacheId) {
         return new CacheDirectory(baseFolder, featureName, cacheId);
     }
 
-    /** Global cleanup can still sweep across all subfolders if desired. */
+    /**
+     * Global cleanup can still sweep across all subfolders if desired.
+     */
     public void cleanupAll() {
         // unchanged
     }

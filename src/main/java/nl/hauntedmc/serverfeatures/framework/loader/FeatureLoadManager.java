@@ -215,7 +215,9 @@ public class FeatureLoadManager {
         }
     }
 
-    public FeatureRegistry getFeatureRegistry() { return featureRegistry; }
+    public FeatureRegistry getFeatureRegistry() {
+        return featureRegistry;
+    }
 
     public void unloadAllFeatures() {
         plugin.getLogger().info("Unloading all loaded features...");

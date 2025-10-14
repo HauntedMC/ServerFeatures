@@ -79,8 +79,8 @@ class LogSanitizeTaskTest {
         int retention = 5;
 
         Path oldPlain = createLog(logs, today.minusDays(99), 1, false);
-        Path oldGz    = createLog(logs, today.minusDays(99), 2, true);
-        Path freshGz  = createLog(logs, today.minusDays(1), 3, true);
+        Path oldGz = createLog(logs, today.minusDays(99), 2, true);
+        Path freshGz = createLog(logs, today.minusDays(1), 3, true);
 
         LogSanitizeTask task = new LogSanitizeTask(retention);
         SanitizeContext ctx = new SanitizeContext(serverRoot, "1.21.1");
