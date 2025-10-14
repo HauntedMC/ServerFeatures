@@ -77,6 +77,7 @@ public class FeatureLoadManager {
         for (String featureName : loadOrder) {
             loadFeature(featureName);
         }
+        CommandSync.apply(plugin);
     }
 
     private boolean resolveFeatureLoadOrder(String featureName, Set<String> stack, Set<String> visited, List<String> loadOrder) {
@@ -229,6 +230,7 @@ public class FeatureLoadManager {
         for (BukkitBaseFeature<?> feature : loadedFeatures) {
             feature.cleanup();
         }
+        CommandSync.apply(plugin);
         plugin.getLogger().info("All features have been unloaded.");
     }
 
