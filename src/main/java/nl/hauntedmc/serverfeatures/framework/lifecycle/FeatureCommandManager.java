@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
+import nl.hauntedmc.serverfeatures.api.command.brigadier.FeatureBrigadierCommand;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
@@ -9,12 +10,14 @@ import org.bukkit.entity.Player;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 public class FeatureCommandManager {
     private final ServerFeatures plugin;
     private final CommandMap commandMap;
     private final Map<String, FeatureCommand> registeredCommands = new HashMap<>();
+    private final Map<String, FeatureBrigadierCommand> registeredBrigadierCommands = new ConcurrentHashMap<>();
 
     public FeatureCommandManager(ServerFeatures plugin) {
         this.plugin = plugin;
@@ -39,8 +42,7 @@ public class FeatureCommandManager {
         registeredCommands.put(commandName, command);
         plugin.getLogger().info("Registered command: " + commandName);
 
-        // Ensure clients see the new command immediately
-        trySyncCommands();
+        syncCommands();
     }
 
     /**
@@ -48,7 +50,7 @@ public class FeatureCommandManager {
      * fully removes every mapping from the CommandMap (primary, namespaced, aliases).
      * Also resyncs Brigadier so clients lose the literal in /<tab>.
      */
-    public void unregisterCommand(String commandName) {
+    public void unregisterFeatureCommand(String commandName) {
         Logger log = plugin.getLogger();
 
         FeatureCommand command = registeredCommands.remove(commandName);
@@ -98,34 +100,92 @@ public class FeatureCommandManager {
         } catch (Throwable t) {
             log.warning("Failed to fully purge '" + commandName + "' from knownCommands: " + t.getMessage());
         }
-
-        // 4) Resync Brigadier & push new tree to clients
-        trySyncCommands();
     }
 
     /**
      * Unregisters all dynamically registered commands safely.
      */
-    public void unregisterAllCommands() {
+    public void unregisterAllFeatureCommands() {
         List<String> names = new ArrayList<>(registeredCommands.keySet());
-        for (String n : names) unregisterCommand(n);
+        for (String n : names) unregisterFeatureCommand(n);
+        syncCommands();
+    }
+
+
+
+    // Brigadier start
+    /** Register a Brigadier command at runtime (central attach + push). */
+    public void registerBrigadierFeatureCommand(FeatureBrigadierCommand command) {
+        String key = command.name().toLowerCase(Locale.ROOT);
+
+        if (registeredBrigadierCommands.putIfAbsent(key, command) != null) {
+            plugin.getLogger().warning("[Brigadier] Already registered: " + key);
+            return;
+        }
+
+        plugin.getBrigadierDispatcher().attachBrigadierCommand(command);
+
+        syncCommands();
+    }
+
+    /** HARD-unregister at runtime (central detach + push). */
+    public void unregisterBrigadierFeatureCommand(String name) {
+        String key = name.toLowerCase(Locale.ROOT);
+        FeatureBrigadierCommand removed = registeredBrigadierCommands.remove(key);
+
+        if (removed == null) {
+            plugin.getLogger().warning("[Brigadier] Not registered: " + name);
+            return;
+        }
+
+        plugin.getBrigadierDispatcher().detachBrigadierCommand(removed);
+
+        syncCommands();
+    }
+
+    /** HARD-unregister all owned Brig commands. */
+    public void unregisterAllBrigadierCommands() {
+        if (registeredBrigadierCommands.isEmpty()) return;
+        Collection<FeatureBrigadierCommand> snapshot = new ArrayList<>(registeredBrigadierCommands.values());
+        registeredBrigadierCommands.clear();
+        snapshot.forEach(cmd -> plugin.getBrigadierDispatcher().detachBrigadierCommand(cmd));
+        syncCommands();
+    }
+
+    /** Total count across Bukkit + Brigadier. */
+    public int getTotalRegisteredCommandCount() {
+        return registeredCommands.size() + registeredBrigadierCommands.size();
     }
 
     /**
-     * Get all registered commands of the feature.
+     * Combined, case-insensitive set of all primary command names across Bukkit + Brigadier.
+     * (Returns an unmodifiable set.)
      */
-    public Map<String, FeatureCommand> getRegisteredCommands() {
-        return registeredCommands;
+    public Set<String> getAllRegisteredCommandNames() {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        names.addAll(registeredCommands.keySet());
+        names.addAll(registeredBrigadierCommands.keySet());
+        return Collections.unmodifiableSet(names);
     }
 
-    public int getRegisteredCommandCount() {
+    public Map<String, FeatureCommand> getRegisteredFeatureCommands() {
+        return Collections.unmodifiableMap(registeredCommands);
+    }
+
+    public int getRegisteredFeatureCommandCount() {
         return registeredCommands.size();
     }
 
-    /* ==================== helpers ==================== */
+    public Map<String, FeatureBrigadierCommand> getRegisteredBrigadierCommands() {
+        return Collections.unmodifiableMap(registeredBrigadierCommands);
+    }
 
-    /** Try Paper's syncCommands() if available, and always update players. */
-    private void trySyncCommands() {
+    public int getRegisteredBrigadierCommandCount() {
+        return registeredBrigadierCommands.size();
+    }
+
+    /** Sync commands and update players. */
+    private void syncCommands() {
         // Prefer CraftServer/Paper public syncCommands() if present
         try {
             Method m = plugin.getServer().getClass().getMethod("syncCommands");

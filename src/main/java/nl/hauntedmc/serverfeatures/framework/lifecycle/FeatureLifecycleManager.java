@@ -70,7 +70,8 @@ public class FeatureLifecycleManager {
         guiManager.shutdown();
         listenerManager.unregisterAllListeners();
         taskManager.cancelAllTasks();
-        commandManager.unregisterAllCommands();
+        commandManager.unregisterAllFeatureCommands();
+        commandManager.unregisterAllBrigadierCommands();
         dataManager.closeAllConnections();
         cacheManager.cleanupAll();
     }

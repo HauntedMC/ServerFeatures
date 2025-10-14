@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
@@ -23,6 +24,7 @@ public class ServerFeatures extends JavaPlugin {
     private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;
     private LocalizationHandler localizationHandler;
+    private BrigadierDispatcher brigadierDispatcher;
 
     @Override
     public void onEnable() {
@@ -30,10 +32,13 @@ public class ServerFeatures extends JavaPlugin {
             PacketEvents.getAPI().init();
         }
 
-        // General plugin initialization
         mainConfigHandler = new MainConfigHandler(this);
         localizationHandler = new LocalizationHandler(this);
         featureLoadManager = new FeatureLoadManager(this);
+
+        brigadierDispatcher = new BrigadierDispatcher(this);
+        brigadierDispatcher.resolveDispatcher();
+
         registerFrameworkCommand();
         registerFrameworkListeners();
 
@@ -43,7 +48,6 @@ public class ServerFeatures extends JavaPlugin {
             getLogger().warning("Scoreboard shutdown cleanup error: " + t.getMessage());
         }
 
-        // Feature specific initialization
         featureLoadManager.initializeFeatures();
     }
 
@@ -63,8 +67,6 @@ public class ServerFeatures extends JavaPlugin {
     private void registerFrameworkCommand() {
         PluginCommand pcmd = Objects.requireNonNull(getCommand("serverfeatures"));
         ServerFeaturesCommand cmd = new ServerFeaturesCommand(this);
-
-        // Executor only; tab completions handled by global async listener
         pcmd.setExecutor(cmd);
         pcmd.setTabCompleter(cmd);
     }
@@ -73,15 +75,10 @@ public class ServerFeatures extends JavaPlugin {
         PluginCommand pcmd = getCommand("serverfeatures");
         if (pcmd == null) return;
 
-        // Unregister tabs from the global TabService
         final String primary = pcmd.getName().toLowerCase(Locale.ROOT);
-
-        // Unregister the command from the CommandMap (primary + namespaced + aliases)
         CommandMap cmap = getServer().getCommandMap();
         try {
-            // Remove from the map and its knownCommands registry
             pcmd.unregister(cmap);
-
             Map<String, Command> known = cmap.getKnownCommands();
             final String pluginNs = getName().toLowerCase(Locale.ROOT) + ":";
 
@@ -103,16 +100,10 @@ public class ServerFeatures extends JavaPlugin {
         pm.registerEvents(new ScoreboardListener(this), this);
     }
 
-    public FeatureLoadManager getFeatureLoadManager() {
-        return featureLoadManager;
-    }
+    /* ============================== ACCESSORS ============================== */
 
-    public MainConfigHandler getConfigHandler() {
-        return mainConfigHandler;
-    }
-
-    public LocalizationHandler getLocalizationHandler() {
-        return localizationHandler;
-    }
-
+    public FeatureLoadManager getFeatureLoadManager() { return featureLoadManager; }
+    public MainConfigHandler getConfigHandler() { return mainConfigHandler; }
+    public LocalizationHandler getLocalizationHandler() { return localizationHandler; }
+    public BrigadierDispatcher getBrigadierDispatcher() { return brigadierDispatcher; }
 }

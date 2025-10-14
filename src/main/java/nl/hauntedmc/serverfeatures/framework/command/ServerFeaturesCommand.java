@@ -269,8 +269,8 @@ public class ServerFeaturesCommand implements CommandExecutor, TabCompleter {
         int activeConnCount = 0;
 
         for (BukkitBaseFeature<?> feature : loadedFeatures) {
-            registeredCommandCount += feature.getLifecycleManager().getCommandManager().getRegisteredCommandCount();
-            loadedCommands.addAll(feature.getLifecycleManager().getCommandManager().getRegisteredCommands().values().stream().map(Command::getName).toList());
+            registeredCommandCount += feature.getLifecycleManager().getCommandManager().getTotalRegisteredCommandCount();
+            loadedCommands.addAll(feature.getLifecycleManager().getCommandManager().getAllRegisteredCommandNames());
             activeTaskCount += feature.getLifecycleManager().getTaskManager().getActiveTaskCount();
             registeredListenerCount += feature.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
             activeConnCount += feature.getLifecycleManager().getDataManager().getActiveConnCount();

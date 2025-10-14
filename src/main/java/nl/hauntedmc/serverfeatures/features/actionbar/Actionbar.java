@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarBrigadierCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarHandler;
 import nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta;
@@ -57,6 +58,7 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
     public void initialize() {
         this.actionbarHandler = new ActionbarHandler(this);
         getLifecycleManager().getCommandManager().registerFeatureCommand(new ActionbarCommand(this));
+        getLifecycleManager().getCommandManager().registerBrigadierFeatureCommand(new ActionbarBrigadierCommand(this));
         actionbarHandler.startMessageCycle();
     }
 
