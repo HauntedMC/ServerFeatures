@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.framework.listener;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;

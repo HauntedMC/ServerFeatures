@@ -16,7 +16,6 @@ public class DiscordUtils {
      *
      * @param webhookUrl The webhook URL.
      * @param payload    The JSON payload.
-     * @return
      */
     public static void sendPayload(String webhookUrl, String payload) {
         try {

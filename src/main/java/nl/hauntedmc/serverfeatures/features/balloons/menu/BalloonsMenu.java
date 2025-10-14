@@ -2,9 +2,9 @@ package nl.hauntedmc.serverfeatures.features.balloons.menu;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.menu.PagedMenu;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.item.GuiItem;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.item.GuiItemHelper;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.menu.PagedMenu;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;

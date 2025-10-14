@@ -2,7 +2,9 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarService;
+import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher; // keep if other features use dispatcher directly elsewhere
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
@@ -46,13 +48,13 @@ public class ServerFeatures extends JavaPlugin {
             getLogger().warning("Scoreboard init error: " + t.getMessage());
         }
 
+        ActionBars.bootstrap(new PaperActionBarService(this));
+
         featureLoadManager.initializeFeatures();
     }
 
     private void registerFrameworkCommand() {
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
-            commands.registrar().register(new ServerFeaturesCommand(this).buildTree());
-        });
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> commands.registrar().register(new ServerFeaturesCommand(this).buildTree()));
     }
 
     @Override
@@ -64,6 +66,10 @@ public class ServerFeatures extends JavaPlugin {
         } catch (Throwable t) {
             getLogger().warning("Scoreboard cleanup error: " + t.getMessage());
         }
+
+        ((PaperActionBarService) ActionBars.service()).shutdown();
+        ActionBars.shutdown();
+
         getLogger().info("ServerFeatures is shutting down...");
     }
 

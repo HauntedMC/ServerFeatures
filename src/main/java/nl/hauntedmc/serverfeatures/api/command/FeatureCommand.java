@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.api.command;
 
 import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandMap;
 import org.bukkit.command.CommandSender;
@@ -53,7 +53,7 @@ public abstract class FeatureCommand extends Command {
             if (t.isEmpty()) continue;
             if (t.equals(primary)) continue;
             if (t.contains(" ")) throw new IllegalArgumentException("Alias must not contain spaces: '" + alias + "'");
-            if (!FormatPatterns.BUKKIT_ALIAS_FORMAT.matcher(t).matches()) {
+            if (!TextPatterns.BUKKIT_ALIAS_FORMAT.matcher(t).matches()) {
                 throw new IllegalArgumentException("Alias contains invalid characters (allowed: a-z, 0-9, '_', '-'): '" + alias + "'");
             }
             out.add(t);

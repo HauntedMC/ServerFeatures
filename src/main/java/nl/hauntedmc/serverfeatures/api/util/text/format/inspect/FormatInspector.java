@@ -7,7 +7,7 @@ import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -36,19 +36,19 @@ public final class FormatInspector {
         boolean wantAmp = kinds.contains(TextFormatter.InputFormat.LEGACY_AMPERSAND) || kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_AMP);
         boolean wantSec = kinds.contains(TextFormatter.InputFormat.LEGACY_SECTION) || kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_SECTION);
 
-        if (wantAmp && FormatPatterns.AMP_CODES.matcher(s).find()) return true;
-        if (wantSec && FormatPatterns.SEC_CODES.matcher(s).find()) return true;
+        if (wantAmp && TextPatterns.AMP_CODES.matcher(s).find()) return true;
+        if (wantSec && TextPatterns.SEC_CODES.matcher(s).find()) return true;
 
-        if (kinds.contains(TextFormatter.InputFormat.HEX_POUND) && (FormatPatterns.POUND_HEX.matcher(s).find() || FormatPatterns.SECTION_POUND_HEX.matcher(s).find()))
+        if (kinds.contains(TextFormatter.InputFormat.HEX_POUND) && (TextPatterns.POUND_HEX.matcher(s).find() || TextPatterns.SECTION_POUND_HEX.matcher(s).find()))
             return true;
-        if (kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_AMP) && FormatPatterns.AMP_BUNGEE_HEX.matcher(s).find())
+        if (kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_AMP) && TextPatterns.AMP_BUNGEE_HEX.matcher(s).find())
             return true;
-        if (kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_SECTION) && FormatPatterns.SEC_BUNGEE_HEX.matcher(s).find())
+        if (kinds.contains(TextFormatter.InputFormat.HEX_BUNGEE_SECTION) && TextPatterns.SEC_BUNGEE_HEX.matcher(s).find())
             return true;
-        if (kinds.contains(TextFormatter.InputFormat.HEX_MINI) && FormatPatterns.MINI_HEX_TAG.matcher(s).find())
+        if (kinds.contains(TextFormatter.InputFormat.HEX_MINI) && TextPatterns.MINI_HEX_TAG.matcher(s).find())
             return true;
 
-        return wantMini && FormatPatterns.ANY_MINI_TAG.matcher(s).find();
+        return wantMini && TextPatterns.ANY_MINI_TAG.matcher(s).find();
     }
 
     /**

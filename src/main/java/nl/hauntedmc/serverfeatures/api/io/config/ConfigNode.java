@@ -48,7 +48,6 @@ public final class ConfigNode {
     /**
      * If this is a map node, return child node by key.
      */
-    @SuppressWarnings("unchecked")
     public ConfigNode get(String key) {
         if (!(value instanceof Map<?, ?> m)) return new ConfigNode(null, childPath(key));
         Object raw = m.get(key);
@@ -69,7 +68,6 @@ public final class ConfigNode {
     /**
      * If this is a map node, returns keys.
      */
-    @SuppressWarnings("unchecked")
     public Set<String> keys() {
         if (value instanceof Map<?, ?> m) {
             LinkedHashSet<String> out = new LinkedHashSet<>();
@@ -82,7 +80,6 @@ public final class ConfigNode {
     /**
      * If this is a map node, returns children as nodes.
      */
-    @SuppressWarnings("unchecked")
     public Map<String, ConfigNode> children() {
         if (!(value instanceof Map<?, ?> m)) return Map.of();
         LinkedHashMap<String, ConfigNode> out = new LinkedHashMap<>();

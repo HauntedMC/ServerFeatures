@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.glow.menu;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItem;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.item.GuiItemHelper;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.menu.SimpleMenu;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.GuiMenu;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.item.GuiItem;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.item.GuiItemHelper;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.menu.SimpleMenu;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import org.bukkit.Material;

@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.api.util.text.format;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import nl.hauntedmc.serverfeatures.api.util.text.format.color.LegacyColorUtils;
 import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -419,9 +419,9 @@ public final class TextFormatter {
         if (opt.transformHex) {
             if (expects.contains(InputFormat.HEX_POUND) && (indexOfAny(s, FormatConstants.AMP_CHAR, FormatConstants.SECTION_CHAR, FormatConstants.POUND_CHAR) >= 0)) {
                 if (!opt.normalizeSectionToAmpersand) {
-                    s = FormatPatterns.SECTION_POUND_HEX.matcher(s).replaceAll("<#$1>");
+                    s = TextPatterns.SECTION_POUND_HEX.matcher(s).replaceAll("<#$1>");
                 }
-                s = FormatPatterns.POUND_HEX.matcher(s).replaceAll("<#$1>");
+                s = TextPatterns.POUND_HEX.matcher(s).replaceAll("<#$1>");
             }
             if (expects.contains(InputFormat.HEX_BUNGEE_AMP) && s.indexOf(FormatConstants.AMP_CHAR) >= 0) {
                 s = replaceAmpersandBungeeHexToMini(s);
@@ -429,8 +429,8 @@ public final class TextFormatter {
             if (expects.contains(InputFormat.HEX_BUNGEE_SECTION) && !opt.normalizeSectionToAmpersand && s.indexOf(FormatConstants.SECTION_CHAR) >= 0) {
                 s = replaceSectionBungeeHexToMini(s);
             }
-            if (expects.contains(InputFormat.HEX_MINI_DOUBLE) && FormatPatterns.MINI_HEX_DOUBLE.matcher(s).find()) {
-                s = FormatPatterns.MINI_HEX_DOUBLE.matcher(s).replaceAll("<#$1>");
+            if (expects.contains(InputFormat.HEX_MINI_DOUBLE) && TextPatterns.MINI_HEX_DOUBLE.matcher(s).find()) {
+                s = TextPatterns.MINI_HEX_DOUBLE.matcher(s).replaceAll("<#$1>");
             }
         }
 
@@ -464,8 +464,8 @@ public final class TextFormatter {
      * Convert {@code &x&F&F&F&F&F&F} to {@code <#RRGGBB>}.
      */
     private static String replaceAmpersandBungeeHexToMini(String s) {
-        Matcher m = FormatPatterns.AMP_BUNGEE_HEX.matcher(s);
-        StringBuffer out = new StringBuffer(s.length());
+        Matcher m = TextPatterns.AMP_BUNGEE_HEX.matcher(s);
+        StringBuilder out = new StringBuilder(s.length());
         while (m.find()) {
             String seq = m.group(); // &x&F&F&F&F&F&F
             String hex = seq.replaceAll("(?i)&x|&", "");
@@ -480,8 +480,8 @@ public final class TextFormatter {
      * Convert {@code §x§F§F§F§F§F§F} to {@code <#RRGGBB>}.
      */
     private static String replaceSectionBungeeHexToMini(String s) {
-        Matcher m = FormatPatterns.SEC_BUNGEE_HEX.matcher(s);
-        StringBuffer out = new StringBuffer(s.length());
+        Matcher m = TextPatterns.SEC_BUNGEE_HEX.matcher(s);
+        StringBuilder out = new StringBuilder(s.length());
         while (m.find()) {
             String seq = m.group(); // §x§F§F§F§F§F§F
             String hex = seq.replaceAll("(?i)§x|§", "");
@@ -502,14 +502,14 @@ public final class TextFormatter {
         String out = mm;
 
         // 1) Normalize odd Mini hex <##RRGGBB> → <#RRGGBB> (just in case)
-        if (out.indexOf(FormatConstants.MINI_TAG_OPEN) >= 0 && FormatPatterns.MINI_HEX_DOUBLE.matcher(out).find()) {
-            out = FormatPatterns.MINI_HEX_DOUBLE.matcher(out).replaceAll("<#$1>");
+        if (out.indexOf(FormatConstants.MINI_TAG_OPEN) >= 0 && TextPatterns.MINI_HEX_DOUBLE.matcher(out).find()) {
+            out = TextPatterns.MINI_HEX_DOUBLE.matcher(out).replaceAll("<#$1>");
         }
 
         // 2) Hex <#RRGGBB>
-        if (out.indexOf(FormatConstants.POUND_CHAR) >= 0 && FormatPatterns.MINI_HEX_TAG.matcher(out).find()) {
-            Matcher hx = FormatPatterns.MINI_HEX_TAG.matcher(out);
-            StringBuffer sb = new StringBuffer(out.length());
+        if (out.indexOf(FormatConstants.POUND_CHAR) >= 0 && TextPatterns.MINI_HEX_TAG.matcher(out).find()) {
+            Matcher hx = TextPatterns.MINI_HEX_TAG.matcher(out);
+            StringBuilder sb = new StringBuilder(out.length());
             while (hx.find()) {
                 String hex = hx.group(1);
                 String replacement;
@@ -565,14 +565,14 @@ public final class TextFormatter {
     public static String stripLegacyCodes(String input) {
         if (input == null || input.isEmpty()) return input;
         String s = input;
-        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) s = FormatPatterns.AMP_BUNGEE_HEX.matcher(s).replaceAll("");
-        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) s = FormatPatterns.SEC_BUNGEE_HEX.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) s = TextPatterns.AMP_BUNGEE_HEX.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) s = TextPatterns.SEC_BUNGEE_HEX.matcher(s).replaceAll("");
         if (s.indexOf(FormatConstants.POUND_CHAR) >= 0) {
-            s = FormatPatterns.POUND_HEX.matcher(s).replaceAll("");
-            s = FormatPatterns.SECTION_POUND_HEX.matcher(s).replaceAll("");
+            s = TextPatterns.POUND_HEX.matcher(s).replaceAll("");
+            s = TextPatterns.SECTION_POUND_HEX.matcher(s).replaceAll("");
         }
-        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) s = FormatPatterns.AMP_CODES.matcher(s).replaceAll("");
-        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) s = FormatPatterns.SEC_CODES.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.AMP_CHAR) >= 0) s = TextPatterns.AMP_CODES.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.SECTION_CHAR) >= 0) s = TextPatterns.SEC_CODES.matcher(s).replaceAll("");
         return s;
     }
 
@@ -587,9 +587,9 @@ public final class TextFormatter {
         if (input == null || input.isEmpty()) return input;
         String s = input;
         // Remove hex tags first
-        if (s.indexOf(FormatConstants.POUND_CHAR) >= 0) s = FormatPatterns.MINI_HEX_TAG.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.POUND_CHAR) >= 0) s = TextPatterns.MINI_HEX_TAG.matcher(s).replaceAll("");
         // Remove any <tag ...> or </tag>
-        if (s.indexOf(FormatConstants.MINI_TAG_OPEN) >= 0) s = FormatPatterns.ANY_MINI_TAG.matcher(s).replaceAll("");
+        if (s.indexOf(FormatConstants.MINI_TAG_OPEN) >= 0) s = TextPatterns.ANY_MINI_TAG.matcher(s).replaceAll("");
         return s;
     }
 

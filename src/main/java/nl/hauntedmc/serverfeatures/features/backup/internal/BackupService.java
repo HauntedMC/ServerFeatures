@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.backup.internal;
 
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 import nl.hauntedmc.serverfeatures.features.backup.Backup;
 import nl.hauntedmc.serverfeatures.features.backup.internal.util.ServerRootResolver;
 import nl.hauntedmc.serverfeatures.features.backup.internal.util.ZipUtil;
@@ -54,14 +54,14 @@ public class BackupService {
 
         // Calendar day (no multiple per day)
         LocalDate today = LocalDate.now(ZoneId.systemDefault());
-        String todayPrefix = zipPrefix + FormatPatterns.DATE_FMT.format(today);
+        String todayPrefix = zipPrefix + TextPatterns.DATE_FMT.format(today);
         boolean alreadyExists = hasBackupWithPrefix(backupsDir, todayPrefix);
 
         if (alreadyExists) {
             feature.getLogger().info("A backup for today already exists (prefix: " + todayPrefix + "). Skipping creation.");
         } else {
             // Build target zip name
-            String zipName = zipPrefix + FormatPatterns.TS_FMT.format(LocalDateTime.now(ZoneId.systemDefault())) + ".zip";
+            String zipName = zipPrefix + TextPatterns.TS_FMT.format(LocalDateTime.now(ZoneId.systemDefault())) + ".zip";
             Path zipPath = backupsDir.resolve(zipName);
 
             // Resolve & validate targets
@@ -187,10 +187,10 @@ public class BackupService {
     }
 
     private static Optional<LocalDate> extractDate(String filename) {
-        Matcher m = FormatPatterns.DATE_IN_NAME.matcher(filename);
+        Matcher m = TextPatterns.DATE_IN_NAME.matcher(filename);
         if (m.matches()) {
             try {
-                return Optional.of(LocalDate.parse(m.group(1), FormatPatterns.DATE_FMT));
+                return Optional.of(LocalDate.parse(m.group(1), TextPatterns.DATE_FMT));
             } catch (Throwable ignored) {
             }
         }

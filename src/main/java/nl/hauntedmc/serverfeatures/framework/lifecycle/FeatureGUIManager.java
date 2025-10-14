@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.gui.invmenu.GuiMenu;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.GuiMenu;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;

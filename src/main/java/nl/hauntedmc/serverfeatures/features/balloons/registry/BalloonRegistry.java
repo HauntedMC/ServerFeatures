@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
-import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
 import nl.hauntedmc.serverfeatures.features.balloons.model.BalloonDefinition;
 import org.bukkit.Material;

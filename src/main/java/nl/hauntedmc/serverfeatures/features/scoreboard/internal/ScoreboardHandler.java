@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.gui.scoreboard.ScoreboardManager;
+import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;

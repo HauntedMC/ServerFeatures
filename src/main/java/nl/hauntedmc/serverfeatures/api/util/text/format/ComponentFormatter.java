@@ -11,7 +11,7 @@ import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
@@ -423,7 +423,7 @@ public final class ComponentFormatter {
             String out = mm;
 
             if (!features.contains(Feature.COLORS) && out.indexOf(FormatConstants.POUND_CHAR) >= 0) {
-                out = FormatPatterns.HEX_TAG.matcher(out).replaceAll("");
+                out = TextPatterns.HEX_TAG.matcher(out).replaceAll("");
             }
 
             var allowed = new java.util.HashSet<>(allowedCustom == null ? Set.of() : allowedCustom);
@@ -482,14 +482,14 @@ public final class ComponentFormatter {
             allowed.add(FormatConstants.END_TOKEN);
 
             if (!features.contains(Feature.NEWLINE) && out.indexOf('<') >= 0) {
-                out = FormatPatterns.NEWLINE_TAG.matcher(out).replaceAll("");
+                out = TextPatterns.NEWLINE_TAG.matcher(out).replaceAll("");
             }
 
-            out = FormatPatterns.OPEN_TAG.matcher(out).replaceAll(mr -> {
+            out = TextPatterns.OPEN_TAG.matcher(out).replaceAll(mr -> {
                 String name = mr.group(1).toLowerCase();
                 return allowed.contains(name) ? mr.group(0) : "";
             });
-            out = FormatPatterns.CLOSE_TAG.matcher(out).replaceAll(mr -> {
+            out = TextPatterns.CLOSE_TAG.matcher(out).replaceAll(mr -> {
                 String name = mr.group(1).toLowerCase();
                 return allowed.contains(name) ? mr.group(0) : "";
             });
@@ -509,7 +509,7 @@ public final class ComponentFormatter {
          */
         static String autoLink(String mm, boolean underline) {
             if (mm == null || mm.isEmpty()) return mm;
-            Matcher m = FormatPatterns.URL.matcher(mm);
+            Matcher m = TextPatterns.URL.matcher(mm);
             StringBuilder sb = new StringBuilder(mm.length());
             while (m.find()) {
                 String url = m.group(1);
@@ -570,10 +570,10 @@ public final class ComponentFormatter {
          */
         public static final class LegacyOptions {
             public char legacyChar = FormatConstants.AMP_CHAR;
-            public char legacyHexChar = FormatConstants.POUND_CHAR;
-            public boolean supportHex = true;
-            public boolean useXRepeatedHex = false;
-            public boolean extractUrls = false;
+            public final char legacyHexChar = FormatConstants.POUND_CHAR;
+            public final boolean supportHex = true;
+            public final boolean useXRepeatedHex = false;
+            public final boolean extractUrls = false;
 
             public static LegacyOptions ampersand() {
                 return new LegacyOptions();

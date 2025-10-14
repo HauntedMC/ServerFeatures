@@ -1,126 +1,118 @@
 package nl.hauntedmc.serverfeatures.features.actionbar.command;
 
-import nl.hauntedmc.serverfeatures.api.command.FeatureCommand;
-import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.command.brigadier.MessageComponentSerializer;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+public final class ActionbarCommand implements BrigadierCommand {
+    private static final String BASE = "serverfeatures.feature.actionbar.use";
+    private static final String P_START = "serverfeatures.feature.actionbar.command.start";
+    private static final String P_STOP = "serverfeatures.feature.actionbar.command.stop";
+    private static final String P_SEND = "serverfeatures.feature.actionbar.command.send";
 
-public class ActionbarCommand extends FeatureCommand {
     private final Actionbar feature;
 
     public ActionbarCommand(Actionbar feature) {
-        super(new CommandMeta.Builder("actionbar").build());
         this.feature = feature;
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args) {
-        if (!sender.hasPermission("serverfeatures.feature.actionbar.use")) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
-            return true;
-        }
-
-        if (args.length < 1) {
-            sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage").forAudience(sender).build());
-            return true;
-        }
-
-        String subCommand = args[0].toLowerCase();
-
-        switch (subCommand) {
-            case "start":
-                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.start")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
-                    return true;
-                }
-                if (feature.getActionbarHandler().messageCycleRunning()) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.already_running").forAudience(sender).build());
-                    return true;
-                }
-                feature.getActionbarHandler().startMessageCycle();
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.started").forAudience(sender).build());
-                break;
-
-            case "stop":
-                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.stop")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
-                    return true;
-                }
-                if (!feature.getActionbarHandler().messageCycleRunning()) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.not_running").forAudience(sender).build());
-                    return true;
-                }
-                feature.getActionbarHandler().stopMessageCycle();
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.stopped").forAudience(sender).build());
-                break;
-
-            case "send":
-                if (!sender.hasPermission("serverfeatures.feature.actionbar.command.send")) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(sender).build());
-                    return true;
-                }
-                if (args.length < 2) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.send_usage").forAudience(sender).build());
-                    return true;
-                }
-
-                String message = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
-                int timeSeconds = 0;
-                String lastArg = args[args.length - 1];
-                try {
-                    timeSeconds = Integer.parseInt(lastArg);
-                    message = String.join(" ", Arrays.copyOfRange(args, 1, args.length - 1));
-                } catch (NumberFormatException ignored) {
-                }
-                if (timeSeconds < 0) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.invalid_time").forAudience(sender).build());
-                    return true;
-                }
-                feature.getActionbarHandler().sendManualActionbar(message, timeSeconds);
-
-                if (timeSeconds > 0) {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer")
-                            .forAudience(sender)
-                            .with("time", timeSeconds)
-                            .with("message", message)
-                            .build());
-                } else {
-                    sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once")
-                            .forAudience(sender)
-                            .with("message", message)
-                            .build());
-                }
-                break;
-
-            default:
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.usage").forAudience(sender).build());
-                break;
-        }
-
-        return true;
+    public @NotNull String name() {
+        return "actionbar";
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender,
-                                             @NotNull String alias,
-                                             String @NotNull [] args) {
-        // /actionbar <subcommand>
-        if (args.length == 1) {
-            String input = args[0].toLowerCase();
-            List<String> suggestions = new ArrayList<>();
-            for (String option : Arrays.asList("start", "stop", "send")) {
-                if (option.startsWith(input)) {
-                    suggestions.add(option);
-                }
-            }
-            return suggestions;
+    public String description() {
+        return "Control the actionbar cycle and send messages.";
+    }
+
+    @Override
+    public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
+        final var mm = MiniMessage.miniMessage();
+        final var ser = MessageComponentSerializer.message();
+
+        LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
+                .requires(src -> src.getSender().hasPermission(BASE))
+
+                .then(Commands.literal("start")
+                        .requires(src -> src.getSender().hasPermission(P_START))
+                        .executes(ctx -> {
+                            CommandSender s = ctx.getSource().getSender();
+                            if (feature.service().isCycleRunning()) {
+                                s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.already_running").forAudience(s).build());
+                                return 1;
+                            }
+                            feature.service().startCycle();
+                            s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.started").forAudience(s).build());
+                            return 1;
+                        }))
+
+                .then(Commands.literal("stop")
+                        .requires(src -> src.getSender().hasPermission(P_STOP))
+                        .executes(ctx -> {
+                            CommandSender s = ctx.getSource().getSender();
+                            if (!feature.service().isCycleRunning()) {
+                                s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.not_running").forAudience(s).build());
+                                return 1;
+                            }
+                            feature.service().stopCycle();
+                            s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.stopped").forAudience(s).build());
+                            return 1;
+                        }))
+
+                .then(Commands.literal("send")
+                        .requires(src -> src.getSender().hasPermission(P_SEND))
+                        .then(Commands.argument("seconds", IntegerArgumentType.integer(0, 3600))
+                                .suggests((c, b) -> {
+                                    suggestSeconds(b, 0, 3, 5, 10, 30, 60, 120, 300);
+                                    return b.buildFuture();
+                                })
+                                .then(Commands.argument("message", StringArgumentType.greedyString())
+                                        .suggests((c, b) -> {
+                                            if (b.getRemaining().isEmpty()) {
+                                                b.suggest("<message...>", ser.serialize(mm.deserialize("<gray>Type the actionbar text</gray>")));
+                                            }
+                                            return b.buildFuture();
+                                        })
+                                        .executes(ctx -> {
+                                            int secs = IntegerArgumentType.getInteger(ctx, "seconds");
+                                            String msg = StringArgumentType.getString(ctx, "message");
+                                            feature.service().sendManual(msg, secs);
+
+                                            CommandSender s = ctx.getSource().getSender();
+                                            if (secs > 0) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_timer")
+                                                        .forAudience(s).with("time", secs).with("message", msg).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("actionbar.sent_once")
+                                                        .forAudience(s).with("message", msg).build());
+                                            }
+                                            return 1;
+                                        }))));
+
+        return root.build();
+    }
+
+    private static void suggestSeconds(SuggestionsBuilder b, int... vals) {
+        final var mm = MiniMessage.miniMessage();
+        final var ser = MessageComponentSerializer.message();
+        String prefix = b.getRemainingLowerCase();
+        for (int v : vals) {
+            String s = String.valueOf(v);
+            if (!s.startsWith(prefix)) continue;
+            String tip = v == 0 ? "<gray>Show once (no timer)</gray>"
+                    : "<gray>Show for <green>" + v + "</green> seconds</gray>";
+            b.suggest(v, ser.serialize(mm.deserialize(tip)));
         }
-        return Collections.emptyList();
     }
 }

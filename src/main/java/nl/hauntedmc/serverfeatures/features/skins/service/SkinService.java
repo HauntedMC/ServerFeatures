@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.skins.service;
 
-import nl.hauntedmc.serverfeatures.api.util.text.pattern.FormatPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateType;
@@ -277,7 +277,7 @@ public class SkinService {
     /* ------------------------------------------------------- */
 
     private boolean isValidName(String name) {
-        return FormatPatterns.MC_NAME.matcher(name).matches();
+        return TextPatterns.MC_NAME.matcher(name).matches();
     }
 
     /**

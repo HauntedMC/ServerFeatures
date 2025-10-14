@@ -4,16 +4,15 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
-import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarBrigadierCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
-import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarHandler;
+import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarFeatureService;
 import nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta;
 
 import java.util.Map;
 
 public class Actionbar extends BukkitBaseFeature<Meta> {
 
-    private ActionbarHandler actionbarHandler;
+    private ActionbarFeatureService service;
 
     public Actionbar(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -25,26 +24,22 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
 
         Map<String, Object> messages = new java.util.LinkedHashMap<>();
-
         Map<String, Object> defaultMsg = new java.util.LinkedHashMap<>();
-
-        defaultMsg.put("duration", 100);
+        defaultMsg.put("duration", 100); // ticks
         messages.put("default", defaultMsg);
 
         defaults.put("messages", messages);
-        defaults.put("message_interval", 0);
-
+        defaults.put("message_interval", 0); // ticks
         return defaults;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-
-        messages.add("actionbar.usage", "&7Gebruik: /actionbar <start|stop|send> [bericht] [tijd in seconden (optioneel)]");
+        messages.add("actionbar.usage", "&7Gebruik: /actionbar <start|stop|send> <seconden> <bericht...>");
         messages.add("actionbar.started", "&7De ActionBar cyclus is gestart.");
         messages.add("actionbar.stopped", "&7De ActionBar cyclus is gestopt.");
-        messages.add("actionbar.send_usage", "&7Gebruik: /actionbar send <bericht> [tijd in seconden]");
+        messages.add("actionbar.send_usage", "&7Gebruik: /actionbar send <seconden> <bericht>");
         messages.add("actionbar.invalid_time", "&cOngeldige tijd. Gebruik een numerieke waarde voor seconden.");
         messages.add("actionbar.sent_once", "&7ActionBar bericht verzonden: {message}");
         messages.add("actionbar.sent_timer", "&7ActionBar bericht verzonden voor {time} seconden: {message}");
@@ -56,17 +51,19 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        this.actionbarHandler = new ActionbarHandler(this);
-        getLifecycleManager().getCommandManager().registerFeatureCommand(new ActionbarCommand(this));
-        getLifecycleManager().getCommandManager().registerBrigadierCommand(new ActionbarBrigadierCommand(this));
-        actionbarHandler.startMessageCycle();
+        this.service = new ActionbarFeatureService(this);
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(new ActionbarCommand(this));
     }
 
     @Override
     public void disable() {
+        if (service != null) {
+            service.stopCycle(); // cease usage of the API when this feature stops
+            service = null;
+        }
     }
 
-    public ActionbarHandler getActionbarHandler() {
-        return actionbarHandler;
+    public ActionbarFeatureService service() {
+        return service;
     }
 }
