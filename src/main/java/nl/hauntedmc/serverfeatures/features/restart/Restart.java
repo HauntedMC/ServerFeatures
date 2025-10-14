@@ -65,10 +65,6 @@ public class Restart extends BukkitBaseFeature<Meta> {
 
         RestartCommand restartCmd = new RestartCommand(this, service);
 
-        getLifecycleManager()
-                .getCommandManager()
-                .registerFeatureCommand(restartCmd);
-
         CommandOverride.unregisterVanillaRestart(getPlugin().getServer(), getLogger());
 
         // Aggressively take over restart bind from minecraft, bukkit, spigot and paper
