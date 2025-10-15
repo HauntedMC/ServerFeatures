@@ -10,6 +10,8 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.MessageComponentSerializer;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.actionbar.Actionbar;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
@@ -38,8 +40,6 @@ public final class ActionbarCommand implements BrigadierCommand {
 
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
-        final var mm = MiniMessage.miniMessage();
-        final var ser = MessageComponentSerializer.message();
 
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
                 .requires(src -> src.getSender().hasPermission(BASE))
@@ -80,7 +80,9 @@ public final class ActionbarCommand implements BrigadierCommand {
                                 .then(Commands.argument("message", StringArgumentType.greedyString())
                                         .suggests((c, b) -> {
                                             if (b.getRemaining().isEmpty()) {
-                                                b.suggest("<message...>", ser.serialize(mm.deserialize("<gray>Type the actionbar text</gray>")));
+                                                b.suggest("<message...>", ComponentFormatter.deserialize("<gray>Type the actionbar text</gray>")
+                                                        .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                                                        .features(ComponentFormatter.ALL_DEFAULTS()).toBrigadierMessage());
                                             }
                                             return b.buildFuture();
                                         })
@@ -104,15 +106,15 @@ public final class ActionbarCommand implements BrigadierCommand {
     }
 
     private static void suggestSeconds(SuggestionsBuilder b, int... vals) {
-        final var mm = MiniMessage.miniMessage();
-        final var ser = MessageComponentSerializer.message();
         String prefix = b.getRemainingLowerCase();
         for (int v : vals) {
             String s = String.valueOf(v);
             if (!s.startsWith(prefix)) continue;
             String tip = v == 0 ? "<gray>Show once (no timer)</gray>"
                     : "<gray>Show for <green>" + v + "</green> seconds</gray>";
-            b.suggest(v, ser.serialize(mm.deserialize(tip)));
+            b.suggest(v, ComponentFormatter.deserialize(tip)
+                    .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                    .features(ComponentFormatter.ALL_DEFAULTS()).toBrigadierMessage());
         }
     }
 }

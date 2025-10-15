@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.api.util.text.format;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.mojang.brigadier.Message;
+import io.papermc.paper.command.brigadier.MessageComponentSerializer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -394,6 +396,12 @@ public final class ComponentFormatter {
 
             MiniMessage parser = buildMiniMessage(features, extraResolvers, strict);
             return parser.deserialize(mm);
+        }
+
+        /** Experimental: output the parsed component as a Brigadier {@link Message}. */
+        public Message toBrigadierMessage() {
+            MessageComponentSerializer mcs = MessageComponentSerializer.message();
+            return mcs.serialize(toComponent());
         }
     }
 
