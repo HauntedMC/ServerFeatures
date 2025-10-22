@@ -33,8 +33,8 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
         MessageMap messageMap = new MessageMap();
         messageMap.add("enderframe.pickup_success", "&aJe hebt een Ender Frame opgepakt!");
         messageMap.add("enderframe.claim_restricted", "&cJe kunt de Ender Frame niet oppakken in andermans claim.");
-        messageMap.add("enderframe.stronghold_restricted", "&cJe kunt End Portal Frames in een Stronghold niet afbreken.");
-        messageMap.add("enderframe.worldguard_restricted", "&cJe kunt hier geen Ender Frame afbreken.");
+        messageMap.add("enderframe.stronghold_restricted", "&cJe kunt End Portal Frames in een Stronghold niet oppakken.");
+        messageMap.add("enderframe.worldguard_restricted", "&cJe kunt hier geen Ender Frame oppakken.");
         return messageMap;
     }
 

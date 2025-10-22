@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
+import org.bukkit.entity.Player;
 
 import java.util.Collections;
 import java.util.List;
@@ -48,7 +49,7 @@ public class ChatFormatRegistry {
         }
     }
 
-    public ChatFormat getPlayerFormat(org.bukkit.entity.Player player) {
+    public ChatFormat getPlayerFormat(Player player) {
         for (Map.Entry<Integer, ChatFormat> entry : formats.entrySet()) {
             ChatFormat format = entry.getValue();
             if (player.hasPermission("chatformat." + format.getIdentifier())) {

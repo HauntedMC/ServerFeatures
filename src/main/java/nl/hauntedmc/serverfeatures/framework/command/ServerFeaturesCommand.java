@@ -26,6 +26,7 @@ public final class ServerFeaturesCommand {
     private static final String P_ENABLE     = "serverfeatures.command.enable";
     private static final String P_DISABLE    = "serverfeatures.command.disable";
     private static final String P_RELOADLOC  = "serverfeatures.command.reloadlocal";
+    private static final String P_INFO       = "serverfeatures.command.info";
 
     private final ServerFeatures plugin;
 
@@ -41,10 +42,24 @@ public final class ServerFeaturesCommand {
                 .requires(src -> src.getSender().hasPermission(P_STATUS))
                 .executes(ctx -> { sendPluginStatus(ctx.getSource().getSender()); return 1; }));
 
-        // /serverfeatures list
+        // /serverfeatures list  (compact one-liner) + flag "--version"
         root.then(Commands.literal("list")
                 .requires(src -> src.getSender().hasPermission(P_LIST))
-                .executes(ctx -> { listLoadedFeatures(ctx.getSource().getSender()); return 1; }));
+                .then(Commands.literal("--version")
+                        .executes(ctx -> { listLoadedFeaturesOneLine(ctx.getSource().getSender(), true); return 1; }))
+                .executes(ctx -> { listLoadedFeaturesOneLine(ctx.getSource().getSender(), false); return 1; }));
+
+        // /serverfeatures info <feature>
+        root.then(Commands.literal("info")
+                .requires(src -> src.getSender().hasPermission(P_INFO))
+                .then(Commands.argument("feature", StringArgumentType.word())
+                        .suggests((c, b) -> { suggestAnyFeature(b); return b.buildFuture(); })
+                        .executes(ctx -> {
+                            String name = StringArgumentType.getString(ctx, "feature");
+                            handleInfo(ctx.getSource().getSender(), name);
+                            return 1;
+                        }))
+        );
 
         // /serverfeatures reloadlocal
         root.then(Commands.literal("reloadlocal")
@@ -113,16 +128,48 @@ public final class ServerFeaturesCommand {
 
             String version = Objects.toString(f.getFeatureVersion(), "?");
             b.suggest(name, MessageComponentSerializer.message()
-                    .serialize(Component.text("v" + version).color(NamedTextColor.GRAY)));        }
+                    .serialize(Component.text("v" + version).color(NamedTextColor.GRAY)));
+        }
+    }
+
+    /** Suggest any feature (enabled or disabled), with a tooltip showing status. */
+    private void suggestAnyFeature(SuggestionsBuilder b) {
+        final String prefix = b.getRemainingLowerCase();
+
+        // Enabled
+        Set<String> suggested = new HashSet<>();
+        var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
+        var loaded = reg.getLoadedFeatures();
+        for (BukkitBaseFeature<?> f : loaded) {
+            String name = f.getFeatureName();
+            if (name == null) continue;
+            String low = name.toLowerCase(Locale.ROOT);
+            if (low.startsWith(prefix)) {
+                suggested.add(low);
+                String version = Objects.toString(f.getFeatureVersion(), "?");
+                b.suggest(name, MessageComponentSerializer.message()
+                        .serialize(Component.text("enabled • v" + version).color(NamedTextColor.GREEN)));
+            }
+        }
+
+        // Disabled (available but not loaded)
+        Map<String, ?> available = reg.getAvailableFeatures();
+        for (String name : available.keySet()) {
+            if (name == null) continue;
+            String low = name.toLowerCase(Locale.ROOT);
+            if (!low.startsWith(prefix)) continue;
+            if (suggested.contains(low)) continue;
+            b.suggest(name, MessageComponentSerializer.message()
+                    .serialize(Component.text("disabled").color(NamedTextColor.RED)));
+        }
     }
 
     private void suggestEnableCandidates(SuggestionsBuilder b) {
         final String prefix = b.getRemainingLowerCase();
-        Set<String> available = plugin.getFeatureLoadManager()
-                .getFeatureRegistry().getAvailableFeatures().keySet();
+        var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
+        Set<String> available = reg.getAvailableFeatures().keySet();
 
-        Set<String> loadedLower = plugin.getFeatureLoadManager()
-                .getFeatureRegistry().getLoadedFeatures().stream()
+        Set<String> loadedLower = reg.getLoadedFeatures().stream()
                 .map(BukkitBaseFeature::getFeatureName)
                 .filter(Objects::nonNull)
                 .map(s -> s.toLowerCase(Locale.ROOT))
@@ -137,7 +184,94 @@ public final class ServerFeaturesCommand {
         }
     }
 
-    /* ==== handlers: same behavior as your Bukkit version ==== */
+    /* ==== handlers ==== */
+
+    /** New: /serverfeatures info <feature> (registry lookups only) */
+    private void handleInfo(CommandSender sender, String featureName) {
+        if (featureName == null || featureName.isBlank()) {
+            sender.sendMessage(Component.text("Please provide a feature name.", NamedTextColor.RED));
+            return;
+        }
+
+        var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
+
+        // Try direct loaded-lookup
+        BukkitBaseFeature<?> loaded = reg.getLoadedFeature(featureName);
+
+        // Case-insensitive fallback among loaded
+        if (loaded == null) {
+            loaded = reg.getLoadedFeatures().stream()
+                    .filter(f -> featureName.equalsIgnoreCase(f.getFeatureName()))
+                    .findFirst().orElse(null);
+        }
+
+        if (loaded != null) {
+            // Enabled: full details
+            String name = Objects.toString(loaded.getFeatureName(), featureName);
+            String version = Objects.toString(loaded.getFeatureVersion(), "?");
+            List<String> pluginDeps = Optional.ofNullable(loaded.getPluginDependencies()).orElseGet(List::of);
+            List<String> featureDeps = Optional.ofNullable(loaded.getDependencies()).orElseGet(List::of);
+
+            sendFeatureInfo(sender, name, true, version, pluginDeps, featureDeps);
+            return;
+        }
+
+        // Not loaded: exists in available?
+        Map<String, ?> available = reg.getAvailableFeatures();
+        String availableKey = null;
+        if (available.containsKey(featureName)) {
+            availableKey = featureName;
+        } else {
+            for (String k : available.keySet()) {
+                if (k != null && k.equalsIgnoreCase(featureName)) {
+                    availableKey = k; break;
+                }
+            }
+        }
+
+        if (availableKey != null) {
+            sendFeatureInfo(sender, availableKey, false, "?", List.of(), List.of());
+        } else {
+            sender.sendMessage(Component.text("Feature not found: ", NamedTextColor.RED)
+                    .append(Component.text(featureName, NamedTextColor.WHITE)));
+        }
+    }
+
+    private void sendFeatureInfo(CommandSender sender,
+                                 String name,
+                                 boolean enabled,
+                                 String version,
+                                 List<String> pluginDeps,
+                                 List<String> featureDeps) {
+
+        // Nicely indented, bullet-styled block
+        Component msg = Component.text("Feature: ", NamedTextColor.GOLD)
+                .append(Component.text(name, NamedTextColor.YELLOW))
+                .append(Component.text("\n  • Status: ", NamedTextColor.GRAY))
+                .append(Component.text(enabled ? "enabled" : "disabled",
+                        enabled ? NamedTextColor.GREEN : NamedTextColor.RED))
+                .append(Component.text("\n  • Version: ", NamedTextColor.GRAY))
+                .append(Component.text(version == null ? "?" : "v" + version, NamedTextColor.WHITE))
+                .append(Component.text("\n  • Plugin deps: ", NamedTextColor.GRAY))
+                .append(renderCsvColored(pluginDeps, NamedTextColor.AQUA, NamedTextColor.DARK_GRAY, true))
+                .append(Component.text("\n  • Feature deps: ", NamedTextColor.GRAY))
+                .append(renderCsvColored(featureDeps, NamedTextColor.GREEN, NamedTextColor.DARK_GRAY, true));
+
+        sender.sendMessage(msg);
+    }
+
+    /** Renders a CSV list with colored items and differently colored commas. Handles empty. */
+    private Component renderCsvColored(List<String> items, NamedTextColor itemColor, NamedTextColor commaColor, boolean showNone) {
+        if (items == null || items.isEmpty()) {
+            return Component.text(showNone ? "none" : "", NamedTextColor.DARK_GRAY);
+        }
+        Component out = Component.empty();
+        for (int i = 0; i < items.size(); i++) {
+            if (i > 0) out = out.append(Component.text(", ", commaColor));
+            out = out.append(Component.text(items.get(i), itemColor));
+        }
+        return out;
+    }
 
     private void handleEnable(CommandSender sender, String feature) {
         var resp = plugin.getFeatureLoadManager().enableFeature(feature);
@@ -228,33 +362,41 @@ public final class ServerFeaturesCommand {
         }
     }
 
-    private void listLoadedFeatures(CommandSender sender) {
-        List<BukkitBaseFeature<?>> loaded = plugin.getFeatureLoadManager()
-                .getFeatureRegistry().getLoadedFeatures();
+    /* ==== compact list rendering (alphabetized) ==== */
 
-        if (loaded.isEmpty()) {
-            sender.sendMessage(plugin.getLocalizationHandler()
-                    .getMessage("command.list.empty")
-                    .forAudience(sender)
-                    .build());
-            return;
+    private void listLoadedFeaturesOneLine(CommandSender sender, boolean withVersion) {
+        List<BukkitBaseFeature<?>> loaded = new ArrayList<>(plugin.getFeatureLoadManager()
+                .getFeatureRegistry().getLoadedFeatures());
+
+        // Alphabetize by feature name (case-insensitive, null-safe)
+        loaded.sort(Comparator.comparing(
+                f -> Optional.ofNullable(f.getFeatureName()).orElse(""),
+                String.CASE_INSENSITIVE_ORDER
+        ));
+
+        int n = loaded.size();
+        Component header = Component.text("Enabled Features (", NamedTextColor.YELLOW)
+                .append(Component.text(n, NamedTextColor.AQUA))
+                .append(Component.text("): ", NamedTextColor.YELLOW));
+
+        Component list = Component.empty();
+        for (int i = 0; i < loaded.size(); i++) {
+            BukkitBaseFeature<?> f = loaded.get(i);
+            String name = Objects.toString(f.getFeatureName(), "?");
+            String version = Objects.toString(f.getFeatureVersion(), "?");
+
+            if (i > 0) list = list.append(Component.text(", ", NamedTextColor.DARK_GRAY));
+
+            Component entry = Component.text(name, NamedTextColor.GREEN);
+            if (withVersion) {
+                entry = entry.append(Component.text(" (", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("v" + version, NamedTextColor.WHITE))
+                        .append(Component.text(")", NamedTextColor.DARK_GRAY));
+            }
+            list = list.append(entry);
         }
 
-        sender.sendMessage(plugin.getLocalizationHandler()
-                .getMessage("command.list.header")
-                .forAudience(sender)
-                .build());
-
-        for (BukkitBaseFeature<?> feature : loaded) {
-            String name = Objects.toString(feature.getFeatureName(), "?");
-            String version = Objects.toString(feature.getFeatureVersion(), "?");
-            sender.sendMessage(plugin.getLocalizationHandler()
-                    .getMessage("command.list.entry")
-                    .forAudience(sender)
-                    .with("feature", name)
-                    .with("version", version)
-                    .build());
-        }
+        sender.sendMessage(header.append(list));
     }
 
     private void sendPluginStatus(@NotNull CommandSender sender) {
@@ -271,13 +413,12 @@ public final class ServerFeaturesCommand {
             conns += f.getLifecycleManager().getDataManager().getActiveConnCount();
         }
 
-        sender.sendMessage(Component.text("ServerFeatures Status:", net.kyori.adventure.text.format.NamedTextColor.YELLOW));
-        sender.sendMessage(Component.text("- Number of loaded features: " + loadedCount, net.kyori.adventure.text.format.NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Number of active database connections: " + conns, net.kyori.adventure.text.format.NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Number of active tasks: " + tasks, net.kyori.adventure.text.format.NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Number of registered listeners: " + listeners, net.kyori.adventure.text.format.NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Number of registered commands: " + commands, net.kyori.adventure.text.format.NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Registered commands: " + cmds, net.kyori.adventure.text.format.NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("ServerFeatures Status:", NamedTextColor.YELLOW));
+        sender.sendMessage(Component.text("- Number of loaded features: " + loadedCount, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of active database connections: " + conns, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of active tasks: " + tasks, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of registered listeners: " + listeners, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Number of registered commands: " + commands, NamedTextColor.WHITE));
+        sender.sendMessage(Component.text("- Registered commands: " + cmds, NamedTextColor.WHITE));
     }
-
 }

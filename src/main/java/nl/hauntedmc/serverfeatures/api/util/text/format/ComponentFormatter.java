@@ -385,17 +385,19 @@ public final class ComponentFormatter {
                     ? s
                     : TextFormatter.convert(s).expect(exp).toMiniMessage();
 
-            // Auto-link naked URLs (standard click tag)
-            if (autoLinkUrls && features.contains(Feature.CLICK)) {
-                mm = AutoLinker.autoLink(mm, autoLinkUnderline && features.contains(Feature.DECORATIONS));
-            }
 
             if (sanitizeUnknownTags) {
                 mm = Sanitizer.stripDisallowed(mm, features, allowedCustomTagNames);
             }
 
             MiniMessage parser = buildMiniMessage(features, extraResolvers, strict);
-            return parser.deserialize(mm);
+            Component c = parser.deserialize(mm);
+
+            if (autoLinkUrls) {
+                c = AutoLinker.autoLink(c, autoLinkUnderline);
+            }
+
+            return c;
         }
 
         /** Experimental: output the parsed component as a Brigadier {@link Message}. */
@@ -529,6 +531,24 @@ public final class ComponentFormatter {
             }
             m.appendTail(sb);
             return sb.toString();
+        }
+
+        static Component autoLink(Component root, boolean underline) {
+            if (root == null) return Component.empty();
+            // Use your existing URL pattern (it’s already resistant to tags via your normalization)
+            return root.replaceText(cfg -> cfg
+                    .match(TextPatterns.URL)
+                    .replacement((match, builder) -> {
+                        String url = match.group(1);
+                        String href = url.startsWith("www.") ? "https://" + url : url;
+
+                        net.kyori.adventure.text.TextComponent tc = Component.text(url);
+                        if (underline) {
+                            tc = tc.decorate(net.kyori.adventure.text.format.TextDecoration.UNDERLINED);
+                        }
+                        return tc.clickEvent(net.kyori.adventure.text.event.ClickEvent.openUrl(href));
+                    })
+            );
         }
     }
 
