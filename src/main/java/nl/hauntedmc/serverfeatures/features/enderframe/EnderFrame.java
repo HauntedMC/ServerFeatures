@@ -11,6 +11,7 @@ import org.bukkit.Bukkit;
 public class EnderFrame extends BukkitBaseFeature<Meta> {
 
     private boolean griefPreventionEnabled;
+    private boolean worldguardEnabled;
 
     public EnderFrame(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -32,6 +33,8 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
         MessageMap messageMap = new MessageMap();
         messageMap.add("enderframe.pickup_success", "&aJe hebt een Ender Frame opgepakt!");
         messageMap.add("enderframe.claim_restricted", "&cJe kunt de Ender Frame niet oppakken in andermans claim.");
+        messageMap.add("enderframe.stronghold_restricted", "&cJe kunt End Portal Frames in een Stronghold niet afbreken.");
+        messageMap.add("enderframe.worldguard_restricted", "&cJe kunt hier geen Ender Frame afbreken.");
         return messageMap;
     }
 
@@ -41,6 +44,7 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
+        worldguardEnabled = Bukkit.getPluginManager().isPluginEnabled("WorldGuard");
         getLifecycleManager().getListenerManager().registerListener(new BlockBreakListener(this));
     }
 
@@ -52,4 +56,7 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
         return griefPreventionEnabled;
     }
 
+    public boolean isWorldguardEnabled() {
+        return worldguardEnabled;
+    }
 }
