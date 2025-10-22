@@ -22,13 +22,16 @@ public class ChatHandler {
 
     private final ChatFormatRegistry registry;
     private final Map<Player, Long> mentionCooldownMap = new HashMap<>();
+    private final ChatPlaceholderRegistry placeholderRegistry;
     private final Boolean mentionsEnabled;
     private final Long mentionsCooldown;
     private final ChatLayout feature;
 
-    public ChatHandler(ChatLayout feature, ChatFormatRegistry registry) {
+
+    public ChatHandler(ChatLayout feature, ChatFormatRegistry registry, ChatPlaceholderRegistry placeholderRegistry) {
         this.feature = feature;
         this.registry = registry;
+        this.placeholderRegistry = placeholderRegistry;
         this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
         this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
     }
@@ -44,6 +47,8 @@ public class ChatHandler {
         if (mentionsEnabled) {
             rawMessage = parseMentions(sender, rawMessage);
         }
+
+        rawMessage = placeholderRegistry.applyPlaceholders(sender, rawMessage);
 
         Component prefix = buildPrefixComponent(sender);
         Component chat = buildChatComponent(sender, rawMessage);
@@ -222,5 +227,9 @@ public class ChatHandler {
             index++;
         }
         return sb.toString();
+    }
+
+    public ChatPlaceholderRegistry getPlaceholderRegistry() {
+        return placeholderRegistry;
     }
 }

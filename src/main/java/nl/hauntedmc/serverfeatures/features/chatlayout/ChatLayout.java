@@ -4,8 +4,10 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.chatlayout.command.ChatplaceholdersCommand;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
+import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatPlaceholderRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.SignedChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 
@@ -28,6 +30,11 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
         defaults.put("mention.enabled", true);
         defaults.put("mention.cooldown_seconds", 60);
+
+        Map<String, Object> placeholders = new HashMap<>();
+        placeholders.put("ping", "[ping]");
+        defaults.put("placeholders", placeholders);
+
 
         Map<String, Object> defaultFormat = new HashMap<>();
         defaultFormat.put("priority", 100);
@@ -71,14 +78,22 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
         m.add("chatlayout.mention.toast_title", "&fJe bent getagged door &e{player}&f!");
+        m.add("chatlayout.placeholders.hover", "&a&l✓ &rGeverifieerd bericht");
+        m.add("chatlayout.placeholders.ping.replacetext", "&fMijn ping is %player_colored_ping% ms&f.");
+        m.add("chatlayout.placeholders.ping.description", "Laat je ping zien.");
+        m.add("chatlayout.command.placeholders.header", "&eLijst van alle Chatplaceholders:");
+        m.add("chatlayout.command.placeholders.empty", "&7Er zijn geen chatplaceholders geconfigureerd.");
+        m.add("chatlayout.command.placeholders.entry", "&f{pos}. &b{placeholder} &f- &7{desc}");
         return m;
     }
 
     @Override
     public void initialize() {
         ChatFormatRegistry chatFormatRegistry = new ChatFormatRegistry(this);
-        this.chatHandler = new ChatHandler(this, chatFormatRegistry);
+        ChatPlaceholderRegistry placeholderRegistry = new ChatPlaceholderRegistry(this);
+        this.chatHandler = new ChatHandler(this, chatFormatRegistry, placeholderRegistry);
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(new ChatplaceholdersCommand(this));
     }
 
     @Override
