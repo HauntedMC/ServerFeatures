@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
-import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.util.StarTierModifier;
 import org.bukkit.entity.Player;
 
@@ -12,10 +11,10 @@ import java.util.List;
 
 public class ChatHandler {
 
-    private final ChatLayout feature;
+    private final ChatFormatRegistry registry;
 
-    public ChatHandler(ChatLayout feature) {
-        this.feature = feature;
+    public ChatHandler(ChatFormatRegistry registry) {
+        this.registry = registry;
     }
 
     /**
@@ -30,7 +29,7 @@ public class ChatHandler {
 
 
     private Component buildPrefixComponent(Player player) {
-        ChatFormat playerFormat = feature.getChatFormatRegistry().getPlayerFormat(player);
+        ChatFormat playerFormat = registry.getPlayerFormat(player);
 
         // Stars
         int starTier = StarTierModifier.getStarTier(player);

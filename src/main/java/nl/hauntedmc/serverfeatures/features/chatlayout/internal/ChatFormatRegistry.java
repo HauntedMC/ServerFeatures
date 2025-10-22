@@ -17,7 +17,26 @@ public class ChatFormatRegistry {
         loadFormats(feature);
     }
 
-    public void loadFormats(ChatLayout feature) {
+    public ChatFormat getPlayerFormat(Player player) {
+        for (Map.Entry<Integer, ChatFormat> entry : formats.entrySet()) {
+            ChatFormat format = entry.getValue();
+            if (player.hasPermission("chatformat." + format.getIdentifier())) {
+                return format;
+            }
+        }
+        // Return the format with the highest priority (last entry) as default
+        if (!formats.isEmpty()) {
+            return formats.lastEntry().getValue();
+        }
+        // Fallback default if no formats were loaded
+        ChatFormat defaultFormat = new ChatFormat("default", Integer.MAX_VALUE);
+        defaultFormat.setPrefix("");
+        defaultFormat.setName("%player_name%");
+        defaultFormat.setSuffix(" > ");
+        return defaultFormat;
+    }
+
+    private void loadFormats(ChatLayout feature) {
         formats.clear();
 
         ConfigNode root = feature.getConfigHandler().node("formats");
@@ -47,25 +66,6 @@ public class ChatFormatRegistry {
 
             formats.put(priority, chatFormat);
         }
-    }
-
-    public ChatFormat getPlayerFormat(Player player) {
-        for (Map.Entry<Integer, ChatFormat> entry : formats.entrySet()) {
-            ChatFormat format = entry.getValue();
-            if (player.hasPermission("chatformat." + format.getIdentifier())) {
-                return format;
-            }
-        }
-        // Return the format with the highest priority (last entry) as default
-        if (!formats.isEmpty()) {
-            return formats.lastEntry().getValue();
-        }
-        // Fallback default if no formats were loaded
-        ChatFormat defaultFormat = new ChatFormat("default", Integer.MAX_VALUE);
-        defaultFormat.setPrefix("");
-        defaultFormat.setName("%player_name%");
-        defaultFormat.setSuffix(" > ");
-        return defaultFormat;
     }
 
     private static List<String> listOrEmpty(List<String> list) {

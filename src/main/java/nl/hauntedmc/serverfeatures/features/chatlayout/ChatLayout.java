@@ -16,7 +16,6 @@ import java.util.Map;
 public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     private ChatHandler chatHandler;
-    private ChatFormatRegistry chatFormatRegistry;
 
     public ChatLayout(ServerFeatures plugin) {
         super(plugin, new Meta());
@@ -67,15 +66,13 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     @Override
     public MessageMap getDefaultMessages() {
-        // You can localize the remove buttons later if you want.
-        // For now the listener renders the buttons directly.
         return new MessageMap();
     }
 
     @Override
     public void initialize() {
-        this.chatFormatRegistry = new ChatFormatRegistry(this);
-        this.chatHandler = new ChatHandler(this);
+        ChatFormatRegistry chatFormatRegistry = new ChatFormatRegistry(this);
+        this.chatHandler = new ChatHandler(chatFormatRegistry);
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
     }
 
@@ -87,7 +84,4 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         return chatHandler;
     }
 
-    public ChatFormatRegistry getChatFormatRegistry() {
-        return chatFormatRegistry;
-    }
 }
