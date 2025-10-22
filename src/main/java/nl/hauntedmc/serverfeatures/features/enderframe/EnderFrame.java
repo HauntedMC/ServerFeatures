@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.enderframe.listener.BlockBreakListener;
+import nl.hauntedmc.serverfeatures.features.enderframe.listener.BlockPlaceListener;
 import nl.hauntedmc.serverfeatures.features.enderframe.meta.Meta;
 import org.bukkit.Bukkit;
 
@@ -35,6 +36,7 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
         messageMap.add("enderframe.claim_restricted", "&cJe kunt de Ender Frame niet oppakken in andermans claim.");
         messageMap.add("enderframe.stronghold_restricted", "&cJe kunt End Portal Frames in een Stronghold niet oppakken.");
         messageMap.add("enderframe.worldguard_restricted", "&cJe kunt hier geen Ender Frame oppakken.");
+        messageMap.add("enderframe.stronghold_place_restricted", "&cJe kunt End Portal Frames niet plaatsen in een Stronghold.");
         return messageMap;
     }
 
@@ -46,6 +48,7 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
         griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
         worldguardEnabled = Bukkit.getPluginManager().isPluginEnabled("WorldGuard");
         getLifecycleManager().getListenerManager().registerListener(new BlockBreakListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new BlockPlaceListener(this));
     }
 
     @Override

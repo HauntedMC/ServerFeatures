@@ -6,24 +6,19 @@ import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
-import io.papermc.paper.math.Position;
-import io.papermc.paper.registry.RegistryAccess;
-import io.papermc.paper.registry.RegistryKey;
-import io.papermc.paper.registry.keys.StructureKeys;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import nl.hauntedmc.serverfeatures.features.enderframe.EnderFrame;
+import nl.hauntedmc.serverfeatures.features.enderframe.util.LocationUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockDamageEvent;
-import org.bukkit.generator.structure.Structure;
 import org.bukkit.inventory.ItemStack;
 
 /**
@@ -54,7 +49,7 @@ public class BlockBreakListener implements Listener {
         }
 
         // --- Disallow breaking frames inside a natural Stronghold (Paper) ---
-        if (isInStronghold(block)) {
+        if (LocationUtils.isInStronghold(block)) {
             event.setCancelled(true);
             player.sendMessage(feature.getLocalizationHandler()
                     .getMessage("enderframe.stronghold_restricted")
@@ -112,28 +107,6 @@ public class BlockBreakListener implements Listener {
         }
     }
 
-    /**
-     * Paper-native structure containment check.
-     * Returns true if the block is inside a generated Stronghold in the Overworld.
-     */
-    private boolean isInStronghold(Block block) {
-        World world = block.getWorld();
-        if (world.getEnvironment() != World.Environment.NORMAL) {
-            return false; // Strongholds only generate in the Overworld
-        }
-
-        // Fetch the stronghold structure from the Paper registry
-        Structure stronghold = RegistryAccess.registryAccess()
-                .getRegistry(RegistryKey.STRUCTURE)
-                .get(StructureKeys.STRONGHOLD);
-
-        if (stronghold == null) {
-            return false;
-        }
-
-        // Does this exact position lie within a generated Stronghold?
-        return world.hasStructureAt(Position.block(block.getLocation()), stronghold);
-    }
 
     /**
      * WorldGuard: return true if breaking is denied at this location for this player.
