@@ -10,6 +10,9 @@ import nl.hauntedmc.serverfeatures.features.teleportation.internal.TeleportState
 import nl.hauntedmc.serverfeatures.features.teleportation.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.teleportation.service.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Teleportation extends BukkitBaseFeature<Meta> {
 
     private final TeleportState state = new TeleportState(this);
@@ -24,12 +27,25 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
 
-        // Outer bounds = WorldBorder (see TeleportBounds).
-        // These are INNER "no-teleport" bounds and default disabled (0..0).
-        cfg.put("min_x", 0);
-        cfg.put("max_x", 0);
-        cfg.put("min_z", 0);
-        cfg.put("max_z", 0);
+        // New nested bounds config:
+        // - Inner: "no-teleport" reserved rectangle (used by RandomTP only)
+        // - Outer: optional outer rectangle limiting the search; intersected with WorldBorder if enabled
+        Map<String, Object> inner = new HashMap<>();
+        inner.put("min_x", 0);
+        inner.put("max_x", 0);
+        inner.put("min_z", 0);
+        inner.put("max_z", 0);
+
+        Map<String, Object> outer = new HashMap<>();
+        outer.put("min_x", 0);
+        outer.put("max_x", 0);
+        outer.put("min_z", 0);
+        outer.put("max_z", 0);
+
+        Map<String, Object> bounds = new HashMap<>();
+        bounds.put("inner", inner);
+        bounds.put("outer", outer);
+        cfg.put("bounds", bounds);
 
         // Behavior
         cfg.put("respect_world_border", true); // WorldBorder as outer bounds

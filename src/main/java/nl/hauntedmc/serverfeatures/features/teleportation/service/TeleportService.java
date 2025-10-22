@@ -54,7 +54,9 @@ public class TeleportService {
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
             World world = target.getWorld();
 
-            Location to = finder.findRandomSafeLocation(world); // respects outer WB + inner exclusion + claims
+            // SafeLocationFinder already uses TeleportBounds;
+            // Effective search area = outside innerRect (if present) AND inside effectiveOuterRect(world).
+            Location to = finder.findRandomSafeLocation(world);
             if (to == null) {
                 state.reset(target.getUniqueId(), TeleportAction.RANDOM_TP); // allow retry
                 int attempts = finder.maxAttempts();
@@ -81,8 +83,9 @@ public class TeleportService {
     public void tpPos(CommandSender actor, Player target, int x, int y, int z) {
         if (!checkAndStartCooldown(actor, target, TeleportAction.TP_POS)) return;
 
-        // Only outer (WorldBorder) check for /tppos unless actor has override
-        if (!actor.hasPermission("serverfeatures.feature.teleportation.bypass.worldborder") && !bounds.withinOuter(target.getWorld(), x, z)) {
+        // Check against effective outer unless actor has override
+        if (!actor.hasPermission("serverfeatures.feature.teleportation.bypass.worldborder")
+                && !bounds.withinEffectiveOuter(target.getWorld(), x, z)) {
             actor.sendMessage(feature.getLocalizationHandler()
                     .getMessage("teleportation.tppos.outside_worldborder")
                     .forAudience(actor)
