@@ -6,7 +6,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Function;
 
-public interface ActionBarService {
+public interface ActionBarAPI {
     // Cycle (global)
     @NotNull ActionBarCycleHandle startCycle(@NotNull ActionBarCycle cycle);
     boolean isCycleRunning();

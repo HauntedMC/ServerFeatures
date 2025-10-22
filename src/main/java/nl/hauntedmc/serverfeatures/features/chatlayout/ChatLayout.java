@@ -26,6 +26,9 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
 
+        defaults.put("mention.enabled", true);
+        defaults.put("mention.cooldown_seconds", 60);
+
         Map<String, Object> defaultFormat = new HashMap<>();
         defaultFormat.put("priority", 100);
         defaultFormat.put("prefix", "&f%vault_rankprefix%");
@@ -66,13 +69,15 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     @Override
     public MessageMap getDefaultMessages() {
-        return new MessageMap();
+        MessageMap m = new MessageMap();
+        m.add("chatlayout.mention.toast_title", "&fJe bent getagged door &e{player}&f!");
+        return m;
     }
 
     @Override
     public void initialize() {
         ChatFormatRegistry chatFormatRegistry = new ChatFormatRegistry(this);
-        this.chatHandler = new ChatHandler(chatFormatRegistry);
+        this.chatHandler = new ChatHandler(this, chatFormatRegistry);
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
     }
 

@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /** Paper/Spigot implementation. All state changes happen on the main thread. */
-public final class PaperActionBarService implements ActionBarService {
+public final class PaperActionBarAPI implements ActionBarAPI {
 
     private final Plugin plugin;
 
@@ -34,11 +34,11 @@ public final class PaperActionBarService implements ActionBarService {
     private int broadcastRepeatingTaskId = -1;
     private int endBroadcastTaskId = -1;
 
-    public PaperActionBarService(@NotNull Plugin plugin) {
+    public PaperActionBarAPI(@NotNull Plugin plugin) {
         this.plugin = plugin;
     }
 
-    /* ========================= ActionBarService ========================= */
+    /* ========================= ActionBarAPI ========================= */
 
     @Override
     public @NotNull ActionBarCycleHandle startCycle(@NotNull ActionBarCycle cycle) {

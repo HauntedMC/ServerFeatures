@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures;
 import com.github.retrooper.packetevents.PacketEvents;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
-import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarService;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher; // keep if other features use dispatcher directly elsewhere
@@ -48,7 +48,7 @@ public class ServerFeatures extends JavaPlugin {
             getLogger().warning("Scoreboard init error: " + t.getMessage());
         }
 
-        ActionBars.bootstrap(new PaperActionBarService(this));
+        ActionBars.bootstrap(new PaperActionBarAPI(this));
 
         featureLoadManager.initializeFeatures();
     }
@@ -67,7 +67,7 @@ public class ServerFeatures extends JavaPlugin {
             getLogger().warning("Scoreboard cleanup error: " + t.getMessage());
         }
 
-        ((PaperActionBarService) ActionBars.service()).shutdown();
+        ((PaperActionBarAPI) ActionBars.service()).shutdown();
         ActionBars.shutdown();
 
         getLogger().info("ServerFeatures is shutting down...");
