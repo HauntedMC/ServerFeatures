@@ -58,7 +58,7 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
     @Override
     public void disable() {
         if (service != null) {
-            service.stopCycle(); // cease usage of the API when this feature stops
+            service.stopCycle();
             service = null;
         }
     }

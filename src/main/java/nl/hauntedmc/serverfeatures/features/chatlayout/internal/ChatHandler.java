@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class ChatHandler {
 
@@ -41,52 +42,45 @@ public class ChatHandler {
      * [prefix + name + suffix] + [formatted chat message]
      */
     public Component renderBaseMessage(Player sender, Component messageComponent) {
-        String rawMessage = ComponentFormatter.serialize(messageComponent).format(ComponentFormatter.Serializer.Format.PLAIN).build();
+        // 1) Get the raw plain text (so we can re-interpret formatting per perms)
+        String raw = ComponentFormatter.serialize(messageComponent)
+                .format(ComponentFormatter.Serializer.Format.PLAIN)
+                .build();
 
+        // 2) Parse UNTRUSTED user formatting -> Component (NO click/hover allowed)
+        Component chatBase = buildChatComponent(sender, raw);
 
-        if (mentionsEnabled) {
-            rawMessage = parseMentions(sender, rawMessage);
-        }
+        // 3) Inject TRUSTED features at Component-
+        if (mentionsEnabled) chatBase = applyMentions(sender, chatBase);
+        chatBase = placeholderRegistry.applyPlaceholders(sender, chatBase); // replaces tokens with trusted Components
 
-        rawMessage = placeholderRegistry.applyPlaceholders(sender, rawMessage);
-
+        // 4) Prefix (server-controlled; you can keep using MiniMessage here)
         Component prefix = buildPrefixComponent(sender);
-        Component chat = buildChatComponent(sender, rawMessage);
-        return prefix.append(chat);
+
+        return prefix.append(chatBase);
     }
 
-    /**
-     * Detect mentions in the message (e.g., @<playername>) and highlight them.
-     * It will also handle sending a toast message to the mentioned player.
-     */
-    private String parseMentions(Player sender, String rawMessage) {
-        // Split the message by spaces to detect mentions
-        String[] words = rawMessage.split(" ");
+    private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
 
-        for (int i = 0; i < words.length; i++) {
-            String word = words[i];
+    private Component applyMentions(Player sender, Component base) {
+        return base.replaceText(builder -> builder
+                .match(MENTION_PATTERN)
+                .replacement((match, unused) -> {
+                    String full = match.group(0);
+                    String name = match.group(1);
+                    Player mentioned = Bukkit.getPlayerExact(name);
 
-            // Check if the word starts with '@' (indicating a mention)
-            if (word.startsWith("@")) {
-                String playerName = word.substring(1);  // Get the player name after '@'
+                    if (mentioned != null && mentioned.isOnline()) {
+                        // toast + cooldown (same logic as before)
+                        handleMention(sender, mentioned);
 
-                Player mentionedPlayer = Bukkit.getPlayer(playerName);  // Get the player object
+                        return Component.text(full).color(net.kyori.adventure.text.format.NamedTextColor.AQUA);
+                    }
 
-                if (mentionedPlayer != null && mentionedPlayer.isOnline()) {
-                    // Format the mention as a clickable and colored tag
-                    String formattedMention = "<color:aqua>" + "@" + playerName + "</color>";
-
-                    // Replace the word with the formatted mention in the message
-                    words[i] = formattedMention;
-
-                    // Send the mention Toast to the mentioned player
-                    handleMention(sender, mentionedPlayer);
-                }
-            }
-        }
-
-        // Join the words back together into a single message string
-        return String.join(" ", words);
+                    // Not online? Just return the plain text mention.
+                    return Component.text(full);
+                })
+        );
     }
 
     /**
