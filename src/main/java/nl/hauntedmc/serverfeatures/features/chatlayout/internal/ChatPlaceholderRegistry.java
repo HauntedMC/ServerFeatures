@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
@@ -49,13 +50,13 @@ public final class ChatPlaceholderRegistry {
      * Replace all known chat placeholders in the raw message with a localized, hoverable block.
      * Called after mentions parsing.
      */
-    public Component applyPlaceholders(Player sender, Component base) {
+    public Component applyPlaceholders(Player sender, Audience viewer, Component base) {
         Component out = base;
         for (Map.Entry<String, String> e : tokenToKey.entrySet()) {
             String token = e.getKey(); // e.g., "[ping]"
             String key   = e.getValue(); // "ping"
 
-            Component replacement = buildReplacement(sender, key);
+            Component replacement = buildReplacement(sender, viewer, key);
             out = out.replaceText(cfg -> cfg
                     .matchLiteral(token)
                     .replacement(replacement));
@@ -67,7 +68,7 @@ public final class ChatPlaceholderRegistry {
      * Build the MiniMessage/Mixed string for one placeholder, with a hover that combines
      * description and the global verified hover text.
      */
-    private Component buildReplacement(Player sender, String mainKey) {
+    private Component buildReplacement(Player sender, Audience viewer, String mainKey) {
         // Localized visible text
         Component visible = feature.getLocalizationHandler()
                 .getMessage("chatlayout.placeholders." + mainKey + ".replacetext")
@@ -77,7 +78,7 @@ public final class ChatPlaceholderRegistry {
         // Localized hover tail (e.g., ✓ Geverifieerd bericht)
         Component hover = feature.getLocalizationHandler()
                 .getMessage("chatlayout.placeholders.hover")
-                .forAudience(sender)
+                .forAudience(viewer)
                 .build();
 
         // Attach hover — add click if you want different tokens to be clickable later

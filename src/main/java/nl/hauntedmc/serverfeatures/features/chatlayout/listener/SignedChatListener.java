@@ -25,7 +25,7 @@ public class SignedChatListener implements Listener {
         // Use Paper's chat renderer so we don't cancel or manually send audiences.
         event.renderer((sender, playerName, message, audience) -> {
             // Build the base formatted message with your ChatLayout (prefix + name + suffix + message)
-            Component base = feature.getChatHandler().renderBaseMessage(sender, message);
+            Component base = feature.getChatHandler().renderBaseMessage(sender, audience, message);
             boolean senderIsStaff = sender.hasPermission("staff.remove");
 
             // Show staff delete control in FRONT when:

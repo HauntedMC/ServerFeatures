@@ -30,6 +30,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
         defaults.put("mention.enabled", true);
         defaults.put("mention.cooldown_seconds", 60);
+        defaults.put("command_suggest.enabled", true);
 
         Map<String, Object> placeholders = new HashMap<>();
         placeholders.put("ping", "[ping]");
@@ -84,6 +85,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         m.add("chatlayout.command.placeholders.header", "&eLijst van alle Chatplaceholders:");
         m.add("chatlayout.command.placeholders.empty", "&7Er zijn geen chatplaceholders geconfigureerd.");
         m.add("chatlayout.command.placeholders.entry", "&f{pos}. &b{placeholder} &f- &7{desc}");
+        m.add("chatlayout.command_suggest.hover", "&eKlik om dit commando over te nemen.");
         return m;
     }
 

@@ -1,6 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.api.effect.sound.SoundProfile;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.ui.hud.toast.ToastAPI;
@@ -25,8 +29,13 @@ public class ChatHandler {
     private final Map<Player, Long> mentionCooldownMap = new HashMap<>();
     private final ChatPlaceholderRegistry placeholderRegistry;
     private final Boolean mentionsEnabled;
+    private final Boolean commandSuggestEnabled;
     private final Long mentionsCooldown;
     private final ChatLayout feature;
+
+    private static final Pattern COMMAND_BRACKET_PATTERN = Pattern.compile("\\[\\s*(/\\S[^]]*)\\s*]");
+    private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
+
 
 
     public ChatHandler(ChatLayout feature, ChatFormatRegistry registry, ChatPlaceholderRegistry placeholderRegistry) {
@@ -35,13 +44,14 @@ public class ChatHandler {
         this.placeholderRegistry = placeholderRegistry;
         this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
         this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
+        this.commandSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
     }
 
     /**
      * Builds the full rendered message:
      * [prefix + name + suffix] + [formatted chat message]
      */
-    public Component renderBaseMessage(Player sender, Component messageComponent) {
+    public Component renderBaseMessage(Player sender, Audience viewer, Component messageComponent) {
         // 1) Get the raw plain text (so we can re-interpret formatting per perms)
         String raw = ComponentFormatter.serialize(messageComponent)
                 .format(ComponentFormatter.Serializer.Format.PLAIN)
@@ -52,7 +62,10 @@ public class ChatHandler {
 
         // 3) Inject TRUSTED features at Component-
         if (mentionsEnabled) chatBase = applyMentions(sender, chatBase);
-        chatBase = placeholderRegistry.applyPlaceholders(sender, chatBase); // replaces tokens with trusted Components
+        chatBase = placeholderRegistry.applyPlaceholders(sender, viewer, chatBase); // replaces tokens with trusted Components
+        if (commandSuggestEnabled) {
+            chatBase = applyCommandSuggestPlaceholders(viewer, chatBase);   // NEW: [/command] -> suggestable
+        }
 
         // 4) Prefix (server-controlled; you can keep using MiniMessage here)
         Component prefix = buildPrefixComponent(sender);
@@ -60,7 +73,28 @@ public class ChatHandler {
         return prefix.append(chatBase);
     }
 
-    private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
+    private Component applyCommandSuggestPlaceholders(Audience viewer, Component base) {
+        return base.replaceText(builder -> builder
+                .match(COMMAND_BRACKET_PATTERN)
+                .replacement((match, unused) -> {
+                    String cmd = match.group(1).trim(); // e.g., "/test arg1 arg2"
+                    Component hover = feature.getLocalizationHandler()
+                            .getMessage("chatlayout.command_suggest.hover")
+                            .forAudience(viewer)
+                            .build();
+
+                    return Component.text("[")
+                            .color(NamedTextColor.GOLD)
+                            .append(Component.text(cmd)
+                                    .color(NamedTextColor.YELLOW)
+                                    .hoverEvent(HoverEvent.showText(hover))
+                                    .clickEvent(ClickEvent.suggestCommand(cmd)))
+                            .append(Component.text("]")
+                                    .color(NamedTextColor.GOLD));
+                })
+        );
+    }
+
 
     private Component applyMentions(Player sender, Component base) {
         return base.replaceText(builder -> builder
