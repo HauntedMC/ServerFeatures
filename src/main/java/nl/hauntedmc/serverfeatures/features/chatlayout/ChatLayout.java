@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.chatlayout.command.ChatplaceholdersC
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatPlaceholderRegistry;
+import nl.hauntedmc.serverfeatures.features.chatlayout.listener.ItemPreviewListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.SignedChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 
@@ -31,6 +32,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         defaults.put("mention.enabled", true);
         defaults.put("mention.cooldown_seconds", 60);
         defaults.put("command_suggest.enabled", true);
+        defaults.put("item_preview.enabled", true);
 
         Map<String, Object> placeholders = new HashMap<>();
         placeholders.put("ping", "[ping]");
@@ -86,6 +88,9 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         m.add("chatlayout.command.placeholders.empty", "&7Er zijn geen chatplaceholders geconfigureerd.");
         m.add("chatlayout.command.placeholders.entry", "&f{pos}. &b{placeholder} &f- &7{desc}");
         m.add("chatlayout.command_suggest.hover", "&eKlik om dit commando over te nemen.");
+        m.add("chatlayout.item_preview.hover", "&eKlik om het item te bekijken te bekijken.");
+        m.add("chatlayout.item_preview.title", "&8Item Weergave");
+
         return m;
     }
 
@@ -95,6 +100,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         ChatPlaceholderRegistry placeholderRegistry = new ChatPlaceholderRegistry(this);
         this.chatHandler = new ChatHandler(this, chatFormatRegistry, placeholderRegistry);
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
+        getLifecycleManager().getListenerManager().registerListener(new ItemPreviewListener());
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new ChatplaceholdersCommand(this));
     }
 

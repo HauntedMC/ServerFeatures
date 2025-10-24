@@ -8,6 +8,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.api.effect.sound.SoundProfile;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.ui.hud.toast.ToastAPI;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.ItemPreviewAPI;
+import nl.hauntedmc.serverfeatures.api.util.bukkit.ItemStacks;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
@@ -17,6 +19,7 @@ import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.List;
@@ -30,6 +33,7 @@ public class ChatHandler {
     private final ChatPlaceholderRegistry placeholderRegistry;
     private final Boolean mentionsEnabled;
     private final Boolean commandSuggestEnabled;
+    private final Boolean itemPreviewEnabled;
     private final Long mentionsCooldown;
     private final ChatLayout feature;
 
@@ -42,6 +46,7 @@ public class ChatHandler {
         this.feature = feature;
         this.registry = registry;
         this.placeholderRegistry = placeholderRegistry;
+        this.itemPreviewEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
         this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
         this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
         this.commandSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
@@ -61,11 +66,10 @@ public class ChatHandler {
         Component chatBase = buildChatComponent(sender, raw);
 
         // 3) Inject TRUSTED features at Component-
+        chatBase = placeholderRegistry.applyPlaceholders(sender, viewer, chatBase);
         if (mentionsEnabled) chatBase = applyMentions(sender, chatBase);
-        chatBase = placeholderRegistry.applyPlaceholders(sender, viewer, chatBase); // replaces tokens with trusted Components
-        if (commandSuggestEnabled) {
-            chatBase = applyCommandSuggestPlaceholders(viewer, chatBase);   // NEW: [/command] -> suggestable
-        }
+        if (commandSuggestEnabled) chatBase = applyCommandSuggestPlaceholders(viewer, chatBase);
+        if (itemPreviewEnabled) chatBase = applyItemPreviewPlaceholder(sender, chatBase);
 
         // 4) Prefix (server-controlled; you can keep using MiniMessage here)
         Component prefix = buildPrefixComponent(sender);
@@ -117,6 +121,45 @@ public class ChatHandler {
         );
     }
 
+    private static final Pattern ITEM_TOKEN_PATTERN = Pattern.compile("\\[item]", Pattern.CASE_INSENSITIVE);
+
+    private Component applyItemPreviewPlaceholder(Player sender, Component base) {
+        ItemStack inHand = sender.getInventory().getItemInMainHand();
+        final ItemStack snapshot = inHand.clone();
+
+        return base.replaceText(config -> config
+                .match(ITEM_TOKEN_PATTERN)
+                .replacement((match, unused) -> {
+                    int amount = Math.max(1, snapshot.getAmount());
+                    Component itemName = ItemStacks.bestDisplayName(snapshot);
+
+                    Component hover = feature.getLocalizationHandler()
+                            .getMessage("chatlayout.item_preview.hover")
+                            .forAudience(sender)
+                            .build();
+
+                    Component label = Component.text("[")
+                            .append(itemName)
+                            .append(Component.text(" x" + amount))
+                            .append(Component.text("]"))
+                            .hoverEvent(HoverEvent.showText(hover));
+
+                    return label.clickEvent(ClickEvent.callback(audience -> {
+                        if (audience instanceof Player viewer) {
+                            ItemPreviewAPI.open3x3Preview(
+                                    feature.getPlugin(),
+                                    viewer,
+                                    snapshot,
+                                    feature.getLocalizationHandler()
+                                            .getMessage("chatlayout.item_preview.title")
+                                            .forAudience(viewer)
+                                            .build()
+                            );
+                        }
+                    }));
+                })
+        );
+    }
     /**
      * Send a toast message to the mentioned player with cooldown.
      */
