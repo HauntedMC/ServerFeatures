@@ -70,15 +70,28 @@ public final class ItemPreviewCommand implements BrigadierCommand {
                             return 1;
                         }
                         case OK -> {
-                            ItemPreviewAPI.open3x3Preview(
-                                feature.getPlugin(),
-                                p,
-                                res.payload(),
-                                feature.getLocalizationHandler()
-                                        .getMessage("chatlayout.item_preview.title")
-                                        .forAudience(p)
-                                        .build()
-                            );
+                            ItemStack snapshot = res.payload();
+                            if (ItemPreviewAPI.isShulkerBoxItem(snapshot)) {
+                                ItemPreviewAPI.openShulkerPreview(
+                                        feature.getPlugin(),
+                                        p,
+                                        snapshot,
+                                        feature.getLocalizationHandler()
+                                                .getMessage("chatlayout.item_preview.title")
+                                                .forAudience(p)
+                                                .build()
+                                );
+                            } else {
+                                ItemPreviewAPI.open3x3Preview(
+                                        feature.getPlugin(),
+                                        p,
+                                        snapshot,
+                                        feature.getLocalizationHandler()
+                                                .getMessage("chatlayout.item_preview.title")
+                                                .forAudience(p)
+                                                .build()
+                                );
+                            }
                             return 1;
                         }
                     }
