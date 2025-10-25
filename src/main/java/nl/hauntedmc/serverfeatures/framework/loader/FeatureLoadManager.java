@@ -277,13 +277,13 @@ public class FeatureLoadManager {
         mainConfigHandler.registerFeature(featureName);
         mainConfigHandler.injectFeatureDefaults(featureName, feature.getDefaultConfig());
         localizationHandler.registerDefaultMessages(feature.getDefaultMessages());
+        feature.getConfigHandler().reloadConfig();
 
         if (mainConfigHandler.isFeatureEnabled(featureName)) {
             if (!dependencyManager.areDependenciesMet(feature)) {
                 plugin.getLogger().warning("Feature " + featureName + " is missing dependencies and cannot be enabled.");
                 return false;
             }
-
             feature.initialize();
             featureRegistry.registerLoadedFeature(featureName, feature);
             plugin.getLogger().info("Feature loaded: " + featureName);

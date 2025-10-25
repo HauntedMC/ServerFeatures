@@ -1,4 +1,3 @@
-// File: MainConfigHandler.java
 package nl.hauntedmc.serverfeatures.framework.config;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
