@@ -6,7 +6,7 @@ import org.bukkit.inventory.Recipe;
 public class RecipeData {
     private final NamespacedKey key;
     private Recipe recipe;
-    private final RecipeType type; // New field for the recipe type
+    private final RecipeType type;
 
     public RecipeData(NamespacedKey key, Recipe recipe, RecipeType type) {
         this.key = key;

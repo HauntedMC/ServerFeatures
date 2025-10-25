@@ -31,7 +31,6 @@ public final class HologramRegistry {
         byId.clear();
         cachedLines.clear();
 
-        // New: use typed ConfigNode API
         ConfigNode root = feature.getConfigHandler().node("holograms");
         Map<String, ConfigNode> children = root.children();
         if (children.isEmpty()) {

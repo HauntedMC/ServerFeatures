@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.packet;
 
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataType;
@@ -7,10 +7,10 @@ import com.github.retrooper.packetevents.protocol.entity.pose.EntityPose;
 import com.github.retrooper.packetevents.util.Quaternion4f;
 import com.github.retrooper.packetevents.util.Vector3f;
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.EntityFlag;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.TextDisplayAlignment;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.TextDisplayFlag;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties.BillboardConstraints;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties.EntityFlag;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties.TextDisplayAlignment;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties.TextDisplayFlag;
 import org.bukkit.entity.Pose;
 
 import java.util.ArrayList;
@@ -26,11 +26,11 @@ import java.util.Optional;
  * Internally the LayoutManager takes care of adding, updating, or removing
  * the corresponding EntityData entries.
  */
-public class NametagProperties {
+public class NametagPacketProperties {
 
     private final List<EntityData<?>> metadata;
 
-    public NametagProperties() {
+    public NametagPacketProperties() {
         metadata = new ArrayList<>();
 
         // --- Entity Defaults (indices 0-7) ---

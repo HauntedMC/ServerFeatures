@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal.properties;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties;
 
 public enum EntityFlag {
     ON_FIRE((byte) 0x01),

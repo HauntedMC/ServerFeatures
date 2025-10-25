@@ -26,7 +26,6 @@ public final class PortalDefinition {
     // Exclusive block requirement
     private Material exclusiveBlock;
 
-    // NEW: feedback effects
     private Sound sound;
     private int soundDelay;         // ticks
     private Particle particle;

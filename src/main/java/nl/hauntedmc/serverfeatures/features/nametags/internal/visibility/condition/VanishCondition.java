@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition.player;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.condition;
 
 import org.bukkit.entity.Player;
 

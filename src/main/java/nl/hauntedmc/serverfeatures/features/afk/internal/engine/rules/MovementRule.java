@@ -53,7 +53,7 @@ public final class MovementRule implements AfkRule {
 
         long la = state.lastAux();
         if ((movedHoriz || rotated) && la > 0 && within(now, la, cfg.comboWindowMs())
-                && !state.isSuspicious() && !state.isAfkLocked(now)) { // NEW
+                && !state.isSuspicious() && !state.isAfkLocked(now)) {
             return AfkDecision.of(AfkPriority.MEDIUM, AfkDecisionType.LEAVE_AFK);
         }
 

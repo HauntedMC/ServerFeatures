@@ -3,7 +3,8 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 import com.github.retrooper.packetevents.util.Vector3f;
 import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.hook.PlaceholderHook;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.properties.BillboardConstraints;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.NametagPacketProperties;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties.BillboardConstraints;
 import org.bukkit.Color;
 import org.bukkit.entity.Player;
 
@@ -20,12 +21,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Nametag {
     private final Player nametagOwner;
     private final int entityId;
-    private final NametagProperties properties;
+    private final NametagPacketProperties properties;
     private final Set<Player> viewers = ConcurrentHashMap.newKeySet();
 
     public Nametag(Player nametagOwner) {
         this.nametagOwner = nametagOwner;
-        this.properties = new NametagProperties();
+        this.properties = new NametagPacketProperties();
         this.entityId = SpigotReflectionUtil.generateEntityId();
         initDefaultProperties();
     }
@@ -42,7 +43,7 @@ public class Nametag {
         return entityId;
     }
 
-    public NametagProperties getNametagProperties() {
+    public NametagPacketProperties getNametagProperties() {
         return properties;
     }
 

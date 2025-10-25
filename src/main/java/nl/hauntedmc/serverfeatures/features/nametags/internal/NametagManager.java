@@ -3,17 +3,15 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper.RemoveNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.NametagUpdater;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.PassengerHandler;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.VisibilityManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The API for creating, updating, removing, and refreshing nametags.
@@ -25,22 +23,30 @@ public class NametagManager {
     private final NametagUpdater updater;
     private final Nametags feature;
 
-    private final PassengerHandler passengerHandler;
-
     private final VisibilityManager visibilityManager;
     private final int updateIntervalTicks;
     private final int viewerUpdateDelayTicks;
 
+    private final boolean remountFixEnabled;
+    private final int remountIntervalTicks;
+    private final int debounceUpdateTicks;
+    // nano-based throttle per player to suppress bursty duplicate updates
+    private final Map<UUID, Long> lastUpdateNanos = new ConcurrentHashMap<>();
+
     public NametagManager(Nametags feature) {
         this.feature = feature;
         this.registry = new NametagRegistry();
-        this.passengerHandler = new PassengerHandler();
         this.visibilityManager = new VisibilityManager(feature);
         this.updateIntervalTicks = (int) feature.getConfigHandler().getSetting("update_interval_ticks");
         this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().getSetting("viewer_update_delay_ticks");
+        this.remountFixEnabled = (boolean) feature.getConfigHandler().getSetting("remount_fix.enabled");
+        this.remountIntervalTicks = (int) feature.getConfigHandler().getSetting("remount_fix.interval_ticks");
+        this.debounceUpdateTicks = (int) feature.getConfigHandler().getSetting("debounce_update_ticks");
 
         this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
+
         scheduleRepeatingUpdate();
+        schedulePeriodicRemount();
     }
 
     /**
@@ -55,6 +61,31 @@ public class NametagManager {
     }
 
     /**
+     * NEW: Periodically resend SetPassengers for every visible viewer of a nametag.
+     * This mitigates rare client-side dismount drift (chunk reloads, fast teleports, etc.).
+     */
+    private void schedulePeriodicRemount() {
+        if (!remountFixEnabled || remountIntervalTicks <= 0) return;
+
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(() -> {
+            for (Nametag nametag : registry.getAllNametags()) {
+                if (nametag.getNametagOwner() == null || !nametag.getNametagOwner().isOnline()) continue;
+
+                // Only re-mount to viewers that still should see this nametag right now
+                List<Player> stillVisible = new ArrayList<>();
+                for (Player viewer : nametag.getViewers()) {
+                    if (viewer != null && viewer.isOnline() && visibilityManager.isPlayerVisible(viewer, nametag)) {
+                        stillVisible.add(viewer);
+                    }
+                }
+                if (!stillVisible.isEmpty()) {
+                    updater.remount(nametag, stillVisible);
+                }
+            }
+        }, BukkitTime.ticks(remountIntervalTicks), BukkitTime.ticks(remountIntervalTicks));
+    }
+
+    /**
      * Creates a nametag for the given player.
      */
     private void createNametag(Player player) {
@@ -64,9 +95,30 @@ public class NametagManager {
     }
 
     /**
+     * Lightweight per-player debounce to avoid sending redundant create/remove/mount bursts
+     * caused by multiple overlapping events (teleport, resource pack load, LP mutate, etc.).
+     */
+    private boolean shouldDebounce(UUID playerId) {
+        long now = System.nanoTime();
+        long minDeltaNanos = Math.max(0, debounceUpdateTicks) * 50_000_000L;
+        Long last = lastUpdateNanos.get(playerId);
+        if (last != null && (now - last) < minDeltaNanos) {
+            return true; // suppress this update
+        }
+        lastUpdateNanos.put(playerId, now);
+        return false;
+    }
+
+    /**
      * Updates an existing nametag (or creates one if it does not exist).
      */
     public void updateNametag(Player player, UpdateProperties updateProperties) {
+        if (player == null) return;
+
+        if (shouldDebounce(player.getUniqueId())) {
+            return;
+        }
+
         Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
         if (optTag.isEmpty()) {
             createNametag(player);
@@ -78,7 +130,7 @@ public class NametagManager {
     }
 
     /**
-     * Updates an existing nametag (or creates one if it does not exist).
+     * Updates an existing nametag (by entity id).
      */
     public void updateNametag(int entityID, UpdateProperties updateProperties) {
         Optional<Nametag> optTag = registry.getNametagByEntityId(entityID);
@@ -131,10 +183,6 @@ public class NametagManager {
         return players;
     }
 
-    public PassengerHandler getPassengerHandler() {
-        return passengerHandler;
-    }
-
     public VisibilityManager getVisibilityManager() {
         return visibilityManager;
     }
@@ -143,4 +191,3 @@ public class NametagManager {
         return viewerUpdateDelayTicks;
     }
 }
-

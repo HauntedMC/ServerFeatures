@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal.properties;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties;
 
 /**
  * TextDisplayAlignment represents the alignment options stored in bits 3-4 (mask 0x18)

@@ -5,10 +5,11 @@ import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.Nametag;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.CreateNametagEntityPacket;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.MountNametagEntityPacket;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.RemoveNametagEntityPacket;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper.CreateNametagEntityPacket;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper.MountNametagEntityPacket;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper.RemoveNametagEntityPacket;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -106,7 +107,7 @@ public class NametagUpdater {
                 nametag.getEntityId(),
                 nametag.getNametagProperties().getMetadata()
         );
-        int[] passengerList = nametagManager.getPassengerHandler().updatePassengerList(nametag.getNametagOwner(), nametag);
+        int[] passengerList = updatePassengerList(nametag.getNametagOwner(), nametag);
         MountNametagEntityPacket mountPacket = new MountNametagEntityPacket(nametag.getNametagOwner(), passengerList);
         taskManager.scheduleDelayedTask(() -> {
             PacketManager.sendMulticast(viewersToAdd, new BundleDelimiterPacket());
@@ -119,5 +120,27 @@ public class NametagUpdater {
     private void removeNametagEntity(Nametag nametag, List<Player> viewers) {
         RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
         PacketManager.sendMulticast(viewers, removePacket);
+    }
+
+    /**
+     * NEW: Only resend SetPassengers using the current passenger chain.
+     * Use this for periodic "keep-alive" remounting to prevent client drift.
+     */
+    public void remount(Nametag nametag, List<Player> viewers) {
+        if (viewers == null || viewers.isEmpty()) return;
+        int[] passengerList = updatePassengerList(nametag.getNametagOwner(), nametag);
+        MountNametagEntityPacket mountPacket = new MountNametagEntityPacket(nametag.getNametagOwner(), passengerList);
+        PacketManager.sendMulticast(viewers, mountPacket);
+    }
+
+    private int[] updatePassengerList(Player player, Nametag nametag) {
+        List<Integer> passengerIds = new ArrayList<>();
+
+        passengerIds.add(nametag.getEntityId());
+        for (Entity passenger : player.getPassengers()) {
+            passengerIds.add(passenger.getEntityId());
+        }
+
+        return passengerIds.stream().mapToInt(Integer::intValue).toArray();
     }
 }

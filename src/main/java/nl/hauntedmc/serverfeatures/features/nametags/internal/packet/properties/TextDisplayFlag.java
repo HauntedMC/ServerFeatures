@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal.properties;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.packet.properties;
 
 /**
  * TextDisplayFlag represents the individual bit flags for the Text Display field (index 27).

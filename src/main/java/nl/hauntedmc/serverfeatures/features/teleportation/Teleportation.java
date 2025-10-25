@@ -27,9 +27,6 @@ public class Teleportation extends BukkitBaseFeature<Meta> {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
 
-        // New nested bounds config:
-        // - Inner: "no-teleport" reserved rectangle (used by RandomTP only)
-        // - Outer: optional outer rectangle limiting the search; intersected with WorldBorder if enabled
         Map<String, Object> inner = new HashMap<>();
         inner.put("min_x", 0);
         inner.put("max_x", 0);

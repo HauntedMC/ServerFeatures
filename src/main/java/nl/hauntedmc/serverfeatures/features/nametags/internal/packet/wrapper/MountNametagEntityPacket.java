@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.nametags.internal.packet;
+package nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSetPassengers;
