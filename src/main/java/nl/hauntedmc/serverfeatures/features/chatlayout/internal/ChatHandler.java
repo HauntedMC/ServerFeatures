@@ -7,9 +7,9 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.api.effect.sound.SoundProfile;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
+import nl.hauntedmc.serverfeatures.api.token.TokenOptions;
+import nl.hauntedmc.serverfeatures.api.token.TokenService;
 import nl.hauntedmc.serverfeatures.api.ui.hud.toast.ToastAPI;
-import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.ItemPreviewAPI;
-import nl.hauntedmc.serverfeatures.api.util.bukkit.ItemStacks;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
@@ -21,9 +21,11 @@ import org.bukkit.SoundCategory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 public class ChatHandler {
@@ -37,19 +39,28 @@ public class ChatHandler {
     private final Long mentionsCooldown;
     private final ChatLayout feature;
 
+    private final TokenService<ItemStack> tokenService;
+    private final int tokenMaxUses;
+    private final long tokenExpireSeconds;
+
     private static final Pattern COMMAND_BRACKET_PATTERN = Pattern.compile("\\[\\s*(/\\S[^]]*)\\s*]");
     private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
+    private static final Pattern ITEM_TOKEN_RAW_PATTERN = Pattern.compile("\\[item]", Pattern.CASE_INSENSITIVE);
+    private static final String HIDDEN_PREVIEW_COMMAND = "__sfip";
 
 
-
-    public ChatHandler(ChatLayout feature, ChatFormatRegistry registry, ChatPlaceholderRegistry placeholderRegistry) {
+    public ChatHandler(ChatLayout feature, ChatFormatRegistry registry, ChatPlaceholderRegistry placeholderRegistry, TokenService<ItemStack> tokenService) {
         this.feature = feature;
         this.registry = registry;
         this.placeholderRegistry = placeholderRegistry;
+        this.tokenService = tokenService;
+
         this.itemPreviewEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
         this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
         this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
         this.commandSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
+        this.tokenMaxUses = feature.getConfigHandler().getSetting("item_preview.token.max_uses", Integer.class);
+        this.tokenExpireSeconds = feature.getConfigHandler().getSetting("item_preview.token.expire_seconds", Long.class);
     }
 
     /**
@@ -121,45 +132,52 @@ public class ChatHandler {
         );
     }
 
-    private static final Pattern ITEM_TOKEN_PATTERN = Pattern.compile("\\[item]", Pattern.CASE_INSENSITIVE);
-
     private Component applyItemPreviewPlaceholder(Player sender, Component base) {
+        final var hover = feature.getLocalizationHandler()
+                .getMessage("chatlayout.item_preview.hover")
+                .forAudience(sender)
+                .build();
+
+        // Snapshot taken immediately (like your original code)
         ItemStack inHand = sender.getInventory().getItemInMainHand();
-        final ItemStack snapshot = inHand.clone();
+        final ItemStack snapshot = inHand.getType().isAir() ? null : inHand.clone();
 
-        return base.replaceText(config -> config
-                .match(ITEM_TOKEN_PATTERN)
+        // Token options (-1 => infinite)
+        TokenOptions opts = TokenOptions.builder()
+                .maxUses(tokenMaxUses)
+                .expireAfter(tokenExpireSeconds < 0 ? null : Duration.ofSeconds(tokenExpireSeconds))
+                .consumeOnEmpty(true)
+                .build();
+
+        // Token payload is exactly this snapshot (no loading state)
+        final String token = tokenService.create(
+                () -> CompletableFuture.completedFuture(snapshot == null ? null : snapshot.clone()),
+                opts
+        );
+
+        return base.replaceText(cfg -> cfg
+                .match(ITEM_TOKEN_RAW_PATTERN)
                 .replacement((match, unused) -> {
+                    if (snapshot == null) {
+                        // Show a clear label; still clickable to emit "no_item" message from the command
+                        return Component.text("[Air x1]")
+                                .hoverEvent(HoverEvent.showText(hover))
+                                .clickEvent(ClickEvent.runCommand("/" + HIDDEN_PREVIEW_COMMAND + " " + token));
+                    }
+
                     int amount = Math.max(1, snapshot.getAmount());
-                    Component itemName = ItemStacks.bestDisplayName(snapshot);
+                    Component itemName = nl.hauntedmc.serverfeatures.api.util.bukkit.ItemStacks.bestDisplayName(snapshot);
 
-                    Component hover = feature.getLocalizationHandler()
-                            .getMessage("chatlayout.item_preview.hover")
-                            .forAudience(sender)
-                            .build();
-
-                    Component label = Component.text("[")
+                    return Component.text("[")
                             .append(itemName)
                             .append(Component.text(" x" + amount))
                             .append(Component.text("]"))
-                            .hoverEvent(HoverEvent.showText(hover));
-
-                    return label.clickEvent(ClickEvent.callback(audience -> {
-                        if (audience instanceof Player viewer) {
-                            ItemPreviewAPI.open3x3Preview(
-                                    feature.getPlugin(),
-                                    viewer,
-                                    snapshot,
-                                    feature.getLocalizationHandler()
-                                            .getMessage("chatlayout.item_preview.title")
-                                            .forAudience(viewer)
-                                            .build()
-                            );
-                        }
-                    }));
+                            .hoverEvent(HoverEvent.showText(hover))
+                            .clickEvent(ClickEvent.runCommand("/" + HIDDEN_PREVIEW_COMMAND + " " + token));
                 })
         );
     }
+
     /**
      * Send a toast message to the mentioned player with cooldown.
      */

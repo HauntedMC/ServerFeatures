@@ -3,14 +3,17 @@ package nl.hauntedmc.serverfeatures.features.chatlayout;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.token.TokenService;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.chatlayout.command.ChatplaceholdersCommand;
+import nl.hauntedmc.serverfeatures.features.chatlayout.command.ItemPreviewCommand;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatPlaceholderRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.ItemPreviewListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.SignedChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +26,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
     public ChatLayout(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
+    private TokenService<ItemStack> itemPreviewTokens;
 
     @Override
     public ConfigMap getDefaultConfig() {
@@ -33,6 +37,8 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         defaults.put("mention.cooldown_seconds", 60);
         defaults.put("command_suggest.enabled", true);
         defaults.put("item_preview.enabled", true);
+        defaults.put("item_preview.token.max_uses", 100);
+        defaults.put("item_preview.token.expire_seconds", 300);
 
         Map<String, Object> placeholders = new HashMap<>();
         placeholders.put("ping", "[ping]");
@@ -90,18 +96,26 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         m.add("chatlayout.command_suggest.hover", "&eKlik om dit commando over te nemen.");
         m.add("chatlayout.item_preview.hover", "&eKlik om het item te bekijken te bekijken.");
         m.add("chatlayout.item_preview.title", "&8Item Weergave");
+        m.add("chatlayout.item_preview.expired", "&cDeze itemlink is verlopen.");
+        m.add("chatlayout.item_preview.loading", "&7Deze itemlink is nog niet klaar... probeer het zo weer.");
+        m.add("chatlayout.item_preview.no_item", "&7Er is geen item beschikbaar om te tonen.");
 
         return m;
     }
 
     @Override
     public void initialize() {
+        this.itemPreviewTokens = new TokenService<>("chat.itempreview");
+
         ChatFormatRegistry chatFormatRegistry = new ChatFormatRegistry(this);
         ChatPlaceholderRegistry placeholderRegistry = new ChatPlaceholderRegistry(this);
-        this.chatHandler = new ChatHandler(this, chatFormatRegistry, placeholderRegistry);
+        this.chatHandler = new ChatHandler(this, chatFormatRegistry, placeholderRegistry, itemPreviewTokens);
+
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
         getLifecycleManager().getListenerManager().registerListener(new ItemPreviewListener());
+
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new ChatplaceholdersCommand(this));
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(new ItemPreviewCommand(this));
     }
 
     @Override
@@ -110,6 +124,11 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     public ChatHandler getChatHandler() {
         return chatHandler;
+    }
+
+
+    public TokenService<ItemStack> getItemPreviewTokenService() {
+        return itemPreviewTokens;
     }
 
 }
