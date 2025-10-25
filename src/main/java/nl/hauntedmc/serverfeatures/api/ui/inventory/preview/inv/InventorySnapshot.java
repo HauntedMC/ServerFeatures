@@ -75,13 +75,36 @@ public final class InventorySnapshot {
         return (it == null || it.getType().isAir()) ? null : it.clone();
     }
 
-    public ItemStack[] main() { return Arrays.copyOf(main, main.length); }
-    public ItemStack[] hotbar() { return Arrays.copyOf(hotbar, hotbar.length); }
-    public ItemStack helmet() { return cloneOrNull(helmet); }
-    public ItemStack chestplate() { return cloneOrNull(chestplate); }
-    public ItemStack leggings() { return cloneOrNull(leggings); }
-    public ItemStack boots() { return cloneOrNull(boots); }
-    public ItemStack offhand() { return cloneOrNull(offhand); }
-    public String inventoryOwner() { return inventoryOwner; }
+    public ItemStack[] main() {
+        return Arrays.copyOf(main, main.length);
+    }
+
+    public ItemStack[] hotbar() {
+        return Arrays.copyOf(hotbar, hotbar.length);
+    }
+
+    public ItemStack helmet() {
+        return cloneOrNull(helmet);
+    }
+
+    public ItemStack chestplate() {
+        return cloneOrNull(chestplate);
+    }
+
+    public ItemStack leggings() {
+        return cloneOrNull(leggings);
+    }
+
+    public ItemStack boots() {
+        return cloneOrNull(boots);
+    }
+
+    public ItemStack offhand() {
+        return cloneOrNull(offhand);
+    }
+
+    public String inventoryOwner() {
+        return inventoryOwner;
+    }
 
 }

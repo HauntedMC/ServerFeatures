@@ -57,7 +57,9 @@ public class TeleportBounds {
         return (v instanceof Boolean b) ? b : true;
     }
 
-    /** Inner rectangle (no-TP reserved). Disabled if 0..0..0..0. */
+    /**
+     * Inner rectangle (no-TP reserved). Disabled if 0..0..0..0.
+     */
     public Optional<Rect> innerRect() {
         Rect r = readRect("bounds", "inner").normalized();
         if (r.minX == 0 && r.maxX == 0 && r.minZ == 0 && r.maxZ == 0) return Optional.empty();
@@ -81,7 +83,9 @@ public class TeleportBounds {
         return Optional.of(outer);
     }
 
-    /** WorldBorder rect for a world. */
+    /**
+     * WorldBorder rect for a world.
+     */
     public Rect worldBorderRect(World world) {
         var wb = world.getWorldBorder();
         Location c = wb.getCenter();
@@ -98,7 +102,9 @@ public class TeleportBounds {
         return new Rect(-big, big, -big, big);
     }
 
-    /** Effective outer = (WB if respected) ∩ (configured outer if valid, else infinite). */
+    /**
+     * Effective outer = (WB if respected) ∩ (configured outer if valid, else infinite).
+     */
     public Rect effectiveOuterRect(World world) {
         Optional<Rect> configured = configuredOuterRect();
         boolean respectWB = useWorldBorder();
@@ -106,7 +112,9 @@ public class TeleportBounds {
         return respectWB ? worldBorderRect(world).intersect(candidate) : candidate;
     }
 
-    /** Used by /tppos (unless bypass). */
+    /**
+     * Used by /tppos (unless bypass).
+     */
     public boolean withinEffectiveOuter(World world, int x, int z) {
         Rect eff = effectiveOuterRect(world);
         return !eff.isEmpty() && eff.contains(x, z);
@@ -151,7 +159,10 @@ public class TeleportBounds {
     private Integer asInt(Object o) {
         if (o instanceof Number n) return n.intValue();
         if (o instanceof String s) {
-            try { return Integer.parseInt(s.trim()); } catch (Exception ignored) {}
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (Exception ignored) {
+            }
         }
         return null;
     }

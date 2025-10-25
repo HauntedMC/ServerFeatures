@@ -29,10 +29,14 @@ public final class InvPreviewCommand implements BrigadierCommand {
     }
 
     @Override
-    public @NotNull String name() { return NAME; }
+    public @NotNull String name() {
+        return NAME;
+    }
 
     @Override
-    public String description() { return ""; }
+    public String description() {
+        return "";
+    }
 
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {

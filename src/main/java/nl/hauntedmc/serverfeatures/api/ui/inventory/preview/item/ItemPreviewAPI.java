@@ -18,7 +18,9 @@ public final class ItemPreviewAPI {
     private ItemPreviewAPI() {
     }
 
-    /** Returns true if the given item is any shulker box item (incl. colored variants). */
+    /**
+     * Returns true if the given item is any shulker box item (incl. colored variants).
+     */
     public static boolean isShulkerBoxItem(ItemStack stack) {
         if (stack == null || stack.getType().isAir()) return false;
         if (!(stack.getItemMeta() instanceof BlockStateMeta bsm)) return false;

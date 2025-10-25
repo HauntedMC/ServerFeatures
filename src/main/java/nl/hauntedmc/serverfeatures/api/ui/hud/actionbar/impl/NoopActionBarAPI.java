@@ -13,18 +13,45 @@ import java.util.function.Function;
 public final class NoopActionBarAPI implements ActionBarAPI {
     public static final NoopActionBarAPI INSTANCE = new NoopActionBarAPI();
     private static final ActionBarCycleHandle NOOP_HANDLE = new ActionBarCycleHandle() {
-        @Override public boolean isActive() { return false; }
-        @Override public void cancel() { /* no-op */ }
+        @Override
+        public boolean isActive() {
+            return false;
+        }
+
+        @Override
+        public void cancel() { /* no-op */ }
     };
-    private NoopActionBarAPI() {}
 
-    @Override public @NotNull ActionBarCycleHandle startCycle(@NotNull ActionBarCycle cycle) { return NOOP_HANDLE; }
-    @Override public boolean isCycleRunning() { return false; }
-    @Override public void stopCycle() {}
+    private NoopActionBarAPI() {
+    }
 
-    @Override public void sendOnceBroadcast(@NotNull Component component) {}
-    @Override public void sendBroadcast(@NotNull Component component, int seconds, @NotNull PauseMode pauseMode) {}
+    @Override
+    public @NotNull ActionBarCycleHandle startCycle(@NotNull ActionBarCycle cycle) {
+        return NOOP_HANDLE;
+    }
 
-    @Override public void sendOnceBroadcastPerPlayer(@NotNull Function<Player, Component> supplier) {}
-    @Override public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode pauseMode) {}
+    @Override
+    public boolean isCycleRunning() {
+        return false;
+    }
+
+    @Override
+    public void stopCycle() {
+    }
+
+    @Override
+    public void sendOnceBroadcast(@NotNull Component component) {
+    }
+
+    @Override
+    public void sendBroadcast(@NotNull Component component, int seconds, @NotNull PauseMode pauseMode) {
+    }
+
+    @Override
+    public void sendOnceBroadcastPerPlayer(@NotNull Function<Player, Component> supplier) {
+    }
+
+    @Override
+    public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode pauseMode) {
+    }
 }

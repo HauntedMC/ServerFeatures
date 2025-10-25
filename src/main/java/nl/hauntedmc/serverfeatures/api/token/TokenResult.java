@@ -23,12 +23,31 @@ public final class TokenResult<T> {
         this.payload = payload;
     }
 
-    public static <T> TokenResult<T> ok(T payload) { return new TokenResult<>(State.OK, payload); }
-    public static <T> TokenResult<T> expired() { return new TokenResult<>(State.EXPIRED, null); }
-    public static <T> TokenResult<T> loading() { return new TokenResult<>(State.LOADING, null); }
-    public static <T> TokenResult<T> empty() { return new TokenResult<>(State.EMPTY, null); }
-    public static <T> TokenResult<T> invalid() { return new TokenResult<>(State.INVALID, null); }
+    public static <T> TokenResult<T> ok(T payload) {
+        return new TokenResult<>(State.OK, payload);
+    }
 
-    public State state() { return state; }
-    public T payload() { return payload; }
+    public static <T> TokenResult<T> expired() {
+        return new TokenResult<>(State.EXPIRED, null);
+    }
+
+    public static <T> TokenResult<T> loading() {
+        return new TokenResult<>(State.LOADING, null);
+    }
+
+    public static <T> TokenResult<T> empty() {
+        return new TokenResult<>(State.EMPTY, null);
+    }
+
+    public static <T> TokenResult<T> invalid() {
+        return new TokenResult<>(State.INVALID, null);
+    }
+
+    public State state() {
+        return state;
+    }
+
+    public T payload() {
+        return payload;
+    }
 }

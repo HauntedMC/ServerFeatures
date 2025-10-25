@@ -20,11 +20,21 @@ public final class TokenOptions {
         this.consumeOnEmpty = consumeOnEmpty;
     }
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
-    public int maxUses() { return maxUses; }
-    public long expireMillis() { return expireMillis; }
-    public boolean consumeOnEmpty() { return consumeOnEmpty; }
+    public int maxUses() {
+        return maxUses;
+    }
+
+    public long expireMillis() {
+        return expireMillis;
+    }
+
+    public boolean consumeOnEmpty() {
+        return consumeOnEmpty;
+    }
 
     public static final class Builder {
         private int maxUses = -1;

@@ -7,20 +7,11 @@ import org.bukkit.inventory.ItemStack;
 /**
  * Marker holder for preview windows so listeners can protect them.
  */
-public final class ItemPreviewHolder implements PreviewHolder {
-    private final ItemStack snapshot;
-
-    public ItemPreviewHolder(ItemStack snapshot) {
-        this.snapshot = snapshot;
-    }
+public record ItemPreviewHolder(ItemStack snapshot) implements PreviewHolder {
 
     @Override
     public Inventory getInventory() {
         // Bukkit supplies Inventory instance; we just mark the holder type.
         return null;
-    }
-
-    public ItemStack snapshot() {
-        return snapshot;
     }
 }

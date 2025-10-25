@@ -79,8 +79,19 @@ public class ServerFeatures extends JavaPlugin {
     }
 
     /* ============================== ACCESSORS ============================== */
-    public FeatureLoadManager getFeatureLoadManager() { return featureLoadManager; }
-    public MainConfigHandler getConfigHandler() { return mainConfigHandler; }
-    public LocalizationHandler getLocalizationHandler() { return localizationHandler; }
-    public BrigadierDispatcher getBrigadierDispatcher() { return brigadierDispatcher; }
+    public FeatureLoadManager getFeatureLoadManager() {
+        return featureLoadManager;
+    }
+
+    public MainConfigHandler getConfigHandler() {
+        return mainConfigHandler;
+    }
+
+    public LocalizationHandler getLocalizationHandler() {
+        return localizationHandler;
+    }
+
+    public BrigadierDispatcher getBrigadierDispatcher() {
+        return brigadierDispatcher;
+    }
 }

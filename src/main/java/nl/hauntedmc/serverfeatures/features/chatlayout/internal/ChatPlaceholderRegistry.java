@@ -14,7 +14,7 @@ import java.util.Map;
  * Loads chat placeholders from config and resolves them against localization.
  * Config layout:
  * placeholders:
- *   ping: "[ping]"
+ * ping: "[ping]"
  * Localization keys:
  * - chatlayout.placeholders.<key>.replacetext
  * - chatlayout.placeholders.<key>.description
@@ -23,7 +23,9 @@ import java.util.Map;
 public final class ChatPlaceholderRegistry {
 
     private final ChatLayout feature;
-    /** token -> mainKey */
+    /**
+     * token -> mainKey
+     */
     private final Map<String, String> tokenToKey = new LinkedHashMap<>();
 
     public ChatPlaceholderRegistry(ChatLayout feature) {
@@ -55,7 +57,7 @@ public final class ChatPlaceholderRegistry {
         Component out = base;
         for (Map.Entry<String, String> e : tokenToKey.entrySet()) {
             String token = e.getKey(); // e.g., "[ping]"
-            String key   = e.getValue(); // "ping"
+            String key = e.getValue(); // "ping"
 
             Component replacement = buildReplacement(sender, viewer, key);
             out = out.replaceText(cfg -> cfg
@@ -87,7 +89,9 @@ public final class ChatPlaceholderRegistry {
     }
 
 
-    /** Public, ordered view for commands/UI. */
+    /**
+     * Public, ordered view for commands/UI.
+     */
     public java.util.List<PlaceholderInfo> getAll() {
         java.util.List<PlaceholderInfo> list = new java.util.ArrayList<>(tokenToKey.size());
         for (java.util.Map.Entry<String, String> e : tokenToKey.entrySet()) {
@@ -99,6 +103,6 @@ public final class ChatPlaceholderRegistry {
     /**
      * Token + main key pair
      */
-        public record PlaceholderInfo(String token, String key) {
+    public record PlaceholderInfo(String token, String key) {
     }
 }

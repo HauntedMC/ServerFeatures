@@ -13,10 +13,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * - Tokens map to a payload that may be loaded asynchronously.
  * - Supports max uses, expiration, optional consume-on-empty.
  * - No external scheduler assumptions: caller supplies a loader that returns a CompletableFuture<T>.
- *
+ * <p>
  * Typical flow:
- *   String token = service.create(() -> myAsyncLoader(), options);
- *   TokenResult<T> res = service.consume(token);
+ * String token = service.create(() -> myAsyncLoader(), options);
+ * TokenResult<T> res = service.consume(token);
  */
 public final class TokenService<T> {
 
@@ -53,7 +53,7 @@ public final class TokenService<T> {
      * The loader should complete exceptionally or with null to represent "empty" payload.
      *
      * @param payloadLoader supplier returning a CompletableFuture<T> (can load sync or async)
-     * @param options token options (uses/expiry)
+     * @param options       token options (uses/expiry)
      */
     public String create(java.util.function.Supplier<CompletableFuture<T>> payloadLoader, TokenOptions options) {
         Objects.requireNonNull(payloadLoader, "payloadLoader");

@@ -27,7 +27,9 @@ public class FeatureCommandManager {
 
     /* ========================== Bukkit / Legacy ========================== */
 
-    /** Registers a Bukkit command at runtime (thread-safe). */
+    /**
+     * Registers a Bukkit command at runtime (thread-safe).
+     */
     public void registerFeatureCommand(@NotNull FeatureCommand command) {
         final String name = command.getName();
         if (registeredCommands.putIfAbsent(name, command) != null) {
@@ -51,19 +53,25 @@ public class FeatureCommandManager {
         });
     }
 
-    /** Unregisters a single Bukkit command (thread-safe). */
+    /**
+     * Unregisters a single Bukkit command (thread-safe).
+     */
     public void unregisterFeatureCommand(@NotNull String commandName) {
         runOnMain(() -> doUnregisterBukkit(commandName));
     }
 
-    /** Unregisters all Bukkit commands owned by this feature (thread-safe). */
+    /**
+     * Unregisters all Bukkit commands owned by this feature (thread-safe).
+     */
     public void unregisterAllFeatureCommands() {
         // Snapshot is safe off-thread due to CHM
         List<String> names = new ArrayList<>(registeredCommands.keySet());
         runOnMain(() -> names.forEach(this::doUnregisterBukkit));
     }
 
-    /** Main-thread only: hard-remove from CommandMap + knownCommands. */
+    /**
+     * Main-thread only: hard-remove from CommandMap + knownCommands.
+     */
     private void doUnregisterBukkit(@NotNull String commandName) {
         final Logger log = plugin.getLogger();
         final FeatureCommand cmd = registeredCommands.remove(commandName);
@@ -111,7 +119,9 @@ public class FeatureCommandManager {
 
     /* ============================= Brigadier ============================= */
 
-    /** Register a Brigadier root command at runtime (thread-safe). */
+    /**
+     * Register a Brigadier root command at runtime (thread-safe).
+     */
     public void registerBrigadierCommand(@NotNull BrigadierCommand command) {
         final String key = command.name().toLowerCase(Locale.ROOT);
         if (registeredBrigadierCommands.putIfAbsent(key, command) != null) {
@@ -130,7 +140,9 @@ public class FeatureCommandManager {
         });
     }
 
-    /** Unregister a single Brigadier root command (thread-safe). */
+    /**
+     * Unregister a single Brigadier root command (thread-safe).
+     */
     public void unregisterBrigadierCommand(@NotNull String name) {
         final String key = name.toLowerCase(Locale.ROOT);
         final BrigadierCommand removed = registeredBrigadierCommands.remove(key);
@@ -147,7 +159,9 @@ public class FeatureCommandManager {
         });
     }
 
-    /** HARD-unregister all Brigadier root commands owned by this feature (thread-safe). */
+    /**
+     * HARD-unregister all Brigadier root commands owned by this feature (thread-safe).
+     */
     public void unregisterAllBrigadierCommands() {
         if (registeredBrigadierCommands.isEmpty()) return;
         // Snapshot + clear first so concurrent readers get a consistent view
@@ -193,7 +207,9 @@ public class FeatureCommandManager {
 
     /* ============================ Threading ============================== */
 
-    /** Ensure code runs on the primary server thread. */
+    /**
+     * Ensure code runs on the primary server thread.
+     */
     private void runOnMain(Runnable r) {
         if (Bukkit.isPrimaryThread()) r.run();
         else Bukkit.getScheduler().runTask(plugin, r);

@@ -52,7 +52,7 @@ public class ChatHandler {
     private static final Pattern COMMAND_BRACKET_PATTERN = Pattern.compile("\\[\\s*(/\\S[^]]*)\\s*]");
     private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
     private static final Pattern ITEM_TOKEN_RAW_PATTERN = Pattern.compile("\\[item]", Pattern.CASE_INSENSITIVE);
-    private static final Pattern INV_TOKEN_RAW_PATTERN  = Pattern.compile("\\[inv]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern INV_TOKEN_RAW_PATTERN = Pattern.compile("\\[inv]", Pattern.CASE_INSENSITIVE);
 
     private static final String HIDDEN_PREVIEW_COMMAND = "__sfip";
     private static final String HIDDEN_INV_PREVIEW_COMMAND = "__sfiv";

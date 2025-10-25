@@ -11,7 +11,9 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
-/** Paper/Spigot implementation. All state changes happen on the main thread. */
+/**
+ * Paper/Spigot implementation. All state changes happen on the main thread.
+ */
 public final class PaperActionBarAPI implements ActionBarAPI {
 
     private final Plugin plugin;
@@ -56,8 +58,13 @@ public final class PaperActionBarAPI implements ActionBarAPI {
 
         final int myGen = cycleGen.get();
         return new ActionBarCycleHandle() {
-            @Override public boolean isActive() { return isCycleRunning() && runningGen == myGen; }
-            @Override public void cancel() {
+            @Override
+            public boolean isActive() {
+                return isCycleRunning() && runningGen == myGen;
+            }
+
+            @Override
+            public void cancel() {
                 runSync(() -> {
                     if (runningGen == myGen) {
                         stopCycle(); // only cancel if still the active generation
@@ -90,7 +97,10 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     @Override
     public void sendBroadcast(@NotNull Component component, int seconds, @NotNull PauseMode mode) {
         runSync(() -> {
-            if (seconds <= 0) { sendActionBarAll(component); return; }
+            if (seconds <= 0) {
+                sendActionBarAll(component);
+                return;
+            }
             if (mode == PauseMode.PAUSE_CYCLE && isCycleRunning() && !cyclePaused) {
                 pauseCycle();
             }
@@ -106,7 +116,10 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     @Override
     public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode mode) {
         runSync(() -> {
-            if (seconds <= 0) { sendActionBarAllPerPlayer(supplier); return; }
+            if (seconds <= 0) {
+                sendActionBarAllPerPlayer(supplier);
+                return;
+            }
             if (mode == PauseMode.PAUSE_CYCLE && isCycleRunning() && !cyclePaused) {
                 pauseCycle();
             }
@@ -215,7 +228,9 @@ public final class PaperActionBarAPI implements ActionBarAPI {
         else Bukkit.getScheduler().runTask(plugin, r);
     }
 
-    /** Optional: call this on plugin disable before ActionBars.shutdown(). */
+    /**
+     * Optional: call this on plugin disable before ActionBars.shutdown().
+     */
     public void shutdown() {
         runSync(() -> {
             cancelCycleTasks();

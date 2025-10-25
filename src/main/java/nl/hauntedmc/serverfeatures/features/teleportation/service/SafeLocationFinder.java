@@ -112,7 +112,9 @@ public class SafeLocationFinder {
         return null;
     }
 
-    /** outer − (inner ∩ outer) as up to four non-overlapping bands. */
+    /**
+     * outer − (inner ∩ outer) as up to four non-overlapping bands.
+     */
     private List<TeleportBounds.Rect> allowedRings(TeleportBounds.Rect outer, Optional<TeleportBounds.Rect> innerOpt) {
         List<TeleportBounds.Rect> out = new ArrayList<>(4);
 
@@ -147,7 +149,9 @@ public class SafeLocationFinder {
         return w * h;
     }
 
-    /** first index i where cumulative[i] > pick (since pick ∈ [0,total-1]) */
+    /**
+     * first index i where cumulative[i] > pick (since pick ∈ [0,total-1])
+     */
     private int lowerBound(List<Long> cumulative, long pick) {
         int lo = 0, hi = cumulative.size() - 1;
         while (lo < hi) {

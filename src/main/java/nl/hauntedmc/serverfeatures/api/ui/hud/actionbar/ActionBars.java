@@ -13,7 +13,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class ActionBars {
     private static final AtomicReference<ActionBarAPI> REF = new AtomicReference<>();
 
-    private ActionBars() {}
+    private ActionBars() {
+    }
 
     public static void bootstrap(@NotNull ActionBarAPI service) {
         REF.set(service);
@@ -23,7 +24,9 @@ public final class ActionBars {
         REF.set(null);
     }
 
-    /** Never null. Returns a no-op implementation if not bootstrapped. */
+    /**
+     * Never null. Returns a no-op implementation if not bootstrapped.
+     */
     public static @NotNull ActionBarAPI service() {
         ActionBarAPI s = REF.get();
         return (s != null) ? s : NoopActionBarAPI.INSTANCE;

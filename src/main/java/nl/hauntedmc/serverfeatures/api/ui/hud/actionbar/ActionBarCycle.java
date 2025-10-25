@@ -15,10 +15,17 @@ public final class ActionBarCycle {
         this.gapSeconds = Math.max(0, gapSeconds);
     }
 
-    public @NotNull List<ActionBarEntry> entries() { return entries; }
-    public int gapSeconds() { return gapSeconds; }
+    public @NotNull List<ActionBarEntry> entries() {
+        return entries;
+    }
 
-    public static Builder builder() { return new Builder(); }
+    public int gapSeconds() {
+        return gapSeconds;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static final class Builder {
         private final List<ActionBarEntry> entries = new ArrayList<>();

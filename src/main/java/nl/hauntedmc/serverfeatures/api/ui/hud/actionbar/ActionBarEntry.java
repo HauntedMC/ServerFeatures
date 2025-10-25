@@ -25,8 +25,19 @@ public final class ActionBarEntry {
         return new ActionBarEntry(null, supplier, seconds);
     }
 
-    public boolean isPerPlayer() { return perPlayer != null; }
-    public Component component() { return component; }
-    public Function<Player, Component> perPlayer() { return perPlayer; }
-    public int seconds() { return seconds; }
+    public boolean isPerPlayer() {
+        return perPlayer != null;
+    }
+
+    public Component component() {
+        return component;
+    }
+
+    public Function<Player, Component> perPlayer() {
+        return perPlayer;
+    }
+
+    public int seconds() {
+        return seconds;
+    }
 }

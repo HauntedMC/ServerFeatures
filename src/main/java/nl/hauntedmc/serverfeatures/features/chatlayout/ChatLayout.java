@@ -28,6 +28,7 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
     public ChatLayout(ServerFeatures plugin) {
         super(plugin, new Meta());
     }
+
     private TokenService<ItemStack> itemPreviewTokens;
     private TokenService<InventorySnapshot> inventoryPreviewTokens;
 

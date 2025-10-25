@@ -6,21 +6,11 @@ import org.bukkit.inventory.Inventory;
 /**
  * Marker holder for inventory preview windows.
  */
-public final class InventoryPreviewHolder implements PreviewHolder {
-
-    private final InventorySnapshot snapshot;
-
-    public InventoryPreviewHolder(InventorySnapshot snapshot) {
-        this.snapshot = snapshot;
-    }
+public record InventoryPreviewHolder(InventorySnapshot snapshot) implements PreviewHolder {
 
     @Override
     public Inventory getInventory() {
         // Bukkit provides the inventory instance.
         return null;
-    }
-
-    public InventorySnapshot snapshot() {
-        return snapshot;
     }
 }

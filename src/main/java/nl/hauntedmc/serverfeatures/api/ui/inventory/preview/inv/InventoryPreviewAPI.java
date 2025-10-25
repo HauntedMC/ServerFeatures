@@ -19,7 +19,8 @@ import org.bukkit.plugin.Plugin;
  */
 public final class InventoryPreviewAPI {
 
-    private InventoryPreviewAPI() { }
+    private InventoryPreviewAPI() {
+    }
 
     public static void openInventoryPreview(Plugin plugin, Player viewer, InventorySnapshot snapshot, Component title) {
         if (plugin == null || viewer == null || snapshot == null) return;

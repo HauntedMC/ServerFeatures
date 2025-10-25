@@ -12,7 +12,8 @@ import java.util.Locale;
  */
 public final class ItemStacks {
 
-    private ItemStacks() {}
+    private ItemStacks() {
+    }
 
     /**
      * Get the best-available display name for an ItemStack:

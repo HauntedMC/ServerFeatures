@@ -400,7 +400,9 @@ public final class ComponentFormatter {
             return c;
         }
 
-        /** Experimental: output the parsed component as a Brigadier {@link Message}. */
+        /**
+         * Experimental: output the parsed component as a Brigadier {@link Message}.
+         */
         public Message toBrigadierMessage() {
             MessageComponentSerializer mcs = MessageComponentSerializer.message();
             return mcs.serialize(toComponent());

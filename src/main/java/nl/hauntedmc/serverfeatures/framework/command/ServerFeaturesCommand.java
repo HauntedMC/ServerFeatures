@@ -17,16 +17,18 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/** Brigadier version of /serverfeatures using Paper’s lifecycle registrar. */
+/**
+ * Brigadier version of /serverfeatures using Paper’s lifecycle registrar.
+ */
 public final class ServerFeaturesCommand {
 
-    private static final String P_STATUS     = "serverfeatures.command.status";
-    private static final String P_LIST       = "serverfeatures.command.list";
-    private static final String P_RELOAD     = "serverfeatures.command.reload";
-    private static final String P_ENABLE     = "serverfeatures.command.enable";
-    private static final String P_DISABLE    = "serverfeatures.command.disable";
-    private static final String P_RELOADLOC  = "serverfeatures.command.reloadlocal";
-    private static final String P_INFO       = "serverfeatures.command.info";
+    private static final String P_STATUS = "serverfeatures.command.status";
+    private static final String P_LIST = "serverfeatures.command.list";
+    private static final String P_RELOAD = "serverfeatures.command.reload";
+    private static final String P_ENABLE = "serverfeatures.command.enable";
+    private static final String P_DISABLE = "serverfeatures.command.disable";
+    private static final String P_RELOADLOC = "serverfeatures.command.reloadlocal";
+    private static final String P_INFO = "serverfeatures.command.info";
 
     private final ServerFeatures plugin;
 
@@ -40,20 +42,32 @@ public final class ServerFeaturesCommand {
         // /serverfeatures status
         root.then(Commands.literal("status")
                 .requires(src -> src.getSender().hasPermission(P_STATUS))
-                .executes(ctx -> { sendPluginStatus(ctx.getSource().getSender()); return 1; }));
+                .executes(ctx -> {
+                    sendPluginStatus(ctx.getSource().getSender());
+                    return 1;
+                }));
 
         // /serverfeatures list  (compact one-liner) + flag "--version"
         root.then(Commands.literal("list")
                 .requires(src -> src.getSender().hasPermission(P_LIST))
                 .then(Commands.literal("--version")
-                        .executes(ctx -> { listLoadedFeaturesOneLine(ctx.getSource().getSender(), true); return 1; }))
-                .executes(ctx -> { listLoadedFeaturesOneLine(ctx.getSource().getSender(), false); return 1; }));
+                        .executes(ctx -> {
+                            listLoadedFeaturesOneLine(ctx.getSource().getSender(), true);
+                            return 1;
+                        }))
+                .executes(ctx -> {
+                    listLoadedFeaturesOneLine(ctx.getSource().getSender(), false);
+                    return 1;
+                }));
 
         // /serverfeatures info <feature>
         root.then(Commands.literal("info")
                 .requires(src -> src.getSender().hasPermission(P_INFO))
                 .then(Commands.argument("feature", StringArgumentType.word())
-                        .suggests((c, b) -> { suggestAnyFeature(b); return b.buildFuture(); })
+                        .suggests((c, b) -> {
+                            suggestAnyFeature(b);
+                            return b.buildFuture();
+                        })
                         .executes(ctx -> {
                             String name = StringArgumentType.getString(ctx, "feature");
                             handleInfo(ctx.getSource().getSender(), name);
@@ -84,33 +98,57 @@ public final class ServerFeaturesCommand {
         root.then(Commands.literal("softreload")
                 .requires(src -> src.getSender().hasPermission(P_RELOAD))
                 .then(Commands.argument("feature", StringArgumentType.word())
-                        .suggests((c, b) -> { suggestLoadedFeatures(b); return b.buildFuture(); })
-                        .executes(ctx -> { handleSoftReload(ctx.getSource().getSender(),
-                                StringArgumentType.getString(ctx, "feature")); return 1; })));
+                        .suggests((c, b) -> {
+                            suggestLoadedFeatures(b);
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            handleSoftReload(ctx.getSource().getSender(),
+                                    StringArgumentType.getString(ctx, "feature"));
+                            return 1;
+                        })));
 
         // /serverfeatures reload <feature>
         root.then(Commands.literal("reload")
                 .requires(src -> src.getSender().hasPermission(P_RELOAD))
                 .then(Commands.argument("feature", StringArgumentType.word())
-                        .suggests((c, b) -> { suggestLoadedFeatures(b); return b.buildFuture(); })
-                        .executes(ctx -> { handleReload(ctx.getSource().getSender(),
-                                StringArgumentType.getString(ctx, "feature")); return 1; })));
+                        .suggests((c, b) -> {
+                            suggestLoadedFeatures(b);
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            handleReload(ctx.getSource().getSender(),
+                                    StringArgumentType.getString(ctx, "feature"));
+                            return 1;
+                        })));
 
         // /serverfeatures disable <feature>
         root.then(Commands.literal("disable")
                 .requires(src -> src.getSender().hasPermission(P_DISABLE))
                 .then(Commands.argument("feature", StringArgumentType.word())
-                        .suggests((c, b) -> { suggestLoadedFeatures(b); return b.buildFuture(); })
-                        .executes(ctx -> { handleDisable(ctx.getSource().getSender(),
-                                StringArgumentType.getString(ctx, "feature")); return 1; })));
+                        .suggests((c, b) -> {
+                            suggestLoadedFeatures(b);
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            handleDisable(ctx.getSource().getSender(),
+                                    StringArgumentType.getString(ctx, "feature"));
+                            return 1;
+                        })));
 
         // /serverfeatures enable <feature>
         root.then(Commands.literal("enable")
                 .requires(src -> src.getSender().hasPermission(P_ENABLE))
                 .then(Commands.argument("feature", StringArgumentType.word())
-                        .suggests((c, b) -> { suggestEnableCandidates(b); return b.buildFuture(); })
-                        .executes(ctx -> { handleEnable(ctx.getSource().getSender(),
-                                StringArgumentType.getString(ctx, "feature")); return 1; })));
+                        .suggests((c, b) -> {
+                            suggestEnableCandidates(b);
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            handleEnable(ctx.getSource().getSender(),
+                                    StringArgumentType.getString(ctx, "feature"));
+                            return 1;
+                        })));
 
         return root.build();
     }
@@ -132,7 +170,9 @@ public final class ServerFeaturesCommand {
         }
     }
 
-    /** Suggest any feature (enabled or disabled), with a tooltip showing status. */
+    /**
+     * Suggest any feature (enabled or disabled), with a tooltip showing status.
+     */
     private void suggestAnyFeature(SuggestionsBuilder b) {
         final String prefix = b.getRemainingLowerCase();
 
@@ -186,7 +226,9 @@ public final class ServerFeaturesCommand {
 
     /* ==== handlers ==== */
 
-    /** New: /serverfeatures info <feature> (registry lookups only) */
+    /**
+     * New: /serverfeatures info <feature> (registry lookups only)
+     */
     private void handleInfo(CommandSender sender, String featureName) {
         if (featureName == null || featureName.isBlank()) {
             sender.sendMessage(Component.text("Please provide a feature name.", NamedTextColor.RED));
@@ -224,7 +266,8 @@ public final class ServerFeaturesCommand {
         } else {
             for (String k : available.keySet()) {
                 if (k != null && k.equalsIgnoreCase(featureName)) {
-                    availableKey = k; break;
+                    availableKey = k;
+                    break;
                 }
             }
         }
@@ -260,7 +303,9 @@ public final class ServerFeaturesCommand {
         sender.sendMessage(msg);
     }
 
-    /** Renders a CSV list with colored items and differently colored commas. Handles empty. */
+    /**
+     * Renders a CSV list with colored items and differently colored commas. Handles empty.
+     */
     private Component renderCsvColored(List<String> items, NamedTextColor itemColor, NamedTextColor commaColor, boolean showNone) {
         if (items == null || items.isEmpty()) {
             return Component.text(showNone ? "none" : "", NamedTextColor.DARK_GRAY);
