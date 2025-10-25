@@ -123,13 +123,13 @@ public class ChatHandler {
                             .build();
 
                     return Component.text("[")
-                            .color(NamedTextColor.GOLD)
+                            .color(NamedTextColor.WHITE)
                             .append(Component.text(cmd)
                                     .color(NamedTextColor.YELLOW)
                                     .hoverEvent(HoverEvent.showText(hover))
                                     .clickEvent(ClickEvent.suggestCommand(cmd)))
                             .append(Component.text("]")
-                                    .color(NamedTextColor.GOLD));
+                                    .color(NamedTextColor.WHITE));
                 })
         );
     }

@@ -17,15 +17,29 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
     private static final String P_LIST = "serverfeatures.feature.chatlayout.command.list";
     private final ChatLayout feature;
 
+    // Cached config flags (read once)
+    private final boolean itemEnabled;
+    private final boolean invEnabled;
+    private final boolean cmdSuggestEnabled;
+
     public ChatplaceholdersCommand(ChatLayout feature) {
         this.feature = feature;
+
+        // Read once from config
+        this.itemEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
+        this.invEnabled = feature.getConfigHandler().getSetting("inventory_preview.enabled", Boolean.class);
+        this.cmdSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
     }
 
     @Override
-    public @NotNull String name() { return "chatplaceholders"; }
+    public @NotNull String name() {
+        return "chatplaceholders";
+    }
 
     @Override
-    public String description() { return "Toon alle chatplaceholders."; }
+    public String description() {
+        return "Toon alle chatplaceholders.";
+    }
 
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
@@ -37,7 +51,8 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
                     ChatPlaceholderRegistry reg = feature.getChatHandler().getPlaceholderRegistry();
                     var entries = reg.getAll();
 
-                    if (entries.isEmpty()) {
+                    boolean hasAnything = !entries.isEmpty() || itemEnabled || invEnabled || cmdSuggestEnabled;
+                    if (!hasAnything) {
                         s.sendMessage(feature.getLocalizationHandler()
                                 .getMessage("chatlayout.command.placeholders.empty")
                                 .forAudience(s).build());
@@ -49,7 +64,7 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
                             .getMessage("chatlayout.command.placeholders.header")
                             .forAudience(s).build());
 
-                    // Pre-render the entry template to MiniMessage text, then substitute tokens.
+                    // Template to MiniMessage text
                     String entryTemplateMini = ComponentFormatter.serialize(
                                     feature.getLocalizationHandler()
                                             .getMessage("chatlayout.command.placeholders.entry")
@@ -58,8 +73,9 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
                             .build();
 
                     int i = 1;
+
+                    // 1) Config-defined placeholders
                     for (ChatPlaceholderRegistry.PlaceholderInfo info : entries) {
-                        // Localized description -> MiniMessage text
                         String descMini = ComponentFormatter.serialize(
                                         feature.getLocalizationHandler()
                                                 .getMessage("chatlayout.placeholders." + info.key() + ".description")
@@ -67,7 +83,6 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
                                 .format(ComponentFormatter.Serializer.Format.MINIMESSAGE)
                                 .build();
 
-                        // Fill the template
                         String lineMini = entryTemplateMini
                                 .replace("{pos}", String.valueOf(i))
                                 .replace("{placeholder}", info.token())
@@ -79,9 +94,40 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
                                 .toComponent());
                         i++;
                     }
+
+                    // 2) Built-in special tokens (shown only if enabled; flags cached)
+                    if (itemEnabled) {
+                        sendEntry(s, entryTemplateMini, i++, "[item]", "chatlayout.placeholders.item.description");
+                    }
+                    if (invEnabled) {
+                        sendEntry(s, entryTemplateMini, i++, "[inv]", "chatlayout.placeholders.inv.description");
+                    }
+                    if (cmdSuggestEnabled) {
+                        sendEntry(s, entryTemplateMini, i++, "[/command]", "chatlayout.placeholders.command.description");
+                    }
+
                     return 1;
                 });
 
         return root.build();
+    }
+
+    private void sendEntry(CommandSender s, String templateMini, int pos, String token, String descKey) {
+        String descMini = ComponentFormatter.serialize(
+                        feature.getLocalizationHandler()
+                                .getMessage(descKey)
+                                .forAudience(s).build())
+                .format(ComponentFormatter.Serializer.Format.MINIMESSAGE)
+                .build();
+
+        String lineMini = templateMini
+                .replace("{pos}", String.valueOf(pos))
+                .replace("{placeholder}", token)
+                .replace("{desc}", descMini);
+
+        s.sendMessage(ComponentFormatter.deserialize(lineMini)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS())
+                .toComponent());
     }
 }

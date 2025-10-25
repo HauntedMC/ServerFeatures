@@ -99,13 +99,18 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         MessageMap m = new MessageMap();
         m.add("chatlayout.mention.toast_title", "&fJe bent getagged door &e{player}&f!");
         m.add("chatlayout.placeholders.hover", "&a&l✓ &rGeverifieerd bericht");
+
         m.add("chatlayout.placeholders.ping.replacetext", "&fMijn ping is %player_colored_ping% ms&f.");
         m.add("chatlayout.placeholders.ping.description", "Laat je ping zien.");
+
+        m.add("chatlayout.placeholders.item.description", "Maak een publieke weergave van een item");
+        m.add("chatlayout.placeholders.inv.description", "Maak een publieke weergave van je inventory.");
+        m.add("chatlayout.placeholders.command.description", "Maak een klikbare command suggestie.");
+
         m.add("chatlayout.command.placeholders.header", "&eLijst van alle Chatplaceholders:");
         m.add("chatlayout.command.placeholders.empty", "&7Er zijn geen chatplaceholders geconfigureerd.");
         m.add("chatlayout.command.placeholders.entry", "&f{pos}. &b{placeholder} &f- &7{desc}");
         m.add("chatlayout.command_suggest.hover", "&eKlik om dit commando over te nemen.");
-
         // Item preview
         m.add("chatlayout.item_preview.hover", "&eKlik om het item te bekijken.");
         m.add("chatlayout.item_preview.title", "&8Item Weergave");
