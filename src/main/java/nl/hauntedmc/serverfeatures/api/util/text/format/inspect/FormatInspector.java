@@ -6,8 +6,8 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 
 import java.util.EnumSet;
 import java.util.Objects;

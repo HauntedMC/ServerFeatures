@@ -3,11 +3,12 @@ package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
-import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import org.bukkit.entity.Player;
 
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Loads chat placeholders from config and resolves them against localization.

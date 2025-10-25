@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.api.util.text.format;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 import nl.hauntedmc.serverfeatures.api.util.text.format.color.LegacyColorUtils;
 import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
-import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 
 import java.util.EnumSet;
 import java.util.Objects;

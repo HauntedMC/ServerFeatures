@@ -6,7 +6,7 @@ import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
-import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher; // keep if other features use dispatcher directly elsewhere
+import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;

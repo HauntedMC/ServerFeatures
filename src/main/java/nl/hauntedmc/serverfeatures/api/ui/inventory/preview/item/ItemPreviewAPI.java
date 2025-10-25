@@ -3,12 +3,12 @@ package nl.hauntedmc.serverfeatures.api.ui.inventory.preview.item;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.block.ShulkerBox;
+import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.entity.Player;
 
 /**
  * Simple API for opening preview GUIs.

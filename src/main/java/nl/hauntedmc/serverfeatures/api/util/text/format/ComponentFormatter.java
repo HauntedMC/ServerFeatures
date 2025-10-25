@@ -12,8 +12,8 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
 import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
+import nl.hauntedmc.serverfeatures.api.util.text.format.constants.FormatConstants;
 
 import java.util.*;
 import java.util.function.UnaryOperator;
