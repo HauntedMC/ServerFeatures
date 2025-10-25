@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.api.ui.inventory.preview;
+package nl.hauntedmc.serverfeatures.api.ui.inventory.preview.item;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;

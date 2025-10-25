@@ -1,13 +1,14 @@
-package nl.hauntedmc.serverfeatures.api.ui.inventory.preview;
+package nl.hauntedmc.serverfeatures.api.ui.inventory.preview.item;
 
+import com.mongodb.lang.Nullable;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.PreviewHolder;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 /**
  * Marker holder for preview windows so listeners can protect them.
  */
-public final class ItemPreviewHolder implements InventoryHolder {
+public final class ItemPreviewHolder implements PreviewHolder {
     private final ItemStack snapshot;
 
     public ItemPreviewHolder(ItemStack snapshot) {
@@ -16,7 +17,8 @@ public final class ItemPreviewHolder implements InventoryHolder {
 
     @Override
     public Inventory getInventory() {
-        return null; // Bukkit supplies Inventory instance; we just mark the holder type.
+        // Bukkit supplies Inventory instance; we just mark the holder type.
+        return null;
     }
 
     public ItemStack snapshot() {

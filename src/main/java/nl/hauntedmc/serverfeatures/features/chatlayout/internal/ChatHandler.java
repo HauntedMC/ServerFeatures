@@ -10,6 +10,7 @@ import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.token.TokenOptions;
 import nl.hauntedmc.serverfeatures.api.token.TokenService;
 import nl.hauntedmc.serverfeatures.api.ui.hud.toast.ToastAPI;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.inv.InventorySnapshot;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
@@ -36,31 +37,53 @@ public class ChatHandler {
     private final Boolean mentionsEnabled;
     private final Boolean commandSuggestEnabled;
     private final Boolean itemPreviewEnabled;
+    private final Boolean inventoryPreviewEnabled;
     private final Long mentionsCooldown;
     private final ChatLayout feature;
 
-    private final TokenService<ItemStack> tokenService;
-    private final int tokenMaxUses;
-    private final long tokenExpireSeconds;
+    private final TokenService<ItemStack> itemTokenService;
+    private final int itemTokenMaxUses;
+    private final long itemTokenExpireSeconds;
+
+    private final TokenService<InventorySnapshot> invTokenService;
+    private final int invTokenMaxUses;
+    private final long invTokenExpireSeconds;
 
     private static final Pattern COMMAND_BRACKET_PATTERN = Pattern.compile("\\[\\s*(/\\S[^]]*)\\s*]");
     private static final Pattern MENTION_PATTERN = Pattern.compile("(?<!\\S)@([A-Za-z0-9_]{3,16})\\b");
     private static final Pattern ITEM_TOKEN_RAW_PATTERN = Pattern.compile("\\[item]", Pattern.CASE_INSENSITIVE);
+    private static final Pattern INV_TOKEN_RAW_PATTERN  = Pattern.compile("\\[inv]", Pattern.CASE_INSENSITIVE);
+
     private static final String HIDDEN_PREVIEW_COMMAND = "__sfip";
+    private static final String HIDDEN_INV_PREVIEW_COMMAND = "__sfiv";
 
 
-    public ChatHandler(ChatLayout feature, ChatFormatRegistry registry, ChatPlaceholderRegistry placeholderRegistry, TokenService<ItemStack> tokenService) {
+    public ChatHandler(
+            ChatLayout feature,
+            ChatFormatRegistry registry,
+            ChatPlaceholderRegistry placeholderRegistry,
+            TokenService<ItemStack> itemTokenService,
+            TokenService<InventorySnapshot> invTokenService
+    ) {
+
         this.feature = feature;
         this.registry = registry;
         this.placeholderRegistry = placeholderRegistry;
-        this.tokenService = tokenService;
+
+        this.itemTokenService = itemTokenService;
+        this.invTokenService = invTokenService;
 
         this.itemPreviewEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
+        this.inventoryPreviewEnabled = feature.getConfigHandler().getSetting("inventory_preview.enabled", Boolean.class);
         this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
         this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
         this.commandSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
-        this.tokenMaxUses = feature.getConfigHandler().getSetting("item_preview.token.max_uses", Integer.class);
-        this.tokenExpireSeconds = feature.getConfigHandler().getSetting("item_preview.token.expire_seconds", Long.class);
+
+        this.itemTokenMaxUses = feature.getConfigHandler().getSetting("item_preview.token.max_uses", Integer.class);
+        this.itemTokenExpireSeconds = feature.getConfigHandler().getSetting("item_preview.token.expire_seconds", Long.class);
+
+        this.invTokenMaxUses = feature.getConfigHandler().getSetting("inventory_preview.token.max_uses", Integer.class);
+        this.invTokenExpireSeconds = feature.getConfigHandler().getSetting("inventory_preview.token.expire_seconds", Long.class);
     }
 
     /**
@@ -80,7 +103,8 @@ public class ChatHandler {
         chatBase = placeholderRegistry.applyPlaceholders(sender, viewer, chatBase);
         if (mentionsEnabled) chatBase = applyMentions(sender, chatBase);
         if (commandSuggestEnabled) chatBase = applyCommandSuggestPlaceholders(viewer, chatBase);
-        if (itemPreviewEnabled) chatBase = applyItemPreviewPlaceholder(sender, chatBase);
+        if (itemPreviewEnabled) chatBase = applyItemPreviewPlaceholder(sender, viewer, chatBase);
+        if (inventoryPreviewEnabled) chatBase = applyInventoryPreviewPlaceholder(sender, viewer, chatBase);
 
         // 4) Prefix (server-controlled; you can keep using MiniMessage here)
         Component prefix = buildPrefixComponent(sender);
@@ -132,10 +156,10 @@ public class ChatHandler {
         );
     }
 
-    private Component applyItemPreviewPlaceholder(Player sender, Component base) {
+    private Component applyItemPreviewPlaceholder(Player sender, Audience viewer, Component base) {
         final var hover = feature.getLocalizationHandler()
                 .getMessage("chatlayout.item_preview.hover")
-                .forAudience(sender)
+                .forAudience(viewer)
                 .build();
 
         // Snapshot taken immediately (like your original code)
@@ -144,13 +168,13 @@ public class ChatHandler {
 
         // Token options (-1 => infinite)
         TokenOptions opts = TokenOptions.builder()
-                .maxUses(tokenMaxUses)
-                .expireAfter(tokenExpireSeconds < 0 ? null : Duration.ofSeconds(tokenExpireSeconds))
+                .maxUses(itemTokenMaxUses)
+                .expireAfter(itemTokenExpireSeconds < 0 ? null : Duration.ofSeconds(itemTokenExpireSeconds))
                 .consumeOnEmpty(true)
                 .build();
 
         // Token payload is exactly this snapshot (no loading state)
-        final String token = tokenService.create(
+        final String token = itemTokenService.create(
                 () -> CompletableFuture.completedFuture(snapshot == null ? null : snapshot.clone()),
                 opts
         );
@@ -209,6 +233,45 @@ public class ChatHandler {
             mentionCooldownMap.put(mentionedPlayer, currentTime);
         }
     }
+
+    private Component applyInventoryPreviewPlaceholder(Player sender, Audience viewer, Component base) {
+        final var hover = feature.getLocalizationHandler()
+                .getMessage("chatlayout.inventory_preview.hover")
+                .forAudience(viewer)
+                .build();
+
+        // Snapshot of the entire inventory
+        final InventorySnapshot snap = InventorySnapshot.from(sender);
+
+        TokenOptions opts = TokenOptions.builder()
+                .maxUses(invTokenMaxUses)
+                .expireAfter(invTokenExpireSeconds < 0 ? null : Duration.ofSeconds(invTokenExpireSeconds))
+                .consumeOnEmpty(true)
+                .build();
+
+        final String token = invTokenService.create(
+                () -> CompletableFuture.completedFuture(snap),
+                opts
+        );
+
+        // Possessive label: "Alex's inventory" vs "Lucas' inventory"
+        final String name = sender.getName();
+        final String possessive = (name.endsWith("s") || name.endsWith("S")) ? (name + "'") : (name + "'s");
+
+        // [ darker gray ] + gray text
+        final Component label = Component.empty()
+                .append(Component.text("[").color(NamedTextColor.WHITE))
+                .append(Component.text(possessive + " inventory").color(NamedTextColor.GOLD))
+                .append(Component.text("]").color(NamedTextColor.WHITE));
+
+        return base.replaceText(cfg -> cfg
+                .match(INV_TOKEN_RAW_PATTERN)
+                .replacement((match, unused) ->
+                        label.hoverEvent(HoverEvent.showText(hover))
+                                .clickEvent(ClickEvent.runCommand("/" + HIDDEN_INV_PREVIEW_COMMAND + " " + token)))
+        );
+    }
+
 
     private Component buildPrefixComponent(Player player) {
         ChatFormat playerFormat = registry.getPlayerFormat(player);

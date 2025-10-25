@@ -7,7 +7,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.token.TokenResult;
 import nl.hauntedmc.serverfeatures.api.token.TokenService;
-import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.ItemPreviewAPI;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.item.ItemPreviewAPI;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
