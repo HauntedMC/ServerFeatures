@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.listener.PreviewUIListener;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
@@ -76,6 +77,8 @@ public class ServerFeatures extends JavaPlugin {
     private void registerFrameworkListeners() {
         PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new ScoreboardListener(this), this);
+        pm.registerEvents(new PreviewUIListener(), this);
+
     }
 
     /* ============================== ACCESSORS ============================== */

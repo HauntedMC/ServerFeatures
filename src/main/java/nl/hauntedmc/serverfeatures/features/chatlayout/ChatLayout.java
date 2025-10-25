@@ -12,7 +12,6 @@ import nl.hauntedmc.serverfeatures.features.chatlayout.command.ItemPreviewComman
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatFormatRegistry;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatHandler;
 import nl.hauntedmc.serverfeatures.features.chatlayout.internal.ChatPlaceholderRegistry;
-import nl.hauntedmc.serverfeatures.features.chatlayout.listener.PreviewListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.listener.SignedChatListener;
 import nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta;
 import org.bukkit.inventory.ItemStack;
@@ -139,7 +138,6 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         this.chatHandler = new ChatHandler(this, chatFormatRegistry, placeholderRegistry, itemPreviewTokens, inventoryPreviewTokens);
 
         getLifecycleManager().getListenerManager().registerListener(new SignedChatListener(this));
-        getLifecycleManager().getListenerManager().registerListener(new PreviewListener());
 
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new ChatplaceholdersCommand(this));
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new ItemPreviewCommand(this));

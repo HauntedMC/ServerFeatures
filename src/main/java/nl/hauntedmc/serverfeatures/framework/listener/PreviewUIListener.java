@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.chatlayout.listener;
+package nl.hauntedmc.serverfeatures.framework.listener;
 
 import nl.hauntedmc.serverfeatures.api.ui.inventory.preview.PreviewHolder;
 import org.bukkit.event.EventHandler;
@@ -12,7 +12,7 @@ import org.bukkit.event.inventory.InventoryDragEvent;
  * Cancels moving/taking items inside any preview window (item, shulker, full inventory).
  * Includes creative cancel to prevent middle-click cloning etc.
  */
-public final class PreviewListener implements Listener {
+public final class PreviewUIListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onClick(InventoryClickEvent event) {
