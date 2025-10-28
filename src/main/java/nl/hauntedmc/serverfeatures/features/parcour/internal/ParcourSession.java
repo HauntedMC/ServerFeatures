@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.parcour.internal;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import org.bukkit.Location;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -21,6 +22,9 @@ public final class ParcourSession {
 
     // Regions triggered in this session (avoid re-running commands on the same region)
     private final Set<Integer> triggeredOrders = new HashSet<>();
+
+    // NEW: actionbar task for live updates
+    private BukkitTask actionBarTask;
 
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
@@ -43,5 +47,14 @@ public final class ParcourSession {
 
     public boolean alreadyTriggered(ParcourRegion region) {
         return triggeredOrders.contains(region.order());
+    }
+
+    // NEW: actionbar task handling
+    public void setActionBarTask(BukkitTask task) { this.actionBarTask = task; }
+    public void cancelActionBarTask() {
+        if (actionBarTask != null) {
+            try { actionBarTask.cancel(); } catch (Throwable ignored) {}
+            actionBarTask = null;
+        }
     }
 }

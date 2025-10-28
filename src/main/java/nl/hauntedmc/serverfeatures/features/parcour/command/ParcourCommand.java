@@ -17,6 +17,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
+import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -189,7 +190,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         .then(Commands.literal("end")
                                 .then(Commands.argument("parcourId", StringArgumentType.word())
                                         .suggests(this::suggestParcourIds)
-                                        .executes(this::execAddEnd))) // no restore argument
+                                        .executes(this::execAddEnd)))
                         .then(Commands.literal("checkpoint")
                                 .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
                                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -321,7 +322,7 @@ public final class ParcourCommand implements BrigadierCommand {
                                 }))
                 )
 
-                // NEW: setrestorelocation <parcourId> <START|number> (uses player's current position)
+                // setrestorelocation <parcourId> <START|number>
                 .then(Commands.literal("setrestorelocation")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -360,7 +361,7 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                // NEW: setprogressnotify <parcourId> <true|false>
+                // setprogressnotify <parcourId> <true|false>
                 .then(Commands.literal("setprogressnotify")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -373,6 +374,102 @@ public final class ParcourCommand implements BrigadierCommand {
                                             if (handler.setProgressNotify(id, v)) {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.progress.notify.set")
                                                         .with("id", id).with("value", String.valueOf(v)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
+                // setsound <parcourId> <CHECKPOINT|END> <SOUND_NAME|NONE>
+                .then(Commands.literal("setsound")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("type", StringArgumentType.word())
+                                        .suggests(this::suggestSoundTypes)
+                                        .then(Commands.argument("sound", StringArgumentType.word())
+                                                .suggests(this::suggestSoundNames)
+                                                .executes(ctx -> {
+                                                    CommandSender s = ctx.getSource().getSender();
+                                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                                    String type = StringArgumentType.getString(ctx, "type").toUpperCase(Locale.ROOT);
+                                                    String soundArg = StringArgumentType.getString(ctx, "sound").toUpperCase(Locale.ROOT);
+
+                                                    boolean clear = soundArg.equals("NONE") || soundArg.equals("NULL") || soundArg.equals("-");
+                                                    if (!clear) {
+                                                        try {
+                                                            Sound.valueOf(soundArg); // validate
+                                                        } catch (IllegalArgumentException ex) {
+                                                            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.invalid")
+                                                                    .with("sound", soundArg).forAudience(s).build());
+                                                            return 1;
+                                                        }
+                                                    }
+
+                                                    boolean ok;
+                                                    if ("CHECKPOINT".equals(type)) {
+                                                        ok = handler.setCheckpointSound(id, clear ? null : soundArg);
+                                                    } else if ("END".equals(type)) {
+                                                        ok = handler.setEndSound(id, clear ? null : soundArg);
+                                                    } else {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.invalid_type")
+                                                                .with("type", type).forAudience(s).build());
+                                                        return 1;
+                                                    }
+
+                                                    if (!ok) {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                                .with("name", id).forAudience(s).build());
+                                                        return 1;
+                                                    }
+
+                                                    if (clear) {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.cleared")
+                                                                .with("type", type).forAudience(s).build());
+                                                    } else {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.set")
+                                                                .with("type", type).with("sound", soundArg).forAudience(s).build());
+                                                    }
+                                                    return 1;
+                                                }))))
+                )
+
+                // setactionbar <parcourId> <true|false>
+                .then(Commands.literal("setactionbar")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            boolean v = BoolArgumentType.getBool(ctx, "value");
+                                            if (handler.setUseActionBar(id, v)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.actionbar.set")
+                                                        .with("id", id).with("value", String.valueOf(v)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
+                // setfinishdelay <parcourId> <seconds>
+                .then(Commands.literal("setfinishdelay")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("seconds", IntegerArgumentType.integer(0, 3600))
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+                                            if (handler.setFinishTeleportDelay(id, seconds)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.finishdelay.set")
+                                                        .with("id", id).with("seconds", String.valueOf(seconds)).forAudience(s).build());
                                             } else {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
                                                         .with("name", id).forAudience(s).build());
@@ -418,7 +515,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|info|list");
                     }
                     return 1;
                 });
@@ -519,6 +616,8 @@ public final class ParcourCommand implements BrigadierCommand {
         return 1;
     }
 
+    // ===== Suggestions =====
+
     private CompletableFuture<Suggestions> suggestParcourIds(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String rem = b.getRemaining().toLowerCase(Locale.ROOT);
         for (ParcourDefinition d : registry.all()) {
@@ -552,7 +651,7 @@ public final class ParcourCommand implements BrigadierCommand {
         return b.buildFuture();
     }
 
-    // NEW: suggestions for setrestorelocation (no END)
+    // suggestions for setrestorelocation (no END)
     private CompletableFuture<Suggestions> suggestStartOrNumbersForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String id = null;
         try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) {}
@@ -576,6 +675,33 @@ public final class ParcourCommand implements BrigadierCommand {
         return b.buildFuture();
     }
 
+    // suggestions for setsound type (CHECKPOINT|END)
+    private CompletableFuture<Suggestions> suggestSoundTypes(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
+        if ("checkpoint".startsWith(rem)) b.suggest("CHECKPOINT");
+        if ("end".startsWith(rem)) b.suggest("END");
+        return b.buildFuture();
+    }
+
+    // suggestions for sound names (Bukkit enum names) + NONE/NULL/-
+    private CompletableFuture<Suggestions> suggestSoundNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+        String rem = b.getRemaining().toUpperCase(Locale.ROOT);
+
+        // Always offer clear options
+        if ("NONE".startsWith(rem)) b.suggest("NONE");
+        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        if ("-".startsWith(rem)) b.suggest("-");
+
+        // Suggest enum constants
+        for (Sound s : Sound.values()) {
+            String name = s.name(); // already UPPER_CASE_WITH_UNDERSCORES
+            if (name.startsWith(rem)) {
+                b.suggest(name);
+            }
+        }
+        return b.buildFuture();
+    }
+
     private void sendInfo(CommandSender sender, ParcourDefinition def) {
         var lh = feature.getLocalizationHandler();
         sender.sendMessage(lh.getMessage("parcour.admin.info.header")
@@ -585,8 +711,19 @@ public final class ParcourCommand implements BrigadierCommand {
                 l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
         ).orElse("-"));
 
-        // NEW: progress toggle
+        // progress toggle
         sendProp(sender, "Notify Progress", String.valueOf(def.notifyProgress()));
+
+        // actionbar toggle
+        sendProp(sender, "Use ActionBar", String.valueOf(def.useActionBar()));
+
+        // sounds
+        sendProp(sender, "Sound CHECKPOINT", def.checkpointSoundName().orElse("-"));
+        sendProp(sender, "Sound END", def.endSoundName().orElse("-"));
+
+        // finish teleport delay
+        sendProp(sender, "Finish Teleport Delay (s)", def.finishTeleportDelaySeconds() > 0
+                ? String.valueOf(def.finishTeleportDelaySeconds()) : "-");
 
         // START
         def.startRegion().ifPresentOrElse(pr -> {

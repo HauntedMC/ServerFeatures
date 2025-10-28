@@ -15,13 +15,23 @@ public final class ParcourDefinition {
     // Numbered checkpoints (0..N)
     private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
 
-    // Exit spawn (for /parcour leave)
+    // Exit spawn (for /parcour leave and optional delayed finish-teleport)
     private String exitWorld;
     private double exitX, exitY, exitZ;
     private float exitYaw, exitPitch;
 
-    // NEW: toggle progress notifications
+    // Progress notify (chat)
     private boolean notifyProgress;
+
+    // NEW: map-level sounds
+    private String checkpointSoundName; // org.bukkit.Sound enum name, null = none
+    private String endSoundName;        // org.bukkit.Sound enum name, null = none
+
+    // NEW: actionbar live timer/progress toggle
+    private boolean useActionBar;
+
+    // NEW: optional delayed teleport to exit spawn after finish (seconds; 0 disables)
+    private int finishTeleportDelaySeconds;
 
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -87,7 +97,22 @@ public final class ParcourDefinition {
         return w.getSpawnLocation();
     }
 
-    // ===== Progress toggle =====
+    // ===== Progress toggle (chat) =====
     public boolean notifyProgress() { return notifyProgress; }
     public void setNotifyProgress(boolean v) { this.notifyProgress = v; }
+
+    // ===== Sounds (map-level) =====
+    public Optional<String> checkpointSoundName() { return Optional.ofNullable(checkpointSoundName); }
+    public void setCheckpointSoundName(String name) { this.checkpointSoundName = (name == null || name.isBlank()) ? null : name; }
+
+    public Optional<String> endSoundName() { return Optional.ofNullable(endSoundName); }
+    public void setEndSoundName(String name) { this.endSoundName = (name == null || name.isBlank()) ? null : name; }
+
+    // ===== Actionbar toggle =====
+    public boolean useActionBar() { return useActionBar; }
+    public void setUseActionBar(boolean use) { this.useActionBar = use; }
+
+    // ===== Finish delayed teleport =====
+    public int finishTeleportDelaySeconds() { return finishTeleportDelaySeconds; }
+    public void setFinishTeleportDelaySeconds(int seconds) { this.finishTeleportDelaySeconds = Math.max(0, seconds); }
 }

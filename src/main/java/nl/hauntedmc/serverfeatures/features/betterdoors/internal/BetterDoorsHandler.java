@@ -104,7 +104,7 @@ public final class BetterDoorsHandler {
     public void mirrorNextTick(Block primaryDoorAnyHalf) {
         bottomHalf(primaryDoorAnyHalf).ifPresent(primaryBottom ->
                 findPaired(primaryBottom).ifPresent(neighborBottom ->
-                        Bukkit.getScheduler().runTask(feature.getPlugin(), () -> {
+                        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                             BlockData bd = primaryBottom.getBlockData();
                             if (!(bd instanceof Door primary)) return;
                             setDoorOpen(neighborBottom, primary.isOpen());

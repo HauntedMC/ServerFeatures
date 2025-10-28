@@ -12,12 +12,14 @@ import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -91,7 +93,7 @@ public final class ParcourHandler {
         s.pos2z = loc.getBlockZ();
     }
 
-    // ===== Admin editing =====
+    // ===== Admin editing / map settings =====
 
     public boolean createParcour(String id) {
         if (registry.get(id).isPresent()) return false;
@@ -106,6 +108,38 @@ public final class ParcourHandler {
             sessions.values().removeIf(s -> s.parcourId.equalsIgnoreCase(id));
         }
         return ok;
+    }
+
+    public boolean setCheckpointSound(String id, String soundOrNull) {
+        return registry.get(id).map(def -> {
+            def.setCheckpointSoundName(soundOrNull);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean setEndSound(String id, String soundOrNull) {
+        return registry.get(id).map(def -> {
+            def.setEndSoundName(soundOrNull);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean setUseActionBar(String id, boolean value) {
+        return registry.get(id).map(def -> {
+            def.setUseActionBar(value);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean setFinishTeleportDelay(String id, int seconds) {
+        return registry.get(id).map(def -> {
+            def.setFinishTeleportDelaySeconds(seconds);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
     public boolean addRegionStart(String id, Region region, boolean restoreCheckpoint) {
@@ -202,7 +236,7 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // Toggle progress notifications per parcour
+    // Toggle progress notifications per parcour (chat)
     public boolean setProgressNotify(String id, boolean value) {
         return registry.get(id).map(def -> {
             def.setNotifyProgress(value);
@@ -249,7 +283,11 @@ public final class ParcourHandler {
 
     public boolean isPlaying(Player p) { return sessions.containsKey(p.getUniqueId()); }
     public Optional<ParcourSession> session(Player p) { return Optional.ofNullable(sessions.get(p.getUniqueId())); }
-    public void clearSession(Player p) { sessions.remove(p.getUniqueId()); }
+
+    public void clearSession(Player p) {
+        ParcourSession s = sessions.remove(p.getUniqueId());
+        if (s != null) s.cancelActionBarTask();
+    }
 
     public boolean startParcourByCommand(Player p, String id) {
         if (isPlaying(p)) {
@@ -300,6 +338,7 @@ public final class ParcourHandler {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_playing").forAudience(p).build());
             return false;
         }
+        s.cancelActionBarTask();
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
@@ -341,6 +380,32 @@ public final class ParcourHandler {
         ParcourSession session = new ParcourSession(p.getUniqueId(), def, startRestore, firstExpectedOrder);
         sessions.put(p.getUniqueId(), session);
         lastTrigger.put(p.getUniqueId(), 0L);
+
+        // NEW: schedule actionbar if enabled
+        if (def.useActionBar()) {
+            BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+                if (!p.isOnline() || !isPlaying(p)) {
+                    session.cancelActionBarTask();
+                    return;
+                }
+                sendActionBar(p, def, session);
+            }, BukkitTime.seconds(0L), BukkitTime.ticks(10L)); // every 0.5s
+            session.setActionBarTask(task);
+        }
+    }
+
+    private void sendActionBar(Player p, ParcourDefinition def, ParcourSession s) {
+        long elapsedMs = System.currentTimeMillis() - s.startMillis;
+        double seconds = elapsedMs / 1000.0;
+        int total = def.totalCheckpoints() + 1; // endpoints counted with +1
+        int current = Math.min(s.expectedNextOrder(), total);
+        Component c = feature.getLocalizationHandler()
+                .getMessage("parcour.actionbar")
+                .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
+                .with("current", String.valueOf(current))
+                .with("total", String.valueOf(total))
+                .forAudience(p).build();
+        p.sendActionBar(c);
     }
 
     public void tryTrigger(Player p, Location to) {
@@ -382,8 +447,10 @@ public final class ParcourHandler {
                 if (pr.region().isPresent()) {
                     Region r = pr.region().get();
                     if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                        if (!s.alreadyTriggered(pr)) {
+                        boolean firstTimeHere = !s.alreadyTriggered(pr);
+                        if (firstTimeHere) {
                             executeRegionCommands(p, pr);
+                            playSoundIfDefined(p, def.checkpointSoundName());
                             s.markTriggered(pr);
                         }
                         if (pr.restoreCheckpoint()) {
@@ -397,7 +464,7 @@ public final class ParcourHandler {
                         // Progress one
                         s.advanceExpectedOrder();
 
-                        // Progress notification (optional)
+                        // Progress notification (optional chat)
                         if (def.notifyProgress()) {
                             int current = s.expectedNextOrder(); // after increment
                             int total = def.totalCheckpoints() + 1; // also add endpoint
@@ -418,14 +485,16 @@ public final class ParcourHandler {
             if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
                 Region r = def.endRegion().get().region().get();
                 if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                    // NEW: run END commands once
+                    // run END commands once
                     ParcourRegion endPr = def.endRegion().get();
-                    if (!s.alreadyTriggered(endPr)) {
+                    boolean firstEnd = !s.alreadyTriggered(endPr);
+                    if (firstEnd) {
                         executeRegionCommands(p, endPr);
+                        playSoundIfDefined(p, def.endSoundName());
                         s.markTriggered(endPr);
                     }
 
-                    // NEW: send final progress if enabled (report total/total)
+                    // send final progress if enabled (report total/total)
                     if (def.notifyProgress()) {
                         int total = def.totalCheckpoints() + 1; // checkpoints + END
                         int current = total;
@@ -436,11 +505,22 @@ public final class ParcourHandler {
                     }
 
                     // Finish
-                    finishParcour(p, s);
+                    finishParcour(p, s, def);
                     lastTrigger.put(p.getUniqueId(), now);
                     return;
                 }
             }
+        }
+    }
+
+    private void playSoundIfDefined(Player p, Optional<String> nameOpt) {
+        if (nameOpt.isEmpty()) return;
+        String raw = nameOpt.get();
+        try {
+            Sound s = Sound.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+            p.playSound(p.getLocation(), s, 1.0f, 1.0f);
+        } catch (IllegalArgumentException ignored) {
+            // invalid name slipped in; ignore silently
         }
     }
 
@@ -453,14 +533,28 @@ public final class ParcourHandler {
         }
     }
 
-    private void finishParcour(Player p, ParcourSession s) {
+    private void finishParcour(Player p, ParcourSession s, ParcourDefinition def) {
         long elapsedMs = System.currentTimeMillis() - s.startMillis;
         double seconds = elapsedMs / 1000.0;
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.finished")
                 .with("name", s.parcourId)
                 .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
                 .forAudience(p).build());
+
+        // stop actionbar if running
+        s.cancelActionBarTask();
         sessions.remove(p.getUniqueId());
+
+        // NEW: delayed teleport to exit spawn if configured (>0)
+        int delaySec = def.finishTeleportDelaySeconds();
+        if (delaySec > 0) {
+            Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+                if (p.isOnline()) {
+                    teleportWithIgnore(p, dst);
+                }
+            }, BukkitTime.seconds(delaySec));
+        }
     }
 
     public void onPlayerDeathOrVoid(Player p) {

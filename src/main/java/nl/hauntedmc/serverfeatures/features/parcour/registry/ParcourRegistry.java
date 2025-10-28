@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
+import org.bukkit.Sound;
 
 import java.util.*;
 
@@ -37,8 +38,22 @@ public final class ParcourRegistry {
                 ParcourDefinition def = new ParcourDefinition(id);
                 ConfigNode n = e.getValue();
 
-                // NEW: notify_progress flag (default false)
+                // notify_progress flag (default false)
                 def.setNotifyProgress(n.get("notify_progress").as(Boolean.class, false));
+
+                // NEW: use_actionbar toggle (default false)
+                def.setUseActionBar(n.get("use_actionbar").as(Boolean.class, false));
+
+                // NEW: finish delayed teleport seconds (default 0 = disabled)
+                def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
+
+                // NEW: sounds (map-level)
+                ConfigNode sounds = n.get("sounds");
+                String cpSound = sounds.get("checkpoint").as(String.class, null);
+                String endSound = sounds.get("end").as(String.class, null);
+
+                if (isValidSound(cpSound, log, id, "checkpoint")) def.setCheckpointSoundName(cpSound);
+                if (isValidSound(endSound, log, id, "end")) def.setEndSoundName(endSound);
 
                 // Exit spawn (optional)
                 ConfigNode exit = n.get("exit_spawn");
@@ -95,13 +110,24 @@ public final class ParcourRegistry {
         feature.getLogger().info("Loaded " + loaded + " parcour(s).");
     }
 
+    private static boolean isValidSound(String name, FeatureLogger log, String parcourId, String kind) {
+        if (name == null || name.isBlank()) return false;
+        try {
+            Sound.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException ex) {
+            log.warning("Parcour '" + parcourId + "': invalid " + kind + " sound '" + name + "'. Ignoring.");
+            return false;
+        }
+    }
+
     private static Integer parseOrder(String k) {
         try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
     }
 
     private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {
         ConfigNode node = parent.get(key);
-        // BUGFIX: if region node is missing, return null
+        // if region node is missing, return null
         if (node.isNull()) return null;
         return readRegion(node, type, orderForInternal, log, parcourId, key);
     }
@@ -135,7 +161,7 @@ public final class ParcourRegistry {
                 for (String c : cmds) pr.addCommand(c);
             }
 
-            // NEW: explicit restore location (START/CHECKPOINT only)
+            // explicit restore location (START/CHECKPOINT only)
             if (type != ParcourRegionType.END) {
                 ConfigNode rl = node.get("restore_location");
                 String rw = rl.get("world").as(String.class, null);
@@ -162,8 +188,18 @@ public final class ParcourRegistry {
         String base = "parcours." + keyId;
 
         cfg.batch(b -> {
-            // NEW: progress toggle
+            // progress toggle
             b.put(base + ".notify_progress", def.notifyProgress());
+
+            // NEW: use_actionbar
+            b.put(base + ".use_actionbar", def.useActionBar());
+
+            // NEW: finish delayed teleport seconds
+            b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
+
+            // NEW: sounds
+            def.checkpointSoundName().ifPresent(name -> b.put(base + ".sounds.checkpoint", name));
+            def.endSoundName().ifPresent(name -> b.put(base + ".sounds.end", name));
 
             // exit spawn
             def.exitSpawn().ifPresent(l -> {
@@ -200,13 +236,10 @@ public final class ParcourRegistry {
         if (pr.type() != ParcourRegionType.END) {
             b.put(path + ".restore", pr.restoreCheckpoint());
             if (pr.hasExplicitRestore()) {
-                // explicit restore_location
-                //noinspection OptionalGetWithoutIsPresent – values validated by hasExplicitRestore()
-                b.put(path + ".restore_location.world", pr.explicitRestore(feature.getPlugin().getServer())
-                        .map(loc -> loc.getWorld().getName()).orElse(null));
                 var locOpt = pr.explicitRestore(feature.getPlugin().getServer());
                 if (locOpt.isPresent()) {
                     var l = locOpt.get();
+                    b.put(path + ".restore_location.world", l.getWorld().getName());
                     b.put(path + ".restore_location.x", l.getX());
                     b.put(path + ".restore_location.y", l.getY());
                     b.put(path + ".restore_location.z", l.getZ());
@@ -240,6 +273,9 @@ public final class ParcourRegistry {
             b.remove(base + ".exit_spawn");
             b.remove(base + ".regions");
             b.remove(base + ".notify_progress");
+            b.remove(base + ".use_actionbar");
+            b.remove(base + ".finish_teleport_delay_seconds");
+            b.remove(base + ".sounds");
             b.remove(base);
         });
 

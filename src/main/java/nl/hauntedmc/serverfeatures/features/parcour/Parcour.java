@@ -47,6 +47,9 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cis onjuist geconfigureerd (mist START en/of END).");
         m.add("parcour.progress", "&7Je huidige parcour progressie: punt &f{current}&7/&f{total}");
 
+        // NEW: actionbar live message
+        m.add("parcour.actionbar", "&6{seconds}s &7• &eProgress &f{current}&7/&f{total}");
+
         // admin messages
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
         m.add("parcour.admin.deleted", "&aParcour &f{id} &averwijderd.");
@@ -73,6 +76,14 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.restoreloc.set", "&aRestore locatie gezet voor sleutel &f{order}&a: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.restoreloc.not_applicable", "&cRestore locatie kan niet gezet worden voor sleutel &f{order}&c.");
         m.add("parcour.admin.progress.notify.set", "&aProgress-notificatie voor &f{id} &agingesteld op &f{value}");
+
+        // NEW: sounds/actionbar/finishdelay admin messages
+        m.add("parcour.admin.sound.set", "&aSound voor &f{type}&a ingesteld op &f{sound}&a.");
+        m.add("parcour.admin.sound.cleared", "&aSound voor &f{type}&a verwijderd.");
+        m.add("parcour.admin.sound.invalid", "&cOngeldige sound: &f{sound}&c.");
+        m.add("parcour.admin.sound.invalid_type", "&cOngeldig type: &f{type}&c. Gebruik CHECKPOINT of END.");
+        m.add("parcour.admin.actionbar.set", "&aActionbar-weergave voor &f{id}&a ingesteld op &f{value}&a.");
+        m.add("parcour.admin.finishdelay.set", "&aFinish-teleport voor &f{id}&a ingesteld op &f{seconds}&as.");
 
         return m;
     }
