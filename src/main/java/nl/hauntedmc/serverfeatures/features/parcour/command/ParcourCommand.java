@@ -17,6 +17,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -478,19 +479,62 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                .then(Commands.literal("info")
+                // NEW: setregionparticle <parcourId> <PARTICLE|NONE>
+                .then(Commands.literal("setregionparticle")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
-                                .executes(ctx -> {
-                                    CommandSender s = ctx.getSource().getSender();
-                                    String id = StringArgumentType.getString(ctx, "parcourId");
-                                    registry.get(id).ifPresentOrElse(def -> sendInfo(s, def),
-                                            () -> s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
-                                                    .with("name", id).forAudience(s).build()));
-                                    return 1;
-                                }))
+                                .then(Commands.argument("particle", StringArgumentType.word())
+                                        .suggests(this::suggestParticleNames)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            String arg = StringArgumentType.getString(ctx, "particle").toUpperCase(Locale.ROOT);
+
+                                            boolean clear = arg.equals("NONE") || arg.equals("NULL") || arg.equals("-");
+                                            String value = null;
+
+                                            if (!clear) {
+                                                try {
+                                                    Particle.valueOf(arg); // validate
+                                                    value = arg;
+                                                } catch (IllegalArgumentException ex) {
+                                                    // Use a simple inline message to avoid requiring new localization keys
+                                                    s.sendMessage("§cOngeldige particle: §f" + arg + "§c.");
+                                                    return 1;
+                                                }
+                                            }
+
+                                            boolean ok = handler.setRegionParticle(id, value);
+                                            if (!ok) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                                return 1;
+                                            }
+
+                                            if (clear) {
+                                                s.sendMessage("§aRegion-highlight particle verwijderd.");
+                                            } else {
+                                                s.sendMessage("§aRegion-highlight particle ingesteld op §f" + value + "§a.");
+                                            }
+                                            return 1;
+                                        })))
                 )
+
+
+                .then(Commands.literal("info")
+                .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                .then(Commands.argument("parcourId", StringArgumentType.word())
+                        .suggests(this::suggestParcourIds)
+                        .executes(ctx -> {
+                            CommandSender s = ctx.getSource().getSender();
+                            String id = StringArgumentType.getString(ctx, "parcourId");
+                            registry.get(id).ifPresentOrElse(def -> sendInfo(s, def),
+                                    () -> s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                            .with("name", id).forAudience(s).build()));
+                            return 1;
+                        }))
+        )
 
                 .then(Commands.literal("list")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
@@ -515,7 +559,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|info|list");
                     }
                     return 1;
                 });
@@ -702,6 +746,23 @@ public final class ParcourCommand implements BrigadierCommand {
         return b.buildFuture();
     }
 
+    // NEW: suggestions for particle names + NONE/NULL/-
+    private CompletableFuture<Suggestions> suggestParticleNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+        String rem = b.getRemaining().toUpperCase(Locale.ROOT);
+
+        if ("NONE".startsWith(rem)) b.suggest("NONE");
+        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        if ("-".startsWith(rem)) b.suggest("-");
+
+        for (Particle p : Particle.values()) {
+            String name = p.name();
+            if (name.startsWith(rem)) {
+                b.suggest(name);
+            }
+        }
+        return b.buildFuture();
+    }
+
     private void sendInfo(CommandSender sender, ParcourDefinition def) {
         var lh = feature.getLocalizationHandler();
         sender.sendMessage(lh.getMessage("parcour.admin.info.header")
@@ -720,6 +781,9 @@ public final class ParcourCommand implements BrigadierCommand {
         // sounds
         sendProp(sender, "Sound CHECKPOINT", def.checkpointSoundName().orElse("-"));
         sendProp(sender, "Sound END", def.endSoundName().orElse("-"));
+
+        // NEW: region highlight particle
+        sendProp(sender, "Region Highlight Particle", def.regionHighlightParticleName().orElse("-"));
 
         // finish teleport delay
         sendProp(sender, "Finish Teleport Delay (s)", def.finishTeleportDelaySeconds() > 0

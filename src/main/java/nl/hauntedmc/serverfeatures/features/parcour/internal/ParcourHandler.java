@@ -12,6 +12,7 @@ import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -29,6 +30,11 @@ public final class ParcourHandler {
     private static final long TRIGGER_COOLDOWN_MS = 500L; // prevent spam
     private static final long TELEPORT_IGNORE_MS = 1000L;  // ignore triggers after controlled teleports
     private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
+
+    // NEW: particle highlight — how often to render the outline
+    private static final long PARTICLE_INTERVAL_TICKS = 12L; // ~0.6s
+    // upper bound target count for outline points per emission (to pick step size)
+    private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
 
     private static final String WAND_NAME = "§6Parcour Wand";
 
@@ -141,6 +147,24 @@ public final class ParcourHandler {
         return registry.get(id).map(def -> {
             def.setFinishTeleportDelaySeconds(seconds);
             registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    // NEW: set/clear region highlight particle (enum name; null to clear)
+    public boolean setRegionParticle(String id, String particleOrNull) {
+        return registry.get(id).map(def -> {
+            def.setRegionHighlightParticleName(particleOrNull);
+            registry.saveParcour(def);
+
+            // live-update any active sessions on this parcour
+            for (ParcourSession s : sessions.values()) {
+                if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
+                Player pl = Bukkit.getPlayer(s.playerId);
+                if (pl != null && pl.isOnline()) {
+                    updateRegionHighlight(pl, def, s);
+                }
+            }
             return true;
         }).orElse(false);
     }
@@ -289,7 +313,10 @@ public final class ParcourHandler {
 
     public void clearSession(Player p) {
         ParcourSession s = sessions.remove(p.getUniqueId());
-        if (s != null) s.cancelActionBarTask();
+        if (s != null) {
+            s.cancelActionBarTask();
+            s.cancelParticleTask();
+        }
     }
 
     public boolean startParcourByCommand(Player p, String id) {
@@ -332,6 +359,9 @@ public final class ParcourHandler {
 
         // Execute START commands once
         def.startRegion().ifPresent(thisRegion -> executeRegionCommands(p, thisRegion));
+
+        // NEW: start region highlight for the first target
+        updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
         return true;
     }
 
@@ -342,6 +372,7 @@ public final class ParcourHandler {
             return false;
         }
         s.cancelActionBarTask();
+        s.cancelParticleTask();
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
@@ -440,6 +471,8 @@ public final class ParcourHandler {
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                                 .with("name", def.id()).forAudience(p).build());
                         executeRegionCommands(p, def.startRegion().get());
+                        // NEW: start highlight
+                        updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
                     }
@@ -491,6 +524,9 @@ public final class ParcourHandler {
                                     .with("total", String.valueOf(total))
                                     .forAudience(p).build());
                         }
+
+                        // NEW: update highlight to point to the next region
+                        updateRegionHighlight(p, def, s);
 
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
@@ -564,6 +600,9 @@ public final class ParcourHandler {
         // mark finished (freeze timer & show N/N in actionbar)
         s.markFinished(elapsedMs);
 
+        // NEW: stop highlighting on finish
+        s.cancelParticleTask();
+
         // schedule cleanup of session + actionbar after a short hold
         long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
@@ -603,5 +642,108 @@ public final class ParcourHandler {
     public void selectParcour(Player p, String id) {
         var sel = selection(p);
         sel.selectedParcourId = id;
+    }
+
+    // ===== Particle highlight implementation =====
+
+    private void updateRegionHighlight(Player p, ParcourDefinition def, ParcourSession s) {
+        if (s == null) return;
+
+        // Clear any previous particle task
+        s.cancelParticleTask();
+
+        Optional<String> pname = def.regionHighlightParticleName();
+        if (pname.isEmpty()) return;
+
+        final Particle particle;
+        try {
+            particle = Particle.valueOf(pname.get().trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            // misconfigured; ignore
+            return;
+        }
+
+        // Determine the next region: checkpoint(expected) or END
+        ParcourRegion target = def.checkpoint(s.expectedNextOrder()).orElseGet(() -> def.endRegion().orElse(null));
+        if (target == null || target.region().isEmpty()) return;
+        Region r = target.region().get();
+
+        // Only render if player is in the same world (particles are world-specific)
+        if (!Objects.equals(p.getWorld().getName(), r.worldName())) return;
+
+        // Schedule a repeating outline render for this player
+        BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+            if (!p.isOnline()) return;
+            // if session ended or moved to a different next target, we will be called again to replace task
+            spawnRegionOutline(p, r, particle);
+        }, BukkitTime.ticks(2L), BukkitTime.ticks(PARTICLE_INTERVAL_TICKS));
+
+        s.setParticleTask(task);
+    }
+
+    private void spawnRegionOutline(Player p, Region r, Particle particle) {
+        final int minX = r.minX();
+        final int minY = r.minY();
+        final int minZ = r.minZ();
+        final int maxX = r.maxX();
+        final int maxY = r.maxY();
+        final int maxZ = r.maxZ();
+
+        // Decide step to keep particle count reasonable for large regions
+        int dx = Math.max(1, maxX - minX);
+        int dy = Math.max(1, maxY - minY);
+        int dz = Math.max(1, maxZ - minZ);
+
+        // perimeter ~ 2*(dx+dz) on two faces + vertical 4*dy; pick a step so total ~ target points
+        int approxPerimeter = 2 * (dx + dz) * 2 + 4 * dy;
+        int step = Math.max(1, (int) Math.ceil((double) approxPerimeter / PARTICLE_OUTLINE_TARGET_POINTS));
+
+        // Top and bottom rectangles
+        for (int x = minX; x <= maxX; x += step) {
+            spawnParticle(p, x, minY, minZ);
+            spawnParticle(p, x, minY, maxZ);
+            spawnParticle(p, x, maxY, minZ);
+            spawnParticle(p, x, maxY, maxZ);
+        }
+        for (int z = minZ; z <= maxZ; z += step) {
+            spawnParticle(p, minX, minY, z);
+            spawnParticle(p, maxX, minY, z);
+            spawnParticle(p, minX, maxY, z);
+            spawnParticle(p, maxX, maxY, z);
+        }
+
+        // Vertical edges
+        for (int y = minY; y <= maxY; y += step) {
+            spawnParticle(p, minX, y, minZ);
+            spawnParticle(p, minX, y, maxZ);
+            spawnParticle(p, maxX, y, minZ);
+            spawnParticle(p, maxX, y, maxZ);
+        }
+
+        // Emit the particles for all queued positions using the player's personal stream
+        flushParticleQueue(p, particle);
+    }
+
+    // ------- small, allocation-free particle batching helpers -------
+
+    private static final ThreadLocal<List<Location>> TL_PARTICLE_BUF = ThreadLocal.withInitial(ArrayList::new);
+
+    private void spawnParticle(Player p, int bx, int by, int bz) {
+        // store centered within the block (slightly above floor)
+        List<Location> buf = TL_PARTICLE_BUF.get();
+        buf.add(new Location(p.getWorld(), bx + 0.5, by + 0.1, bz + 0.5));
+    }
+
+    private void flushParticleQueue(Player p, Particle particle) {
+        List<Location> buf = TL_PARTICLE_BUF.get();
+        if (buf.isEmpty()) return;
+        try {
+            for (Location l : buf) {
+                // count=1, no velocity, small spread for visibility
+                p.spawnParticle(particle, l.getX(), l.getY(), l.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+            }
+        } finally {
+            buf.clear();
+        }
     }
 }

@@ -26,6 +26,9 @@ public final class ParcourSession {
     // Actionbar task handle (nullable)
     private BukkitTask actionBarTask;
 
+    // NEW: particle highlight task handle (nullable)
+    private BukkitTask particleTask;
+
     // Finished state: freeze timer and show N/N for a short hold
     private boolean finished;
     private long finalElapsedMs;
@@ -63,6 +66,18 @@ public final class ParcourSession {
                 this.actionBarTask.cancel();
             } catch (Throwable ignored) {}
             this.actionBarTask = null;
+        }
+    }
+
+    // NEW: particle highlight task controls
+    public void setParticleTask(BukkitTask task) { this.particleTask = task; }
+
+    public void cancelParticleTask() {
+        if (this.particleTask != null) {
+            try {
+                this.particleTask.cancel();
+            } catch (Throwable ignored) {}
+            this.particleTask = null;
         }
     }
 

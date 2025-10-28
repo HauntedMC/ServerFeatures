@@ -33,6 +33,9 @@ public final class ParcourDefinition {
     // NEW: optional delayed teleport to exit spawn after finish (seconds; 0 disables)
     private int finishTeleportDelaySeconds;
 
+    // NEW: particle to highlight NEXT region boundary (org.bukkit.Particle enum name)
+    private String regionHighlightParticleName;
+
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
     }
@@ -115,4 +118,8 @@ public final class ParcourDefinition {
     // ===== Finish delayed teleport =====
     public int finishTeleportDelaySeconds() { return finishTeleportDelaySeconds; }
     public void setFinishTeleportDelaySeconds(int seconds) { this.finishTeleportDelaySeconds = Math.max(0, seconds); }
+
+    // ===== Region highlight particle =====
+    public Optional<String> regionHighlightParticleName() { return Optional.ofNullable(regionHighlightParticleName); }
+    public void setRegionHighlightParticleName(String name) { this.regionHighlightParticleName = (name == null || name.isBlank()) ? null : name; }
 }

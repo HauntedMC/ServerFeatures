@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 
 import java.util.*;
@@ -54,6 +55,12 @@ public final class ParcourRegistry {
 
                 if (isValidSound(cpSound, log, id, "checkpoint")) def.setCheckpointSoundName(cpSound);
                 if (isValidSound(endSound, log, id, "end")) def.setEndSoundName(endSound);
+
+                // NEW: region highlight particle (map-level)
+                String particleName = n.get("region_highlight_particle").as(String.class, null);
+                if (isValidParticle(particleName, log, id)) {
+                    def.setRegionHighlightParticleName(particleName);
+                }
 
                 // Exit spawn (optional)
                 ConfigNode exit = n.get("exit_spawn");
@@ -117,6 +124,17 @@ public final class ParcourRegistry {
             return true;
         } catch (IllegalArgumentException ex) {
             log.warning("Parcour '" + parcourId + "': invalid " + kind + " sound '" + name + "'. Ignoring.");
+            return false;
+        }
+    }
+
+    private static boolean isValidParticle(String name, FeatureLogger log, String parcourId) {
+        if (name == null || name.isBlank()) return false;
+        try {
+            Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException ex) {
+            log.warning("Parcour '" + parcourId + "': invalid region_highlight_particle '" + name + "'. Ignoring.");
             return false;
         }
     }
@@ -201,6 +219,9 @@ public final class ParcourRegistry {
             def.checkpointSoundName().ifPresent(name -> b.put(base + ".sounds.checkpoint", name));
             def.endSoundName().ifPresent(name -> b.put(base + ".sounds.end", name));
 
+            // NEW: region highlight particle
+            def.regionHighlightParticleName().ifPresent(name -> b.put(base + ".region_highlight_particle", name));
+
             // exit spawn
             def.exitSpawn().ifPresent(l -> {
                 b.put(base + ".exit_spawn.world", l.getWorld().getName());
@@ -276,6 +297,7 @@ public final class ParcourRegistry {
             b.remove(base + ".use_actionbar");
             b.remove(base + ".finish_teleport_delay_seconds");
             b.remove(base + ".sounds");
+            b.remove(base + ".region_highlight_particle");
             b.remove(base);
         });
 
