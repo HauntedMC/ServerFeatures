@@ -100,7 +100,8 @@ public final class ParcourCommand implements BrigadierCommand {
                                 s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
                                 return 1;
                             }
-                            handler.teleportToCheckpoint(p);
+                            // Enforce cooldown for command
+                            handler.teleportToCheckpoint(p, true);
                             return 1;
                         })
                 )
@@ -563,6 +564,26 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
+                // NEW: setcheckpointcooldown <parcourId> <seconds>
+                .then(Commands.literal("setcheckpointcooldown")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("seconds", IntegerArgumentType.integer(0, 3600))
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+                                            if (handler.setCheckpointCooldownSeconds(id, seconds)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.checkpointcooldown.set")
+                                                        .with("id", id).with("seconds", String.valueOf(seconds)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
 
                 .then(Commands.literal("info")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
@@ -601,7 +622,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|info|list");
                     }
                     return 1;
                 });
@@ -834,6 +855,9 @@ public final class ParcourCommand implements BrigadierCommand {
         // NEW: toggles
         sendProp(sender, "Hunger Enabled", String.valueOf(def.hungerEnabled()));
         sendProp(sender, "Damage Enabled", String.valueOf(def.damageEnabled()));
+
+        // NEW: checkpoint cooldown
+        sendProp(sender, "Checkpoint Teleport Cooldown (s)", String.valueOf(def.checkpointCooldownSeconds()));
 
         // START
         def.startRegion().ifPresentOrElse(pr -> {

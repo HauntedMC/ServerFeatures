@@ -36,6 +36,9 @@ public final class ParcourSession {
     // NEW: per-session inventory snapshot
     private ParcourInventorySnapshot snapshot;
 
+    // NEW: last time a player-initiated checkpoint teleport occurred (ms since epoch)
+    private long lastCheckpointTeleportMs = 0L;
+
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
         this.parcourId = def.id();
@@ -97,4 +100,7 @@ public final class ParcourSession {
 
     public ParcourInventorySnapshot snapshot() { return snapshot; }
     public void setSnapshot(ParcourInventorySnapshot snap) { this.snapshot = snap; }
+
+    public long lastCheckpointTeleportMs() { return lastCheckpointTeleportMs; }
+    public void setLastCheckpointTeleportMs(long ms) { this.lastCheckpointTeleportMs = ms; }
 }

@@ -40,6 +40,9 @@ public final class ParcourDefinition {
     private boolean hungerEnabled = true;
     private boolean damageEnabled = true;
 
+    // NEW: per-map cooldown (seconds) for player-initiated checkpoint returns (command/item)
+    private int checkpointCooldownSeconds = 3;
+
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
     }
@@ -133,4 +136,8 @@ public final class ParcourDefinition {
 
     public boolean damageEnabled() { return damageEnabled; }
     public void setDamageEnabled(boolean v) { this.damageEnabled = v; }
+
+    // ===== Checkpoint cooldown =====
+    public int checkpointCooldownSeconds() { return checkpointCooldownSeconds; }
+    public void setCheckpointCooldownSeconds(int seconds) { this.checkpointCooldownSeconds = Math.max(0, seconds); }
 }

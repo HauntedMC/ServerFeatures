@@ -197,6 +197,15 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
+    // NEW: per-map checkpoint cooldown seconds
+    public boolean setCheckpointCooldownSeconds(String id, int seconds) {
+        return registry.get(id).map(def -> {
+            def.setCheckpointCooldownSeconds(seconds);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
     public boolean addRegionStart(String id, Region region, boolean restoreCheckpoint) {
         return registry.get(id).map(def -> {
             ParcourRegion r = new ParcourRegion(-1, ParcourRegionType.START);
@@ -435,15 +444,42 @@ public final class ParcourHandler {
         return true;
     }
 
+    // Backwards-compatible entry: default enforceCooldown = true
     public boolean teleportToCheckpoint(Player p) {
+        return teleportToCheckpoint(p, true);
+    }
+
+    /**
+     * Teleport to the last restore location.
+     * @param enforceCooldown if true, applies per-map cooldown (command/item); if false, no cooldown (e.g., death/void)
+     */
+    public boolean teleportToCheckpoint(Player p, boolean enforceCooldown) {
         ParcourSession s = sessions.get(p.getUniqueId());
         if (s == null) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_playing").forAudience(p).build());
             return false;
         }
+
+        // Cooldown check (only for player-triggered)
+        Optional<ParcourDefinition> defOpt = registry.get(s.parcourId);
+        if (enforceCooldown && defOpt.isPresent()) {
+            int cdSec = Math.max(0, defOpt.get().checkpointCooldownSeconds());
+            if (cdSec > 0) {
+                long now = System.currentTimeMillis();
+                long nextAllowed = s.lastCheckpointTeleportMs() + cdSec * 1000L;
+                if (now < nextAllowed) {
+                    long remainingMs = nextAllowed - now;
+                    long remainingSec = (remainingMs + 999L) / 1000L; // ceil to whole seconds
+                    p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.cooldown")
+                            .with("seconds", String.valueOf(remainingSec)).forAudience(p).build());
+                    return false;
+                }
+            }
+        }
+
         Location dst = s.restoreLocation();
         if (dst == null) {
-            registry.get(s.parcourId).flatMap(ParcourDefinition::startRegion)
+            defOpt.flatMap(ParcourDefinition::startRegion)
                     .ifPresentOrElse(pr -> {
                         Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
                         if (pref != null) {
@@ -460,6 +496,11 @@ public final class ParcourHandler {
         }
         teleportWithIgnore(p, dst);
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.teleport").forAudience(p).build());
+
+        // Only stamp last-teleport time when cooldown is enforced (player-triggered)
+        if (enforceCooldown && defOpt.isPresent() && defOpt.get().checkpointCooldownSeconds() > 0) {
+            s.setLastCheckpointTeleportMs(System.currentTimeMillis());
+        }
         return true;
     }
 
@@ -694,7 +735,8 @@ public final class ParcourHandler {
 
     public void onPlayerDeathOrVoid(Player p) {
         if (!isPlaying(p)) return;
-        teleportToCheckpoint(p);
+        // Do NOT enforce cooldown on death/void
+        teleportToCheckpoint(p, false);
     }
 
     public void teleportWithIgnore(Player p, Location dst) {

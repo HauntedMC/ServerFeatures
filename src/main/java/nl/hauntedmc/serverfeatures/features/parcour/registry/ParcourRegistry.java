@@ -48,6 +48,9 @@ public final class ParcourRegistry {
                 // NEW: finish delayed teleport seconds (default 0 = disabled)
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
 
+                // NEW: checkpoint return cooldown seconds (default 3)
+                def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
+
                 // NEW: sounds (map-level)
                 ConfigNode sounds = n.get("sounds");
                 String cpSound = sounds.get("checkpoint").as(String.class, null);
@@ -219,6 +222,9 @@ public final class ParcourRegistry {
             // NEW: finish delayed teleport seconds
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
 
+            // NEW: checkpoint cooldown seconds
+            b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
+
             // NEW: sounds
             def.checkpointSoundName().ifPresent(name -> b.put(base + ".sounds.checkpoint", name));
             def.endSoundName().ifPresent(name -> b.put(base + ".sounds.end", name));
@@ -304,6 +310,7 @@ public final class ParcourRegistry {
             b.remove(base + ".notify_progress");
             b.remove(base + ".use_actionbar");
             b.remove(base + ".finish_teleport_delay_seconds");
+            b.remove(base + ".checkpoint_cooldown_seconds");
             b.remove(base + ".sounds");
             b.remove(base + ".region_highlight_particle");
             b.remove(base + ".hunger_enabled");
