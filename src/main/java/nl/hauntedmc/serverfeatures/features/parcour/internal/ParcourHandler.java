@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/internal/ParcourHandler.java
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import net.kyori.adventure.text.Component;
@@ -33,7 +32,7 @@ public final class ParcourHandler {
     private final FeatureLogger log;
     private final NamespacedKey wandKey;
 
-    // Per-player selection for editor
+    // ====== Selection (editor) ======
     public static final class Selection {
         public String selectedParcourId;
         public Integer pos1x, pos1y, pos1z;
@@ -104,7 +103,6 @@ public final class ParcourHandler {
     public boolean deleteParcour(String id) {
         boolean ok = registry.deleteParcour(id);
         if (ok) {
-            // drop sessions on this parcour
             sessions.values().removeIf(s -> s.parcourId.equalsIgnoreCase(id));
         }
         return ok;
@@ -121,11 +119,11 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    public boolean addRegionEnd(String id, Region region, boolean restoreCheckpoint) {
+    // END has no restore-flag
+    public boolean addRegionEnd(String id, Region region) {
         return registry.get(id).map(def -> {
             ParcourRegion r = new ParcourRegion(Integer.MAX_VALUE, ParcourRegionType.END);
             r.setRegion(region);
-            r.setRestoreCheckpoint(restoreCheckpoint);
             def.setEndRegion(r);
             registry.saveParcour(def);
             return true;
@@ -166,7 +164,7 @@ public final class ParcourHandler {
     public boolean setRegionRestore(String id, String key, boolean restore) {
         return registry.get(id).map(def -> {
             ParcourRegion pr = getRegionByKey(def, key);
-            if (pr == null) return false;
+            if (pr == null || pr.type() == ParcourRegionType.END) return false; // not applicable for END
             pr.setRestoreCheckpoint(restore);
             registry.saveParcour(def);
             return true;
@@ -193,17 +191,29 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    private boolean isStartKey(String key) {
-        return "START".equalsIgnoreCase(key);
+    // Set explicit restore-location (START/CHECKPOINT only)
+    public boolean setRegionRestoreLocation(String id, String key, Location loc) {
+        return registry.get(id).map(def -> {
+            ParcourRegion pr = getRegionByKey(def, key);
+            if (pr == null || pr.type() == ParcourRegionType.END) return false;
+            pr.setExplicitRestore(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
-    private boolean isEndKey(String key) {
-        return "END".equalsIgnoreCase(key);
+    // Toggle progress notifications per parcour
+    public boolean setProgressNotify(String id, boolean value) {
+        return registry.get(id).map(def -> {
+            def.setNotifyProgress(value);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
-    private Integer parseOrder(String key) {
-        try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; }
-    }
+    private boolean isStartKey(String key) { return "START".equalsIgnoreCase(key); }
+    private boolean isEndKey(String key) { return "END".equalsIgnoreCase(key); }
+    private Integer parseOrder(String key) { try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; } }
 
     private ParcourRegion getRegionByKey(ParcourDefinition def, String key) {
         if (isStartKey(key)) return def.startRegion().orElse(null);
@@ -237,17 +247,9 @@ public final class ParcourHandler {
 
     // ===== Gameplay (sessions & triggers) =====
 
-    public boolean isPlaying(Player p) {
-        return sessions.containsKey(p.getUniqueId());
-    }
-
-    public Optional<ParcourSession> session(Player p) {
-        return Optional.ofNullable(sessions.get(p.getUniqueId()));
-    }
-
-    public void clearSession(Player p) {
-        sessions.remove(p.getUniqueId());
-    }
+    public boolean isPlaying(Player p) { return sessions.containsKey(p.getUniqueId()); }
+    public Optional<ParcourSession> session(Player p) { return Optional.ofNullable(sessions.get(p.getUniqueId())); }
+    public void clearSession(Player p) { sessions.remove(p.getUniqueId()); }
 
     public boolean startParcourByCommand(Player p, String id) {
         if (isPlaying(p)) {
@@ -262,31 +264,33 @@ public final class ParcourHandler {
             return false;
         }
         ParcourDefinition def = defOpt.get();
-        var startRegion = def.startRegion().flatMap(ParcourRegion::region);
-        var endRegion = def.endRegion().flatMap(ParcourRegion::region);
-        if (startRegion.isEmpty() || endRegion.isEmpty()) {
-            // Should not happen if registry validation is correct, but guard anyway.
+        var startRegionOpt = def.startRegion().flatMap(ParcourRegion::region);
+        var endRegionOpt = def.endRegion().flatMap(ParcourRegion::region);
+        if (startRegionOpt.isEmpty() || endRegionOpt.isEmpty()) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.cannot_start_missing")
                     .with("name", id).forAudience(p).build());
             return false;
         }
-        Location startLoc = startRegion.get().center(Bukkit.getServer());
-        if (startLoc == null) {
+
+        // Prefer explicit restore_location for START if present, else region center
+        Location startRestore = def.startRegion().map(sr -> sr.resolveRestoreLocation(Bukkit.getServer())).orElse(null);
+        if (startRestore == null) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.cannot_start_missing")
                     .with("name", id).forAudience(p).build());
             return false;
         }
 
         // Teleport to start and start session
-        teleportWithIgnore(p, startLoc);
-        // Expected first checkpoint order is 0; if none exist, END will complete immediately on reach.
-        startSession(p, def, startLoc, 0);
+        teleportWithIgnore(p, startRestore);
+        startSession(p, def, startRestore, 0);
+
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                 .with("name", def.id()).forAudience(p).build());
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.started_teleport")
                 .forAudience(p).build());
-        // execute start commands once
-        def.startRegion().ifPresent(sr -> executeRegionCommands(p, sr));
+
+        // Execute START commands once
+        def.startRegion().ifPresent(thisRegion -> executeRegionCommands(p, thisRegion));
         return true;
     }
 
@@ -296,7 +300,6 @@ public final class ParcourHandler {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_playing").forAudience(p).build());
             return false;
         }
-        // Teleport to exit spawn
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
@@ -314,15 +317,16 @@ public final class ParcourHandler {
         }
         Location dst = s.restoreLocation();
         if (dst == null) {
-            // fallback to start region center
             registry.get(s.parcourId).flatMap(ParcourDefinition::startRegion)
-                    .flatMap(ParcourRegion::region)
-                    .ifPresentOrElse(r -> {
-                        Location startLoc = r.center(Bukkit.getServer());
-                        teleportWithIgnore(p, startLoc);
+                    .ifPresentOrElse(pr -> {
+                        Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
+                        if (pref != null) {
+                            teleportWithIgnore(p, pref);
+                        } else {
+                            teleportWithIgnore(p, p.getWorld().getSpawnLocation());
+                        }
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.no_checkpoint").forAudience(p).build());
                     }, () -> {
-                        // nothing better: world spawn
                         teleportWithIgnore(p, p.getWorld().getSpawnLocation());
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.no_checkpoint").forAudience(p).build());
                     });
@@ -346,14 +350,13 @@ public final class ParcourHandler {
         Long prev = lastTrigger.get(p.getUniqueId());
         if (prev != null && (now - prev) < TRIGGER_COOLDOWN_MS) return;
 
-        // Check across all parcours
         for (ParcourDefinition def : registry.all()) {
             // START auto-start if not playing
             if (!isPlaying(p)) {
                 if (def.startRegion().isPresent() && def.startRegion().get().region().isPresent()) {
                     Region r = def.startRegion().get().region().get();
                     if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                        Location startRestore = r.center(Bukkit.getServer());
+                        Location startRestore = def.startRegion().get().resolveRestoreLocation(Bukkit.getServer());
                         if (startRestore == null) continue;
                         startSession(p, def, startRestore, 0);
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
@@ -363,7 +366,7 @@ public final class ParcourHandler {
                         return;
                     }
                 }
-                continue; // not playing and not on a start region
+                continue;
             }
 
             // If playing, only the active parcours can react
@@ -372,33 +375,42 @@ public final class ParcourHandler {
 
             int expected = s.expectedNextOrder();
 
-            // If a checkpoint with the expected order exists, only that one can progress.
+            // expected checkpoint
             Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
             if (expectedCkpt.isPresent()) {
                 ParcourRegion pr = expectedCkpt.get();
                 if (pr.region().isPresent()) {
                     Region r = pr.region().get();
                     if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                        // Execute commands once per region per session
                         if (!s.alreadyTriggered(pr)) {
                             executeRegionCommands(p, pr);
                             s.markTriggered(pr);
                         }
                         if (pr.restoreCheckpoint()) {
-                            Location center = r.center(Bukkit.getServer());
-                            if (center != null) {
-                                s.setRestoreLocation(center);
+                            Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
+                            if (pref != null) {
+                                s.setRestoreLocation(pref);
                                 p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set")
                                         .with("order", String.valueOf(pr.order())).forAudience(p).build());
                             }
                         }
-                        // Advance to next expected checkpoint
+                        // Progress one
                         s.advanceExpectedOrder();
+
+                        // Progress notification (optional)
+                        if (def.notifyProgress()) {
+                            int current = s.expectedNextOrder(); // after increment
+                            int total = def.totalCheckpoints() + 1; // also add endpoint
+                            p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
+                                    .with("current", String.valueOf(current))
+                                    .with("total", String.valueOf(total))
+                                    .forAudience(p).build());
+                        }
+
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
                     }
                 }
-                // We're in some other region (START, END, past/future checkpoints): silently ignore
                 continue;
             }
 
@@ -406,13 +418,29 @@ public final class ParcourHandler {
             if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
                 Region r = def.endRegion().get().region().get();
                 if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
+                    // NEW: run END commands once
+                    ParcourRegion endPr = def.endRegion().get();
+                    if (!s.alreadyTriggered(endPr)) {
+                        executeRegionCommands(p, endPr);
+                        s.markTriggered(endPr);
+                    }
+
+                    // NEW: send final progress if enabled (report total/total)
+                    if (def.notifyProgress()) {
+                        int total = def.totalCheckpoints() + 1; // checkpoints + END
+                        int current = total;
+                        p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
+                                .with("current", String.valueOf(current))
+                                .with("total", String.valueOf(total))
+                                .forAudience(p).build());
+                    }
+
+                    // Finish
                     finishParcour(p, s);
                     lastTrigger.put(p.getUniqueId(), now);
                     return;
                 }
             }
-
-            // Any other region: ignore silently
         }
     }
 

@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/registry/ParcourRegistry.java
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
@@ -36,8 +35,10 @@ public final class ParcourRegistry {
 
             try {
                 ParcourDefinition def = new ParcourDefinition(id);
-
                 ConfigNode n = e.getValue();
+
+                // NEW: notify_progress flag (default false)
+                def.setNotifyProgress(n.get("notify_progress").as(Boolean.class, false));
 
                 // Exit spawn (optional)
                 ConfigNode exit = n.get("exit_spawn");
@@ -100,13 +101,15 @@ public final class ParcourRegistry {
 
     private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {
         ConfigNode node = parent.get(key);
-        if (!node.isNull()) return null;
+        // BUGFIX: if region node is missing, return null
+        if (node.isNull()) return null;
         return readRegion(node, type, orderForInternal, log, parcourId, key);
     }
 
     private ParcourRegion readRegion(ConfigNode node, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId, String key) {
         try {
-            boolean restore = node.get("restore").as(Boolean.class, false);
+            // END has no restore flag and no explicit restore location
+            boolean restore = (type != ParcourRegionType.END) && node.get("restore").as(Boolean.class, false);
 
             ConfigNode r = node.get("region");
             String world = r.get("world").as(String.class, null);
@@ -132,6 +135,20 @@ public final class ParcourRegistry {
                 for (String c : cmds) pr.addCommand(c);
             }
 
+            // NEW: explicit restore location (START/CHECKPOINT only)
+            if (type != ParcourRegionType.END) {
+                ConfigNode rl = node.get("restore_location");
+                String rw = rl.get("world").as(String.class, null);
+                Double rx = rl.get("x").as(Double.class, null);
+                Double ry = rl.get("y").as(Double.class, null);
+                Double rz = rl.get("z").as(Double.class, null);
+                Float ryaw = rl.get("yaw").as(Float.class, null);
+                Float rpitch = rl.get("pitch").as(Float.class, null);
+                if (rw != null && rx != null && ry != null && rz != null && ryaw != null && rpitch != null) {
+                    pr.setExplicitRestore(rw, rx, ry, rz, ryaw, rpitch);
+                }
+            }
+
             return pr;
         } catch (Exception ex) {
             log.warning("Failed to parse region '" + key + "' for parcour '" + parcourId + "': " + ex.getMessage());
@@ -145,6 +162,9 @@ public final class ParcourRegistry {
         String base = "parcours." + keyId;
 
         cfg.batch(b -> {
+            // NEW: progress toggle
+            b.put(base + ".notify_progress", def.notifyProgress());
+
             // exit spawn
             def.exitSpawn().ifPresent(l -> {
                 b.put(base + ".exit_spawn.world", l.getWorld().getName());
@@ -176,7 +196,26 @@ public final class ParcourRegistry {
     }
 
     private void writeRegion(FeatureConfigHandler.FeatureBatch b, String path, ParcourRegion pr) {
-        b.put(path + ".restore", pr.restoreCheckpoint());
+        // Only START/CHECKPOINT have restore + restore_location
+        if (pr.type() != ParcourRegionType.END) {
+            b.put(path + ".restore", pr.restoreCheckpoint());
+            if (pr.hasExplicitRestore()) {
+                // explicit restore_location
+                //noinspection OptionalGetWithoutIsPresent – values validated by hasExplicitRestore()
+                b.put(path + ".restore_location.world", pr.explicitRestore(feature.getPlugin().getServer())
+                        .map(loc -> loc.getWorld().getName()).orElse(null));
+                var locOpt = pr.explicitRestore(feature.getPlugin().getServer());
+                if (locOpt.isPresent()) {
+                    var l = locOpt.get();
+                    b.put(path + ".restore_location.x", l.getX());
+                    b.put(path + ".restore_location.y", l.getY());
+                    b.put(path + ".restore_location.z", l.getZ());
+                    b.put(path + ".restore_location.yaw", l.getYaw());
+                    b.put(path + ".restore_location.pitch", l.getPitch());
+                }
+            }
+        }
+
         pr.region().ifPresent(r -> {
             b.put(path + ".region.world", r.worldName());
             b.put(path + ".region.x1", r.minX());
@@ -200,6 +239,7 @@ public final class ParcourRegistry {
         feature.getConfigHandler().batch(b -> {
             b.remove(base + ".exit_spawn");
             b.remove(base + ".regions");
+            b.remove(base + ".notify_progress");
             b.remove(base);
         });
 

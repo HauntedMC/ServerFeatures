@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/command/ParcourCommand.java
 package nl.hauntedmc.serverfeatures.features.parcour.command;
 
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -28,11 +27,11 @@ import java.util.concurrent.CompletableFuture;
 public final class ParcourCommand implements BrigadierCommand {
 
     // Permissions
-    private static final String BASE      = "serverfeatures.feature.parcour.use";              // root gate for players
+    private static final String BASE      = "serverfeatures.feature.parcour.use";
     private static final String P_START   = "serverfeatures.feature.parcour.command.start";
     private static final String P_LEAVE   = "serverfeatures.feature.parcour.command.leave";
     private static final String P_CKPT    = "serverfeatures.feature.parcour.command.checkpoint";
-    private static final String P_ADMIN   = "serverfeatures.feature.parcour.admin";            // root gate for admin subtree
+    private static final String P_ADMIN   = "serverfeatures.feature.parcour.admin";
 
     private final Parcour feature;
     private final ParcourRegistry registry;
@@ -44,28 +43,18 @@ public final class ParcourCommand implements BrigadierCommand {
         this.handler = handler;
     }
 
-    @Override
-    public @NotNull String name() {
-        return "parcour";
-    }
-
-    @Override
-    public String description() {
-        return "Play and manage parcours. Player: start/leave/checkpoint. Admin: create, add regions, etc.";
-    }
+    @Override public @NotNull String name() { return "parcour"; }
+    @Override public String description() { return "Play and manage parcours. Player: start/leave/checkpoint. Admin: create, add regions, etc."; }
 
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
-        // Root: allow if player-use OR admin; individual subcommands narrow further.
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
                 .requires(src -> {
                     CommandSender s = src.getSender();
                     return s.hasPermission(BASE) || s.hasPermission(P_ADMIN);
                 })
 
-                // =========================
-                // Player subcommands
-                // =========================
+                // ===== Player =====
                 .then(Commands.literal("start")
                         .requires(src -> src.getSender().hasPermission(P_START))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -82,7 +71,6 @@ public final class ParcourCommand implements BrigadierCommand {
                                 })
                         )
                         .executes(ctx -> {
-                            // usage
                             CommandSender s = ctx.getSource().getSender();
                             s.sendMessage("§7Gebruik: §f/parcour start <naam>");
                             return 1;
@@ -115,9 +103,8 @@ public final class ParcourCommand implements BrigadierCommand {
                         })
                 )
 
-                // =========================
-                // Admin subcommands (merged)
-                // =========================
+                // ===== Admin =====
+
                 .then(Commands.literal("create")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("id", StringArgumentType.word())
@@ -190,10 +177,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         })
                 )
 
-                // ADD now uses the current wand selection directly (no saveregion)
-                // /parcour add start <parcourId> [restore:true|false]
-                // /parcour add end <parcourId> [restore:true|false]
-                // /parcour add checkpoint <order> <parcourId> [restore:true|false]
+                // ADD (END without restore)
                 .then(Commands.literal("add")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.literal("start")
@@ -205,9 +189,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         .then(Commands.literal("end")
                                 .then(Commands.argument("parcourId", StringArgumentType.word())
                                         .suggests(this::suggestParcourIds)
-                                        .then(Commands.argument("restore", BoolArgumentType.bool())
-                                                .executes(ctx -> execAddEnd(ctx, true)))
-                                        .executes(ctx -> execAddEnd(ctx, false))))
+                                        .executes(this::execAddEnd))) // no restore argument
                         .then(Commands.literal("checkpoint")
                                 .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
                                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -216,28 +198,28 @@ public final class ParcourCommand implements BrigadierCommand {
                                                         .executes(ctx -> execAddCheckpoint(ctx, true)))
                                                 .executes(ctx -> execAddCheckpoint(ctx, false))))))
 
-        // delete/setrestore/addcmd/clearcmds take a generic region key: START | <number> | END
+                // delete/setrestore/addcmd/clearcmds
                 .then(Commands.literal("deleteregion")
-                .requires(src -> src.getSender().hasPermission(P_ADMIN))
-                .then(Commands.argument("parcourId", StringArgumentType.word())
-                        .suggests(this::suggestParcourIds)
-                        .then(Commands.argument("key", StringArgumentType.word())
-                                .suggests(this::suggestRegionKeysForParcour)
-                                .executes(ctx -> {
-                                    CommandSender s = ctx.getSource().getSender();
-                                    String id = StringArgumentType.getString(ctx, "parcourId");
-                                    String key = StringArgumentType.getString(ctx, "key");
-                                    if (handler.removeRegion(id, key)) {
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.deleted")
-                                                .with("type", key.toUpperCase(Locale.ROOT))
-                                                .with("order", key).forAudience(s).build());
-                                    } else {
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                .with("order", key).forAudience(s).build());
-                                    }
-                                    return 1;
-                                })))
-        )
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(this::suggestRegionKeysForParcour)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            String key = StringArgumentType.getString(ctx, "key");
+                                            if (handler.removeRegion(id, key)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.deleted")
+                                                        .with("type", key.toUpperCase(Locale.ROOT))
+                                                        .with("order", key).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
+                                                        .with("order", key).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
 
                 .then(Commands.literal("setrestore")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
@@ -339,6 +321,66 @@ public final class ParcourCommand implements BrigadierCommand {
                                 }))
                 )
 
+                // NEW: setrestorelocation <parcourId> <START|number> (uses player's current position)
+                .then(Commands.literal("setrestorelocation")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(this::suggestStartOrNumbersForParcour)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            if (!(s instanceof Player p)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+                                                return 1;
+                                            }
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            String key = StringArgumentType.getString(ctx, "key");
+                                            if ("END".equalsIgnoreCase(key)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.restoreloc.not_applicable")
+                                                        .with("order", key).forAudience(s).build());
+                                                return 1;
+                                            }
+                                            if (handler.setRegionRestoreLocation(id, key, p.getLocation())) {
+                                                var l = p.getLocation();
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.restoreloc.set")
+                                                        .with("order", key)
+                                                        .with("world", l.getWorld().getName())
+                                                        .with("x", fmt(l.getX()))
+                                                        .with("y", fmt(l.getY()))
+                                                        .with("z", fmt(l.getZ()))
+                                                        .with("yaw", fmt(l.getYaw()))
+                                                        .with("pitch", fmt(l.getPitch()))
+                                                        .forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
+                                                        .with("order", key).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
+                // NEW: setprogressnotify <parcourId> <true|false>
+                .then(Commands.literal("setprogressnotify")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            boolean v = BoolArgumentType.getBool(ctx, "value");
+                                            if (handler.setProgressNotify(id, v)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.progress.notify.set")
+                                                        .with("id", id).with("value", String.valueOf(v)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
                 .then(Commands.literal("info")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -370,14 +412,13 @@ public final class ParcourCommand implements BrigadierCommand {
                         })
                 )
 
-                // Root usage fallback
                 .executes(ctx -> {
                     CommandSender s = ctx.getSource().getSender();
                     if (s.hasPermission(BASE)) {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|info|list");
                     }
                     return 1;
                 });
@@ -385,9 +426,7 @@ public final class ParcourCommand implements BrigadierCommand {
         return root.build();
     }
 
-    // =========================
-    // Helpers (exec & suggests)
-    // =========================
+    // ===== Exec helpers =====
 
     private int execAddStart(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
         CommandSender s = ctx.getSource().getSender();
@@ -410,10 +449,8 @@ public final class ParcourCommand implements BrigadierCommand {
         }
         if (handler.addRegionStart(id, region, restore)) {
             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added")
-                    .with("type", "START")
-                    .with("order", "START")
-                    .with("restore", String.valueOf(restore))
-                    .forAudience(s).build());
+                    .with("type", "START").with("order", "START")
+                    .with("restore", String.valueOf(restore)).forAudience(s).build());
         } else {
             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
                     .with("name", id).forAudience(s).build());
@@ -421,14 +458,13 @@ public final class ParcourCommand implements BrigadierCommand {
         return 1;
     }
 
-    private int execAddEnd(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
+    private int execAddEnd(CommandContext<CommandSourceStack> ctx) {
         CommandSender s = ctx.getSource().getSender();
         if (!(s instanceof Player p)) {
             s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
             return 1;
         }
         String id = StringArgumentType.getString(ctx, "parcourId");
-        boolean restore = hasRestoreArg && BoolArgumentType.getBool(ctx, "restore");
 
         ParcourHandler.Selection sel = handler.selection(p);
         if (!sel.hasBoth()) {
@@ -440,12 +476,9 @@ public final class ParcourCommand implements BrigadierCommand {
             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.world_mismatch").forAudience(s).build());
             return 1;
         }
-        if (handler.addRegionEnd(id, region, restore)) {
-            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added")
-                    .with("type", "END")
-                    .with("order", "END")
-                    .with("restore", String.valueOf(restore))
-                    .forAudience(s).build());
+        if (handler.addRegionEnd(id, region)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added_no_restore")
+                    .with("type", "END").with("order", "END").forAudience(s).build());
         } else {
             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
                     .with("name", id).forAudience(s).build());
@@ -500,7 +533,6 @@ public final class ParcourCommand implements BrigadierCommand {
         try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) {}
         String rem = b.getRemaining().toLowerCase(Locale.ROOT);
 
-        // START / END are always valid keys
         if ("start".startsWith(rem)) b.suggest("START");
         if ("end".startsWith(rem)) b.suggest("END");
 
@@ -512,7 +544,30 @@ public final class ParcourCommand implements BrigadierCommand {
                 }
             });
         } else {
-            // generic numbers 0..10 as fallback
+            for (int i = 0; i <= 10; i++) {
+                String s = String.valueOf(i);
+                if (s.startsWith(b.getRemaining())) b.suggest(s);
+            }
+        }
+        return b.buildFuture();
+    }
+
+    // NEW: suggestions for setrestorelocation (no END)
+    private CompletableFuture<Suggestions> suggestStartOrNumbersForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+        String id = null;
+        try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) {}
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
+
+        if ("start".startsWith(rem)) b.suggest("START");
+
+        if (id != null) {
+            registry.get(id).ifPresent(def -> {
+                for (Integer ord : def.orders()) {
+                    String s = String.valueOf(ord);
+                    if (s.startsWith(b.getRemaining())) b.suggest(s);
+                }
+            });
+        } else {
             for (int i = 0; i <= 10; i++) {
                 String s = String.valueOf(i);
                 if (s.startsWith(b.getRemaining())) b.suggest(s);
@@ -530,6 +585,9 @@ public final class ParcourCommand implements BrigadierCommand {
                 l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
         ).orElse("-"));
 
+        // NEW: progress toggle
+        sendProp(sender, "Notify Progress", String.valueOf(def.notifyProgress()));
+
         // START
         def.startRegion().ifPresentOrElse(pr -> {
             String regionStr = pr.region().map(r ->
@@ -537,6 +595,10 @@ public final class ParcourCommand implements BrigadierCommand {
             ).orElse("-");
             sendProp(sender, "START", "restore=" + pr.restoreCheckpoint());
             sendProp(sender, "Region START", regionStr);
+            pr.explicitRestore(feature.getPlugin().getServer()).ifPresentOrElse(l ->
+                            sendProp(sender, "RestoreLoc START",
+                                    l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())),
+                    () -> sendProp(sender, "RestoreLoc START", "-"));
             if (!pr.commands().isEmpty()) sendProp(sender, "Commands START", String.join(" || ", pr.commands()));
         }, () -> sendProp(sender, "START", "-"));
 
@@ -549,6 +611,10 @@ public final class ParcourCommand implements BrigadierCommand {
             ).orElse("-");
             sendProp(sender, "Order " + ord, "CHECKPOINT / restore=" + pr.restoreCheckpoint());
             sendProp(sender, "Region " + ord, regionStr);
+            pr.explicitRestore(feature.getPlugin().getServer()).ifPresentOrElse(l ->
+                            sendProp(sender, "RestoreLoc " + ord,
+                                    l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())),
+                    () -> sendProp(sender, "RestoreLoc " + ord, "-"));
             if (!pr.commands().isEmpty()) sendProp(sender, "Commands " + ord, String.join(" || ", pr.commands()));
         }
 
@@ -557,7 +623,7 @@ public final class ParcourCommand implements BrigadierCommand {
             String regionStr = pr.region().map(r ->
                     r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]"
             ).orElse("-");
-            sendProp(sender, "END", "restore=" + pr.restoreCheckpoint());
+            sendProp(sender, "END", "-"); // no restore on END
             sendProp(sender, "Region END", regionStr);
             if (!pr.commands().isEmpty()) sendProp(sender, "Commands END", String.join(" || ", pr.commands()));
         }, () -> sendProp(sender, "END", "-"));

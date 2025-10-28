@@ -45,6 +45,7 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.left", "&7Je hebt &f{name} &7verlaten.");
         m.add("parcour.no_checkpoint", "&cGeen checkpoint beschikbaar; terug naar start.");
         m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cis onjuist geconfigureerd (mist START en/of END).");
+        m.add("parcour.progress", "&7Je huidige parcour progressie: punt &f{current}&7/&f{total}");
 
         // admin messages
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
@@ -60,6 +61,7 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.region.world_mismatch", "&cPos1 en Pos2 moeten in dezelfde wereld liggen.");
         m.add("parcour.admin.region.not_found", "&cGeen regio met sleutel &f{order}&c (gebruik &fSTART&c, &fEND&c of een nummer).");
         m.add("parcour.admin.region.added", "&aRegio toegevoegd: &f{type} &8(key {order}) &7restore={restore}");
+        m.add("parcour.admin.region.added_no_restore", "&aRegio toegevoegd: &f{type} &8(key {order})");
         m.add("parcour.admin.restore.set", "&aRestore checkpoint voor sleutel &f{order} &agezet op &f{restore}");
         m.add("parcour.admin.exitspawn.set", "&aExit spawn gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.cmd.added", "&aCommand toegevoegd aan sleutel &f{order}&a: &7/{cmd}");
@@ -68,6 +70,10 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.info.prop", "&7- &f{key}&7: &f{value}");
         m.add("parcour.admin.list.header", "&6&lParcours &7({count})");
         m.add("parcour.admin.list.entry", "&7- &f{id} &8[&7regions=&f{regions}&8]");
+        m.add("parcour.admin.restoreloc.set", "&aRestore locatie gezet voor sleutel &f{order}&a: &7{world} {x} {y} {z} {yaw} {pitch}");
+        m.add("parcour.admin.restoreloc.not_applicable", "&cRestore locatie kan niet gezet worden voor sleutel &f{order}&c.");
+        m.add("parcour.admin.progress.notify.set", "&aProgress-notificatie voor &f{id} &agingesteld op &f{value}");
+
         return m;
     }
 

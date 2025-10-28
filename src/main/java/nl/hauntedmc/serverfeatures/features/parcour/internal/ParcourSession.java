@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/internal/ParcourSession.java
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;

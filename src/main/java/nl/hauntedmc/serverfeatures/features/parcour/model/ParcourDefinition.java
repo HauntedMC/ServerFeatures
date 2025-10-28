@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/model/ParcourDefinition.java
 package nl.hauntedmc.serverfeatures.features.parcour.model;
 
 import org.bukkit.Bukkit;
@@ -10,16 +9,19 @@ import java.util.*;
 public final class ParcourDefinition {
     private final String id;
 
-    private ParcourRegion start; // START
-    private ParcourRegion end;   // END
+    private ParcourRegion start; // START (-1)
+    private ParcourRegion end;   // END (Integer.MAX_VALUE)
 
-    // Numbered checkpoints (0..N-1)
+    // Numbered checkpoints (0..N)
     private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
 
     // Exit spawn (for /parcour leave)
     private String exitWorld;
     private double exitX, exitY, exitZ;
     private float exitYaw, exitPitch;
+
+    // NEW: toggle progress notifications
+    private boolean notifyProgress;
 
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -62,6 +64,10 @@ public final class ParcourDefinition {
         return (start != null ? 1 : 0) + (end != null ? 1 : 0) + checkpointsByOrder.size();
     }
 
+    public int totalCheckpoints() {
+        return checkpointsByOrder.size();
+    }
+
     // ===== Exit spawn =====
     public void setExitSpawn(String world, double x, double y, double z, float yaw, float pitch) {
         this.exitWorld = world;
@@ -80,4 +86,8 @@ public final class ParcourDefinition {
         World w = Bukkit.getWorlds().get(0);
         return w.getSpawnLocation();
     }
+
+    // ===== Progress toggle =====
+    public boolean notifyProgress() { return notifyProgress; }
+    public void setNotifyProgress(boolean v) { this.notifyProgress = v; }
 }
