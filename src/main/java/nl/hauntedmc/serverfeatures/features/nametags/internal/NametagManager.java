@@ -13,10 +13,6 @@ import org.bukkit.entity.Player;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * The API for creating, updating, removing, and refreshing nametags.
- * This manager delegates packet sending and viewer logic to the NametagUpdater.
- */
 public class NametagManager {
 
     private final NametagRegistry registry;
@@ -30,8 +26,11 @@ public class NametagManager {
     private final boolean remountFixEnabled;
     private final int remountIntervalTicks;
     private final int debounceUpdateTicks;
-    // nano-based throttle per player to suppress bursty duplicate updates
+
     private final Map<UUID, Long> lastUpdateNanos = new ConcurrentHashMap<>();
+
+    private final Map<UUID, Boolean> selfViewPreference = new ConcurrentHashMap<>();
+    private final Set<UUID> glideSuppressed = ConcurrentHashMap.newKeySet();
 
     public NametagManager(Nametags feature) {
         this.feature = feature;
@@ -49,9 +48,40 @@ public class NametagManager {
         schedulePeriodicRemount();
     }
 
-    /**
-     * Schedules a repeating task that forces updates on all active nametags.
-     */
+    public boolean isSelfViewEnabled(UUID playerId) {
+        return selfViewPreference.getOrDefault(playerId, true);
+    }
+
+    public boolean isSelfViewEnabled(Player player) {
+        return isSelfViewEnabled(player.getUniqueId());
+    }
+
+    public void setSelfViewEnabled(UUID playerId, boolean enabled) {
+        selfViewPreference.put(playerId, enabled);
+        Player p = Bukkit.getPlayer(playerId);
+        if (p != null && p.isOnline()) {
+            updateNametag(p, new UpdateProperties.Builder().build());
+        }
+    }
+
+    public void setSelfViewEnabled(Player player, boolean enabled) {
+        setSelfViewEnabled(player.getUniqueId(), enabled);
+    }
+
+    public boolean isSelfViewAllowedNow(UUID playerId) {
+        return selfViewPreference.getOrDefault(playerId, true) && !glideSuppressed.contains(playerId);
+    }
+
+    public boolean isSelfViewAllowedNow(Player p) {
+        return isSelfViewAllowedNow(p.getUniqueId());
+    }
+
+    public void setGlideSuppressed(Player p, boolean suppressed) {
+        UUID id = p.getUniqueId();
+        if (suppressed) glideSuppressed.add(id); else glideSuppressed.remove(id);
+        updateNametag(p, new UpdateProperties.Builder().build());
+    }
+
     private void scheduleRepeatingUpdate() {
         feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(() -> {
             for (Nametag nametag : registry.getAllNametags()) {
@@ -60,10 +90,6 @@ public class NametagManager {
         }, BukkitTime.ticks(0L), BukkitTime.ticks(updateIntervalTicks));
     }
 
-    /**
-     * NEW: Periodically resend SetPassengers for every visible viewer of a nametag.
-     * This mitigates rare client-side dismount drift (chunk reloads, fast teleports, etc.).
-     */
     private void schedulePeriodicRemount() {
         if (!remountFixEnabled || remountIntervalTicks <= 0) return;
 
@@ -71,7 +97,6 @@ public class NametagManager {
             for (Nametag nametag : registry.getAllNametags()) {
                 if (nametag.getNametagOwner() == null || !nametag.getNametagOwner().isOnline()) continue;
 
-                // Only re-mount to viewers that still should see this nametag right now
                 List<Player> stillVisible = new ArrayList<>();
                 for (Player viewer : nametag.getViewers()) {
                     if (viewer != null && viewer.isOnline() && visibilityManager.isPlayerVisible(viewer, nametag)) {
@@ -85,33 +110,23 @@ public class NametagManager {
         }, BukkitTime.ticks(remountIntervalTicks), BukkitTime.ticks(remountIntervalTicks));
     }
 
-    /**
-     * Creates a nametag for the given player.
-     */
     private void createNametag(Player player) {
         Nametag nametag = new Nametag(player);
         registry.register(nametag);
         updater.update(nametag, new UpdateProperties.Builder().build());
     }
 
-    /**
-     * Lightweight per-player debounce to avoid sending redundant create/remove/mount bursts
-     * caused by multiple overlapping events (teleport, resource pack load, LP mutate, etc.).
-     */
     private boolean shouldDebounce(UUID playerId) {
         long now = System.nanoTime();
         long minDeltaNanos = Math.max(0, debounceUpdateTicks) * 50_000_000L;
         Long last = lastUpdateNanos.get(playerId);
         if (last != null && (now - last) < minDeltaNanos) {
-            return true; // suppress this update
+            return true;
         }
         lastUpdateNanos.put(playerId, now);
         return false;
     }
 
-    /**
-     * Updates an existing nametag (or creates one if it does not exist).
-     */
     public void updateNametag(Player player, UpdateProperties updateProperties) {
         if (player == null) return;
 
@@ -129,9 +144,6 @@ public class NametagManager {
         updater.update(nametag, updateProperties);
     }
 
-    /**
-     * Updates an existing nametag (by entity id).
-     */
     public void updateNametag(int entityID, UpdateProperties updateProperties) {
         Optional<Nametag> optTag = registry.getNametagByEntityId(entityID);
 
@@ -142,14 +154,13 @@ public class NametagManager {
         updater.update(nametag, updateProperties);
     }
 
-    /**
-     * Removes a player's nametag.
-     */
     public void removeNametag(Player player) {
         Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
         if (optTag.isPresent()) {
             Nametag nametag = optTag.get();
             registry.unregister(player.getUniqueId());
+            selfViewPreference.remove(player.getUniqueId());
+            glideSuppressed.remove(player.getUniqueId());
             RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
             PacketManager.sendMulticast(new ArrayList<>(nametag.getViewers()), removePacket);
         }
@@ -159,6 +170,8 @@ public class NametagManager {
         for (Nametag nametag : registry.getAllNametags()) {
             removeNametag(nametag.getNametagOwner());
         }
+        selfViewPreference.clear();
+        glideSuppressed.clear();
     }
 
     public void initializeOnlinePlayers() {
@@ -167,11 +180,6 @@ public class NametagManager {
         }
     }
 
-    /**
-     * Gets a list of all players who have a registered nametag.
-     *
-     * @return List of players with registered nametags.
-     */
     public List<Player> getRegisteredPlayers() {
         List<Player> players = new ArrayList<>();
         for (Nametag nametag : registry.getAllNametags()) {

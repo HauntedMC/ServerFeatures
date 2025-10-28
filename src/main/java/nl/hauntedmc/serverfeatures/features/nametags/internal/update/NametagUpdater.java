@@ -15,9 +15,6 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Handles sending packets and updating viewer logic for a given Nametag.
- */
 public class NametagUpdater {
     private final FeatureTaskManager taskManager;
     private final NametagManager nametagManager;
@@ -27,34 +24,21 @@ public class NametagUpdater {
         this.taskManager = taskManager;
     }
 
-    /**
-     * Performs a hard update on the given nametag.
-     * It compares the current viewers with the ones that should see the nametag,
-     * sends the appropriate packets (create, mount, or remove) to update the client,
-     * and updates the internal viewers list.
-     *
-     * @param nametag the nametag to update.
-     */
     public void update(Nametag nametag, UpdateProperties updateProperties) {
-
-        // Update the text if flagged
         if (updateProperties.getUpdateText()) {
             taskManager.scheduleDelayedTask(nametag::updateNametagText, BukkitTime.ticks(updateProperties.getDelay()));
         }
 
-        // If owner only update, recreate the complete nametag entity
         if (updateProperties.isOwnerOnly()) {
             ownerOnlyUpdate(nametag, updateProperties.getDelay());
             return;
         }
 
-        // If forced, remove all viewers, remove the entity for all current viewers, and resend to new viewers
         if (updateProperties.isForced()) {
             forceUpdate(nametag, updateProperties.getDelay());
             return;
         }
 
-        // Ordinary update
         updateViewers(nametag, updateProperties.getDelay());
     }
 
@@ -74,29 +58,32 @@ public class NametagUpdater {
     private void updateViewers(Nametag nametag, long delay) {
         List<Player> newViewers = new ArrayList<>();
         for (Player viewer : nametagManager.getRegisteredPlayers()) {
+            if (viewer == null || !viewer.isOnline()) continue;
+
+            if (viewer.getUniqueId().equals(nametag.getNametagOwnerId())
+                    && !nametagManager.isSelfViewAllowedNow(viewer)) {
+                continue;
+            }
+
             if (nametagManager.getVisibilityManager().isPlayerVisible(viewer, nametag)) {
                 newViewers.add(viewer);
             }
         }
 
-        // Determine viewers to add and remove.
         List<Player> viewersToAdd = new ArrayList<>(newViewers);
         viewersToAdd.removeAll(nametag.getViewers());
 
         List<Player> viewersToRemove = new ArrayList<>(nametag.getViewers());
         viewersToRemove.removeAll(newViewers);
 
-        // For viewers to add, send create packet and schedule mount packet.
         if (!viewersToAdd.isEmpty()) {
             createNametagEntity(nametag, viewersToAdd, delay);
         }
 
-        // For viewers to remove, send remove packet.
         if (!viewersToRemove.isEmpty()) {
             removeNametagEntity(nametag, viewersToRemove);
         }
 
-        // Update the internal viewers set.
         nametag.getViewers().clear();
         nametag.getViewers().addAll(newViewers);
     }
@@ -122,10 +109,6 @@ public class NametagUpdater {
         PacketManager.sendMulticast(viewers, removePacket);
     }
 
-    /**
-     * NEW: Only resend SetPassengers using the current passenger chain.
-     * Use this for periodic "keep-alive" remounting to prevent client drift.
-     */
     public void remount(Nametag nametag, List<Player> viewers) {
         if (viewers == null || viewers.isEmpty()) return;
         int[] passengerList = updatePassengerList(nametag.getNametagOwner(), nametag);
