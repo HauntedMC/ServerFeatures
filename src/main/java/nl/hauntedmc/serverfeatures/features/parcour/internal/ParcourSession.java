@@ -23,8 +23,12 @@ public final class ParcourSession {
     // Regions triggered in this session (avoid re-running commands on the same region)
     private final Set<Integer> triggeredOrders = new HashSet<>();
 
-    // NEW: actionbar task for live updates
+    // Actionbar task handle (nullable)
     private BukkitTask actionBarTask;
+
+    // Finished state: freeze timer and show N/N for a short hold
+    private boolean finished;
+    private long finalElapsedMs;
 
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
@@ -32,6 +36,8 @@ public final class ParcourSession {
         this.startMillis = System.currentTimeMillis();
         this.restoreLocation = startRestore;
         this.expectedNextOrder = firstExpectedOrder;
+        this.finished = false;
+        this.finalElapsedMs = 0L;
     }
 
     public int expectedNextOrder() { return expectedNextOrder; }
@@ -49,12 +55,25 @@ public final class ParcourSession {
         return triggeredOrders.contains(region.order());
     }
 
-    // NEW: actionbar task handling
     public void setActionBarTask(BukkitTask task) { this.actionBarTask = task; }
+
     public void cancelActionBarTask() {
-        if (actionBarTask != null) {
-            try { actionBarTask.cancel(); } catch (Throwable ignored) {}
-            actionBarTask = null;
+        if (this.actionBarTask != null) {
+            try {
+                this.actionBarTask.cancel();
+            } catch (Throwable ignored) {}
+            this.actionBarTask = null;
         }
+    }
+
+    public boolean isFinished() { return finished; }
+
+    public void markFinished(long elapsedMs) {
+        this.finished = true;
+        this.finalElapsedMs = Math.max(0L, elapsedMs);
+    }
+
+    public double finalSeconds() {
+        return finalElapsedMs / 1000.0;
     }
 }

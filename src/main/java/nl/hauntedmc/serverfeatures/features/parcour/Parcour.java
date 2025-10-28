@@ -36,21 +36,17 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         // player messages
         m.add("parcour.starting", "&aParcour &f{name} &agestart! Succes!");
         m.add("parcour.started_teleport", "&7Je bent naar het startpunt geteleporteerd.");
-        m.add("parcour.checkpoint.set", "&aNieuw checkpoint gezet (&7{order}&a).");
+        m.add("parcour.checkpoint.set", "&bJe hebt een nieuw checkpoint gehaald!");
         m.add("parcour.checkpoint.teleport", "&7Teruggezet naar je laatste checkpoint.");
         m.add("parcour.finished", "&aGefeliciteerd! Je voltooide &f{name} &ain &f{seconds}s&a.");
         m.add("parcour.already_playing", "&cJe speelt al een parcour: &f{name}&c. Gebruik &f/parcour leave&c om te stoppen.");
         m.add("parcour.not_playing", "&cJe speelt momenteel geen parcour.");
         m.add("parcour.not_found", "&cParcour &f{name} &cbestaat niet.");
         m.add("parcour.left", "&7Je hebt &f{name} &7verlaten.");
-        m.add("parcour.no_checkpoint", "&cGeen checkpoint beschikbaar; terug naar start.");
+        m.add("parcour.no_checkpoint", "&cGeen checkpoint beschikbaar, je gaat terug naar de start.");
         m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cis onjuist geconfigureerd (mist START en/of END).");
-        m.add("parcour.progress", "&7Je huidige parcour progressie: punt &f{current}&7/&f{total}");
-
-        // NEW: actionbar live message
-        m.add("parcour.actionbar", "&6{seconds}s &7• &eProgress &f{current}&7/&f{total}");
-
-        // admin messages
+        m.add("parcour.progress", "&7Je maakt progressie! Je bent bij tussenpunt &f{current}&7/&f{total}");
+        m.add("parcour.actionbar", "&6{seconds}s &7• &eProgressie &f{current}&7/&f{total}");
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
         m.add("parcour.admin.deleted", "&aParcour &f{id} &averwijderd.");
         m.add("parcour.admin.exists", "&cParcour &f{id} &cbestaat al.");
@@ -76,8 +72,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.restoreloc.set", "&aRestore locatie gezet voor sleutel &f{order}&a: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.restoreloc.not_applicable", "&cRestore locatie kan niet gezet worden voor sleutel &f{order}&c.");
         m.add("parcour.admin.progress.notify.set", "&aProgress-notificatie voor &f{id} &agingesteld op &f{value}");
-
-        // NEW: sounds/actionbar/finishdelay admin messages
         m.add("parcour.admin.sound.set", "&aSound voor &f{type}&a ingesteld op &f{sound}&a.");
         m.add("parcour.admin.sound.cleared", "&aSound voor &f{type}&a verwijderd.");
         m.add("parcour.admin.sound.invalid", "&cOngeldige sound: &f{sound}&c.");

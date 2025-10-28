@@ -26,9 +26,12 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParcourHandler {
 
-    private static final long TRIGGER_COOLDOWN_MS = 1000L; // prevent spam
+    private static final long TRIGGER_COOLDOWN_MS = 500L; // prevent spam
     private static final long TELEPORT_IGNORE_MS = 1000L;  // ignore triggers after controlled teleports
+    private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
+
     private static final String WAND_NAME = "§6Parcour Wand";
+
     private final Parcour feature;
     private final ParcourRegistry registry;
     private final FeatureLogger log;
@@ -381,27 +384,37 @@ public final class ParcourHandler {
         sessions.put(p.getUniqueId(), session);
         lastTrigger.put(p.getUniqueId(), 0L);
 
-        // NEW: schedule actionbar if enabled
+        // schedule actionbar if enabled
         if (def.useActionBar()) {
             BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-                if (!p.isOnline() || !isPlaying(p)) {
+                if (!p.isOnline()) {
+                    session.cancelActionBarTask();
+                    return;
+                }
+                // keep showing while playing OR during finish hold
+                if (!isPlaying(p)) {
                     session.cancelActionBarTask();
                     return;
                 }
                 sendActionBar(p, def, session);
-            }, BukkitTime.seconds(0L), BukkitTime.ticks(10L)); // every 0.5s
+            }, BukkitTime.seconds(0L), BukkitTime.ticks(2L)); // every 0.5s
             session.setActionBarTask(task);
         }
     }
 
     private void sendActionBar(Player p, ParcourDefinition def, ParcourSession s) {
-        long elapsedMs = System.currentTimeMillis() - s.startMillis;
-        double seconds = elapsedMs / 1000.0;
-        int total = def.totalCheckpoints() + 1; // endpoints counted with +1
-        int current = Math.min(s.expectedNextOrder(), total);
+        final double shownSeconds = s.isFinished()
+                ? s.finalSeconds()
+                : (System.currentTimeMillis() - s.startMillis) / 1000.0;
+
+        final int total = def.totalCheckpoints() + 1; // include END
+        final int current = s.isFinished()
+                ? total              // force N/N after finish
+                : Math.min(s.expectedNextOrder(), total);
+
         Component c = feature.getLocalizationHandler()
                 .getMessage("parcour.actionbar")
-                .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
+                .with("seconds", String.format(java.util.Locale.ROOT, "%.1f", shownSeconds))
                 .with("current", String.valueOf(current))
                 .with("total", String.valueOf(total))
                 .forAudience(p).build();
@@ -438,6 +451,12 @@ public final class ParcourHandler {
             ParcourSession s = sessions.get(p.getUniqueId());
             if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
 
+            // If already finished, ignore further triggers during the hold window
+            if (s.isFinished()) {
+                lastTrigger.put(p.getUniqueId(), now);
+                return;
+            }
+
             int expected = s.expectedNextOrder();
 
             // expected checkpoint
@@ -457,8 +476,7 @@ public final class ParcourHandler {
                             Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
                             if (pref != null) {
                                 s.setRestoreLocation(pref);
-                                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set")
-                                        .with("order", String.valueOf(pr.order())).forAudience(p).build());
+                                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set").forAudience(p).build());
                             }
                         }
                         // Progress one
@@ -504,8 +522,10 @@ public final class ParcourHandler {
                                 .forAudience(p).build());
                     }
 
-                    // Finish
-                    finishParcour(p, s, def);
+                    // Finish (only once)
+                    if (!s.isFinished()) {
+                        finishParcour(p, s, def);
+                    }
                     lastTrigger.put(p.getUniqueId(), now);
                     return;
                 }
@@ -541,11 +561,21 @@ public final class ParcourHandler {
                 .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
                 .forAudience(p).build());
 
-        // stop actionbar if running
-        s.cancelActionBarTask();
-        sessions.remove(p.getUniqueId());
+        // mark finished (freeze timer & show N/N in actionbar)
+        s.markFinished(elapsedMs);
 
-        // NEW: delayed teleport to exit spawn if configured (>0)
+        // schedule cleanup of session + actionbar after a short hold
+        long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            // Only clean up if still the same active session and not already removed
+            ParcourSession current = sessions.get(p.getUniqueId());
+            if (current != null && current == s) {
+                s.cancelActionBarTask();
+                sessions.remove(p.getUniqueId());
+            }
+        }, BukkitTime.ticks(holdTicks));
+
+        // optional delayed teleport to exit spawn
         int delaySec = def.finishTeleportDelaySeconds();
         if (delaySec > 0) {
             Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
