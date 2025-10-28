@@ -521,20 +521,62 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
+                // NEW: sethunger <parcourId> <true|false>
+                .then(Commands.literal("sethunger")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            boolean v = BoolArgumentType.getBool(ctx, "value");
+                                            if (handler.setHungerEnabled(id, v)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.hunger.set")
+                                                        .with("id", id).with("value", String.valueOf(v)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
+                // NEW: setdamage <parcourId> <true|false>
+                .then(Commands.literal("setdamage")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.argument("value", BoolArgumentType.bool())
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            boolean v = BoolArgumentType.getBool(ctx, "value");
+                                            if (handler.setDamageEnabled(id, v)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.damage.set")
+                                                        .with("id", id).with("value", String.valueOf(v)).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
 
                 .then(Commands.literal("info")
-                .requires(src -> src.getSender().hasPermission(P_ADMIN))
-                .then(Commands.argument("parcourId", StringArgumentType.word())
-                        .suggests(this::suggestParcourIds)
-                        .executes(ctx -> {
-                            CommandSender s = ctx.getSource().getSender();
-                            String id = StringArgumentType.getString(ctx, "parcourId");
-                            registry.get(id).ifPresentOrElse(def -> sendInfo(s, def),
-                                    () -> s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
-                                            .with("name", id).forAudience(s).build()));
-                            return 1;
-                        }))
-        )
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .executes(ctx -> {
+                                    CommandSender s = ctx.getSource().getSender();
+                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                    registry.get(id).ifPresentOrElse(def -> sendInfo(s, def),
+                                            () -> s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                    .with("name", id).forAudience(s).build()));
+                                    return 1;
+                                }))
+                )
 
                 .then(Commands.literal("list")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
@@ -559,7 +601,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|info|list");
                     }
                     return 1;
                 });
@@ -788,6 +830,10 @@ public final class ParcourCommand implements BrigadierCommand {
         // finish teleport delay
         sendProp(sender, "Finish Teleport Delay (s)", def.finishTeleportDelaySeconds() > 0
                 ? String.valueOf(def.finishTeleportDelaySeconds()) : "-");
+
+        // NEW: toggles
+        sendProp(sender, "Hunger Enabled", String.valueOf(def.hungerEnabled()));
+        sendProp(sender, "Damage Enabled", String.valueOf(def.damageEnabled()));
 
         // START
         def.startRegion().ifPresentOrElse(pr -> {

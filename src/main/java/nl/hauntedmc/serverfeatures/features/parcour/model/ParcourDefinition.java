@@ -36,6 +36,10 @@ public final class ParcourDefinition {
     // NEW: particle to highlight NEXT region boundary (org.bukkit.Particle enum name)
     private String regionHighlightParticleName;
 
+    // NEW: per-map toggles (default true)
+    private boolean hungerEnabled = true;
+    private boolean damageEnabled = true;
+
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
     }
@@ -122,4 +126,11 @@ public final class ParcourDefinition {
     // ===== Region highlight particle =====
     public Optional<String> regionHighlightParticleName() { return Optional.ofNullable(regionHighlightParticleName); }
     public void setRegionHighlightParticleName(String name) { this.regionHighlightParticleName = (name == null || name.isBlank()) ? null : name; }
+
+    // ===== Toggles =====
+    public boolean hungerEnabled() { return hungerEnabled; }
+    public void setHungerEnabled(boolean v) { this.hungerEnabled = v; }
+
+    public boolean damageEnabled() { return damageEnabled; }
+    public void setDamageEnabled(boolean v) { this.damageEnabled = v; }
 }

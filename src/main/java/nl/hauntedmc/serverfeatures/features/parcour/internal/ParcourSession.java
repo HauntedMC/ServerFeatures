@@ -33,6 +33,9 @@ public final class ParcourSession {
     private boolean finished;
     private long finalElapsedMs;
 
+    // NEW: per-session inventory snapshot
+    private ParcourInventorySnapshot snapshot;
+
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
         this.parcourId = def.id();
@@ -91,4 +94,7 @@ public final class ParcourSession {
     public double finalSeconds() {
         return finalElapsedMs / 1000.0;
     }
+
+    public ParcourInventorySnapshot snapshot() { return snapshot; }
+    public void setSnapshot(ParcourInventorySnapshot snap) { this.snapshot = snap; }
 }

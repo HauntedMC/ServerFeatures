@@ -62,6 +62,10 @@ public final class ParcourRegistry {
                     def.setRegionHighlightParticleName(particleName);
                 }
 
+                // NEW: per-map toggles (default true)
+                def.setHungerEnabled(n.get("hunger_enabled").as(Boolean.class, true));
+                def.setDamageEnabled(n.get("damage_enabled").as(Boolean.class, true));
+
                 // Exit spawn (optional)
                 ConfigNode exit = n.get("exit_spawn");
                 String w = exit.get("world").as(String.class, null);
@@ -222,6 +226,10 @@ public final class ParcourRegistry {
             // NEW: region highlight particle
             def.regionHighlightParticleName().ifPresent(name -> b.put(base + ".region_highlight_particle", name));
 
+            // NEW: per-map toggles
+            b.put(base + ".hunger_enabled", def.hungerEnabled());
+            b.put(base + ".damage_enabled", def.damageEnabled());
+
             // exit spawn
             def.exitSpawn().ifPresent(l -> {
                 b.put(base + ".exit_spawn.world", l.getWorld().getName());
@@ -298,6 +306,8 @@ public final class ParcourRegistry {
             b.remove(base + ".finish_teleport_delay_seconds");
             b.remove(base + ".sounds");
             b.remove(base + ".region_highlight_particle");
+            b.remove(base + ".hunger_enabled");
+            b.remove(base + ".damage_enabled");
             b.remove(base);
         });
 

@@ -6,10 +6,7 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.parcour.command.ParcourCommand;
 import nl.hauntedmc.serverfeatures.features.parcour.internal.ParcourHandler;
-import nl.hauntedmc.serverfeatures.features.parcour.listener.ParcourDeathVoidListener;
-import nl.hauntedmc.serverfeatures.features.parcour.listener.ParcourListener;
-import nl.hauntedmc.serverfeatures.features.parcour.listener.ParcourQuitListener;
-import nl.hauntedmc.serverfeatures.features.parcour.listener.ParcourWandListener;
+import nl.hauntedmc.serverfeatures.features.parcour.listener.*;
 import nl.hauntedmc.serverfeatures.features.parcour.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
 
@@ -78,6 +75,15 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.sound.invalid_type", "&cOngeldig type: &f{type}&c. Gebruik CHECKPOINT of END.");
         m.add("parcour.admin.actionbar.set", "&aActionbar-weergave voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.admin.finishdelay.set", "&aFinish-teleport voor &f{id}&a ingesteld op &f{seconds}&as.");
+        m.add("parcour.item.leave.name", "&cParcour verlaten");
+        m.add("parcour.item.leave.lore", "&7Rechtsklik om het parcour te verlaten.");
+        m.add("parcour.item.checkpoint.name", "&eNaar checkpoint");
+        m.add("parcour.item.checkpoint.lore", "&7Rechtsklik om terug te keren naar je laatste checkpoint.");
+        m.add("parcour.inventory.restored", "&7Je inventaris is hersteld.");
+        m.add("parcour.admin.hunger.set", "&aHonger voor &f{id}&a ingesteld op &f{value}&a.");
+        m.add("parcour.admin.damage.set", "&aSchade voor &f{id}&a ingesteld op &f{value}&a.");
+        m.add("parcour.checkpoint.cooldown", "&cWacht nog &f{seconds}s &cvoordat je terug naar je checkpoint kunt.");
+        m.add("parcour.admin.checkpointcooldown.set", "&aCheckpoint-cooldown voor &f{id} &agingesteld op &f{seconds}&as.");
 
         return m;
     }
@@ -91,8 +97,9 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getListenerManager().registerListener(new ParcourListener(handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourWandListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourDeathVoidListener(this, handler));
+        getLifecycleManager().getListenerManager().registerListener(new ParcourItemListener(handler));
+        getLifecycleManager().getListenerManager().registerListener(new ParcourProtectionListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourQuitListener(handler));
-
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new ParcourCommand(this, handler));
 
         getLogger().info("Initialized. Loaded " + registry.size() + " parcour(s).");
@@ -100,7 +107,11 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-
+        // NEW: restore all active sessions on plugin disable (safety)
+        if (handler != null) {
+            int restored = handler.restoreAllAndClearSessions();
+            getLogger().info("Parcour disabled: restored " + restored + " active player session(s).");
+        }
     }
 
     public ParcourRegistry getRegistry() {

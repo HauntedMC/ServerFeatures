@@ -9,11 +9,8 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
+import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -38,10 +35,20 @@ public final class ParcourHandler {
 
     private static final String WAND_NAME = "§6Parcour Wand";
 
+    // Control item materials/slots
+    private static final org.bukkit.Material ITEM_LEAVE_MAT = org.bukkit.Material.BARRIER;
+    private static final org.bukkit.Material ITEM_CKPT_MAT = Material.NETHER_STAR;
+    private static final int SLOT_CKPT = 3;
+    private static final int SLOT_LEAVE = 5;
+
     private final Parcour feature;
     private final ParcourRegistry registry;
     private final FeatureLogger log;
     private final NamespacedKey wandKey;
+
+    // NEW: control item keys
+    private final NamespacedKey leaveKey;
+    private final NamespacedKey checkpointKey;
 
     // ====== Selection (editor) ======
     public static final class Selection {
@@ -77,9 +84,13 @@ public final class ParcourHandler {
         this.registry = registry;
         this.log = feature.getLogger();
         this.wandKey = new NamespacedKey(feature.getPlugin(), "parcour_wand");
+        this.leaveKey = new NamespacedKey(feature.getPlugin(), "parcour_leave");
+        this.checkpointKey = new NamespacedKey(feature.getPlugin(), "parcour_checkpoint");
     }
 
     public NamespacedKey wandKey() { return wandKey; }
+    public NamespacedKey leaveKey() { return leaveKey; }
+    public NamespacedKey checkpointKey() { return checkpointKey; }
 
     // ===== Selections (editor) =====
     public Selection selection(Player p) {
@@ -165,6 +176,23 @@ public final class ParcourHandler {
                     updateRegionHighlight(pl, def, s);
                 }
             }
+            return true;
+        }).orElse(false);
+    }
+
+    // NEW: per-map toggles
+    public boolean setHungerEnabled(String id, boolean value) {
+        return registry.get(id).map(def -> {
+            def.setHungerEnabled(value);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean setDamageEnabled(String id, boolean value) {
+        return registry.get(id).map(def -> {
+            def.setDamageEnabled(value);
+            registry.saveParcour(def);
             return true;
         }).orElse(false);
     }
@@ -319,6 +347,22 @@ public final class ParcourHandler {
         }
     }
 
+    // NEW: full restore for all active sessions (on disable)
+    public int restoreAllAndClearSessions() {
+        int count = 0;
+        for (ParcourSession s : new ArrayList<>(sessions.values())) {
+            Player p = Bukkit.getPlayer(s.playerId);
+            if (p != null && p.isOnline() && s.snapshot() != null) {
+                try { s.snapshot().restore(p); } catch (Throwable ignored) {}
+                count++;
+            }
+            s.cancelActionBarTask();
+            s.cancelParticleTask();
+        }
+        sessions.clear();
+        return count;
+    }
+
     public boolean startParcourByCommand(Player p, String id) {
         if (isPlaying(p)) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.already_playing")
@@ -348,8 +392,10 @@ public final class ParcourHandler {
             return false;
         }
 
-        // Teleport to start and start session
+        // Teleport to start
         teleportWithIgnore(p, startRestore);
+
+        // Start session (also applies clean inventory + control items)
         startSession(p, def, startRestore, 0);
 
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
@@ -366,19 +412,26 @@ public final class ParcourHandler {
     }
 
     public boolean leaveParcour(Player p) {
-        ParcourSession s = sessions.remove(p.getUniqueId());
+        ParcourSession s = sessions.get(p.getUniqueId());
         if (s == null) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_playing").forAudience(p).build());
             return false;
         }
-        s.cancelActionBarTask();
-        s.cancelParticleTask();
+
+        // Restore inventory first
+        restoreInventoryIfPresent(p, s);
+
+        // Teleport to exit
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
         });
+
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.left")
                 .with("name", s.parcourId).forAudience(p).build());
+
+        // Cleanup
+        clearSession(p);
         return true;
     }
 
@@ -414,6 +467,16 @@ public final class ParcourHandler {
         ParcourSession session = new ParcourSession(p.getUniqueId(), def, startRestore, firstExpectedOrder);
         sessions.put(p.getUniqueId(), session);
         lastTrigger.put(p.getUniqueId(), 0L);
+
+        // NEW: inventory snapshot + clean inventory + control items + full health/hunger
+        ParcourInventorySnapshot snap = ParcourInventorySnapshot.capture(p);
+        session.setSnapshot(snap);
+        applyCleanParcourInventory(p);
+        giveControlItems(p);
+        // full health & hunger on start
+        p.setHealth(p.getAttribute(Attribute.MAX_HEALTH).getValue());
+        p.setFoodLevel(20);
+        p.setSaturation(20);
 
         // schedule actionbar if enabled
         if (def.useActionBar()) {
@@ -603,6 +666,9 @@ public final class ParcourHandler {
         // NEW: stop highlighting on finish
         s.cancelParticleTask();
 
+        // NEW: restore inventory immediately on finish
+        restoreInventoryIfPresent(p, s);
+
         // schedule cleanup of session + actionbar after a short hold
         long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
@@ -642,6 +708,52 @@ public final class ParcourHandler {
     public void selectParcour(Player p, String id) {
         var sel = selection(p);
         sel.selectedParcourId = id;
+    }
+
+    // ===== Inventory helpers =====
+
+    private void applyCleanParcourInventory(Player p) {
+        p.getInventory().clear();
+        p.getInventory().setArmorContents(null);
+        p.getInventory().setItemInOffHand(null);
+        p.updateInventory();
+    }
+
+    private void giveControlItems(Player p) {
+        // Leave item
+        ItemStack leave = new ItemStack(ITEM_LEAVE_MAT, 1);
+        ItemMeta lm = leave.getItemMeta();
+        lm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.leave.name").forAudience(p).build());
+        lm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.leave.lore").forAudience(p).build()));
+        lm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        lm.getPersistentDataContainer().set(leaveKey, PersistentDataType.BYTE, (byte) 1);
+        leave.setItemMeta(lm);
+
+        // Checkpoint item
+        ItemStack ck = new ItemStack(ITEM_CKPT_MAT, 1);
+        ItemMeta cm = ck.getItemMeta();
+        cm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.name").forAudience(p).build());
+        cm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.lore").forAudience(p).build()));
+        cm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+        cm.getPersistentDataContainer().set(checkpointKey, PersistentDataType.BYTE, (byte) 1);
+        ck.setItemMeta(cm);
+
+        p.getInventory().setItem(SLOT_LEAVE, leave);
+        p.getInventory().setItem(SLOT_CKPT, ck);
+        p.updateInventory();
+    }
+
+    private void restoreInventoryIfPresent(Player p, ParcourSession s) {
+        ParcourInventorySnapshot snap = s.snapshot();
+        if (snap != null) {
+            try {
+                snap.restore(p);
+                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.inventory.restored").forAudience(p).build());
+            } catch (Throwable t) {
+                log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage());
+            }
+            s.setSnapshot(null);
+        }
     }
 
     // ===== Particle highlight implementation =====
@@ -745,5 +857,14 @@ public final class ParcourHandler {
         } finally {
             buf.clear();
         }
+    }
+
+    // ===== Quit/Disconnect inventory safety =====
+
+    public void onQuit(Player p) {
+        ParcourSession s = sessions.get(p.getUniqueId());
+        if (s == null) return;
+        restoreInventoryIfPresent(p, s);
+        clearSession(p);
     }
 }
