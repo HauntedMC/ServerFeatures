@@ -45,6 +45,11 @@ public final class NametagCommand implements BrigadierCommand {
                                         s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
                                         return 1;
                                     }
+                                    Boolean cached = feature.getNametagManager().getCachedSelfViewPreference(p);
+                                    if (Boolean.TRUE.equals(cached)) {
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("nametags.selfview.already_enabled").forAudience(s).build());
+                                        return 1;
+                                    }
                                     feature.getNametagManager().setSelfViewEnabled(p, true);
                                     s.sendMessage(feature.getLocalizationHandler().getMessage("nametags.selfview.enabled").forAudience(s).build());
                                     return 1;
@@ -55,6 +60,11 @@ public final class NametagCommand implements BrigadierCommand {
                                     CommandSender s = ctx.getSource().getSender();
                                     if (!(s instanceof Player p)) {
                                         s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+                                        return 1;
+                                    }
+                                    Boolean cached = feature.getNametagManager().getCachedSelfViewPreference(p);
+                                    if (Boolean.FALSE.equals(cached)) {
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("nametags.selfview.already_disabled").forAudience(s).build());
                                         return 1;
                                     }
                                     feature.getNametagManager().setSelfViewEnabled(p, false);
@@ -69,8 +79,8 @@ public final class NametagCommand implements BrigadierCommand {
                                         s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
                                         return 1;
                                     }
-                                    boolean current = feature.getNametagManager().isSelfViewEnabled(p);
-                                    boolean next = !current;
+                                    boolean currentPref = feature.getNametagManager().isSelfViewEnabled(p);
+                                    boolean next = !currentPref;
                                     feature.getNametagManager().setSelfViewEnabled(p, next);
                                     String key = next ? "nametags.selfview.enabled" : "nametags.selfview.disabled";
                                     s.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(s).build());

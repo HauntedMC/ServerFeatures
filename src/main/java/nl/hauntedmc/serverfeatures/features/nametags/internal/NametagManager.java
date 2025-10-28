@@ -56,11 +56,25 @@ public class NametagManager {
         return isSelfViewEnabled(player.getUniqueId());
     }
 
+    public Boolean getCachedSelfViewPreference(Player player) {
+        return selfViewPreference.get(player.getUniqueId());
+    }
+
     public void setSelfViewEnabled(UUID playerId, boolean enabled) {
+        Boolean current = selfViewPreference.get(playerId);
+        if (current != null && current == enabled) {
+            return;
+        }
+
         selfViewPreference.put(playerId, enabled);
         Player p = Bukkit.getPlayer(playerId);
         if (p != null && p.isOnline()) {
             updateNametag(p, new UpdateProperties.Builder().build());
+            try {
+                feature.getRepository().upsertSelfView(p.getUniqueId().toString(), p.getName(), enabled);
+            } catch (Exception ex) {
+                feature.getLogger().warning("Kon selfview status niet opslaan voor " + p.getName() + ": " + ex.getMessage());
+            }
         }
     }
 
@@ -78,8 +92,22 @@ public class NametagManager {
 
     public void setGlideSuppressed(Player p, boolean suppressed) {
         UUID id = p.getUniqueId();
-        if (suppressed) glideSuppressed.add(id); else glideSuppressed.remove(id);
+        if (suppressed) glideSuppressed.add(id);
+        else glideSuppressed.remove(id);
         updateNametag(p, new UpdateProperties.Builder().build());
+    }
+
+    public void preloadSelfView(Player player) {
+        if (player == null) return;
+        UUID id = player.getUniqueId();
+        try {
+            Optional<Boolean> persisted = feature.getRepository().getSelfView(player.getUniqueId().toString());
+            boolean effective = persisted.orElse(true);
+            selfViewPreference.put(id, effective);
+        } catch (Exception ex) {
+            feature.getLogger().warning("Kon selfview voorkeur niet laden voor " + player.getName() + ": " + ex.getMessage());
+            selfViewPreference.put(id, true);
+        }
     }
 
     private void scheduleRepeatingUpdate() {
@@ -159,23 +187,22 @@ public class NametagManager {
         if (optTag.isPresent()) {
             Nametag nametag = optTag.get();
             registry.unregister(player.getUniqueId());
-            selfViewPreference.remove(player.getUniqueId());
-            glideSuppressed.remove(player.getUniqueId());
             RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
             PacketManager.sendMulticast(new ArrayList<>(nametag.getViewers()), removePacket);
         }
+        glideSuppressed.remove(player.getUniqueId());
     }
 
     public void removeAllNametags() {
         for (Nametag nametag : registry.getAllNametags()) {
             removeNametag(nametag.getNametagOwner());
         }
-        selfViewPreference.clear();
         glideSuppressed.clear();
     }
 
     public void initializeOnlinePlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
+            preloadSelfView(player);
             createNametag(player);
         }
     }
