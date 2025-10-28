@@ -9,7 +9,13 @@ import java.util.*;
 
 public final class ParcourDefinition {
     private final String id;
-    private final Map<Integer, ParcourRegion> regionsByOrder = new TreeMap<>();
+
+    private ParcourRegion start; // START
+    private ParcourRegion end;   // END
+
+    // Numbered checkpoints (0..N-1)
+    private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
+
     // Exit spawn (for /parcour leave)
     private String exitWorld;
     private double exitX, exitY, exitZ;
@@ -21,41 +27,42 @@ public final class ParcourDefinition {
 
     public String id() { return id; }
 
-    public Collection<ParcourRegion> regions() {
-        return new ArrayList<>(regionsByOrder.values());
+    // ===== START / END =====
+    public Optional<ParcourRegion> startRegion() { return Optional.ofNullable(start); }
+    public void setStartRegion(ParcourRegion r) { this.start = r; }
+    public boolean clearStartRegion() { boolean had = this.start != null; this.start = null; return had; }
+
+    public Optional<ParcourRegion> endRegion() { return Optional.ofNullable(end); }
+    public void setEndRegion(ParcourRegion r) { this.end = r; }
+    public boolean clearEndRegion() { boolean had = this.end != null; this.end = null; return had; }
+
+    // ===== Checkpoints =====
+    public Collection<ParcourRegion> checkpoints() {
+        return new ArrayList<>(checkpointsByOrder.values());
     }
 
-    public Optional<ParcourRegion> regionByOrder(int order) {
-        return Optional.ofNullable(regionsByOrder.get(order));
+    public Optional<ParcourRegion> checkpoint(int order) {
+        return Optional.ofNullable(checkpointsByOrder.get(order));
     }
 
-    public void putRegion(ParcourRegion r) {
-        regionsByOrder.put(r.order(), r);
+    public void putCheckpoint(ParcourRegion r) {
+        if (r.type() != ParcourRegionType.CHECKPOINT) throw new IllegalArgumentException("not a checkpoint");
+        checkpointsByOrder.put(r.order(), r);
     }
 
-    public boolean removeRegion(int order) {
-        return regionsByOrder.remove(order) != null;
-    }
-
-    public int totalOrders() {
-        return regionsByOrder.size();
-    }
-
-    public Optional<ParcourRegion> startRegion() {
-        return regionByOrder(0).filter(r -> r.type() == ParcourRegionType.START);
-    }
-
-    public Optional<ParcourRegion> endRegion() {
-        // end region is the highest order with type END
-        return regionsByOrder.values().stream()
-                .filter(r -> r.type() == ParcourRegionType.END)
-                .max(Comparator.comparingInt(ParcourRegion::order));
+    public boolean removeCheckpoint(int order) {
+        return checkpointsByOrder.remove(order) != null;
     }
 
     public SortedSet<Integer> orders() {
-        return new TreeSet<>(regionsByOrder.keySet());
+        return new TreeSet<>(checkpointsByOrder.keySet());
     }
 
+    public int totalRegions() {
+        return (start != null ? 1 : 0) + (end != null ? 1 : 0) + checkpointsByOrder.size();
+    }
+
+    // ===== Exit spawn =====
     public void setExitSpawn(String world, double x, double y, double z, float yaw, float pitch) {
         this.exitWorld = world;
         this.exitX = x; this.exitY = y; this.exitZ = z;

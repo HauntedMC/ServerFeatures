@@ -44,8 +44,8 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.not_found", "&cParcour &f{name} &cbestaat niet.");
         m.add("parcour.left", "&7Je hebt &f{name} &7verlaten.");
         m.add("parcour.no_checkpoint", "&cGeen checkpoint beschikbaar; terug naar start.");
-        m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cheeft geen start-regio.");
-        m.add("parcour.seq.invalid", "&cVolgorde ongeldig: je kunt deze regio nu niet activeren.");
+        m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cis onjuist geconfigureerd (mist START en/of END).");
+
         // admin messages
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
         m.add("parcour.admin.deleted", "&aParcour &f{id} &averwijderd.");
@@ -55,16 +55,15 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.wand.given", "&aJe hebt de &fParcour Wand &agekregen. Selecteer 2 punten met &fLinker (&7Pos1&f) &aen &fRechter (&7Pos2&f) &amuis.");
         m.add("parcour.admin.pos1.set", "&aPos1 gezet op &7{world} {x} {y} {z}");
         m.add("parcour.admin.pos2.set", "&aPos2 gezet op &7{world} {x} {y} {z}");
-        m.add("parcour.admin.region.saved", "&aRegio opgeslagen: &f{type} &8(order {order})");
-        m.add("parcour.admin.region.deleted", "&aRegio verwijderd: &f{type} &8(order {order})");
+        m.add("parcour.admin.region.deleted", "&aRegio verwijderd: &f{type} &8(key {order})");
         m.add("parcour.admin.region.missing", "&cRegio ontbreekt: zet &f/parcour pos1 &cen &f/parcour pos2&c.");
         m.add("parcour.admin.region.world_mismatch", "&cPos1 en Pos2 moeten in dezelfde wereld liggen.");
-        m.add("parcour.admin.region.not_found", "&cGeen regio met order &f{order}&c.");
-        m.add("parcour.admin.region.added", "&aRegio toegevoegd: &f{type} &8(order {order}) &7restore={restore}");
-        m.add("parcour.admin.restore.set", "&aRestore checkpoint voor order &f{order} &agezet op &f{restore}");
+        m.add("parcour.admin.region.not_found", "&cGeen regio met sleutel &f{order}&c (gebruik &fSTART&c, &fEND&c of een nummer).");
+        m.add("parcour.admin.region.added", "&aRegio toegevoegd: &f{type} &8(key {order}) &7restore={restore}");
+        m.add("parcour.admin.restore.set", "&aRestore checkpoint voor sleutel &f{order} &agezet op &f{restore}");
         m.add("parcour.admin.exitspawn.set", "&aExit spawn gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
-        m.add("parcour.admin.cmd.added", "&aCommand toegevoegd aan order &f{order}&a: &7/{cmd}");
-        m.add("parcour.admin.cmd.cleared", "&aCommands leeggemaakt voor order &f{order}&a.");
+        m.add("parcour.admin.cmd.added", "&aCommand toegevoegd aan sleutel &f{order}&a: &7/{cmd}");
+        m.add("parcour.admin.cmd.cleared", "&aCommands leeggemaakt voor sleutel &f{order}&a.");
         m.add("parcour.admin.info.header", "&6&lParcour info &7({id})");
         m.add("parcour.admin.info.prop", "&7- &f{key}&7: &f{value}");
         m.add("parcour.admin.list.header", "&6&lParcours &7({count})");

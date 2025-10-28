@@ -92,25 +92,7 @@ public final class ParcourHandler {
         s.pos2z = loc.getBlockZ();
     }
 
-    public boolean saveRegion(String parcourId, int order) {
-        Optional<ParcourDefinition> defOpt = registry.get(parcourId);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        ParcourRegion region = def.regionByOrder(order).orElse(null);
-        if (region == null) return false;
-
-        // Selection must have both
-        Region r = selections.values().stream()
-                .filter(sel -> Objects.equals(sel.selectedParcourId, parcourId) && sel.hasBoth())
-                .findFirst()
-                .map(Selection::toRegionOrNull)
-                .orElse(null);
-        if (r == null) return false;
-
-        region.setRegion(r);
-        registry.saveParcour(def);
-        return true;
-    }
+    // ===== Admin editing =====
 
     public boolean createParcour(String id) {
         if (registry.get(id).isPresent()) return false;
@@ -128,57 +110,107 @@ public final class ParcourHandler {
         return ok;
     }
 
-    public boolean addRegion(String id, ParcourRegionType type, int order, boolean restoreCheckpoint) {
-        Optional<ParcourDefinition> defOpt = registry.get(id);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        ParcourRegion r = new ParcourRegion(order, type);
-        r.setRestoreCheckpoint(restoreCheckpoint);
-        def.putRegion(r);
-        registry.saveParcour(def);
-        return true;
+    public boolean addRegionStart(String id, Region region, boolean restoreCheckpoint) {
+        return registry.get(id).map(def -> {
+            ParcourRegion r = new ParcourRegion(-1, ParcourRegionType.START);
+            r.setRegion(region);
+            r.setRestoreCheckpoint(restoreCheckpoint);
+            def.setStartRegion(r);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
-    public boolean removeRegion(String id, int order) {
-        Optional<ParcourDefinition> defOpt = registry.get(id);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        boolean ok = def.removeRegion(order);
-        if (ok) registry.saveParcour(def);
-        return ok;
+    public boolean addRegionEnd(String id, Region region, boolean restoreCheckpoint) {
+        return registry.get(id).map(def -> {
+            ParcourRegion r = new ParcourRegion(Integer.MAX_VALUE, ParcourRegionType.END);
+            r.setRegion(region);
+            r.setRestoreCheckpoint(restoreCheckpoint);
+            def.setEndRegion(r);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
-    public boolean setRegionRestore(String id, int order, boolean restore) {
-        Optional<ParcourDefinition> defOpt = registry.get(id);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        ParcourRegion r = def.regionByOrder(order).orElse(null);
-        if (r == null) return false;
-        r.setRestoreCheckpoint(restore);
-        registry.saveParcour(def);
-        return true;
+    public boolean addRegionCheckpoint(String id, int order, Region region, boolean restoreCheckpoint) {
+        return registry.get(id).map(def -> {
+            ParcourRegion r = new ParcourRegion(order, ParcourRegionType.CHECKPOINT);
+            r.setRegion(region);
+            r.setRestoreCheckpoint(restoreCheckpoint);
+            def.putCheckpoint(r);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
     }
 
-    public boolean addRegionCommand(String id, int order, String cmd) {
-        Optional<ParcourDefinition> defOpt = registry.get(id);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        ParcourRegion r = def.regionByOrder(order).orElse(null);
-        if (r == null) return false;
-        r.addCommand(cmd);
-        registry.saveParcour(def);
-        return true;
+    public boolean removeRegion(String id, String key) {
+        return registry.get(id).map(def -> {
+            if (isStartKey(key)) {
+                boolean ok = def.clearStartRegion();
+                if (ok) registry.saveParcour(def);
+                return ok;
+            } else if (isEndKey(key)) {
+                boolean ok = def.clearEndRegion();
+                if (ok) registry.saveParcour(def);
+                return ok;
+            } else {
+                Integer ord = parseOrder(key);
+                if (ord == null) return false;
+                boolean ok = def.removeCheckpoint(ord);
+                if (ok) registry.saveParcour(def);
+                return ok;
+            }
+        }).orElse(false);
     }
 
-    public boolean clearRegionCommands(String id, int order) {
-        Optional<ParcourDefinition> defOpt = registry.get(id);
-        if (defOpt.isEmpty()) return false;
-        ParcourDefinition def = defOpt.get();
-        ParcourRegion r = def.regionByOrder(order).orElse(null);
-        if (r == null) return false;
-        r.clearCommands();
-        registry.saveParcour(def);
-        return true;
+    public boolean setRegionRestore(String id, String key, boolean restore) {
+        return registry.get(id).map(def -> {
+            ParcourRegion pr = getRegionByKey(def, key);
+            if (pr == null) return false;
+            pr.setRestoreCheckpoint(restore);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean addRegionCommand(String id, String key, String cmd) {
+        return registry.get(id).map(def -> {
+            ParcourRegion pr = getRegionByKey(def, key);
+            if (pr == null) return false;
+            pr.addCommand(cmd);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean clearRegionCommands(String id, String key) {
+        return registry.get(id).map(def -> {
+            ParcourRegion pr = getRegionByKey(def, key);
+            if (pr == null) return false;
+            pr.clearCommands();
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    private boolean isStartKey(String key) {
+        return "START".equalsIgnoreCase(key);
+    }
+
+    private boolean isEndKey(String key) {
+        return "END".equalsIgnoreCase(key);
+    }
+
+    private Integer parseOrder(String key) {
+        try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; }
+    }
+
+    private ParcourRegion getRegionByKey(ParcourDefinition def, String key) {
+        if (isStartKey(key)) return def.startRegion().orElse(null);
+        if (isEndKey(key)) return def.endRegion().orElse(null);
+        Integer ord = parseOrder(key);
+        if (ord == null) return null;
+        return def.checkpoint(ord).orElse(null);
     }
 
     public boolean setExitSpawn(String id, Location loc) {
@@ -231,7 +263,9 @@ public final class ParcourHandler {
         }
         ParcourDefinition def = defOpt.get();
         var startRegion = def.startRegion().flatMap(ParcourRegion::region);
-        if (startRegion.isEmpty()) {
+        var endRegion = def.endRegion().flatMap(ParcourRegion::region);
+        if (startRegion.isEmpty() || endRegion.isEmpty()) {
+            // Should not happen if registry validation is correct, but guard anyway.
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.cannot_start_missing")
                     .with("name", id).forAudience(p).build());
             return false;
@@ -245,7 +279,8 @@ public final class ParcourHandler {
 
         // Teleport to start and start session
         teleportWithIgnore(p, startLoc);
-        startSession(p, def, startLoc, 1);
+        // Expected first checkpoint order is 0; if none exist, END will complete immediately on reach.
+        startSession(p, def, startLoc, 0);
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                 .with("name", def.id()).forAudience(p).build());
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.started_teleport")
@@ -311,72 +346,73 @@ public final class ParcourHandler {
         Long prev = lastTrigger.get(p.getUniqueId());
         if (prev != null && (now - prev) < TRIGGER_COOLDOWN_MS) return;
 
-        // Find first matching region among ALL parcours
+        // Check across all parcours
         for (ParcourDefinition def : registry.all()) {
-            for (ParcourRegion pr : def.regions()) {
-                if (pr.region().isEmpty()) continue;
-                Region r = pr.region().get();
-                if (!Objects.equals(r.worldName(), to.getWorld().getName())) continue;
-                if (!r.contains(to)) continue;
-
-                // Determine action based on current session state
-                ParcourSession s = sessions.get(p.getUniqueId());
-
-                if (s == null) {
-                    // Only START regions can auto-start
-                    if (pr.type() == ParcourRegionType.START && pr.order() == 0) {
+            // START auto-start if not playing
+            if (!isPlaying(p)) {
+                if (def.startRegion().isPresent() && def.startRegion().get().region().isPresent()) {
+                    Region r = def.startRegion().get().region().get();
+                    if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
                         Location startRestore = r.center(Bukkit.getServer());
                         if (startRestore == null) continue;
-                        startSession(p, def, startRestore, 1);
+                        startSession(p, def, startRestore, 0);
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                                 .with("name", def.id()).forAudience(p).build());
-                        executeRegionCommands(p, pr);
-                        lastTrigger.put(p.getUniqueId(), now);
-                        return;
-                    } else {
-                        continue;
-                    }
-                } else {
-                    // Only interact with regions of the same parcour as the active session
-                    if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
-
-                    // Enforce sequential order
-                    int expected = s.expectedNextOrder();
-                    if (pr.order() != expected) {
-                        // Allow END region if it equals expected (should match)
-                        p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.seq.invalid").forAudience(p).build());
+                        executeRegionCommands(p, def.startRegion().get());
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
                     }
+                }
+                continue; // not playing and not on a start region
+            }
 
-                    // Valid progression: execute commands, set restore if flagged, advance order
-                    if (!s.alreadyTriggered(pr)) {
-                        executeRegionCommands(p, pr);
-                        s.markTriggered(pr);
-                    }
+            // If playing, only the active parcours can react
+            ParcourSession s = sessions.get(p.getUniqueId());
+            if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
 
-                    if (pr.restoreCheckpoint()) {
-                        Location center = r.center(Bukkit.getServer());
-                        if (center != null) {
-                            s.setRestoreLocation(center);
-                            p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set")
-                                    .with("order", String.valueOf(pr.order())).forAudience(p).build());
+            int expected = s.expectedNextOrder();
+
+            // If a checkpoint with the expected order exists, only that one can progress.
+            Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
+            if (expectedCkpt.isPresent()) {
+                ParcourRegion pr = expectedCkpt.get();
+                if (pr.region().isPresent()) {
+                    Region r = pr.region().get();
+                    if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
+                        // Execute commands once per region per session
+                        if (!s.alreadyTriggered(pr)) {
+                            executeRegionCommands(p, pr);
+                            s.markTriggered(pr);
                         }
-                    }
-
-                    // If END region -> finish
-                    if (pr.type() == ParcourRegionType.END) {
-                        finishParcour(p, s);
+                        if (pr.restoreCheckpoint()) {
+                            Location center = r.center(Bukkit.getServer());
+                            if (center != null) {
+                                s.setRestoreLocation(center);
+                                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set")
+                                        .with("order", String.valueOf(pr.order())).forAudience(p).build());
+                            }
+                        }
+                        // Advance to next expected checkpoint
+                        s.advanceExpectedOrder();
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
                     }
+                }
+                // We're in some other region (START, END, past/future checkpoints): silently ignore
+                continue;
+            }
 
-                    // Advance expected order
-                    s.advanceExpectedOrder();
+            // No more checkpoints expected -> END must complete
+            if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
+                Region r = def.endRegion().get().region().get();
+                if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
+                    finishParcour(p, s);
                     lastTrigger.put(p.getUniqueId(), now);
                     return;
                 }
             }
+
+            // Any other region: ignore silently
         }
     }
 

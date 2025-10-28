@@ -16,7 +16,6 @@ import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.internal.ParcourHandler;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
-import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
 import org.bukkit.command.CommandSender;
@@ -25,7 +24,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 public final class ParcourCommand implements BrigadierCommand {
 
@@ -192,99 +190,75 @@ public final class ParcourCommand implements BrigadierCommand {
                         })
                 )
 
+                // ADD now uses the current wand selection directly (no saveregion)
+                // /parcour add start <parcourId> [restore:true|false]
+                // /parcour add end <parcourId> [restore:true|false]
+                // /parcour add checkpoint <order> <parcourId> [restore:true|false]
                 .then(Commands.literal("add")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
-                        .then(Commands.argument("type", StringArgumentType.word())
-                                .suggests(this::suggestRegionTypes)
+                        .then(Commands.literal("start")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .then(Commands.argument("restore", BoolArgumentType.bool())
+                                                .executes(ctx -> execAddStart(ctx, true)))
+                                        .executes(ctx -> execAddStart(ctx, false))))
+                        .then(Commands.literal("end")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .then(Commands.argument("restore", BoolArgumentType.bool())
+                                                .executes(ctx -> execAddEnd(ctx, true)))
+                                        .executes(ctx -> execAddEnd(ctx, false))))
+                        .then(Commands.literal("checkpoint")
                                 .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
                                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                                 .suggests(this::suggestParcourIds)
-                                                // optional: restore flag as bool
                                                 .then(Commands.argument("restore", BoolArgumentType.bool())
-                                                        .executes(ctx -> execAdd(ctx, true)))
-                                                .executes(ctx -> execAdd(ctx, false))
-                                        )))
-                )
+                                                        .executes(ctx -> execAddCheckpoint(ctx, true)))
+                                                .executes(ctx -> execAddCheckpoint(ctx, false))))))
 
-                .then(Commands.literal("saveregion")
-                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
-                        .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
+        // delete/setrestore/addcmd/clearcmds take a generic region key: START | <number> | END
+                .then(Commands.literal("deleteregion")
+                .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                .then(Commands.argument("parcourId", StringArgumentType.word())
+                        .suggests(this::suggestParcourIds)
+                        .then(Commands.argument("key", StringArgumentType.word())
+                                .suggests(this::suggestRegionKeysForParcour)
                                 .executes(ctx -> {
                                     CommandSender s = ctx.getSource().getSender();
-                                    if (!(s instanceof Player p)) {
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
-                                        return 1;
-                                    }
-                                    var sel = handler.selection(p);
-                                    if (sel.selectedParcourId == null) {
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.select.none").forAudience(s).build());
-                                        return 1;
-                                    }
-                                    int order = IntegerArgumentType.getInteger(ctx, "order");
-                                    if (sel.world1 == null || sel.world2 == null
-                                            || !Objects.equals(sel.world1, sel.world2)
-                                            || sel.pos1x == null || sel.pos1y == null || sel.pos1z == null
-                                            || sel.pos2x == null || sel.pos2y == null || sel.pos2z == null) {
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.missing").forAudience(s).build());
-                                        return 1;
-                                    }
-                                    boolean ok = handler.saveRegion(sel.selectedParcourId, order);
-                                    if (ok) {
-                                        registry.get(sel.selectedParcourId).flatMap(d -> d.regionByOrder(order)).ifPresent(pr ->
-                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.saved")
-                                                        .with("type", pr.type().name())
-                                                        .with("order", String.valueOf(order))
-                                                        .forAudience(s).build()));
+                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                    String key = StringArgumentType.getString(ctx, "key");
+                                    if (handler.removeRegion(id, key)) {
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.deleted")
+                                                .with("type", key.toUpperCase(Locale.ROOT))
+                                                .with("order", key).forAudience(s).build());
                                     } else {
                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                .with("order", String.valueOf(order)).forAudience(s).build());
+                                                .with("order", key).forAudience(s).build());
                                     }
                                     return 1;
-                                }))
-                )
-
-                .then(Commands.literal("deleteregion")
-                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
-                        .then(Commands.argument("parcourId", StringArgumentType.word())
-                                .suggests(this::suggestParcourIds)
-                                .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
-                                        .suggests(this::suggestOrdersForParcour)
-                                        .executes(ctx -> {
-                                            CommandSender s = ctx.getSource().getSender();
-                                            String id = StringArgumentType.getString(ctx, "parcourId");
-                                            int order = IntegerArgumentType.getInteger(ctx, "order");
-                                            if (handler.removeRegion(id, order)) {
-                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.deleted")
-                                                        .with("type", "order")
-                                                        .with("order", String.valueOf(order)).forAudience(s).build());
-                                            } else {
-                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                        .with("order", String.valueOf(order)).forAudience(s).build());
-                                            }
-                                            return 1;
-                                        })))
-                )
+                                })))
+        )
 
                 .then(Commands.literal("setrestore")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
-                                .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
-                                        .suggests(this::suggestOrdersForParcour)
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(this::suggestRegionKeysForParcour)
                                         .then(Commands.argument("value", BoolArgumentType.bool())
                                                 .executes(ctx -> {
                                                     CommandSender s = ctx.getSource().getSender();
                                                     String id = StringArgumentType.getString(ctx, "parcourId");
-                                                    int order = IntegerArgumentType.getInteger(ctx, "order");
+                                                    String key = StringArgumentType.getString(ctx, "key");
                                                     boolean value = BoolArgumentType.getBool(ctx, "value");
-                                                    if (handler.setRegionRestore(id, order, value)) {
+                                                    if (handler.setRegionRestore(id, key, value)) {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.restore.set")
-                                                                .with("order", String.valueOf(order))
+                                                                .with("order", key)
                                                                 .with("restore", String.valueOf(value))
                                                                 .forAudience(s).build());
                                                     } else {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                                .with("order", String.valueOf(order)).forAudience(s).build());
+                                                                .with("order", key).forAudience(s).build());
                                                     }
                                                     return 1;
                                                 }))))
@@ -294,22 +268,22 @@ public final class ParcourCommand implements BrigadierCommand {
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
-                                .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
-                                        .suggests(this::suggestOrdersForParcour)
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(this::suggestRegionKeysForParcour)
                                         .then(Commands.argument("command", StringArgumentType.greedyString())
                                                 .executes(ctx -> {
                                                     CommandSender s = ctx.getSource().getSender();
                                                     String id = StringArgumentType.getString(ctx, "parcourId");
-                                                    int order = IntegerArgumentType.getInteger(ctx, "order");
+                                                    String key = StringArgumentType.getString(ctx, "key");
                                                     String cmd = StringArgumentType.getString(ctx, "command");
-                                                    if (handler.addRegionCommand(id, order, cmd)) {
+                                                    if (handler.addRegionCommand(id, key, cmd)) {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.cmd.added")
-                                                                .with("order", String.valueOf(order))
+                                                                .with("order", key)
                                                                 .with("cmd", cmd)
                                                                 .forAudience(s).build());
                                                     } else {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                                .with("order", String.valueOf(order)).forAudience(s).build());
+                                                                .with("order", key).forAudience(s).build());
                                                     }
                                                     return 1;
                                                 }))))
@@ -319,18 +293,18 @@ public final class ParcourCommand implements BrigadierCommand {
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
-                                .then(Commands.argument("order", IntegerArgumentType.integer(0, 10000))
-                                        .suggests(this::suggestOrdersForParcour)
+                                .then(Commands.argument("key", StringArgumentType.word())
+                                        .suggests(this::suggestRegionKeysForParcour)
                                         .executes(ctx -> {
                                             CommandSender s = ctx.getSource().getSender();
                                             String id = StringArgumentType.getString(ctx, "parcourId");
-                                            int order = IntegerArgumentType.getInteger(ctx, "order");
-                                            if (handler.clearRegionCommands(id, order)) {
+                                            String key = StringArgumentType.getString(ctx, "key");
+                                            if (handler.clearRegionCommands(id, key)) {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.cmd.cleared")
-                                                        .with("order", String.valueOf(order)).forAudience(s).build());
+                                                        .with("order", key).forAudience(s).build());
                                             } else {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
-                                                        .with("order", String.valueOf(order)).forAudience(s).build());
+                                                        .with("order", key).forAudience(s).build());
                                             }
                                             return 1;
                                         })))
@@ -389,7 +363,7 @@ public final class ParcourCommand implements BrigadierCommand {
                             for (ParcourDefinition d : all) {
                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.list.entry")
                                         .with("id", d.id())
-                                        .with("regions", String.valueOf(d.totalOrders()))
+                                        .with("regions", String.valueOf(d.totalRegions()))
                                         .forAudience(s).build());
                             }
                             return 1;
@@ -403,7 +377,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add|saveregion|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|info|list");
                     }
                     return 1;
                 });
@@ -415,29 +389,99 @@ public final class ParcourCommand implements BrigadierCommand {
     // Helpers (exec & suggests)
     // =========================
 
-    private int execAdd(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
+    private int execAddStart(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
         CommandSender s = ctx.getSource().getSender();
-        String typeStr = StringArgumentType.getString(ctx, "type").toUpperCase(Locale.ROOT);
-        ParcourRegionType type;
-        try {
-            type = ParcourRegionType.valueOf(typeStr);
-        } catch (IllegalArgumentException ex) {
-            s.sendMessage("§cType moet één van: start, checkpoint, end.");
+        if (!(s instanceof Player p)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+            return 1;
+        }
+        String id = StringArgumentType.getString(ctx, "parcourId");
+        boolean restore = hasRestoreArg && BoolArgumentType.getBool(ctx, "restore");
+
+        ParcourHandler.Selection sel = handler.selection(p);
+        if (!sel.hasBoth()) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.missing").forAudience(s).build());
+            return 1;
+        }
+        Region region = sel.toRegionOrNull();
+        if (region == null || !Objects.equals(sel.world1, sel.world2)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.world_mismatch").forAudience(s).build());
+            return 1;
+        }
+        if (handler.addRegionStart(id, region, restore)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added")
+                    .with("type", "START")
+                    .with("order", "START")
+                    .with("restore", String.valueOf(restore))
+                    .forAudience(s).build());
+        } else {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                    .with("name", id).forAudience(s).build());
+        }
+        return 1;
+    }
+
+    private int execAddEnd(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
+        CommandSender s = ctx.getSource().getSender();
+        if (!(s instanceof Player p)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+            return 1;
+        }
+        String id = StringArgumentType.getString(ctx, "parcourId");
+        boolean restore = hasRestoreArg && BoolArgumentType.getBool(ctx, "restore");
+
+        ParcourHandler.Selection sel = handler.selection(p);
+        if (!sel.hasBoth()) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.missing").forAudience(s).build());
+            return 1;
+        }
+        Region region = sel.toRegionOrNull();
+        if (region == null || !Objects.equals(sel.world1, sel.world2)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.world_mismatch").forAudience(s).build());
+            return 1;
+        }
+        if (handler.addRegionEnd(id, region, restore)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added")
+                    .with("type", "END")
+                    .with("order", "END")
+                    .with("restore", String.valueOf(restore))
+                    .forAudience(s).build());
+        } else {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                    .with("name", id).forAudience(s).build());
+        }
+        return 1;
+    }
+
+    private int execAddCheckpoint(CommandContext<CommandSourceStack> ctx, boolean hasRestoreArg) {
+        CommandSender s = ctx.getSource().getSender();
+        if (!(s instanceof Player p)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
             return 1;
         }
         int order = IntegerArgumentType.getInteger(ctx, "order");
         String id = StringArgumentType.getString(ctx, "parcourId");
         boolean restore = hasRestoreArg && BoolArgumentType.getBool(ctx, "restore");
 
-        if (handler.addRegion(id, type, order, restore)) {
+        ParcourHandler.Selection sel = handler.selection(p);
+        if (!sel.hasBoth()) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.missing").forAudience(s).build());
+            return 1;
+        }
+        Region region = sel.toRegionOrNull();
+        if (region == null || !Objects.equals(sel.world1, sel.world2)) {
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.world_mismatch").forAudience(s).build());
+            return 1;
+        }
+        if (handler.addRegionCheckpoint(id, order, region, restore)) {
             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.added")
-                    .with("type", type.name())
+                    .with("type", "CHECKPOINT")
                     .with("order", String.valueOf(order))
                     .with("restore", String.valueOf(restore))
                     .forAudience(s).build());
         } else {
-            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
-                    .with("name", id).forAudience(s).build());
+            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.region.not_found")
+                    .with("order", String.valueOf(order)).forAudience(s).build());
         }
         return 1;
     }
@@ -451,49 +495,31 @@ public final class ParcourCommand implements BrigadierCommand {
         return b.buildFuture();
     }
 
-    private CompletableFuture<Suggestions> suggestRegionTypes(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
-        for (String t : new String[]{"start", "checkpoint", "end"}) {
-            if (t.startsWith(b.getRemainingLowerCase())) b.suggest(t);
-        }
-        return b.buildFuture();
-    }
-
-    private CompletableFuture<Suggestions> suggestOrdersForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+    private CompletableFuture<Suggestions> suggestRegionKeysForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String id = null;
-        try {
-            id = StringArgumentType.getString(ctx, "parcourId");
-        } catch (IllegalArgumentException ignored) {
-            // argument not present in this branch
-        }
+        try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) {}
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
 
-        String rem = b.getRemaining(); // what user has typed so far
-        List<String> toSuggest = new ArrayList<>();
+        // START / END are always valid keys
+        if ("start".startsWith(rem)) b.suggest("START");
+        if ("end".startsWith(rem)) b.suggest("END");
 
         if (id != null) {
             registry.get(id).ifPresent(def -> {
                 for (Integer ord : def.orders()) {
                     String s = String.valueOf(ord);
-                    if (s.startsWith(rem)) {
-                        toSuggest.add(s);
-                    }
+                    if (s.startsWith(b.getRemaining())) b.suggest(s);
                 }
             });
-        }
-
-        // Fallback suggestions if none found for the given parcours
-        if (toSuggest.isEmpty()) {
+        } else {
+            // generic numbers 0..10 as fallback
             for (int i = 0; i <= 10; i++) {
                 String s = String.valueOf(i);
-                if (s.startsWith(rem)) {
-                    toSuggest.add(s);
-                }
+                if (s.startsWith(b.getRemaining())) b.suggest(s);
             }
         }
-
-        toSuggest.forEach(b::suggest);
         return b.buildFuture();
     }
-
 
     private void sendInfo(CommandSender sender, ParcourDefinition def) {
         var lh = feature.getLocalizationHandler();
@@ -504,17 +530,37 @@ public final class ParcourCommand implements BrigadierCommand {
                 l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
         ).orElse("-"));
 
-        // Regions sorted by order
-        for (ParcourRegion pr : def.regions().stream().sorted(Comparator.comparingInt(ParcourRegion::order)).collect(Collectors.toList())) {
-            Region r = pr.region().orElse(null);
-            String regionStr = (r == null) ? "-" :
-                    r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]";
-            sendProp(sender, "Order " + pr.order(), pr.type().name() + " / restore=" + pr.restoreCheckpoint());
-            sendProp(sender, "Region " + pr.order(), regionStr);
-            if (!pr.commands().isEmpty()) {
-                sendProp(sender, "Commands " + pr.order(), String.join(" || ", pr.commands()));
-            }
+        // START
+        def.startRegion().ifPresentOrElse(pr -> {
+            String regionStr = pr.region().map(r ->
+                    r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]"
+            ).orElse("-");
+            sendProp(sender, "START", "restore=" + pr.restoreCheckpoint());
+            sendProp(sender, "Region START", regionStr);
+            if (!pr.commands().isEmpty()) sendProp(sender, "Commands START", String.join(" || ", pr.commands()));
+        }, () -> sendProp(sender, "START", "-"));
+
+        // Checkpoints by order
+        for (Integer ord : def.orders()) {
+            ParcourRegion pr = def.checkpoint(ord).orElse(null);
+            if (pr == null) continue;
+            String regionStr = pr.region().map(r ->
+                    r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]"
+            ).orElse("-");
+            sendProp(sender, "Order " + ord, "CHECKPOINT / restore=" + pr.restoreCheckpoint());
+            sendProp(sender, "Region " + ord, regionStr);
+            if (!pr.commands().isEmpty()) sendProp(sender, "Commands " + ord, String.join(" || ", pr.commands()));
         }
+
+        // END
+        def.endRegion().ifPresentOrElse(pr -> {
+            String regionStr = pr.region().map(r ->
+                    r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]"
+            ).orElse("-");
+            sendProp(sender, "END", "restore=" + pr.restoreCheckpoint());
+            sendProp(sender, "Region END", regionStr);
+            if (!pr.commands().isEmpty()) sendProp(sender, "Commands END", String.join(" || ", pr.commands()));
+        }, () -> sendProp(sender, "END", "-"));
     }
 
     private void sendProp(CommandSender sender, String key, String value) {

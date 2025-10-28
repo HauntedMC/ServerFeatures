@@ -14,7 +14,7 @@ public final class ParcourSession {
     public final String parcourId;
     public final long startMillis;
 
-    // Expected next order. After START (order 0) -> expect 1; then 2; ...; finally END order
+    // Expected next checkpoint order (0,1,2,...) — when no checkpoint with this order exists, END is expected.
     private int expectedNextOrder;
 
     // Last restore/respawn location

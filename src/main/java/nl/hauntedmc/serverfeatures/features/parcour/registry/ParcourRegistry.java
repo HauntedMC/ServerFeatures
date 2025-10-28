@@ -1,3 +1,4 @@
+// File: nl/hauntedmc/serverfeatures/features/parcour/registry/ParcourRegistry.java
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
@@ -6,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
+import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 
 import java.util.*;
@@ -34,59 +36,53 @@ public final class ParcourRegistry {
 
             try {
                 ParcourDefinition def = new ParcourDefinition(id);
+
                 ConfigNode n = e.getValue();
 
-                // Exit spawn
-                ConfigNode ex = n.get("exit_spawn");
-                String ew = ex.get("world").as(String.class, null);
-                Double exx = ex.get("x").as(Double.class, null);
-                Double exy = ex.get("y").as(Double.class, null);
-                Double exz = ex.get("z").as(Double.class, null);
-                Float eyaw = ex.get("yaw").as(Float.class, 0f);
-                Float epitch = ex.get("pitch").as(Float.class, 0f);
-                if (ew != null && exx != null && exy != null && exz != null) {
-                    def.setExitSpawn(ew, exx, exy, exz, eyaw, epitch);
+                // Exit spawn (optional)
+                ConfigNode exit = n.get("exit_spawn");
+                String w = exit.get("world").as(String.class, null);
+                Double x = exit.get("x").as(Double.class, null);
+                Double y = exit.get("y").as(Double.class, null);
+                Double z = exit.get("z").as(Double.class, null);
+                Float yaw = exit.get("yaw").as(Float.class, 0f);
+                Float pitch = exit.get("pitch").as(Float.class, 0f);
+                if (w != null && x != null && y != null && z != null) {
+                    def.setExitSpawn(w, x, y, z, yaw, pitch);
                 }
 
                 // Regions
-                ConfigNode regions = n.get("regions");
-                Map<String, ConfigNode> regChildren = regions.children();
-                for (Map.Entry<String, ConfigNode> rc : regChildren.entrySet()) {
-                    String orderStr = rc.getKey();
-                    int order;
-                    try {
-                        order = Integer.parseInt(orderStr);
-                    } catch (NumberFormatException nf) {
-                        continue;
-                    }
-                    ConfigNode rn = rc.getValue();
-                    String typeStr = rn.get("type").as(String.class, "CHECKPOINT").toUpperCase(Locale.ROOT);
-                    ParcourRegionType type = ParcourRegionType.valueOf(typeStr);
-                    ParcourRegion pr = new ParcourRegion(order, type);
+                ConfigNode rs = n.get("regions");
 
-                    boolean restore = rn.get("restore").as(Boolean.class, false);
-                    pr.setRestoreCheckpoint(restore);
+                // START
+                ParcourRegion start = readRegionKey(rs, "START", ParcourRegionType.START, -1, log, id);
+                if (start != null) def.setStartRegion(start);
 
-                    // region box
-                    ConfigNode r = rn.get("region");
-                    String w = r.get("world").as(String.class, null);
-                    Integer x1 = r.get("x1").as(Integer.class, null);
-                    Integer y1 = r.get("y1").as(Integer.class, null);
-                    Integer z1 = r.get("z1").as(Integer.class, null);
-                    Integer x2 = r.get("x2").as(Integer.class, null);
-                    Integer y2 = r.get("y2").as(Integer.class, null);
-                    Integer z2 = r.get("z2").as(Integer.class, null);
-                    if (w != null && x1 != null && y1 != null && z1 != null && x2 != null && y2 != null && z2 != null) {
-                        pr.setRegion(new Region(w, x1, y1, z1, x2, y2, z2));
-                    }
+                // END
+                ParcourRegion end = readRegionKey(rs, "END", ParcourRegionType.END, Integer.MAX_VALUE, log, id);
+                if (end != null) def.setEndRegion(end);
 
-                    // commands list
-                    List<String> cmds = rn.get("commands").listOf(String.class);
-                    if (cmds != null) {
-                        for (String c : cmds) pr.addCommand(c);
-                    }
+                // CHECKPOINTS (numeric keys)
+                Map<String, ConfigNode> rChildren = rs.children();
+                for (Map.Entry<String, ConfigNode> rc : rChildren.entrySet()) {
+                    String key = rc.getKey();
+                    if ("START".equalsIgnoreCase(key) || "END".equalsIgnoreCase(key)) continue;
+                    Integer order = parseOrder(key);
+                    if (order == null) continue;
 
-                    def.putRegion(pr);
+                    ParcourRegion cp = readRegion(rc.getValue(), ParcourRegionType.CHECKPOINT, order, log, id, key);
+                    if (cp != null) def.putCheckpoint(cp);
+                }
+
+                // Validation: require START and END with defined region
+                boolean valid = def.startRegion().isPresent()
+                        && def.startRegion().get().region().isPresent()
+                        && def.endRegion().isPresent()
+                        && def.endRegion().get().region().isPresent();
+
+                if (!valid) {
+                    log.warning("Parcour '" + id + "' is invalid: missing START and/or END region. It will not be loaded.");
+                    continue; // skip loading invalid parcours
                 }
 
                 byId.put(id.toLowerCase(Locale.ROOT), def);
@@ -98,51 +94,108 @@ public final class ParcourRegistry {
         feature.getLogger().info("Loaded " + loaded + " parcour(s).");
     }
 
+    private static Integer parseOrder(String k) {
+        try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
+    }
+
+    private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {
+        ConfigNode node = parent.get(key);
+        if (!node.isNull()) return null;
+        return readRegion(node, type, orderForInternal, log, parcourId, key);
+    }
+
+    private ParcourRegion readRegion(ConfigNode node, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId, String key) {
+        try {
+            boolean restore = node.get("restore").as(Boolean.class, false);
+
+            ConfigNode r = node.get("region");
+            String world = r.get("world").as(String.class, null);
+            Integer x1 = r.get("x1").as(Integer.class, null);
+            Integer y1 = r.get("y1").as(Integer.class, null);
+            Integer z1 = r.get("z1").as(Integer.class, null);
+            Integer x2 = r.get("x2").as(Integer.class, null);
+            Integer y2 = r.get("y2").as(Integer.class, null);
+            Integer z2 = r.get("z2").as(Integer.class, null);
+
+            Region region = null;
+            if (world != null && x1 != null && y1 != null && z1 != null && x2 != null && y2 != null && z2 != null) {
+                region = new Region(world, x1, y1, z1, x2, y2, z2);
+            }
+
+            ParcourRegion pr = new ParcourRegion(orderForInternal, type);
+            pr.setRestoreCheckpoint(restore);
+            if (region != null) pr.setRegion(region);
+
+            // commands (optional)
+            List<String> cmds = node.get("commands").listOf(String.class);
+            if (cmds != null) {
+                for (String c : cmds) pr.addCommand(c);
+            }
+
+            return pr;
+        } catch (Exception ex) {
+            log.warning("Failed to parse region '" + key + "' for parcour '" + parcourId + "': " + ex.getMessage());
+            return null;
+        }
+    }
+
     public void saveParcour(ParcourDefinition def) {
         var cfg = feature.getConfigHandler();
-        String keyId = def.id().toLowerCase(Locale.ROOT);
+        String keyId = def.id();
         String base = "parcours." + keyId;
 
         cfg.batch(b -> {
             // exit spawn
-            def.exitSpawn().ifPresent(loc -> {
-                b.put(base + ".exit_spawn.world", loc.getWorld().getName());
-                b.put(base + ".exit_spawn.x", loc.getX());
-                b.put(base + ".exit_spawn.y", loc.getY());
-                b.put(base + ".exit_spawn.z", loc.getZ());
-                b.put(base + ".exit_spawn.yaw", loc.getYaw());
-                b.put(base + ".exit_spawn.pitch", loc.getPitch());
+            def.exitSpawn().ifPresent(l -> {
+                b.put(base + ".exit_spawn.world", l.getWorld().getName());
+                b.put(base + ".exit_spawn.x", l.getX());
+                b.put(base + ".exit_spawn.y", l.getY());
+                b.put(base + ".exit_spawn.z", l.getZ());
+                b.put(base + ".exit_spawn.yaw", l.getYaw());
+                b.put(base + ".exit_spawn.pitch", l.getPitch());
             });
 
-            // regions
-            b.remove(base + ".regions"); // reset block
-            for (ParcourRegion pr : def.regions()) {
-                String rb = base + ".regions." + pr.order();
-                b.put(rb + ".type", pr.type().name());
-                b.put(rb + ".restore", pr.restoreCheckpoint());
-                pr.region().ifPresent(r -> {
-                    b.put(rb + ".region.world", r.worldName());
-                    b.put(rb + ".region.x1", r.minX());
-                    b.put(rb + ".region.y1", r.minY());
-                    b.put(rb + ".region.z1", r.minZ());
-                    b.put(rb + ".region.x2", r.maxX());
-                    b.put(rb + ".region.y2", r.maxY());
-                    b.put(rb + ".region.z2", r.maxZ());
-                });
-                if (!pr.commands().isEmpty()) {
-                    b.put(rb + ".commands", new ArrayList<>(pr.commands()));
-                }
+            // clear regions node before re-writing (avoid stale keys)
+            b.remove(base + ".regions");
+
+            // START
+            def.startRegion().ifPresent(pr -> writeRegion(b, base + ".regions.START", pr));
+
+            // CHECKPOINTS
+            for (Integer ord : def.orders()) {
+                ParcourRegion pr = def.checkpoint(ord).orElse(null);
+                if (pr == null) continue;
+                writeRegion(b, base + ".regions." + ord, pr);
             }
+
+            // END
+            def.endRegion().ifPresent(pr -> writeRegion(b, base + ".regions.END", pr));
         });
 
-        byId.put(keyId, def);
+        byId.put(keyId.toLowerCase(Locale.ROOT), def);
+    }
+
+    private void writeRegion(FeatureConfigHandler.FeatureBatch b, String path, ParcourRegion pr) {
+        b.put(path + ".restore", pr.restoreCheckpoint());
+        pr.region().ifPresent(r -> {
+            b.put(path + ".region.world", r.worldName());
+            b.put(path + ".region.x1", r.minX());
+            b.put(path + ".region.y1", r.minY());
+            b.put(path + ".region.z1", r.minZ());
+            b.put(path + ".region.x2", r.maxX());
+            b.put(path + ".region.y2", r.maxY());
+            b.put(path + ".region.z2", r.maxZ());
+        });
+        if (!pr.commands().isEmpty()) {
+            b.put(path + ".commands", pr.commands());
+        }
     }
 
     public boolean deleteParcour(String id) {
         if (id == null || id.isBlank()) return false;
         String keyLower = id.toLowerCase(Locale.ROOT);
         byId.remove(keyLower);
-        String base = "parcours." + keyLower;
+        String base = "parcours." + id;
 
         feature.getConfigHandler().batch(b -> {
             b.remove(base + ".exit_spawn");
