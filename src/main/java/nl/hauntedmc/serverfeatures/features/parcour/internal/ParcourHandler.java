@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
@@ -911,16 +912,34 @@ public final class ParcourHandler {
     private void giveControlItems(Player p) {
         ItemStack leave = new ItemStack(ITEM_LEAVE_MAT, 1);
         var lm = leave.getItemMeta();
-        lm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.leave.name").forAudience(p).build());
-        lm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.leave.lore").forAudience(p).build()));
+        lm.displayName(feature.getLocalizationHandler()
+                .getMessage("parcour.item.leave.name")
+                .forAudience(p)
+                .build()
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, true));
+        lm.lore(java.util.List.of(feature.getLocalizationHandler()
+                .getMessage("parcour.item.leave.lore")
+                .forAudience(p)
+                .build()
+                .decoration(TextDecoration.ITALIC, false)));
         lm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         lm.getPersistentDataContainer().set(leaveKey, PersistentDataType.BYTE, (byte) 1);
         leave.setItemMeta(lm);
 
         ItemStack ck = new ItemStack(ITEM_CKPT_MAT, 1);
         var cm = ck.getItemMeta();
-        cm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.name").forAudience(p).build());
-        cm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.lore").forAudience(p).build()));
+        cm.displayName(feature.getLocalizationHandler()
+                .getMessage("parcour.item.checkpoint.name")
+                .forAudience(p)
+                .build()
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, true));
+        cm.lore(java.util.List.of(feature.getLocalizationHandler()
+                .getMessage("parcour.item.checkpoint.lore")
+                .forAudience(p)
+                .build()
+                .decoration(TextDecoration.ITALIC, false)));
         cm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
         cm.getPersistentDataContainer().set(checkpointKey, PersistentDataType.BYTE, (byte) 1);
         ck.setItemMeta(cm);
