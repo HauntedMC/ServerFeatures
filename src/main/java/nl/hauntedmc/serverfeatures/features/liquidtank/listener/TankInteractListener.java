@@ -6,7 +6,7 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.Abstra
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Hopper;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -18,7 +18,6 @@ import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Objects;
 
@@ -59,13 +58,23 @@ public class TankInteractListener implements Listener {
 
     }
 
-    @EventHandler
-    public void InventoryPickupItemEvent(InventoryPickupItemEvent inventoryPickupItemEvent) {
-        if (inventoryPickupItemEvent.getInventory().getHolder() instanceof Hopper && feature.getTankManager().getTank(((Hopper) inventoryPickupItemEvent.getInventory().getHolder()).getLocation()) != null) {
-            inventoryPickupItemEvent.setCancelled(true);
-        }
-    }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onLiquidTankOpen(InventoryOpenEvent e) {
+        final Inventory inv = e.getInventory();
+
+        // Only care about block hoppers; skip hopper minecarts, etc.
+        if (inv.getType() != InventoryType.HOPPER) return;
+
+        // Cheap path: goes via the tile entity; no BlockState creation
+        final Location loc = inv.getLocation();
+        if (loc == null) return;
+
+        if (feature.getTankManager().getTank(loc) != null) {
+            e.setCancelled(true);
+        }
+
+    }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onInventoryPickupItem(InventoryPickupItemEvent e) {
@@ -83,62 +92,65 @@ public class TankInteractListener implements Listener {
         }
     }
 
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onInventoryMoveItem(InventoryMoveItemEvent e) {
+        final Inventory src = e.getSource();
+        final Inventory dst = e.getDestination();
 
+        // --- source hopper is a tank ---
+        if (src.getType() == InventoryType.HOPPER) {
+            Location sLoc = src.getLocation(); // null for non-block holders (e.g., hopper minecarts)
+            if (sLoc != null) {
+                sLoc = sLoc.toBlockLocation();
+                AbstractTank tank = feature.getTankManager().getTank(sLoc);
+                if (tank != null && !isPowered(sLoc.getBlock())) {
+                    if (!feature.getTankManager().isEnableItems()) src.clear();
+                    e.setCancelled(true);
 
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void InventoryMoveItemEvent(InventoryMoveItemEvent inventoryMoveItemEvent) {
-        AbstractTank liquidTank;
-        Hopper hopper;
-        InventoryHolder inventoryHolder;
-        if (inventoryMoveItemEvent.getSource().getType().equals(InventoryType.HOPPER) && (inventoryHolder = inventoryMoveItemEvent.getSource().getHolder()) != null
-                && inventoryHolder instanceof Hopper) {
-            hopper = (Hopper) inventoryHolder;
-            liquidTank = feature.getTankManager().getTank(hopper.getLocation());
-            if (!hopper.getBlock().isBlockIndirectlyPowered() && !hopper.getBlock().isBlockPowered() && liquidTank != null) {
-                InventoryHolder inventoryHolder2;
-                if (!feature.getTankManager().isEnableItems()) {
-                    hopper.getInventory().clear();
-                }
-                inventoryMoveItemEvent.setCancelled(true);
-                if (inventoryMoveItemEvent.getDestination().getType().equals(InventoryType.HOPPER)
-                        && (inventoryHolder2 = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder2 instanceof Hopper hopper2) {
-                    AbstractTank liquidTank2 = feature.getTankManager().getTank(hopper2.getLocation());
-                    if (!hopper2.getBlock().isBlockIndirectlyPowered() && !hopper2.getBlock().isBlockPowered() && liquidTank2 != null) {
-                        if (!feature.getTankManager().isEnableItems()) {
-                            hopper2.getInventory().clear();
-                        }
-                        if (!(liquidTank2.isOnCooldown() || liquidTank.isOnCooldown() || liquidTank.getTankType().equals(TankType.EMPTY))) {
-                            if (liquidTank.getTankType().equals(liquidTank2.getTankType())) {
-                                if (liquidTank2.getQuantity() < liquidTank2.getMaxQuantity()) {
-                                    if (liquidTank.getQuantity() == liquidTank.getMaxQuantity() - liquidTank2.getQuantity()) {
-                                        AbstractTank liquidTank3 = feature.getTankManager().emptyTank(liquidTank);
-                                        liquidTank3.setOnCooldown();
-                                        liquidTank2.setQuantity(liquidTank2.getMaxQuantity());
-                                        liquidTank2.setOnCooldown();
-                                    } else if (liquidTank.getQuantity() < liquidTank.getMaxQuantity() - liquidTank2.getQuantity()) {
-                                        liquidTank2.setQuantity(liquidTank2.getQuantity() + liquidTank.getQuantity());
-                                        AbstractTank liquidTank4 = feature.getTankManager().emptyTank(liquidTank);
-                                        liquidTank4.setOnCooldown();
-                                        liquidTank2.setOnCooldown();
-                                    } else {
-                                        liquidTank.setQuantity(liquidTank.getQuantity() - (liquidTank.getMaxQuantity() - liquidTank2.getQuantity()));
-                                        liquidTank2.setQuantity(liquidTank2.getMaxQuantity());
-                                        liquidTank2.setOnCooldown();
-                                        liquidTank.updateVisuals();
+                    // If destination is also a tank hopper, run tank<->tank transfer
+                    if (dst.getType() == InventoryType.HOPPER) {
+                        Location dLoc = dst.getLocation();
+                        if (dLoc != null) {
+                            dLoc = dLoc.toBlockLocation();
+                            AbstractTank tank2 = feature.getTankManager().getTank(dLoc);
+                            if (tank2 != null && !isPowered(dLoc.getBlock())) {
+                                if (!feature.getTankManager().isEnableItems()) dst.clear();
+
+                                if (!(tank2.isOnCooldown() || tank.isOnCooldown() || tank.getTankType() == TankType.EMPTY)) {
+                                    if (tank.getTankType() == tank2.getTankType()) {
+                                        if (tank2.getQuantity() < tank2.getMaxQuantity()) {
+                                            int space = tank2.getMaxQuantity() - tank2.getQuantity();
+                                            if (tank.getQuantity() == space) {
+                                                AbstractTank t3 = feature.getTankManager().emptyTank(tank);
+                                                t3.setOnCooldown();
+                                                tank2.setQuantity(tank2.getMaxQuantity());
+                                                tank2.setOnCooldown();
+                                            } else if (tank.getQuantity() < space) {
+                                                tank2.setQuantity(tank2.getQuantity() + tank.getQuantity());
+                                                AbstractTank t4 = feature.getTankManager().emptyTank(tank);
+                                                t4.setOnCooldown();
+                                                tank2.setOnCooldown();
+                                            } else {
+                                                tank.setQuantity(tank.getQuantity() - space);
+                                                tank2.setQuantity(tank2.getMaxQuantity());
+                                                tank2.setOnCooldown();
+                                                tank.updateVisuals();
+                                            }
+                                            tank2.updateVisuals();
+                                        }
+                                    } else if (tank2.getTankType() == TankType.EMPTY) {
+                                        if (tank.isOverFlown()) {
+                                            AbstractTank t5 = feature.getTankManager().changeTankType(tank2, tank.getTankType(), tank.getMaxQuantity());
+                                            t5.setOnCooldown();
+                                            tank.setQuantity(tank.getQuantity() - tank.getMaxQuantity());
+                                            tank.setOnCooldown();
+                                        } else {
+                                            AbstractTank t6 = feature.getTankManager().changeTankType(tank2, tank.getTankType(), tank.getQuantity());
+                                            t6.setOnCooldown();
+                                            AbstractTank t7 = feature.getTankManager().emptyTank(tank);
+                                            t7.setOnCooldown();
+                                        }
                                     }
-                                    liquidTank2.updateVisuals();
-                                }
-                            } else if (liquidTank2.getTankType().equals(TankType.EMPTY)) {
-                                if (liquidTank.isOverFlown()) {
-                                    AbstractTank liquidTank5 = feature.getTankManager().changeTankType(liquidTank2, liquidTank.getTankType(), liquidTank.getMaxQuantity());
-                                    liquidTank5.setOnCooldown();
-                                    liquidTank.setQuantity(liquidTank.getQuantity() - liquidTank.getMaxQuantity());
-                                    liquidTank.setOnCooldown();
-                                } else {
-                                    AbstractTank liquidTank6 = feature.getTankManager().changeTankType(liquidTank2, liquidTank.getTankType(), liquidTank.getQuantity());
-                                    liquidTank6.setOnCooldown();
-                                    AbstractTank liquidTank7 = feature.getTankManager().emptyTank(liquidTank);
-                                    liquidTank7.setOnCooldown();
                                 }
                             }
                         }
@@ -146,14 +158,20 @@ public class TankInteractListener implements Listener {
                 }
             }
         }
-        if (inventoryMoveItemEvent.getDestination().getType().equals(InventoryType.HOPPER)
-                && (inventoryHolder = inventoryMoveItemEvent.getDestination().getHolder()) != null && inventoryHolder instanceof Hopper
-                && (feature.getTankManager().getTank((hopper = (Hopper) inventoryHolder).getLocation())) != null) {
-            inventoryMoveItemEvent.setCancelled(true);
-            if (!feature.getTankManager().isEnableItems()) {
-                hopper.getInventory().clear();
+
+        // --- destination hopper is a tank (mirror guard) ---
+        if (dst.getType() == InventoryType.HOPPER) {
+            Location dLoc = dst.getLocation();
+            if (dLoc != null && feature.getTankManager().getTank(dLoc.toBlockLocation()) != null) {
+                e.setCancelled(true);
+                if (!feature.getTankManager().isEnableItems()) dst.clear();
             }
         }
     }
+
+    private static boolean isPowered(Block b) {
+        return b.isBlockPowered() || b.isBlockIndirectlyPowered();
+    }
+
 
 }
