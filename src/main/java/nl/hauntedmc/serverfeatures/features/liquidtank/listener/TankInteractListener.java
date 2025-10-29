@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Hopper;
 import org.bukkit.entity.Player;
@@ -16,6 +17,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Objects;
@@ -65,12 +67,22 @@ public class TankInteractListener implements Listener {
     }
 
 
-    @EventHandler
-    public void onLiquidTankOpen(InventoryOpenEvent inventoryOpenEvent) {
-        if (inventoryOpenEvent.getInventory().getHolder() instanceof Hopper && feature.getTankManager().getTank(((Hopper) inventoryOpenEvent.getInventory().getHolder()).getLocation()) != null) {
-            inventoryOpenEvent.setCancelled(true);
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onInventoryPickupItem(InventoryPickupItemEvent e) {
+        final Inventory inv = e.getInventory();
+
+        // Only care about block hoppers; skip hopper minecarts, etc.
+        if (inv.getType() != InventoryType.HOPPER) return;
+
+        // Cheap path: goes via the tile entity; no BlockState creation
+        final Location loc = inv.getLocation();
+        if (loc == null) return;
+
+        if (feature.getTankManager().getTank(loc) != null) {
+            e.setCancelled(true);
         }
     }
+
 
 
     @EventHandler(priority = EventPriority.MONITOR)
