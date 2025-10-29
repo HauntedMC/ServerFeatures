@@ -45,13 +45,19 @@ public final class ParcourRegistry {
                 ParcourDefinition def = new ParcourDefinition(id);
                 ConfigNode n = e.getValue();
 
+                // notify_progress flag (default false)
                 def.setNotifyProgress(n.get("notify_progress").as(Boolean.class, false));
+
                 def.setUseActionBar(n.get("use_actionbar").as(Boolean.class, false));
+
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
+
                 def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
 
+                // NEW: start countdown
                 def.setStartCountdownSeconds(n.get("start_countdown_seconds").as(Integer.class, 0));
 
+                // NEW: start position
                 ConfigNode startPos = n.get("start_position");
                 String spw = startPos.get("world").as(String.class, null);
                 Double spx = startPos.get("x").as(Double.class, null);
@@ -85,6 +91,8 @@ public final class ParcourRegistry {
                     }
                 }
 
+                // Leave / Finish locations (optional) + backward-compat for legacy exit_spawn
+                // Leave
                 ConfigNode leave = n.get("leave_location");
                 String lw = leave.get("world").as(String.class, null);
                 Double lx = leave.get("x").as(Double.class, null);
@@ -96,6 +104,7 @@ public final class ParcourRegistry {
                     def.setLeaveSpawn(lw, lx, ly, lz, lyaw, lpitch);
                 }
 
+                // Finish
                 ConfigNode finish = n.get("finish_location");
                 String fw = finish.get("world").as(String.class, null);
                 Double fx = finish.get("x").as(Double.class, null);
@@ -107,6 +116,7 @@ public final class ParcourRegistry {
                     def.setFinishSpawn(fw, fx, fy, fz, fyaw, fpitch);
                 }
 
+                // Legacy: exit_spawn -> use for both leave/finish if new keys are missing
                 ConfigNode legacyExit = n.get("exit_spawn");
                 String ew = legacyExit.get("world").as(String.class, null);
                 Double ex = legacyExit.get("x").as(Double.class, null);
@@ -123,14 +133,18 @@ public final class ParcourRegistry {
                     }
                 }
 
+                // Regions
                 ConfigNode rs = n.get("regions");
 
+                // START
                 ParcourRegion start = readRegionKey(rs, "START", ParcourRegionType.START, -1, log, id);
                 if (start != null) def.setStartRegion(start);
 
+                // END
                 ParcourRegion end = readRegionKey(rs, "END", ParcourRegionType.END, Integer.MAX_VALUE, log, id);
                 if (end != null) def.setEndRegion(end);
 
+                // CHECKPOINTS (numeric keys)
                 Map<String, ConfigNode> rChildren = rs.children();
                 for (Map.Entry<String, ConfigNode> rc : rChildren.entrySet()) {
                     String key = rc.getKey();
@@ -142,6 +156,7 @@ public final class ParcourRegistry {
                     if (cp != null) def.putCheckpoint(cp);
                 }
 
+                // Validation: require START and END with defined region
                 boolean valid = def.startRegion().isPresent()
                         && def.startRegion().get().region().isPresent()
                         && def.endRegion().isPresent()
@@ -149,7 +164,7 @@ public final class ParcourRegistry {
 
                 if (!valid) {
                     log.warning("Parcour '" + id + "' is invalid: missing START and/or END region. It will not be loaded.");
-                    continue;
+                    continue; // skip loading invalid parcours
                 }
 
                 byId.put(id.toLowerCase(Locale.ROOT), def);
@@ -215,15 +230,17 @@ public final class ParcourRegistry {
                 region = new Region(world, x1, y1, z1, x2, y2, z2);
             }
 
-            ParcourRegion pr = new ParcourRegion(orderForInternal, type);
+            ParcourRegion pr = new ParcourRegion(orderForInternal, ParcourRegionType.CHECKPOINT == type ? ParcourRegionType.CHECKPOINT : type);
             pr.setRestoreCheckpoint(restore);
             if (region != null) pr.setRegion(region);
 
+            // commands (optional)
             List<String> cmds = node.get("commands").listOf(String.class);
             if (cmds != null) {
                 for (String c : cmds) pr.addCommand(c);
             }
 
+            // explicit restore location (START/CHECKPOINT only)
             if (type != ParcourRegionType.END) {
                 ConfigNode rl = node.get("restore_location");
                 String rw = rl.get("world").as(String.class, null);
@@ -250,19 +267,21 @@ public final class ParcourRegistry {
         String base = "parcours." + keyId;
 
         cfg.batch(b -> {
+            // progress toggle
             b.put(base + ".notify_progress", def.notifyProgress());
             b.put(base + ".use_actionbar", def.useActionBar());
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
             b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
-            b.put(base + ".start_countdown_seconds", def.startCountdownSeconds());
 
-            def.startPosition().ifPresent(pos -> {
-                b.put(base + ".start_position.world", pos.getWorld().getName());
-                b.put(base + ".start_position.x", pos.getX());
-                b.put(base + ".start_position.y", pos.getY());
-                b.put(base + ".start_position.z", pos.getZ());
-                b.put(base + ".start_position.yaw", pos.getYaw());
-                b.put(base + ".start_position.pitch", pos.getPitch());
+            // NEW: countdown & start position
+            b.put(base + ".start_countdown_seconds", def.startCountdownSeconds());
+            def.startPosition().ifPresent(l -> {
+                b.put(base + ".start_position.world", l.getWorld().getName());
+                b.put(base + ".start_position.x", l.getX());
+                b.put(base + ".start_position.y", l.getY());
+                b.put(base + ".start_position.z", l.getZ());
+                b.put(base + ".start_position.yaw", l.getYaw());
+                b.put(base + ".start_position.pitch", l.getPitch());
             });
 
             def.checkpointSoundName().ifPresent(name -> b.put(base + ".sounds.checkpoint", name));
@@ -273,6 +292,7 @@ public final class ParcourRegistry {
             b.put(base + ".damage_enabled", def.damageEnabled());
             b.put(base + ".start_kit", def.startKitEncoded());
 
+            // leave location
             def.leaveSpawn().ifPresent(l -> {
                 b.put(base + ".leave_location.world", l.getWorld().getName());
                 b.put(base + ".leave_location.x", l.getX());
@@ -282,6 +302,7 @@ public final class ParcourRegistry {
                 b.put(base + ".leave_location.pitch", l.getPitch());
             });
 
+            // finish location
             def.finishSpawn().ifPresent(l -> {
                 b.put(base + ".finish_location.world", l.getWorld().getName());
                 b.put(base + ".finish_location.x", l.getX());
@@ -291,18 +312,23 @@ public final class ParcourRegistry {
                 b.put(base + ".finish_location.pitch", l.getPitch());
             });
 
+            // clear regions node before re-writing (avoid stale keys)
             b.remove(base + ".regions");
 
+            // START
             def.startRegion().ifPresent(pr -> writeRegion(b, base + ".regions.START", pr));
 
+            // CHECKPOINTS
             for (Integer ord : def.orders()) {
                 ParcourRegion pr = def.checkpoint(ord).orElse(null);
                 if (pr == null) continue;
                 writeRegion(b, base + ".regions." + ord, pr);
             }
 
+            // END
             def.endRegion().ifPresent(pr -> writeRegion(b, base + ".regions.END", pr));
 
+            // cleanup legacy key if present
             b.remove(base + ".exit_spawn");
         });
 
@@ -379,6 +405,8 @@ public final class ParcourRegistry {
     public int size() {
         return byId.size();
     }
+
+    // ====== Item (de)serialization helpers for start kit ======
 
     public Optional<String> serializeItemToBase64(ItemStack item) {
         if (item == null) return Optional.empty();

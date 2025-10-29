@@ -86,9 +86,9 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.startcountdown.set", "&aStart-countdown voor &f{id}&a ingesteld op &f{seconds}&as.");
         m.add("parcour.admin.startpos.set", "&aStartpositie gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.startpos.cleared", "&aStartpositie verwijderd.");
-        m.add("parcour.countdown.go", "&aStart!");
-        m.add("parcour.countdown.blocked", "&cJe kunt dit nog niet: de start telt nog af.");
-
+        m.add("parcour.countdown.go", "&a&lStart!");
+        m.add("parcour.countdown.title", "&6&l{seconds}");
+        m.add("parcour.countdown.blocked", "&cJe kunt dit niet doen als de countdown loopt.");
         return m;
     }
 

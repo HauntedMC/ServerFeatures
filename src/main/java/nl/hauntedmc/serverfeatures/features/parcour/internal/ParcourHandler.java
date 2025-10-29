@@ -466,7 +466,10 @@ public final class ParcourHandler {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_playing").forAudience(p).build());
             return false;
         }
-
+        if (s.isCountdownActive()) {
+            p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.countdown.blocked").forAudience(p).build());
+            return false;
+        }
         Optional<ParcourDefinition> defOpt = registry.get(s.parcourId);
         if (enforceCooldown && defOpt.isPresent()) {
             int cdSec = Math.max(0, defOpt.get().checkpointCooldownSeconds());
@@ -524,23 +527,40 @@ public final class ParcourHandler {
         p.setFoodLevel(20);
         p.setSaturation(20);
 
-        if (def.useActionBar()) {
-            BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
-                if (!p.isOnline()) {
-                    session.cancelActionBarTask();
-                    return;
-                }
-                if (!isPlaying(p)) {
-                    session.cancelActionBarTask();
-                    return;
-                }
-                sendActionBar(p, def, session);
-            }, BukkitTime.seconds(0L), BukkitTime.ticks(2L));
-            session.setActionBarTask(task);
+        // Only start the actionbar timer immediately if there is NO countdown.
+        if (def.useActionBar() && def.startCountdownSeconds() <= 0) {
+            startActionBarTimer(p, def, session);
         }
     }
 
+    /** Starts (or restarts) the actionbar timer task for this session. */
+    private void startActionBarTimer(Player p, ParcourDefinition def, ParcourSession session) {
+        if (!def.useActionBar()) return;
+        // Safety: never tick the actionbar while countdown is active.
+        if (session.isCountdownActive()) return;
+
+        session.cancelActionBarTask();
+        BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+            if (!p.isOnline()) {
+                session.cancelActionBarTask();
+                return;
+            }
+            if (!isPlaying(p)) {
+                session.cancelActionBarTask();
+                return;
+            }
+            // Extra guard: skip updates if countdown is active for any reason.
+            if (session.isCountdownActive()) return;
+
+            sendActionBar(p, def, session);
+        }, BukkitTime.seconds(0L), BukkitTime.ticks(2L));
+        session.setActionBarTask(task);
+    }
+
     private void sendActionBar(Player p, ParcourDefinition def, ParcourSession s) {
+        // Guard: never render during countdown.
+        if (s.isCountdownActive()) return;
+
         final double shownSeconds = s.isFinished()
                 ? s.finalSeconds()
                 : (System.currentTimeMillis() - s.startMillis()) / 1000.0;
@@ -796,13 +816,19 @@ public final class ParcourHandler {
             s.setCountdownActive(false);
             s.cancelCountdownTask();
             s.setStartToNow();
+
+            // Start the actionbar timer now that the game actually begins.
+            startActionBarTimer(p, def, s);
         }, BukkitTime.seconds(1L), BukkitTime.seconds(1L));
         s.setCountdownTask(task);
     }
 
-    private void showCountdownTitle(Player p, int number) {
-        Component c = Component.text(String.valueOf(number)).color(NamedTextColor.GOLD).decorate(TextDecoration.BOLD);
-        p.showTitle(Title.title(c, Component.empty(),
+    private void showCountdownTitle(Player p, int sec) {
+        Component countdown = feature.getLocalizationHandler()
+                .getMessage("parcour.countdown.title")
+                .with("seconds", String.valueOf(sec))
+                .forAudience(p).build();
+        p.showTitle(Title.title(countdown, Component.empty(),
                 Title.Times.of(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(0))));
     }
 
