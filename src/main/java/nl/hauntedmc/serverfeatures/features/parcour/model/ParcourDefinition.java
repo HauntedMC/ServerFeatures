@@ -40,6 +40,9 @@ public final class ParcourDefinition {
 
     private final List<String> startKitEncoded = new ArrayList<>();
 
+    private String effectTypeName; // e.g. "SPEED"
+    private int effectAmplifier = 0;
+
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
     }
@@ -259,5 +262,23 @@ public final class ParcourDefinition {
         if (idx < 0 || idx >= startKitEncoded.size()) return false;
         startKitEncoded.remove(idx);
         return true;
+    }
+
+    public Optional<String> effectTypeName() {
+        return Optional.ofNullable(effectTypeName);
+    }
+
+    public int effectAmplifier() {
+        return effectAmplifier;
+    }
+
+    public void setEffect(String typeNameOrNull, Integer amplifierOrNull) {
+        if (typeNameOrNull == null || typeNameOrNull.isBlank()) {
+            this.effectTypeName = null;
+            this.effectAmplifier = 0;
+        } else {
+            this.effectTypeName = typeNameOrNull.trim().toUpperCase(java.util.Locale.ROOT);
+            this.effectAmplifier = Math.max(0, amplifierOrNull == null ? 0 : amplifierOrNull);
+        }
     }
 }

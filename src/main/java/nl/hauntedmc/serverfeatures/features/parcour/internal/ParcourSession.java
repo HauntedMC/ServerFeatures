@@ -4,6 +4,8 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import org.bukkit.Location;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -31,6 +33,9 @@ public final class ParcourSession {
     private boolean countdownActive;
     private BukkitTask countdownTask;
     private Location frozenAt;
+
+    private PotionEffectType appliedEffectType;
+    private PotionEffect previousEffect;
 
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
@@ -164,5 +169,21 @@ public final class ParcourSession {
 
     public void setFrozenAt(Location frozenAt) {
         this.frozenAt = frozenAt;
+    }
+
+    public PotionEffectType appliedEffectType() {
+        return appliedEffectType;
+    }
+
+    public void setAppliedEffectType(PotionEffectType type) {
+        this.appliedEffectType = type;
+    }
+
+    public PotionEffect previousEffect() {
+        return previousEffect;
+    }
+
+    public void setPreviousEffect(PotionEffect previousEffect) {
+        this.previousEffect = previousEffect;
     }
 }

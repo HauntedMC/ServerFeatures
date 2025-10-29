@@ -21,6 +21,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.time.Duration;
 import java.util.*;
@@ -175,7 +177,62 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // NEW: clear leave/finish locations via registry helpers (also ensures config gets cleaned)
+    public boolean setEffect(String id, String effectNameOrNull, Integer amplifier) {
+        return registry.get(id).map(def -> {
+            if (effectNameOrNull == null) {
+                def.setEffect(null, null);
+            } else {
+                String up = effectNameOrNull.trim().toUpperCase(java.util.Locale.ROOT);
+                if (PotionEffectType.getByName(up) == null) return false;
+                def.setEffect(up, amplifier);
+            }
+            registry.saveParcour(def);
+
+            // live-update current sessions on this parcour
+            for (ParcourSession s : sessions.values()) {
+                if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
+                Player pl = Bukkit.getPlayer(s.playerId);
+                if (pl != null && pl.isOnline()) {
+                    cleanupEffectForSession(pl, s);
+                    applyEffectIfConfigured(pl, def, s);
+                }
+            }
+            return true;
+        }).orElse(false);
+    }
+
+    private void applyEffectIfConfigured(Player p, ParcourDefinition def, ParcourSession s) {
+        if (def.effectTypeName().isEmpty()) return;
+        PotionEffectType type = PotionEffectType.getByName(def.effectTypeName().get());
+        if (type == null) return;
+
+        s.setAppliedEffectType(type);
+        // Remember previous effect to restore later (can be null)
+        PotionEffect prev = p.getPotionEffect(type);
+        s.setPreviousEffect(prev);
+
+        int amp = Math.max(0, def.effectAmplifier());
+        // Very long duration so it covers the whole run; we'll remove/restore on cleanup.
+        p.addPotionEffect(new PotionEffect(type, PotionEffect.INFINITE_DURATION, amp, true, false, true));
+    }
+
+    private void cleanupEffectForSession(Player p, ParcourSession s) {
+        PotionEffectType type = s.appliedEffectType();
+        if (type == null) return;
+
+        // Remove the effect we applied
+        p.removePotionEffect(type);
+
+        // Restore previous if there was one
+        PotionEffect prev = s.previousEffect();
+        if (prev != null) {
+            p.addPotionEffect(prev);
+        }
+
+        s.setAppliedEffectType(null);
+        s.setPreviousEffect(null);
+    }
+
     public boolean clearLeaveLocation(String id) {
         return registry.clearLeaveLocation(id);
     }
@@ -184,7 +241,6 @@ public final class ParcourHandler {
         return registry.clearFinishLocation(id);
     }
 
-    // NEW: clear explicit restore location for a region key
     public boolean clearRegionRestoreLocation(String id, String key) {
         return registry.clearRegionRestoreLocation(id, key);
     }
@@ -307,7 +363,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // NEW: remove a single command by index (1-based) from a region
     public boolean removeRegionCommandIndex(String id, String key, int oneBasedIndex) {
         return registry.get(id).map(def -> {
             ParcourRegion pr = getRegionByKey(def, key);
@@ -386,9 +441,13 @@ public final class ParcourHandler {
         int count = 0;
         for (ParcourSession s : new ArrayList<>(sessions.values())) {
             Player p = Bukkit.getPlayer(s.playerId);
-            if (p != null && p.isOnline() && s.snapshot() != null) {
-                try { s.snapshot().restore(p); } catch (Throwable ignored) { }
-                count++;
+            if (p != null && p.isOnline()) {
+                // cleanup effect and restore inventory if we can
+                try { cleanupEffectForSession(p, s); } catch (Throwable ignored) {}
+                if (s.snapshot() != null) {
+                    try { s.snapshot().restore(p); } catch (Throwable ignored) { }
+                    count++;
+                }
             }
             s.cancelActionBarTask();
             s.cancelParticleTask();
@@ -449,6 +508,8 @@ public final class ParcourHandler {
             return false;
         }
 
+        // cleanup effect and restore inventory first
+        cleanupEffectForSession(p, s);
         restoreInventoryIfPresent(p, s);
 
         registry.get(s.parcourId).ifPresent(def -> {
@@ -531,6 +592,9 @@ public final class ParcourHandler {
         p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
         p.setFoodLevel(20);
         p.setSaturation(20);
+
+        // Apply parcour-wide effect if configured
+        applyEffectIfConfigured(p, def, session);
 
         if (def.useActionBar() && def.startCountdownSeconds() <= 0) {
             startActionBarTimer(p, def, session);
@@ -732,6 +796,9 @@ public final class ParcourHandler {
 
         s.markFinished(elapsedMs);
         s.cancelParticleTask();
+
+        // cleanup effect and restore inventory
+        cleanupEffectForSession(p, s);
         restoreInventoryIfPresent(p, s);
 
         long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
@@ -1004,6 +1071,7 @@ public final class ParcourHandler {
     public void onQuit(Player p) {
         ParcourSession s = sessions.get(p.getUniqueId());
         if (s == null) return;
+        try { cleanupEffectForSession(p, s); } catch (Throwable ignored) {}
         restoreInventoryIfPresent(p, s);
         clearSession(p);
     }

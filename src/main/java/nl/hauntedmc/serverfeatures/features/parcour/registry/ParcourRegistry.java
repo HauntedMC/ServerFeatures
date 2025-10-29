@@ -11,6 +11,7 @@ import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -51,6 +52,13 @@ public final class ParcourRegistry {
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
                 def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
                 def.setStartCountdownSeconds(n.get("start_countdown_seconds").as(Integer.class, 0));
+
+                ConfigNode eff = n.get("effect");
+                String effType = eff.get("type").as(String.class, null);
+                Integer effAmp = eff.get("amplifier").as(Integer.class, null);
+                if (isValidEffect(effType, log, id)) {
+                    def.setEffect(effType, effAmp);
+                }
 
                 ConfigNode startPos = n.get("start_position");
                 String spw = startPos.get("world").as(String.class, null);
@@ -181,6 +189,16 @@ public final class ParcourRegistry {
         }
     }
 
+    private static boolean isValidEffect(String name, FeatureLogger log, String parcourId) {
+        if (name == null || name.isBlank()) return false;
+        PotionEffectType t = PotionEffectType.getByName(name.trim().toUpperCase(Locale.ROOT));
+        if (t == null) {
+            log.warning("Parcour '" + parcourId + "': invalid effect '" + name + "'. Ignoring.");
+            return false;
+        }
+        return true;
+    }
+
     private static Integer parseOrder(String k) {
         try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
     }
@@ -247,6 +265,13 @@ public final class ParcourRegistry {
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
             b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
             b.put(base + ".start_countdown_seconds", def.startCountdownSeconds());
+
+            // clear then write optional effect
+            b.remove(base + ".effect");
+            def.effectTypeName().ifPresent(name -> {
+                b.put(base + ".effect.type", name);
+                b.put(base + ".effect.amplifier", def.effectAmplifier());
+            });
 
             def.startPosition().ifPresent(l -> {
                 b.put(base + ".start_position.world", l.getWorld().getName());
@@ -351,6 +376,7 @@ public final class ParcourRegistry {
             b.remove(base + ".hunger_enabled");
             b.remove(base + ".damage_enabled");
             b.remove(base + ".start_kit");
+            b.remove(base + ".effect");
             b.remove(base);
         });
 
@@ -401,8 +427,6 @@ public final class ParcourRegistry {
             return Optional.empty();
         }
     }
-
-    // ====== NEW: clears for unified set<>location ... clear UX ======
 
     public boolean clearLeaveLocation(String id) {
         Optional<ParcourDefinition> defOpt = get(id);

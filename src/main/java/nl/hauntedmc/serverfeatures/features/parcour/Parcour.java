@@ -116,6 +116,9 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.particle.cleared", "&aRegion-highlight particle verwijderd.");
         m.add("parcour.admin.particle.set", "&aRegion-highlight particle ingesteld op &f{particle}&a.");
         m.add("parcour.admin.startkit.remove_failed", "&cKon startkit-item &f#{index}&c niet verwijderen.");
+        m.add("parcour.admin.effect.set", "&aEffect voor &f{id}&a ingesteld op &f{effect}&a (amp &f{amplifier}&a).");
+        m.add("parcour.admin.effect.cleared", "&aEffect voor &f{id}&a verwijderd.");
+        m.add("parcour.admin.effect.invalid", "&cOngeldig effect: &f{effect}&c.");
 
         return m;
     }

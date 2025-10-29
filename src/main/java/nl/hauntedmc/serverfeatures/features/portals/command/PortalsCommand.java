@@ -352,7 +352,6 @@ public class PortalsCommand extends FeatureCommand {
                 return true;
             }
 
-            // >>> NEW: /portals info <id>
             case "info" -> {
                 if (args.length < 2) {
                     usage(sender, "info <id>");

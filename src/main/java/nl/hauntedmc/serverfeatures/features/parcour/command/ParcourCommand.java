@@ -25,6 +25,7 @@ import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -864,6 +865,73 @@ public final class ParcourCommand implements BrigadierCommand {
                         })
                 )
 
+                // ===== Admin: parcour-wide effect =====
+                .then(Commands.literal("seteffect")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .then(Commands.literal("clear")
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            if (handler.setEffect(id, null, null)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.cleared")
+                                                        .with("id", id).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        }))
+                                .then(Commands.argument("effect", StringArgumentType.word())
+                                        .suggests(this::suggestEffectNames)
+                                        .then(Commands.argument("amplifier", IntegerArgumentType.integer(0, 255))
+                                                .executes(ctx -> {
+                                                    CommandSender s = ctx.getSource().getSender();
+                                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                                    String eff = StringArgumentType.getString(ctx, "effect").toUpperCase(java.util.Locale.ROOT);
+                                                    int amp = IntegerArgumentType.getInteger(ctx, "amplifier");
+                                                    if (PotionEffectType.getByName(eff) == null) {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.invalid")
+                                                                .with("effect", eff).forAudience(s).build());
+                                                        return 1;
+                                                    }
+                                                    if (handler.setEffect(id, eff, amp)) {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.set")
+                                                                .with("id", id)
+                                                                .with("effect", eff)
+                                                                .with("amplifier", String.valueOf(amp))
+                                                                .forAudience(s).build());
+                                                    } else {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                                .with("name", id).forAudience(s).build());
+                                                    }
+                                                    return 1;
+                                                }))
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            String eff = StringArgumentType.getString(ctx, "effect").toUpperCase(java.util.Locale.ROOT);
+                                            if (PotionEffectType.getByName(eff) == null) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.invalid")
+                                                        .with("effect", eff).forAudience(s).build());
+                                                return 1;
+                                            }
+                                            int amp = 0;
+                                            if (handler.setEffect(id, eff, amp)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.set")
+                                                        .with("id", id)
+                                                        .with("effect", eff)
+                                                        .with("amplifier", String.valueOf(amp))
+                                                        .forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
                 .executes(ctx -> {
                     CommandSender s = ctx.getSource().getSender();
                     if (s.hasPermission(BASE)) {
@@ -1046,7 +1114,6 @@ public final class ParcourCommand implements BrigadierCommand {
         if ("NONE".startsWith(rem)) b.suggest("NONE");
         if ("NULL".startsWith(rem)) b.suggest("NULL");
         if ("-".startsWith(rem)) b.suggest("-");
-
         for (Sound s : Sound.values()) {
             String name = s.name();
             if (name.startsWith(rem)) b.suggest(name);
@@ -1062,6 +1129,20 @@ public final class ParcourCommand implements BrigadierCommand {
         for (Particle p : Particle.values()) {
             String name = p.name();
             if (name.startsWith(rem)) b.suggest(name);
+        }
+        return b.buildFuture();
+    }
+
+    private CompletableFuture<Suggestions> suggestEffectNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
+        String rem = b.getRemaining().toUpperCase(java.util.Locale.ROOT);
+        if ("NONE".startsWith(rem)) b.suggest("NONE");
+        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        if ("-".startsWith(rem)) b.suggest("-");
+        for (PotionEffectType t : PotionEffectType.values()) {
+            String name = t.getName();
+            if (name != null && name.toUpperCase(java.util.Locale.ROOT).startsWith(rem)) {
+                b.suggest(name.toUpperCase(java.util.Locale.ROOT));
+            }
         }
         return b.buildFuture();
     }
@@ -1093,6 +1174,8 @@ public final class ParcourCommand implements BrigadierCommand {
                 l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
         ).orElse("-"));
         sendProp(sender, "StartKit Items", String.valueOf(def.startKitEncoded().size()));
+
+        sendProp(sender, "Effect", def.effectTypeName().map(n -> n + " amp=" + def.effectAmplifier()).orElse("-"));
 
         def.startRegion().ifPresentOrElse(pr -> {
             String regionStr = pr.region().map(r ->
