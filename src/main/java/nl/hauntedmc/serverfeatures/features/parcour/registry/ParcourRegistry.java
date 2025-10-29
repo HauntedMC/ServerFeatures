@@ -76,16 +76,46 @@ public final class ParcourRegistry {
                     }
                 }
 
-                // Exit spawn (optional)
-                ConfigNode exit = n.get("exit_spawn");
-                String w = exit.get("world").as(String.class, null);
-                Double x = exit.get("x").as(Double.class, null);
-                Double y = exit.get("y").as(Double.class, null);
-                Double z = exit.get("z").as(Double.class, null);
-                Float yaw = exit.get("yaw").as(Float.class, 0f);
-                Float pitch = exit.get("pitch").as(Float.class, 0f);
-                if (w != null && x != null && y != null && z != null) {
-                    def.setExitSpawn(w, x, y, z, yaw, pitch);
+                // Leave / Finish locations (optional) + backward-compat for legacy exit_spawn
+                // Leave
+                ConfigNode leave = n.get("leave_location");
+                String lw = leave.get("world").as(String.class, null);
+                Double lx = leave.get("x").as(Double.class, null);
+                Double ly = leave.get("y").as(Double.class, null);
+                Double lz = leave.get("z").as(Double.class, null);
+                Float lyaw = leave.get("yaw").as(Float.class, 0f);
+                Float lpitch = leave.get("pitch").as(Float.class, 0f);
+                if (lw != null && lx != null && ly != null && lz != null) {
+                    def.setLeaveSpawn(lw, lx, ly, lz, lyaw, lpitch);
+                }
+
+                // Finish
+                ConfigNode finish = n.get("finish_location");
+                String fw = finish.get("world").as(String.class, null);
+                Double fx = finish.get("x").as(Double.class, null);
+                Double fy = finish.get("y").as(Double.class, null);
+                Double fz = finish.get("z").as(Double.class, null);
+                Float fyaw = finish.get("yaw").as(Float.class, 0f);
+                Float fpitch = finish.get("pitch").as(Float.class, 0f);
+                if (fw != null && fx != null && fy != null && fz != null) {
+                    def.setFinishSpawn(fw, fx, fy, fz, fyaw, fpitch);
+                }
+
+                // Legacy: exit_spawn -> use for both leave/finish if new keys are missing
+                ConfigNode legacyExit = n.get("exit_spawn");
+                String ew = legacyExit.get("world").as(String.class, null);
+                Double ex = legacyExit.get("x").as(Double.class, null);
+                Double ey = legacyExit.get("y").as(Double.class, null);
+                Double ez = legacyExit.get("z").as(Double.class, null);
+                Float eyaw = legacyExit.get("yaw").as(Float.class, 0f);
+                Float epitch = legacyExit.get("pitch").as(Float.class, 0f);
+                if (ew != null && ex != null && ey != null && ez != null) {
+                    if (def.leaveSpawn().isEmpty()) {
+                        def.setLeaveSpawn(ew, ex, ey, ez, eyaw, epitch);
+                    }
+                    if (def.finishSpawn().isEmpty()) {
+                        def.setFinishSpawn(ew, ex, ey, ez, eyaw, epitch);
+                    }
                 }
 
                 // Regions
@@ -234,14 +264,24 @@ public final class ParcourRegistry {
             b.put(base + ".damage_enabled", def.damageEnabled());
             b.put(base + ".start_kit", def.startKitEncoded());
 
-            // exit spawn
-            def.exitSpawn().ifPresent(l -> {
-                b.put(base + ".exit_spawn.world", l.getWorld().getName());
-                b.put(base + ".exit_spawn.x", l.getX());
-                b.put(base + ".exit_spawn.y", l.getY());
-                b.put(base + ".exit_spawn.z", l.getZ());
-                b.put(base + ".exit_spawn.yaw", l.getYaw());
-                b.put(base + ".exit_spawn.pitch", l.getPitch());
+            // leave location
+            def.leaveSpawn().ifPresent(l -> {
+                b.put(base + ".leave_location.world", l.getWorld().getName());
+                b.put(base + ".leave_location.x", l.getX());
+                b.put(base + ".leave_location.y", l.getY());
+                b.put(base + ".leave_location.z", l.getZ());
+                b.put(base + ".leave_location.yaw", l.getYaw());
+                b.put(base + ".leave_location.pitch", l.getPitch());
+            });
+
+            // finish location
+            def.finishSpawn().ifPresent(l -> {
+                b.put(base + ".finish_location.world", l.getWorld().getName());
+                b.put(base + ".finish_location.x", l.getX());
+                b.put(base + ".finish_location.y", l.getY());
+                b.put(base + ".finish_location.z", l.getZ());
+                b.put(base + ".finish_location.yaw", l.getYaw());
+                b.put(base + ".finish_location.pitch", l.getPitch());
             });
 
             // clear regions node before re-writing (avoid stale keys)
@@ -259,6 +299,9 @@ public final class ParcourRegistry {
 
             // END
             def.endRegion().ifPresent(pr -> writeRegion(b, base + ".regions.END", pr));
+
+            // cleanup legacy key if present
+            b.remove(base + ".exit_spawn");
         });
 
         byId.put(keyId.toLowerCase(Locale.ROOT), def);
@@ -303,7 +346,8 @@ public final class ParcourRegistry {
         String base = "parcours." + id;
 
         feature.getConfigHandler().batch(b -> {
-            b.remove(base + ".exit_spawn");
+            b.remove(base + ".leave_location");
+            b.remove(base + ".finish_location");
             b.remove(base + ".regions");
             b.remove(base + ".notify_progress");
             b.remove(base + ".use_actionbar");

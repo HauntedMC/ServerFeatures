@@ -296,7 +296,7 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                .then(Commands.literal("setexitspawn")
+                .then(Commands.literal("setleavelocation")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
@@ -307,9 +307,38 @@ public final class ParcourCommand implements BrigadierCommand {
                                         return 1;
                                     }
                                     String id = StringArgumentType.getString(ctx, "parcourId");
-                                    if (handler.setExitSpawn(id, p.getLocation())) {
+                                    if (handler.setLeaveLocation(id, p.getLocation())) {
                                         var l = p.getLocation();
-                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.exitspawn.set")
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.leave.set")
+                                                .with("world", l.getWorld().getName())
+                                                .with("x", fmt(l.getX()))
+                                                .with("y", fmt(l.getY()))
+                                                .with("z", fmt(l.getZ()))
+                                                .with("yaw", fmt(l.getYaw()))
+                                                .with("pitch", fmt(l.getPitch()))
+                                                .forAudience(s).build());
+                                    } else {
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                .with("name", id).forAudience(s).build());
+                                    }
+                                    return 1;
+                                }))
+                )
+
+                .then(Commands.literal("setfinishlocation")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.argument("parcourId", StringArgumentType.word())
+                                .suggests(this::suggestParcourIds)
+                                .executes(ctx -> {
+                                    CommandSender s = ctx.getSource().getSender();
+                                    if (!(s instanceof Player p)) {
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+                                        return 1;
+                                    }
+                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                    if (handler.setFinishLocation(id, p.getLocation())) {
+                                        var l = p.getLocation();
+                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.finish.set")
                                                 .with("world", l.getWorld().getName())
                                                 .with("x", fmt(l.getX()))
                                                 .with("y", fmt(l.getY()))
@@ -704,7 +733,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|startkit <addfromhand|clear|remove|list>|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setleavelocation|setfinishlocation|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|startkit <addfromhand|clear|remove|list>|info|list");
                     }
                     return 1;
                 });
@@ -912,7 +941,11 @@ public final class ParcourCommand implements BrigadierCommand {
         sender.sendMessage(lh.getMessage("parcour.admin.info.header")
                 .with("id", def.id()).forAudience(sender).build());
 
-        sendProp(sender, "Exit Spawn", def.exitSpawn().map(l ->
+        // Leave / Finish locations
+        sendProp(sender, "Leave Location", def.leaveSpawn().map(l ->
+                l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
+        ).orElse("-"));
+        sendProp(sender, "Finish Location", def.finishSpawn().map(l ->
                 l.getWorld().getName() + " " + fmt(l.getX()) + " " + fmt(l.getY()) + " " + fmt(l.getZ()) + " " + fmt(l.getYaw()) + " " + fmt(l.getPitch())
         ).orElse("-"));
 

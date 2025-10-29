@@ -358,11 +358,20 @@ public final class ParcourHandler {
         return def.checkpoint(ord).orElse(null);
     }
 
-    public boolean setExitSpawn(String id, Location loc) {
+    public boolean setLeaveLocation(String id, Location loc) {
         Optional<ParcourDefinition> defOpt = registry.get(id);
         if (defOpt.isEmpty()) return false;
         ParcourDefinition def = defOpt.get();
-        def.setExitSpawn(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+        def.setLeaveSpawn(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+        registry.saveParcour(def);
+        return true;
+    }
+
+    public boolean setFinishLocation(String id, Location loc) {
+        Optional<ParcourDefinition> defOpt = registry.get(id);
+        if (defOpt.isEmpty()) return false;
+        ParcourDefinition def = defOpt.get();
+        def.setFinishSpawn(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
         registry.saveParcour(def);
         return true;
     }
@@ -465,9 +474,9 @@ public final class ParcourHandler {
         // Restore inventory first
         restoreInventoryIfPresent(p, s);
 
-        // Teleport to exit
+        // Teleport to leave location
         registry.get(s.parcourId).ifPresent(def -> {
-            Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
+            Location dst = def.leaveSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
         });
 
@@ -751,10 +760,10 @@ public final class ParcourHandler {
             }
         }, BukkitTime.ticks(holdTicks));
 
-        // optional delayed teleport to exit spawn
+        // optional delayed teleport to finish location
         int delaySec = def.finishTeleportDelaySeconds();
         if (delaySec > 0) {
-            Location dst = def.exitSpawn().orElse(def.fallbackWorldSpawn());
+            Location dst = def.finishSpawn().orElse(def.fallbackWorldSpawn());
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
                 if (p.isOnline()) {
                     teleportWithIgnore(p, dst);
@@ -844,7 +853,6 @@ public final class ParcourHandler {
                 int slot = firstFreePlayableSlot(inv);
                 if (slot >= 0) {
                     inv.setItem(slot, item);
-                    placed = true;
                 } else {
                     // inventory unexpectedly full (shouldn't happen) -> drop at feet
                     p.getWorld().dropItemNaturally(p.getLocation(), item);
@@ -896,7 +904,6 @@ public final class ParcourHandler {
         if (snap != null) {
             try {
                 snap.restore(p);
-                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.inventory.restored").forAudience(p).build());
             } catch (Throwable t) {
                 log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage());
             }

@@ -15,10 +15,14 @@ public final class ParcourDefinition {
     // Numbered checkpoints (0..N)
     private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
 
-    // Exit spawn (for /parcour leave and optional delayed finish-teleport)
-    private String exitWorld;
-    private double exitX, exitY, exitZ;
-    private float exitYaw, exitPitch;
+    // Leave / Finish locations
+    private String leaveWorld;
+    private double leaveX, leaveY, leaveZ;
+    private float leaveYaw, leavePitch;
+
+    private String finishWorld;
+    private double finishX, finishY, finishZ;
+    private float finishYaw, finishPitch;
 
     // Progress notify (chat)
     private boolean notifyProgress;
@@ -77,18 +81,31 @@ public final class ParcourDefinition {
         return checkpointsByOrder.size();
     }
 
-    // ===== Exit spawn =====
-    public void setExitSpawn(String world, double x, double y, double z, float yaw, float pitch) {
-        this.exitWorld = world;
-        this.exitX = x; this.exitY = y; this.exitZ = z;
-        this.exitYaw = yaw; this.exitPitch = pitch;
+    // ===== Leave / Finish locations =====
+    public void setLeaveSpawn(String world, double x, double y, double z, float yaw, float pitch) {
+        this.leaveWorld = world;
+        this.leaveX = x; this.leaveY = y; this.leaveZ = z;
+        this.leaveYaw = yaw; this.leavePitch = pitch;
     }
 
-    public Optional<Location> exitSpawn() {
-        if (exitWorld == null) return Optional.empty();
-        World w = Bukkit.getWorld(exitWorld);
+    public Optional<Location> leaveSpawn() {
+        if (leaveWorld == null) return Optional.empty();
+        World w = Bukkit.getWorld(leaveWorld);
         if (w == null) return Optional.empty();
-        return Optional.of(new Location(w, exitX, exitY, exitZ, exitYaw, exitPitch));
+        return Optional.of(new Location(w, leaveX, leaveY, leaveZ, leaveYaw, leavePitch));
+    }
+
+    public void setFinishSpawn(String world, double x, double y, double z, float yaw, float pitch) {
+        this.finishWorld = world;
+        this.finishX = x; this.finishY = y; this.finishZ = z;
+        this.finishYaw = yaw; this.finishPitch = pitch;
+    }
+
+    public Optional<Location> finishSpawn() {
+        if (finishWorld == null) return Optional.empty();
+        World w = Bukkit.getWorld(finishWorld);
+        if (w == null) return Optional.empty();
+        return Optional.of(new Location(w, finishX, finishY, finishZ, finishYaw, finishPitch));
     }
 
     public Location fallbackWorldSpawn() {

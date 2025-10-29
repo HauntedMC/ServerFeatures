@@ -30,7 +30,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
-        // player messages
         m.add("parcour.starting", "&aParcour &f{name} &agestart! Succes!");
         m.add("parcour.started_teleport", "&7Je bent naar het startpunt geteleporteerd.");
         m.add("parcour.checkpoint.set", "&bJe hebt een nieuw checkpoint gehaald!");
@@ -59,7 +58,8 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.region.added", "&aRegio toegevoegd: &f{type} &8(key {order}) &7restore={restore}");
         m.add("parcour.admin.region.added_no_restore", "&aRegio toegevoegd: &f{type} &8(key {order})");
         m.add("parcour.admin.restore.set", "&aRestore checkpoint voor sleutel &f{order} &agezet op &f{restore}");
-        m.add("parcour.admin.exitspawn.set", "&aExit spawn gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
+        m.add("parcour.admin.leave.set", "&aLeave locatie gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
+        m.add("parcour.admin.finish.set", "&aFinish locatie gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.cmd.added", "&aCommand toegevoegd aan sleutel &f{order}&a: &7/{cmd}");
         m.add("parcour.admin.cmd.cleared", "&aCommands leeggemaakt voor sleutel &f{order}&a.");
         m.add("parcour.admin.info.header", "&6&lParcour info &7({id})");
@@ -79,7 +79,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.item.leave.lore", "&7Rechtsklik om het parcour te verlaten.");
         m.add("parcour.item.checkpoint.name", "&eNaar checkpoint");
         m.add("parcour.item.checkpoint.lore", "&7Rechtsklik om terug te keren naar je laatste checkpoint.");
-        m.add("parcour.inventory.restored", "&7Je inventaris is hersteld.");
         m.add("parcour.admin.hunger.set", "&aHonger voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.admin.damage.set", "&aSchade voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.checkpoint.cooldown", "&cWacht nog &f{seconds}s &cvoordat je terug naar je checkpoint kunt.");
@@ -89,7 +88,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.startkit.removed", "&aStartkit-item &f#{index}&a verwijderd voor &f{id}&a.");
         m.add("parcour.admin.startkit.list.header", "&6&lStartkit &7({id})");
         m.add("parcour.admin.startkit.list.entry", "&7- &f#{index}&7: &f{item}");
-
         return m;
     }
 
