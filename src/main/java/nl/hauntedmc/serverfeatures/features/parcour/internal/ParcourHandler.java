@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
@@ -62,17 +60,9 @@ public final class ParcourHandler {
         this.kitKey = new NamespacedKey(feature.getPlugin(), "parcour_kit");
     }
 
-    public NamespacedKey leaveKey() {
-        return leaveKey;
-    }
-
-    public NamespacedKey checkpointKey() {
-        return checkpointKey;
-    }
-
-    public NamespacedKey kitKey() {
-        return kitKey;
-    }
+    public NamespacedKey leaveKey() { return leaveKey; }
+    public NamespacedKey checkpointKey() { return checkpointKey; }
+    public NamespacedKey kitKey() { return kitKey; }
 
     public boolean createParcour(String id) {
         if (registry.get(id).isPresent()) return false;
@@ -183,6 +173,20 @@ public final class ParcourHandler {
             registry.saveParcour(def);
             return true;
         }).orElse(false);
+    }
+
+    // NEW: clear leave/finish locations via registry helpers (also ensures config gets cleaned)
+    public boolean clearLeaveLocation(String id) {
+        return registry.clearLeaveLocation(id);
+    }
+
+    public boolean clearFinishLocation(String id) {
+        return registry.clearFinishLocation(id);
+    }
+
+    // NEW: clear explicit restore location for a region key
+    public boolean clearRegionRestoreLocation(String id, String key) {
+        return registry.clearRegionRestoreLocation(id, key);
     }
 
     public boolean addStartKitFromHand(String id, Player p) {
@@ -303,6 +307,21 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
+    // NEW: remove a single command by index (1-based) from a region
+    public boolean removeRegionCommandIndex(String id, String key, int oneBasedIndex) {
+        return registry.get(id).map(def -> {
+            ParcourRegion pr = getRegionByKey(def, key);
+            if (pr == null) return false;
+            java.util.List<String> cmds = new java.util.ArrayList<>(pr.commands());
+            if (oneBasedIndex < 1 || oneBasedIndex > cmds.size()) return false;
+            cmds.remove(oneBasedIndex - 1);
+            pr.clearCommands();
+            for (String c : cmds) pr.addCommand(c);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
     public boolean setRegionRestoreLocation(String id, String key, Location loc) {
         return registry.get(id).map(def -> {
             ParcourRegion pr = getRegionByKey(def, key);
@@ -322,11 +341,7 @@ public final class ParcourHandler {
     }
 
     private Integer parseOrder(String key) {
-        try {
-            return Integer.parseInt(key);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; }
     }
 
     private ParcourRegion getRegionByKey(ParcourDefinition def, String key) {
@@ -355,13 +370,8 @@ public final class ParcourHandler {
         return true;
     }
 
-    public boolean isPlaying(Player p) {
-        return sessions.containsKey(p.getUniqueId());
-    }
-
-    public Optional<ParcourSession> session(Player p) {
-        return Optional.ofNullable(sessions.get(p.getUniqueId()));
-    }
+    public boolean isPlaying(Player p) { return sessions.containsKey(p.getUniqueId()); }
+    public Optional<ParcourSession> session(Player p) { return Optional.ofNullable(sessions.get(p.getUniqueId())); }
 
     public void clearSession(Player p) {
         ParcourSession s = sessions.remove(p.getUniqueId());
@@ -377,10 +387,7 @@ public final class ParcourHandler {
         for (ParcourSession s : new ArrayList<>(sessions.values())) {
             Player p = Bukkit.getPlayer(s.playerId);
             if (p != null && p.isOnline() && s.snapshot() != null) {
-                try {
-                    s.snapshot().restore(p);
-                } catch (Throwable ignored) {
-                }
+                try { s.snapshot().restore(p); } catch (Throwable ignored) { }
                 count++;
             }
             s.cancelActionBarTask();
@@ -456,9 +463,7 @@ public final class ParcourHandler {
         return true;
     }
 
-    public boolean teleportToCheckpoint(Player p) {
-        return teleportToCheckpoint(p, true);
-    }
+    public boolean teleportToCheckpoint(Player p) { return teleportToCheckpoint(p, true); }
 
     public boolean teleportToCheckpoint(Player p, boolean enforceCooldown) {
         ParcourSession s = sessions.get(p.getUniqueId());
@@ -527,16 +532,13 @@ public final class ParcourHandler {
         p.setFoodLevel(20);
         p.setSaturation(20);
 
-        // Only start the actionbar timer immediately if there is NO countdown.
         if (def.useActionBar() && def.startCountdownSeconds() <= 0) {
             startActionBarTimer(p, def, session);
         }
     }
 
-    /** Starts (or restarts) the actionbar timer task for this session. */
     private void startActionBarTimer(Player p, ParcourDefinition def, ParcourSession session) {
         if (!def.useActionBar()) return;
-        // Safety: never tick the actionbar while countdown is active.
         if (session.isCountdownActive()) return;
 
         session.cancelActionBarTask();
@@ -549,7 +551,6 @@ public final class ParcourHandler {
                 session.cancelActionBarTask();
                 return;
             }
-            // Extra guard: skip updates if countdown is active for any reason.
             if (session.isCountdownActive()) return;
 
             sendActionBar(p, def, session);
@@ -558,7 +559,6 @@ public final class ParcourHandler {
     }
 
     private void sendActionBar(Player p, ParcourDefinition def, ParcourSession s) {
-        // Guard: never render during countdown.
         if (s.isCountdownActive()) return;
 
         final double shownSeconds = s.isFinished()
@@ -701,8 +701,7 @@ public final class ParcourHandler {
         try {
             Sound s = Sound.valueOf(raw.trim().toUpperCase(Locale.ROOT));
             p.playSound(p.getLocation(), s, 1.0f, 1.0f);
-        } catch (IllegalArgumentException ignored) {
-        }
+        } catch (IllegalArgumentException ignored) { }
     }
 
     private void executeRegionCommandsSilently(ParcourRegion pr) {
@@ -817,7 +816,6 @@ public final class ParcourHandler {
             s.cancelCountdownTask();
             s.setStartToNow();
 
-            // Start the actionbar timer now that the game actually begins.
             startActionBarTimer(p, def, s);
         }, BukkitTime.seconds(1L), BukkitTime.seconds(1L));
         s.setCountdownTask(task);
@@ -863,7 +861,6 @@ public final class ParcourHandler {
 
     private void giveStartKitItems(Player p, ParcourDefinition def) {
         PlayerInventory inv = p.getInventory();
-
         for (String b64 : def.startKitEncoded()) {
             var isOpt = registry.deserializeItemFromBase64(b64);
             if (isOpt.isEmpty()) continue;
@@ -876,61 +873,28 @@ public final class ParcourHandler {
             org.bukkit.Material mat = item.getType();
             boolean placed = false;
 
-            if (isHelmet(mat) && isEmpty(inv.getHelmet())) {
-                inv.setHelmet(item);
-                placed = true;
-            } else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) {
-                inv.setChestplate(item);
-                placed = true;
-            } else if (mat == org.bukkit.Material.ELYTRA && isEmpty(inv.getChestplate())) {
-                inv.setChestplate(item);
-                placed = true;
-            } else if (isLeggings(mat) && isEmpty(inv.getLeggings())) {
-                inv.setLeggings(item);
-                placed = true;
-            } else if (isBoots(mat) && isEmpty(inv.getBoots())) {
-                inv.setBoots(item);
-                placed = true;
-            } else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) {
-                inv.setItemInOffHand(item);
-                placed = true;
-            }
+            if (isHelmet(mat) && isEmpty(inv.getHelmet())) { inv.setHelmet(item); placed = true; }
+            else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
+            else if (mat == org.bukkit.Material.ELYTRA && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
+            else if (isLeggings(mat) && isEmpty(inv.getLeggings())) { inv.setLeggings(item); placed = true; }
+            else if (isBoots(mat) && isEmpty(inv.getBoots())) { inv.setBoots(item); placed = true; }
+            else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) { inv.setItemInOffHand(item); placed = true; }
 
             if (!placed) {
                 int slot = firstFreePlayableSlot(inv);
-                if (slot >= 0) {
-                    inv.setItem(slot, item);
-                } else {
-                    p.getWorld().dropItemNaturally(p.getLocation(), item);
-                }
+                if (slot >= 0) inv.setItem(slot, item);
+                else p.getWorld().dropItemNaturally(p.getLocation(), item);
             }
         }
         p.updateInventory();
     }
 
-    private boolean isEmpty(ItemStack it) {
-        return it == null || it.getType().isAir();
-    }
-
-    private boolean isHelmet(org.bukkit.Material m) {
-        return m.name().endsWith("_HELMET") || m == org.bukkit.Material.TURTLE_HELMET || m == org.bukkit.Material.CARVED_PUMPKIN;
-    }
-
-    private boolean isChestArmor(org.bukkit.Material m) {
-        return m.name().endsWith("_CHESTPLATE");
-    }
-
-    private boolean isLeggings(org.bukkit.Material m) {
-        return m.name().endsWith("_LEGGINGS");
-    }
-
-    private boolean isBoots(org.bukkit.Material m) {
-        return m.name().endsWith("_BOOTS");
-    }
-
-    private boolean isOffhandItem(org.bukkit.Material m) {
-        return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING;
-    }
+    private boolean isEmpty(ItemStack it) { return it == null || it.getType().isAir(); }
+    private boolean isHelmet(org.bukkit.Material m) { return m.name().endsWith("_HELMET") || m == org.bukkit.Material.TURTLE_HELMET || m == org.bukkit.Material.CARVED_PUMPKIN; }
+    private boolean isChestArmor(org.bukkit.Material m) { return m.name().endsWith("_CHESTPLATE"); }
+    private boolean isLeggings(org.bukkit.Material m) { return m.name().endsWith("_LEGGINGS"); }
+    private boolean isBoots(org.bukkit.Material m) { return m.name().endsWith("_BOOTS"); }
+    private boolean isOffhandItem(org.bukkit.Material m) { return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING; }
 
     private int firstFreePlayableSlot(PlayerInventory inv) {
         for (int i = 0; i <= 8; i++) {
@@ -948,11 +912,7 @@ public final class ParcourHandler {
     private void restoreInventoryIfPresent(Player p, ParcourSession s) {
         ParcourInventorySnapshot snap = s.snapshot();
         if (snap != null) {
-            try {
-                snap.restore(p);
-            } catch (Throwable t) {
-                log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage());
-            }
+            try { snap.restore(p); } catch (Throwable t) { log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage()); }
             s.setSnapshot(null);
         }
     }
@@ -968,9 +928,7 @@ public final class ParcourHandler {
         final org.bukkit.Particle particle;
         try {
             particle = org.bukkit.Particle.valueOf(pname.get().trim().toUpperCase(java.util.Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            return;
-        }
+        } catch (IllegalArgumentException ex) { return; }
 
         ParcourRegion target = def.checkpoint(s.expectedNextOrder()).orElseGet(() -> def.endRegion().orElse(null));
         if (target == null || target.region().isEmpty()) return;

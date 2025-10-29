@@ -30,10 +30,10 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
+        m.add("parcour.usage.start", "&7Gebruik: &f/parcour start &7<naam>");
+        m.add("parcour.list.empty", "&7(geen)");
         m.add("parcour.starting", "&aParcour &f{name} &agestart! Succes!");
         m.add("parcour.started_teleport", "&7Je bent naar het startpunt geteleporteerd.");
-        m.add("parcour.checkpoint.set", "&bJe hebt een nieuw checkpoint gehaald!");
-        m.add("parcour.checkpoint.teleport", "&7Teruggezet naar je laatste checkpoint.");
         m.add("parcour.finished", "&aGefeliciteerd! Je voltooide &f{name} &ain &f{seconds}s&a.");
         m.add("parcour.already_playing", "&cJe speelt al een parcour: &f{name}&c. Gebruik &f/parcour leave&c om te stoppen.");
         m.add("parcour.not_playing", "&cJe speelt momenteel geen parcour.");
@@ -43,6 +43,30 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.cannot_start_missing", "&cParcour &f{name} &cis onjuist geconfigureerd (mist START en/of END).");
         m.add("parcour.progress", "&7Je maakt progressie! Je bent bij tussenpunt &f{current}&7/&f{total}");
         m.add("parcour.actionbar", "&6{seconds}s &7• &eProgressie &f{current}&7/&f{total}");
+
+        m.add("parcour.checkpoint.set", "&bJe hebt een nieuw checkpoint gehaald!");
+        m.add("parcour.checkpoint.teleport", "&7Teruggezet naar je laatste checkpoint.");
+        m.add("parcour.checkpoint.cooldown", "&cWacht nog &f{seconds}s &cvoordat je terug naar je checkpoint kunt.");
+
+        m.add("parcour.countdown.go", "&a&lStart!");
+        m.add("parcour.countdown.title", "&6&l{seconds}");
+        m.add("parcour.countdown.blocked", "&cJe kunt dit niet doen als de countdown loopt.");
+
+        m.add("parcour.help.player", "&7Speler: &f/parcour start <naam>&7, &f/parcour leave&7, &f/parcour checkpoint");
+        m.add("parcour.help.admin.header", "&7Admin:");
+        m.add("parcour.help.admin.maps", " &f/parcour createmap|deletemap|mapinfo|maplist");
+        m.add("parcour.help.admin.regions", " &f/parcour addregion <start|checkpoint|end> ... &7| &f/parcour deleteregion ... &7| &f/parcour setrestore ...");
+        m.add("parcour.help.admin.cmds", " &f/parcour setcmd <add|remove|clear|list> ...");
+        m.add("parcour.help.admin.locs", " &f/parcour setleavelocation <id> [clear] &7| &f/parcour setfinishlocation <id> [clear] &7| &f/parcour setrestorelocation <id> <key> [clear] &7| &f/parcour setstartlocation <id> [clear]");
+        m.add("parcour.help.admin.settings", " &f/parcour setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|setstartcountdown");
+        m.add("parcour.help.admin.kit", " &f/parcour setkit <addfromhand|clear|remove|list>");
+        m.add("parcour.help.we", "&7Selecteer regio's met WorldEdit: &f//wand&7, klik Pos1/Pos2.");
+
+        m.add("parcour.item.leave.name", "&cParcour verlaten");
+        m.add("parcour.item.leave.lore", "&7Rechtsklik om het parcour te verlaten.");
+        m.add("parcour.item.checkpoint.name", "&eNaar checkpoint");
+        m.add("parcour.item.checkpoint.lore", "&7Rechtsklik om terug te keren naar je laatste checkpoint.");
+
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
         m.add("parcour.admin.deleted", "&aParcour &f{id} &averwijderd.");
         m.add("parcour.admin.exists", "&cParcour &f{id} &cbestaat al.");
@@ -70,13 +94,8 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.sound.invalid_type", "&cOngeldig type: &f{type}&c. Gebruik CHECKPOINT of END.");
         m.add("parcour.admin.actionbar.set", "&aActionbar-weergave voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.admin.finishdelay.set", "&aFinish-teleport voor &f{id}&a ingesteld op &f{seconds}&as.");
-        m.add("parcour.item.leave.name", "&cParcour verlaten");
-        m.add("parcour.item.leave.lore", "&7Rechtsklik om het parcour te verlaten.");
-        m.add("parcour.item.checkpoint.name", "&eNaar checkpoint");
-        m.add("parcour.item.checkpoint.lore", "&7Rechtsklik om terug te keren naar je laatste checkpoint.");
         m.add("parcour.admin.hunger.set", "&aHonger voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.admin.damage.set", "&aSchade voor &f{id}&a ingesteld op &f{value}&a.");
-        m.add("parcour.checkpoint.cooldown", "&cWacht nog &f{seconds}s &cvoordat je terug naar je checkpoint kunt.");
         m.add("parcour.admin.checkpointcooldown.set", "&aCheckpoint-cooldown voor &f{id} &agingesteld op &f{seconds}&as.");
         m.add("parcour.admin.startkit.added", "&aStartkit-item toegevoegd aan &f{id}&a: &7{item}");
         m.add("parcour.admin.startkit.cleared", "&aStartkit leeggemaakt voor &f{id}&a.");
@@ -86,9 +105,18 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.startcountdown.set", "&aStart-countdown voor &f{id}&a ingesteld op &f{seconds}&as.");
         m.add("parcour.admin.startpos.set", "&aStartpositie gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
         m.add("parcour.admin.startpos.cleared", "&aStartpositie verwijderd.");
-        m.add("parcour.countdown.go", "&a&lStart!");
-        m.add("parcour.countdown.title", "&6&l{seconds}");
-        m.add("parcour.countdown.blocked", "&cJe kunt dit niet doen als de countdown loopt.");
+        m.add("parcour.admin.cmd.removed", "&aCommand &f#{index} &averwijderd voor sleutel &f{order}&a.");
+        m.add("parcour.admin.cmd.remove_failed", "&cKon command &f#{index}&c niet verwijderen voor sleutel &f{order}&c.");
+        m.add("parcour.admin.cmd.list.header", "&7Commands voor &f{key}&7:");
+        m.add("parcour.admin.cmd.list.entry", " &8{index}&7) &f{cmd}");
+        m.add("parcour.admin.leave.cleared", "&aLeave locatie gewist.");
+        m.add("parcour.admin.finish.cleared", "&aFinish locatie gewist.");
+        m.add("parcour.admin.restoreloc.cleared", "&aRestore locatie voor sleutel &f{order}&a gewist.");
+        m.add("parcour.admin.particle.invalid", "&cOngeldige particle: &f{particle}&c.");
+        m.add("parcour.admin.particle.cleared", "&aRegion-highlight particle verwijderd.");
+        m.add("parcour.admin.particle.set", "&aRegion-highlight particle ingesteld op &f{particle}&a.");
+        m.add("parcour.admin.startkit.remove_failed", "&cKon startkit-item &f#{index}&c niet verwijderen.");
+
         return m;
     }
 

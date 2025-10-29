@@ -11,13 +11,14 @@ import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
+
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
 
 public final class ParcourRegistry {
 
@@ -45,19 +46,12 @@ public final class ParcourRegistry {
                 ParcourDefinition def = new ParcourDefinition(id);
                 ConfigNode n = e.getValue();
 
-                // notify_progress flag (default false)
                 def.setNotifyProgress(n.get("notify_progress").as(Boolean.class, false));
-
                 def.setUseActionBar(n.get("use_actionbar").as(Boolean.class, false));
-
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
-
                 def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
-
-                // NEW: start countdown
                 def.setStartCountdownSeconds(n.get("start_countdown_seconds").as(Integer.class, 0));
 
-                // NEW: start position
                 ConfigNode startPos = n.get("start_position");
                 String spw = startPos.get("world").as(String.class, null);
                 Double spx = startPos.get("x").as(Double.class, null);
@@ -72,7 +66,6 @@ public final class ParcourRegistry {
                 ConfigNode sounds = n.get("sounds");
                 String cpSound = sounds.get("checkpoint").as(String.class, null);
                 String endSound = sounds.get("end").as(String.class, null);
-
                 if (isValidSound(cpSound, log, id, "checkpoint")) def.setCheckpointSoundName(cpSound);
                 if (isValidSound(endSound, log, id, "end")) def.setEndSoundName(endSound);
 
@@ -91,8 +84,7 @@ public final class ParcourRegistry {
                     }
                 }
 
-                // Leave / Finish locations (optional) + backward-compat for legacy exit_spawn
-                // Leave
+                // Leave / Finish locations (optional) + backward-compat
                 ConfigNode leave = n.get("leave_location");
                 String lw = leave.get("world").as(String.class, null);
                 Double lx = leave.get("x").as(Double.class, null);
@@ -104,7 +96,6 @@ public final class ParcourRegistry {
                     def.setLeaveSpawn(lw, lx, ly, lz, lyaw, lpitch);
                 }
 
-                // Finish
                 ConfigNode finish = n.get("finish_location");
                 String fw = finish.get("world").as(String.class, null);
                 Double fx = finish.get("x").as(Double.class, null);
@@ -116,7 +107,7 @@ public final class ParcourRegistry {
                     def.setFinishSpawn(fw, fx, fy, fz, fyaw, fpitch);
                 }
 
-                // Legacy: exit_spawn -> use for both leave/finish if new keys are missing
+                // Legacy: exit_spawn
                 ConfigNode legacyExit = n.get("exit_spawn");
                 String ew = legacyExit.get("world").as(String.class, null);
                 Double ex = legacyExit.get("x").as(Double.class, null);
@@ -136,15 +127,12 @@ public final class ParcourRegistry {
                 // Regions
                 ConfigNode rs = n.get("regions");
 
-                // START
                 ParcourRegion start = readRegionKey(rs, "START", ParcourRegionType.START, -1, log, id);
                 if (start != null) def.setStartRegion(start);
 
-                // END
                 ParcourRegion end = readRegionKey(rs, "END", ParcourRegionType.END, Integer.MAX_VALUE, log, id);
                 if (end != null) def.setEndRegion(end);
 
-                // CHECKPOINTS (numeric keys)
                 Map<String, ConfigNode> rChildren = rs.children();
                 for (Map.Entry<String, ConfigNode> rc : rChildren.entrySet()) {
                     String key = rc.getKey();
@@ -156,7 +144,6 @@ public final class ParcourRegistry {
                     if (cp != null) def.putCheckpoint(cp);
                 }
 
-                // Validation: require START and END with defined region
                 boolean valid = def.startRegion().isPresent()
                         && def.startRegion().get().region().isPresent()
                         && def.endRegion().isPresent()
@@ -164,7 +151,7 @@ public final class ParcourRegistry {
 
                 if (!valid) {
                     log.warning("Parcour '" + id + "' is invalid: missing START and/or END region. It will not be loaded.");
-                    continue; // skip loading invalid parcours
+                    continue;
                 }
 
                 byId.put(id.toLowerCase(Locale.ROOT), def);
@@ -178,10 +165,8 @@ public final class ParcourRegistry {
 
     private static boolean isValidSound(String name, FeatureLogger log, String parcourId, String kind) {
         if (name == null || name.isBlank()) return false;
-        try {
-            Sound.valueOf(name.trim().toUpperCase(Locale.ROOT));
-            return true;
-        } catch (IllegalArgumentException ex) {
+        try { Sound.valueOf(name.trim().toUpperCase(Locale.ROOT)); return true; }
+        catch (IllegalArgumentException ex) {
             log.warning("Parcour '" + parcourId + "': invalid " + kind + " sound '" + name + "'. Ignoring.");
             return false;
         }
@@ -189,21 +174,15 @@ public final class ParcourRegistry {
 
     private static boolean isValidParticle(String name, FeatureLogger log, String parcourId) {
         if (name == null || name.isBlank()) return false;
-        try {
-            Particle.valueOf(name.trim().toUpperCase(Locale.ROOT));
-            return true;
-        } catch (IllegalArgumentException ex) {
+        try { Particle.valueOf(name.trim().toUpperCase(Locale.ROOT)); return true; }
+        catch (IllegalArgumentException ex) {
             log.warning("Parcour '" + parcourId + "': invalid region_highlight_particle '" + name + "'. Ignoring.");
             return false;
         }
     }
 
     private static Integer parseOrder(String k) {
-        try {
-            return Integer.parseInt(k);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
     }
 
     private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {
@@ -234,13 +213,9 @@ public final class ParcourRegistry {
             pr.setRestoreCheckpoint(restore);
             if (region != null) pr.setRegion(region);
 
-            // commands (optional)
             List<String> cmds = node.get("commands").listOf(String.class);
-            if (cmds != null) {
-                for (String c : cmds) pr.addCommand(c);
-            }
+            if (cmds != null) for (String c : cmds) pr.addCommand(c);
 
-            // explicit restore location (START/CHECKPOINT only)
             if (type != ParcourRegionType.END) {
                 ConfigNode rl = node.get("restore_location");
                 String rw = rl.get("world").as(String.class, null);
@@ -267,14 +242,12 @@ public final class ParcourRegistry {
         String base = "parcours." + keyId;
 
         cfg.batch(b -> {
-            // progress toggle
             b.put(base + ".notify_progress", def.notifyProgress());
             b.put(base + ".use_actionbar", def.useActionBar());
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
             b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
-
-            // NEW: countdown & start position
             b.put(base + ".start_countdown_seconds", def.startCountdownSeconds());
+
             def.startPosition().ifPresent(l -> {
                 b.put(base + ".start_position.world", l.getWorld().getName());
                 b.put(base + ".start_position.x", l.getX());
@@ -292,7 +265,6 @@ public final class ParcourRegistry {
             b.put(base + ".damage_enabled", def.damageEnabled());
             b.put(base + ".start_kit", def.startKitEncoded());
 
-            // leave location
             def.leaveSpawn().ifPresent(l -> {
                 b.put(base + ".leave_location.world", l.getWorld().getName());
                 b.put(base + ".leave_location.x", l.getX());
@@ -302,7 +274,6 @@ public final class ParcourRegistry {
                 b.put(base + ".leave_location.pitch", l.getPitch());
             });
 
-            // finish location
             def.finishSpawn().ifPresent(l -> {
                 b.put(base + ".finish_location.world", l.getWorld().getName());
                 b.put(base + ".finish_location.x", l.getX());
@@ -312,23 +283,16 @@ public final class ParcourRegistry {
                 b.put(base + ".finish_location.pitch", l.getPitch());
             });
 
-            // clear regions node before re-writing (avoid stale keys)
             b.remove(base + ".regions");
 
-            // START
             def.startRegion().ifPresent(pr -> writeRegion(b, base + ".regions.START", pr));
-
-            // CHECKPOINTS
             for (Integer ord : def.orders()) {
                 ParcourRegion pr = def.checkpoint(ord).orElse(null);
                 if (pr == null) continue;
                 writeRegion(b, base + ".regions." + ord, pr);
             }
-
-            // END
             def.endRegion().ifPresent(pr -> writeRegion(b, base + ".regions.END", pr));
 
-            // cleanup legacy key if present
             b.remove(base + ".exit_spawn");
         });
 
@@ -402,12 +366,9 @@ public final class ParcourRegistry {
         return List.copyOf(byId.values());
     }
 
-    public int size() {
-        return byId.size();
-    }
+    public int size() { return byId.size(); }
 
     // ====== Item (de)serialization helpers for start kit ======
-
     public Optional<String> serializeItemToBase64(ItemStack item) {
         if (item == null) return Optional.empty();
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -424,9 +385,8 @@ public final class ParcourRegistry {
     public Optional<ItemStack> deserializeItemFromBase64(String base64) {
         if (base64 == null || base64.isBlank()) return Optional.empty();
         byte[] data;
-        try {
-            data = Base64.getDecoder().decode(base64);
-        } catch (IllegalArgumentException e) {
+        try { data = Base64.getDecoder().decode(base64); }
+        catch (IllegalArgumentException e) {
             feature.getLogger().warning("Invalid base64 for start kit item.");
             return Optional.empty();
         }
@@ -440,5 +400,50 @@ public final class ParcourRegistry {
             feature.getLogger().warning("Failed to deserialize start kit item: " + ex.getMessage());
             return Optional.empty();
         }
+    }
+
+    // ====== NEW: clears for unified set<>location ... clear UX ======
+
+    public boolean clearLeaveLocation(String id) {
+        Optional<ParcourDefinition> defOpt = get(id);
+        if (defOpt.isEmpty()) return false;
+        String realId = defOpt.get().id();
+        String base = "parcours." + realId;
+        feature.getConfigHandler().batch(b -> b.remove(base + ".leave_location"));
+        // Reload to ensure in-memory defs reflect cleared state
+        reloadFromConfig();
+        return true;
+    }
+
+    public boolean clearFinishLocation(String id) {
+        Optional<ParcourDefinition> defOpt = get(id);
+        if (defOpt.isEmpty()) return false;
+        String realId = defOpt.get().id();
+        String base = "parcours." + realId;
+        feature.getConfigHandler().batch(b -> b.remove(base + ".finish_location"));
+        reloadFromConfig();
+        return true;
+    }
+
+    public boolean clearRegionRestoreLocation(String id, String key) {
+        Optional<ParcourDefinition> defOpt = get(id);
+        if (defOpt.isEmpty()) return false;
+        ParcourDefinition def = defOpt.get();
+
+        // Resolve exact casing for path (START/END/<number>)
+        final String pathKey;
+        if ("START".equalsIgnoreCase(key)) pathKey = "START";
+        else if ("END".equalsIgnoreCase(key)) pathKey = "END";
+        else {
+            Integer ord = parseOrder(key);
+            if (ord == null) return false;
+            if (def.checkpoint(ord).isEmpty()) return false;
+            pathKey = String.valueOf(ord);
+        }
+
+        String base = "parcours." + def.id() + ".regions." + pathKey + ".restore_location";
+        feature.getConfigHandler().batch(b -> b.remove(base));
+        reloadFromConfig();
+        return true;
     }
 }
