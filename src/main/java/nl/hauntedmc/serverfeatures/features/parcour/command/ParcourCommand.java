@@ -14,21 +14,21 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
+import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.internal.ParcourHandler;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -504,24 +504,29 @@ public final class ParcourCommand implements BrigadierCommand {
                                                 .executes(ctx -> {
                                                     CommandSender s = ctx.getSource().getSender();
                                                     String id = StringArgumentType.getString(ctx, "parcourId");
-                                                    String type = StringArgumentType.getString(ctx, "type").toUpperCase(java.util.Locale.ROOT);
-                                                    String soundArg = StringArgumentType.getString(ctx, "sound").toUpperCase(java.util.Locale.ROOT);
+                                                    String type = StringArgumentType.getString(ctx, "type").toUpperCase(Locale.ROOT);
+                                                    String soundArg = StringArgumentType.getString(ctx, "sound");
 
-                                                    boolean clear = soundArg.equals("NONE") || soundArg.equals("NULL") || soundArg.equals("-");
+                                                    boolean clear = isClearKeyword(soundArg);
+                                                    final String valueToStore;
+
                                                     if (!clear) {
-                                                        try { Sound.valueOf(soundArg); }
-                                                        catch (IllegalArgumentException ex) {
+                                                        NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(soundArg);
+                                                        if (key == null || BukkitRegistry.soundRegistry().get(key) == null) {
                                                             s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.invalid")
                                                                     .with("sound", soundArg).forAudience(s).build());
                                                             return 1;
                                                         }
+                                                        valueToStore = key.toString(); // canonical namespaced id
+                                                    } else {
+                                                        valueToStore = null;
                                                     }
 
                                                     boolean ok;
                                                     if ("CHECKPOINT".equals(type)) {
-                                                        ok = handler.setCheckpointSound(id, clear ? null : soundArg);
+                                                        ok = handler.setCheckpointSound(id, valueToStore);
                                                     } else if ("END".equals(type)) {
-                                                        ok = handler.setEndSound(id, clear ? null : soundArg);
+                                                        ok = handler.setEndSound(id, valueToStore);
                                                     } else {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.invalid_type")
                                                                 .with("type", type).forAudience(s).build());
@@ -539,7 +544,7 @@ public final class ParcourCommand implements BrigadierCommand {
                                                                 .with("type", type).forAudience(s).build());
                                                     } else {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.sound.set")
-                                                                .with("type", type).with("sound", soundArg).forAudience(s).build());
+                                                                .with("type", type).with("sound", valueToStore).forAudience(s).build());
                                                     }
                                                     return 1;
                                                 }))))
@@ -594,18 +599,19 @@ public final class ParcourCommand implements BrigadierCommand {
                                         .executes(ctx -> {
                                             CommandSender s = ctx.getSource().getSender();
                                             String id = StringArgumentType.getString(ctx, "parcourId");
-                                            String arg = StringArgumentType.getString(ctx, "particle").toUpperCase(java.util.Locale.ROOT);
+                                            String arg = StringArgumentType.getString(ctx, "particle");
 
-                                            boolean clear = arg.equals("NONE") || arg.equals("NULL") || arg.equals("-");
+                                            boolean clear = isClearKeyword(arg);
                                             String value = null;
 
                                             if (!clear) {
-                                                try { Particle.valueOf(arg); value = arg; }
-                                                catch (IllegalArgumentException ex) {
+                                                NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(arg);
+                                                if (key == null || BukkitRegistry.particleRegistry().get(key) == null) {
                                                     s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.particle.invalid")
                                                             .with("particle", arg).forAudience(s).build());
                                                     return 1;
                                                 }
+                                                value = key.toString();
                                             }
 
                                             boolean ok = handler.setRegionParticle(id, value);
@@ -762,7 +768,7 @@ public final class ParcourCommand implements BrigadierCommand {
                                             String id = StringArgumentType.getString(ctx, "parcourId");
                                             if (handler.addStartKitFromHand(id, p)) {
                                                 ItemStack is = p.getInventory().getItemInMainHand();
-                                                String nice = is.getType().isAir() ? "AIR" : is.getType().name();
+                                                String nice = is.getType().isAir() ? "minecraft:air" : is.getType().getKey().toString();
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.added")
                                                         .with("id", id).with("item", nice).forAudience(s).build());
                                             } else {
@@ -820,7 +826,9 @@ public final class ParcourCommand implements BrigadierCommand {
                                                     .with("id", id).forAudience(s).build());
                                             for (int i = 0; i < list.size(); i++) {
                                                 ItemStack is = list.get(i);
-                                                String nice = (is == null || is.getType().isAir()) ? "AIR" : is.getType().name() + " x" + is.getAmount();
+                                                String nice = (is == null || is.getType().isAir())
+                                                        ? "minecraft:air"
+                                                        : is.getType().getKey() + " x" + is.getAmount();
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.list.entry")
                                                         .with("index", String.valueOf(i + 1))
                                                         .with("item", nice)
@@ -889,17 +897,20 @@ public final class ParcourCommand implements BrigadierCommand {
                                                 .executes(ctx -> {
                                                     CommandSender s = ctx.getSource().getSender();
                                                     String id = StringArgumentType.getString(ctx, "parcourId");
-                                                    String eff = StringArgumentType.getString(ctx, "effect").toUpperCase(java.util.Locale.ROOT);
+                                                    String effArg = StringArgumentType.getString(ctx, "effect");
                                                     int amp = IntegerArgumentType.getInteger(ctx, "amplifier");
-                                                    if (PotionEffectType.getByName(eff) == null) {
+
+                                                    NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(effArg);
+                                                    if (key == null || BukkitRegistry.mobEffectRegistry().get(key) == null) {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.invalid")
-                                                                .with("effect", eff).forAudience(s).build());
+                                                                .with("effect", effArg).forAudience(s).build());
                                                         return 1;
                                                     }
-                                                    if (handler.setEffect(id, eff, amp)) {
+
+                                                    if (handler.setEffect(id, key.toString(), amp)) {
                                                         s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.set")
                                                                 .with("id", id)
-                                                                .with("effect", eff)
+                                                                .with("effect", key.toString())
                                                                 .with("amplifier", String.valueOf(amp))
                                                                 .forAudience(s).build());
                                                     } else {
@@ -911,17 +922,19 @@ public final class ParcourCommand implements BrigadierCommand {
                                         .executes(ctx -> {
                                             CommandSender s = ctx.getSource().getSender();
                                             String id = StringArgumentType.getString(ctx, "parcourId");
-                                            String eff = StringArgumentType.getString(ctx, "effect").toUpperCase(java.util.Locale.ROOT);
-                                            if (PotionEffectType.getByName(eff) == null) {
+                                            String effArg = StringArgumentType.getString(ctx, "effect");
+
+                                            NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(effArg);
+                                            if (key == null || BukkitRegistry.mobEffectRegistry().get(key) == null) {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.invalid")
-                                                        .with("effect", eff).forAudience(s).build());
+                                                        .with("effect", effArg).forAudience(s).build());
                                                 return 1;
                                             }
                                             int amp = 0;
-                                            if (handler.setEffect(id, eff, amp)) {
+                                            if (handler.setEffect(id, key.toString(), amp)) {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.effect.set")
                                                         .with("id", id)
-                                                        .with("effect", eff)
+                                                        .with("effect", key.toString())
                                                         .with("amplifier", String.valueOf(amp))
                                                         .forAudience(s).build());
                                             } else {
@@ -1110,40 +1123,50 @@ public final class ParcourCommand implements BrigadierCommand {
     }
 
     private CompletableFuture<Suggestions> suggestSoundNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
-        String rem = b.getRemaining().toUpperCase(java.util.Locale.ROOT);
-        if ("NONE".startsWith(rem)) b.suggest("NONE");
-        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
+        if ("none".startsWith(rem)) b.suggest("NONE");
+        if ("null".startsWith(rem)) b.suggest("NULL");
         if ("-".startsWith(rem)) b.suggest("-");
-        for (Sound s : Sound.values()) {
-            String name = s.name();
-            if (name.startsWith(rem)) b.suggest(name);
-        }
+
+        var reg = BukkitRegistry.soundRegistry();
+        reg.forEach(snd -> {
+            var key = reg.getKey(snd);
+            if (key == null) return; // sound may be anonymous
+            String id = key.toString(); // e.g., minecraft:entity.player.levelup
+            if (id.startsWith(rem) || id.contains(rem)) b.suggest(id);
+        });
         return b.buildFuture();
     }
 
     private CompletableFuture<Suggestions> suggestParticleNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
-        String rem = b.getRemaining().toUpperCase(java.util.Locale.ROOT);
-        if ("NONE".startsWith(rem)) b.suggest("NONE");
-        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
+        if ("none".startsWith(rem)) b.suggest("NONE");
+        if ("null".startsWith(rem)) b.suggest("NULL");
         if ("-".startsWith(rem)) b.suggest("-");
-        for (Particle p : Particle.values()) {
-            String name = p.name();
-            if (name.startsWith(rem)) b.suggest(name);
-        }
+
+        var reg = BukkitRegistry.particleRegistry();
+        reg.forEach(p -> {
+            var key = reg.getKey(p);
+            if (key == null) return;
+            String id = key.toString(); // e.g., minecraft:dust
+            if (id.startsWith(rem) || id.contains(rem)) b.suggest(id);
+        });
         return b.buildFuture();
     }
 
     private CompletableFuture<Suggestions> suggestEffectNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
-        String rem = b.getRemaining().toUpperCase(java.util.Locale.ROOT);
-        if ("NONE".startsWith(rem)) b.suggest("NONE");
-        if ("NULL".startsWith(rem)) b.suggest("NULL");
+        String rem = b.getRemaining().toLowerCase(Locale.ROOT);
+        if ("none".startsWith(rem)) b.suggest("NONE");
+        if ("null".startsWith(rem)) b.suggest("NULL");
         if ("-".startsWith(rem)) b.suggest("-");
-        for (PotionEffectType t : PotionEffectType.values()) {
-            String name = t.getName();
-            if (name != null && name.toUpperCase(java.util.Locale.ROOT).startsWith(rem)) {
-                b.suggest(name.toUpperCase(java.util.Locale.ROOT));
-            }
-        }
+
+        var reg = BukkitRegistry.mobEffectRegistry();
+        reg.forEach(t -> {
+            var key = reg.getKey(t);
+            if (key == null) return;
+            String id = key.toString(); // e.g., minecraft:speed
+            if (id.startsWith(rem) || id.contains(rem)) b.suggest(id);
+        });
         return b.buildFuture();
     }
 
@@ -1227,4 +1250,10 @@ public final class ParcourCommand implements BrigadierCommand {
     }
 
     private String fmt(float f) { return String.format(java.util.Locale.ROOT, "%.1f", f); }
+
+    private static boolean isClearKeyword(String s) {
+        String v = s.trim();
+        return v.equalsIgnoreCase("NONE") || v.equalsIgnoreCase("NULL") || v.equals("-");
+    }
+
 }

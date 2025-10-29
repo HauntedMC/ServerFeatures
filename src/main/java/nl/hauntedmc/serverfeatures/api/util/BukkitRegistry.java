@@ -27,6 +27,8 @@ import org.bukkit.potion.PotionType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Locale;
+
 
 public class BukkitRegistry {
 
@@ -50,6 +52,21 @@ public class BukkitRegistry {
 
     public static <T extends Keyed> TypedKey<@NotNull T> typed(RegistryKey<@NotNull T> key, String id) {
         return key.typedKey(id);
+    }
+
+    /**
+     * Deserialize a key. Accepts:
+     *  - namespaced id (e.g., minecraft:entity.player.levelup)
+     *  - simple dot path (entity.player.levelup) -> minecraft:entity.player.levelup
+     *  - legacy enum name (ENTITY_PLAYER_LEVELUP) -> minecraft:entity.player.levelup
+     */
+    public static NamespacedKey deserializeNamespacedKey(String input) {
+        String trimmed = input.trim().toLowerCase(Locale.ROOT);
+        NamespacedKey direct = NamespacedKey.fromString(trimmed);
+        if (direct != null) return direct;
+
+        String legacyDot = trimmed.replace('_', '.');
+        return NamespacedKey.fromString("minecraft:" + legacyDot);
     }
 
     public static Registry<@NotNull Sound> soundRegistry() {
