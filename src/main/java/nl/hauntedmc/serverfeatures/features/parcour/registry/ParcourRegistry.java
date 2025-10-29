@@ -1,7 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
-import io.papermc.paper.registry.RegistryAccess;
-import io.papermc.paper.registry.RegistryKey;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
@@ -13,17 +11,10 @@ import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
-import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.jetbrains.annotations.NotNull;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.*;
 
 public final class ParcourRegistry {
@@ -226,7 +217,9 @@ public final class ParcourRegistry {
         return false;
     }
 
-    /** Try to parse a NamespacedKey; if legacy enum-style (e.g. ENTITY_PLAYER_LEVELUP), convert to minecraft:entity.player.levelup */
+    /**
+     * Try to parse a NamespacedKey; if legacy enum-style (e.g. ENTITY_PLAYER_LEVELUP), convert to minecraft:entity.player.levelup
+     */
     private static NamespacedKey parseKeyOrLegacy(String input) {
         String trimmed = input.trim();
         // If it's already namespaced (e.g. "minecraft:entity.player.levelup")
@@ -239,7 +232,11 @@ public final class ParcourRegistry {
     }
 
     private static Integer parseOrder(String k) {
-        try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
+        try {
+            return Integer.parseInt(k);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {
@@ -431,17 +428,18 @@ public final class ParcourRegistry {
         return List.copyOf(byId.values());
     }
 
-    public int size() { return byId.size(); }
+    public int size() {
+        return byId.size();
+    }
 
     // ====== Item (de)serialization helpers for start kit ======
     public Optional<String> serializeItemToBase64(ItemStack item) {
         if (item == null) return Optional.empty();
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             BukkitObjectOutputStream oos = new BukkitObjectOutputStream(baos)) {
-            oos.writeObject(item);
-            oos.flush();
-            return Optional.of(Base64.getEncoder().encodeToString(baos.toByteArray()));
-        } catch (IOException ex) {
+        try {
+            // Modern, safe binary serialization provided by Bukkit/Paper 1.21+
+            byte[] bytes = item.serializeAsBytes();
+            return Optional.of(Base64.getEncoder().encodeToString(bytes));
+        } catch (Throwable ex) {
             feature.getLogger().warning("Failed to serialize start kit item: " + ex.getMessage());
             return Optional.empty();
         }
@@ -449,19 +447,18 @@ public final class ParcourRegistry {
 
     public Optional<ItemStack> deserializeItemFromBase64(String base64) {
         if (base64 == null || base64.isBlank()) return Optional.empty();
-        byte[] data;
-        try { data = Base64.getDecoder().decode(base64); }
-        catch (IllegalArgumentException e) {
+        final byte[] data;
+        try {
+            data = Base64.getDecoder().decode(base64);
+        } catch (IllegalArgumentException e) {
             feature.getLogger().warning("Invalid base64 for start kit item.");
             return Optional.empty();
         }
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(data);
-             BukkitObjectInputStream ois = new BukkitObjectInputStream(bais)) {
-            Object obj = ois.readObject();
-            if (obj instanceof ItemStack is) return Optional.of(is);
-            feature.getLogger().warning("Deserialized object is not an ItemStack.");
-            return Optional.empty();
-        } catch (IOException | ClassNotFoundException ex) {
+        try {
+            // Counterpart of serializeAsBytes()
+            ItemStack item = ItemStack.deserializeBytes(data);
+            return Optional.of(item);
+        } catch (Throwable ex) {
             feature.getLogger().warning("Failed to deserialize start kit item: " + ex.getMessage());
             return Optional.empty();
         }
