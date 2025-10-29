@@ -10,7 +10,13 @@ import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
 
 public final class ParcourRegistry {
@@ -42,16 +48,12 @@ public final class ParcourRegistry {
                 // notify_progress flag (default false)
                 def.setNotifyProgress(n.get("notify_progress").as(Boolean.class, false));
 
-                // NEW: use_actionbar toggle (default false)
                 def.setUseActionBar(n.get("use_actionbar").as(Boolean.class, false));
 
-                // NEW: finish delayed teleport seconds (default 0 = disabled)
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
 
-                // NEW: checkpoint return cooldown seconds (default 3)
                 def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
 
-                // NEW: sounds (map-level)
                 ConfigNode sounds = n.get("sounds");
                 String cpSound = sounds.get("checkpoint").as(String.class, null);
                 String endSound = sounds.get("end").as(String.class, null);
@@ -59,15 +61,20 @@ public final class ParcourRegistry {
                 if (isValidSound(cpSound, log, id, "checkpoint")) def.setCheckpointSoundName(cpSound);
                 if (isValidSound(endSound, log, id, "end")) def.setEndSoundName(endSound);
 
-                // NEW: region highlight particle (map-level)
                 String particleName = n.get("region_highlight_particle").as(String.class, null);
                 if (isValidParticle(particleName, log, id)) {
                     def.setRegionHighlightParticleName(particleName);
                 }
 
-                // NEW: per-map toggles (default true)
                 def.setHungerEnabled(n.get("hunger_enabled").as(Boolean.class, true));
                 def.setDamageEnabled(n.get("damage_enabled").as(Boolean.class, true));
+
+                List<String> kit = n.get("start_kit").listOf(String.class);
+                if (kit != null) {
+                    for (String b64 : kit) {
+                        if (b64 != null && !b64.isBlank()) def.addStartKitSerialized(b64);
+                    }
+                }
 
                 // Exit spawn (optional)
                 ConfigNode exit = n.get("exit_spawn");
@@ -215,26 +222,17 @@ public final class ParcourRegistry {
         cfg.batch(b -> {
             // progress toggle
             b.put(base + ".notify_progress", def.notifyProgress());
-
-            // NEW: use_actionbar
             b.put(base + ".use_actionbar", def.useActionBar());
-
-            // NEW: finish delayed teleport seconds
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
-
-            // NEW: checkpoint cooldown seconds
             b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
 
-            // NEW: sounds
             def.checkpointSoundName().ifPresent(name -> b.put(base + ".sounds.checkpoint", name));
             def.endSoundName().ifPresent(name -> b.put(base + ".sounds.end", name));
-
-            // NEW: region highlight particle
             def.regionHighlightParticleName().ifPresent(name -> b.put(base + ".region_highlight_particle", name));
 
-            // NEW: per-map toggles
             b.put(base + ".hunger_enabled", def.hungerEnabled());
             b.put(base + ".damage_enabled", def.damageEnabled());
+            b.put(base + ".start_kit", def.startKitEncoded());
 
             // exit spawn
             def.exitSpawn().ifPresent(l -> {
@@ -315,6 +313,7 @@ public final class ParcourRegistry {
             b.remove(base + ".region_highlight_particle");
             b.remove(base + ".hunger_enabled");
             b.remove(base + ".damage_enabled");
+            b.remove(base + ".start_kit");
             b.remove(base);
         });
 
@@ -332,5 +331,41 @@ public final class ParcourRegistry {
 
     public int size() {
         return byId.size();
+    }
+
+    // ====== Item (de)serialization helpers for start kit ======
+
+    public Optional<String> serializeItemToBase64(ItemStack item) {
+        if (item == null) return Optional.empty();
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             BukkitObjectOutputStream oos = new BukkitObjectOutputStream(baos)) {
+            oos.writeObject(item);
+            oos.flush();
+            return Optional.of(Base64.getEncoder().encodeToString(baos.toByteArray()));
+        } catch (IOException ex) {
+            feature.getLogger().warning("Failed to serialize start kit item: " + ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
+    public Optional<ItemStack> deserializeItemFromBase64(String base64) {
+        if (base64 == null || base64.isBlank()) return Optional.empty();
+        byte[] data;
+        try {
+            data = Base64.getDecoder().decode(base64);
+        } catch (IllegalArgumentException e) {
+            feature.getLogger().warning("Invalid base64 for start kit item.");
+            return Optional.empty();
+        }
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(data);
+             BukkitObjectInputStream ois = new BukkitObjectInputStream(bais)) {
+            Object obj = ois.readObject();
+            if (obj instanceof ItemStack is) return Optional.of(is);
+            feature.getLogger().warning("Deserialized object is not an ItemStack.");
+            return Optional.empty();
+        } catch (IOException | ClassNotFoundException ex) {
+            feature.getLogger().warning("Failed to deserialize start kit item: " + ex.getMessage());
+            return Optional.empty();
+        }
     }
 }

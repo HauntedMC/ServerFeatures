@@ -22,26 +22,15 @@ public final class ParcourDefinition {
 
     // Progress notify (chat)
     private boolean notifyProgress;
-
-    // NEW: map-level sounds
     private String checkpointSoundName; // org.bukkit.Sound enum name, null = none
     private String endSoundName;        // org.bukkit.Sound enum name, null = none
-
-    // NEW: actionbar live timer/progress toggle
     private boolean useActionBar;
-
-    // NEW: optional delayed teleport to exit spawn after finish (seconds; 0 disables)
     private int finishTeleportDelaySeconds;
-
-    // NEW: particle to highlight NEXT region boundary (org.bukkit.Particle enum name)
     private String regionHighlightParticleName;
-
-    // NEW: per-map toggles (default true)
     private boolean hungerEnabled = true;
     private boolean damageEnabled = true;
-
-    // NEW: per-map cooldown (seconds) for player-initiated checkpoint returns (command/item)
     private int checkpointCooldownSeconds = 3;
+    private final List<String> startKitEncoded = new ArrayList<>();
 
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -140,4 +129,15 @@ public final class ParcourDefinition {
     // ===== Checkpoint cooldown =====
     public int checkpointCooldownSeconds() { return checkpointCooldownSeconds; }
     public void setCheckpointCooldownSeconds(int seconds) { this.checkpointCooldownSeconds = Math.max(0, seconds); }
+
+    // ===== Start kit (encoded ItemStacks) =====
+    public List<String> startKitEncoded() { return Collections.unmodifiableList(startKitEncoded); }
+    public void clearStartKit() { startKitEncoded.clear(); }
+    public void addStartKitSerialized(String base64) { if (base64 != null && !base64.isBlank()) startKitEncoded.add(base64); }
+    public boolean removeStartKitIndex(int oneBasedIndex) {
+        int idx = oneBasedIndex - 1;
+        if (idx < 0 || idx >= startKitEncoded.size()) return false;
+        startKitEncoded.remove(idx);
+        return true;
+    }
 }

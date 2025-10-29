@@ -21,6 +21,7 @@ import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -480,7 +481,6 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                // NEW: setregionparticle <parcourId> <PARTICLE|NONE>
                 .then(Commands.literal("setregionparticle")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -522,7 +522,6 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                // NEW: sethunger <parcourId> <true|false>
                 .then(Commands.literal("sethunger")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -543,7 +542,6 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                // NEW: setdamage <parcourId> <true|false>
                 .then(Commands.literal("setdamage")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -564,7 +562,6 @@ public final class ParcourCommand implements BrigadierCommand {
                                         })))
                 )
 
-                // NEW: setcheckpointcooldown <parcourId> <seconds>
                 .then(Commands.literal("setcheckpointcooldown")
                         .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
@@ -580,6 +577,91 @@ public final class ParcourCommand implements BrigadierCommand {
                                             } else {
                                                 s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
                                                         .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                )
+
+                // ===== NEW: Start kit subcommands =====
+                .then(Commands.literal("startkit")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
+                        .then(Commands.literal("addfromhand")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            if (!(s instanceof Player p)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("general.player_command").forAudience(s).build());
+                                                return 1;
+                                            }
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            if (handler.addStartKitFromHand(id, p)) {
+                                                ItemStack is = p.getInventory().getItemInMainHand();
+                                                String nice = (is == null || is.getType().isAir()) ? "AIR" : is.getType().name();
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.added")
+                                                        .with("id", id).with("item", nice).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                        .then(Commands.literal("clear")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            if (handler.clearStartKit(id)) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.cleared")
+                                                        .with("id", id).forAudience(s).build());
+                                            } else {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                            }
+                                            return 1;
+                                        })))
+                        .then(Commands.literal("remove")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .then(Commands.argument("index", IntegerArgumentType.integer(1, 1000))
+                                                .executes(ctx -> {
+                                                    CommandSender s = ctx.getSource().getSender();
+                                                    String id = StringArgumentType.getString(ctx, "parcourId");
+                                                    int idx = IntegerArgumentType.getInteger(ctx, "index");
+                                                    if (handler.removeStartKitIndex(id, idx)) {
+                                                        s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.removed")
+                                                                .with("id", id).with("index", String.valueOf(idx)).forAudience(s).build());
+                                                    } else {
+                                                        s.sendMessage("§cKon startkit-item #" + idx + " niet verwijderen (bestaat niet?)");
+                                                    }
+                                                    return 1;
+                                                }))))
+                        .then(Commands.literal("list")
+                                .then(Commands.argument("parcourId", StringArgumentType.word())
+                                        .suggests(this::suggestParcourIds)
+                                        .executes(ctx -> {
+                                            CommandSender s = ctx.getSource().getSender();
+                                            String id = StringArgumentType.getString(ctx, "parcourId");
+                                            Optional<List<ItemStack>> listOpt = handler.listStartKit(id);
+                                            if (listOpt.isEmpty()) {
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.not_found")
+                                                        .with("name", id).forAudience(s).build());
+                                                return 1;
+                                            }
+                                            List<ItemStack> list = listOpt.get();
+                                            s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.list.header")
+                                                    .with("id", id).forAudience(s).build());
+                                            for (int i = 0; i < list.size(); i++) {
+                                                ItemStack is = list.get(i);
+                                                String nice = (is == null || is.getType().isAir()) ? "AIR" : is.getType().name() + " x" + is.getAmount();
+                                                s.sendMessage(feature.getLocalizationHandler().getMessage("parcour.admin.startkit.list.entry")
+                                                        .with("index", String.valueOf(i + 1))
+                                                        .with("item", nice)
+                                                        .forAudience(s).build());
+                                            }
+                                            if (list.isEmpty()) {
+                                                s.sendMessage("§7(geen items)");
                                             }
                                             return 1;
                                         })))
@@ -622,7 +704,7 @@ public final class ParcourCommand implements BrigadierCommand {
                         s.sendMessage("§7Speler: §f/parcour start <naam>§7, §f/parcour leave§7, §f/parcour checkpoint");
                     }
                     if (s.hasPermission(P_ADMIN)) {
-                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|info|list");
+                        s.sendMessage("§7Admin: §f/parcour create|delete|select|wand|add <start|checkpoint|end> ...|deleteregion|setrestore|addcmd|clearcmds|setexitspawn|setrestorelocation|setprogressnotify|setsound|setactionbar|setfinishdelay|setregionparticle|sethunger|setdamage|setcheckpointcooldown|startkit <addfromhand|clear|remove|list>|info|list");
                     }
                     return 1;
                 });
@@ -809,7 +891,6 @@ public final class ParcourCommand implements BrigadierCommand {
         return b.buildFuture();
     }
 
-    // NEW: suggestions for particle names + NONE/NULL/-
     private CompletableFuture<Suggestions> suggestParticleNames(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String rem = b.getRemaining().toUpperCase(Locale.ROOT);
 
@@ -845,21 +926,17 @@ public final class ParcourCommand implements BrigadierCommand {
         sendProp(sender, "Sound CHECKPOINT", def.checkpointSoundName().orElse("-"));
         sendProp(sender, "Sound END", def.endSoundName().orElse("-"));
 
-        // NEW: region highlight particle
         sendProp(sender, "Region Highlight Particle", def.regionHighlightParticleName().orElse("-"));
 
         // finish teleport delay
         sendProp(sender, "Finish Teleport Delay (s)", def.finishTeleportDelaySeconds() > 0
                 ? String.valueOf(def.finishTeleportDelaySeconds()) : "-");
 
-        // NEW: toggles
         sendProp(sender, "Hunger Enabled", String.valueOf(def.hungerEnabled()));
         sendProp(sender, "Damage Enabled", String.valueOf(def.damageEnabled()));
-
-        // NEW: checkpoint cooldown
         sendProp(sender, "Checkpoint Teleport Cooldown (s)", String.valueOf(def.checkpointCooldownSeconds()));
+        sendProp(sender, "StartKit Items", String.valueOf(def.startKitEncoded().size()));
 
-        // START
         def.startRegion().ifPresentOrElse(pr -> {
             String regionStr = pr.region().map(r ->
                     r.worldName() + " [" + r.minX() + "," + r.minY() + "," + r.minZ() + "] -> [" + r.maxX() + "," + r.maxY() + "," + r.maxZ() + "]"

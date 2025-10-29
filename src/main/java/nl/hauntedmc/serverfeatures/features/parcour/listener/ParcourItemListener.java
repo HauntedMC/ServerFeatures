@@ -36,8 +36,14 @@ public final class ParcourItemListener implements Listener {
         return pdc.has(handler.checkpointKey(), PersistentDataType.BYTE);
     }
 
+    private boolean isKitItem(ItemStack stack) {
+        if (stack == null || !stack.hasItemMeta()) return false;
+        var pdc = stack.getItemMeta().getPersistentDataContainer();
+        return pdc.has(handler.kitKey(), PersistentDataType.BYTE);
+    }
+
     private boolean isSpecial(ItemStack stack) {
-        return isLeaveItem(stack) || isCheckpointItem(stack);
+        return isLeaveItem(stack) || isCheckpointItem(stack) || isKitItem(stack);
     }
 
     /**

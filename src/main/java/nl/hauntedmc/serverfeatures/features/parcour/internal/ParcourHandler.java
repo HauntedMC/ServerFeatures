@@ -13,8 +13,10 @@ import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
@@ -28,7 +30,6 @@ public final class ParcourHandler {
     private static final long TELEPORT_IGNORE_MS = 1000L;  // ignore triggers after controlled teleports
     private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
 
-    // NEW: particle highlight — how often to render the outline
     private static final long PARTICLE_INTERVAL_TICKS = 12L; // ~0.6s
     // upper bound target count for outline points per emission (to pick step size)
     private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
@@ -45,10 +46,9 @@ public final class ParcourHandler {
     private final ParcourRegistry registry;
     private final FeatureLogger log;
     private final NamespacedKey wandKey;
-
-    // NEW: control item keys
     private final NamespacedKey leaveKey;
     private final NamespacedKey checkpointKey;
+    private final NamespacedKey kitKey;
 
     // ====== Selection (editor) ======
     public static final class Selection {
@@ -86,11 +86,13 @@ public final class ParcourHandler {
         this.wandKey = new NamespacedKey(feature.getPlugin(), "parcour_wand");
         this.leaveKey = new NamespacedKey(feature.getPlugin(), "parcour_leave");
         this.checkpointKey = new NamespacedKey(feature.getPlugin(), "parcour_checkpoint");
+        this.kitKey = new NamespacedKey(feature.getPlugin(), "parcour_kit");
     }
 
     public NamespacedKey wandKey() { return wandKey; }
     public NamespacedKey leaveKey() { return leaveKey; }
     public NamespacedKey checkpointKey() { return checkpointKey; }
+    public NamespacedKey kitKey() { return kitKey; }
 
     // ===== Selections (editor) =====
     public Selection selection(Player p) {
@@ -162,7 +164,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // NEW: set/clear region highlight particle (enum name; null to clear)
     public boolean setRegionParticle(String id, String particleOrNull) {
         return registry.get(id).map(def -> {
             def.setRegionHighlightParticleName(particleOrNull);
@@ -180,7 +181,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // NEW: per-map toggles
     public boolean setHungerEnabled(String id, boolean value) {
         return registry.get(id).map(def -> {
             def.setHungerEnabled(value);
@@ -197,12 +197,49 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // NEW: per-map checkpoint cooldown seconds
     public boolean setCheckpointCooldownSeconds(String id, int seconds) {
         return registry.get(id).map(def -> {
             def.setCheckpointCooldownSeconds(seconds);
             registry.saveParcour(def);
             return true;
+        }).orElse(false);
+    }
+
+    // ===== NEW: Start kit management =====
+
+    public boolean addStartKitFromHand(String id, Player p) {
+        ItemStack hand = p.getInventory().getItemInMainHand();
+        if (hand == null || hand.getType().isAir()) return false;
+        return registry.get(id).map(def -> {
+            registry.serializeItemToBase64(hand.clone()).ifPresent(def::addStartKitSerialized);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean clearStartKit(String id) {
+        return registry.get(id).map(def -> {
+            def.clearStartKit();
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public Optional<List<ItemStack>> listStartKit(String id) {
+        return registry.get(id).map(def -> {
+            List<ItemStack> res = new ArrayList<>();
+            for (String b64 : def.startKitEncoded()) {
+                registry.deserializeItemFromBase64(b64).ifPresent(res::add);
+            }
+            return res;
+        });
+    }
+
+    public boolean removeStartKitIndex(String id, int oneBasedIndex) {
+        return registry.get(id).map(def -> {
+            boolean ok = def.removeStartKitIndex(oneBasedIndex);
+            if (ok) registry.saveParcour(def);
+            return ok;
         }).orElse(false);
     }
 
@@ -356,7 +393,6 @@ public final class ParcourHandler {
         }
     }
 
-    // NEW: full restore for all active sessions (on disable)
     public int restoreAllAndClearSessions() {
         int count = 0;
         for (ParcourSession s : new ArrayList<>(sessions.values())) {
@@ -415,7 +451,6 @@ public final class ParcourHandler {
         // Execute START commands once
         def.startRegion().ifPresent(thisRegion -> executeRegionCommands(p, thisRegion));
 
-        // NEW: start region highlight for the first target
         updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
         return true;
     }
@@ -509,11 +544,12 @@ public final class ParcourHandler {
         sessions.put(p.getUniqueId(), session);
         lastTrigger.put(p.getUniqueId(), 0L);
 
-        // NEW: inventory snapshot + clean inventory + control items + full health/hunger
         ParcourInventorySnapshot snap = ParcourInventorySnapshot.capture(p);
         session.setSnapshot(snap);
         applyCleanParcourInventory(p);
         giveControlItems(p);
+        giveStartKitItems(p, def);
+
         // full health & hunger on start
         p.setHealth(p.getAttribute(Attribute.MAX_HEALTH).getValue());
         p.setFoodLevel(20);
@@ -575,7 +611,6 @@ public final class ParcourHandler {
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                                 .with("name", def.id()).forAudience(p).build());
                         executeRegionCommands(p, def.startRegion().get());
-                        // NEW: start highlight
                         updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
@@ -629,7 +664,6 @@ public final class ParcourHandler {
                                     .forAudience(p).build());
                         }
 
-                        // NEW: update highlight to point to the next region
                         updateRegionHighlight(p, def, s);
 
                         lastTrigger.put(p.getUniqueId(), now);
@@ -703,11 +737,7 @@ public final class ParcourHandler {
 
         // mark finished (freeze timer & show N/N in actionbar)
         s.markFinished(elapsedMs);
-
-        // NEW: stop highlighting on finish
         s.cancelParticleTask();
-
-        // NEW: restore inventory immediately on finish
         restoreInventoryIfPresent(p, s);
 
         // schedule cleanup of session + actionbar after a short hold
@@ -783,6 +813,82 @@ public final class ParcourHandler {
         p.getInventory().setItem(SLOT_LEAVE, leave);
         p.getInventory().setItem(SLOT_CKPT, ck);
         p.updateInventory();
+    }
+
+    private void giveStartKitItems(Player p, ParcourDefinition def) {
+        PlayerInventory inv = p.getInventory();
+
+        for (String b64 : def.startKitEncoded()) {
+            var isOpt = registry.deserializeItemFromBase64(b64);
+            if (isOpt.isEmpty()) continue;
+
+            ItemStack item = isOpt.get().clone();
+            // tag as kit item to protect from moving/dropping
+            ItemMeta meta = item.getItemMeta();
+            meta.getPersistentDataContainer().set(kitKey, PersistentDataType.BYTE, (byte) 1);
+            item.setItemMeta(meta);
+
+            // try to auto-equip armor/elytra/shield/totem
+            Material mat = item.getType();
+            boolean placed = false;
+
+            if (isHelmet(mat) && isEmpty(inv.getHelmet())) { inv.setHelmet(item); placed = true; }
+            else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
+            else if (mat == Material.ELYTRA && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
+            else if (isLeggings(mat) && isEmpty(inv.getLeggings())) { inv.setLeggings(item); placed = true; }
+            else if (isBoots(mat) && isEmpty(inv.getBoots())) { inv.setBoots(item); placed = true; }
+            else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) { inv.setItemInOffHand(item); placed = true; }
+
+            if (!placed) {
+                // put in first empty slot, preferring hotbar, skipping reserved control slots
+                int slot = firstFreePlayableSlot(inv);
+                if (slot >= 0) {
+                    inv.setItem(slot, item);
+                    placed = true;
+                } else {
+                    // inventory unexpectedly full (shouldn't happen) -> drop at feet
+                    p.getWorld().dropItemNaturally(p.getLocation(), item);
+                }
+            }
+        }
+        p.updateInventory();
+    }
+
+    private boolean isEmpty(ItemStack it) { return it == null || it.getType().isAir(); }
+
+    private boolean isHelmet(Material m) {
+        return m.name().endsWith("_HELMET") || m == Material.TURTLE_HELMET || m == Material.CARVED_PUMPKIN;
+    }
+
+    private boolean isChestArmor(Material m) {
+        return m.name().endsWith("_CHESTPLATE");
+    }
+
+    private boolean isLeggings(Material m) {
+        return m.name().endsWith("_LEGGINGS");
+    }
+
+    private boolean isBoots(Material m) {
+        return m.name().endsWith("_BOOTS");
+    }
+
+    private boolean isOffhandItem(Material m) {
+        return m == Material.SHIELD || m == Material.TOTEM_OF_UNDYING;
+    }
+
+    private int firstFreePlayableSlot(PlayerInventory inv) {
+        // hotbar 0..8, skip reserved
+        for (int i = 0; i <= 8; i++) {
+            if (i == SLOT_CKPT || i == SLOT_LEAVE) continue;
+            ItemStack it = inv.getItem(i);
+            if (isEmpty(it)) return i;
+        }
+        // main inventory 9..35
+        for (int i = 9; i <= 35; i++) {
+            ItemStack it = inv.getItem(i);
+            if (isEmpty(it)) return i;
+        }
+        return -1;
     }
 
     private void restoreInventoryIfPresent(Player p, ParcourSession s) {

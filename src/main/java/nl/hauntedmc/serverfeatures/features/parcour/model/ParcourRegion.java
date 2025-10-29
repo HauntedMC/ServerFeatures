@@ -15,7 +15,6 @@ public final class ParcourRegion {
     private boolean restoreCheckpoint; // ignored for END
     private final List<String> commands; // executed on enter, as console, {player}
 
-    // NEW: explicit restore location (for START/CHECKPOINT only)
     private String restoreWorld;
     private Double restoreX, restoreY, restoreZ;
     private Float restoreYaw, restorePitch;
@@ -43,7 +42,6 @@ public final class ParcourRegion {
     public void addCommand(String cmd) { if (cmd != null && !cmd.isBlank()) commands.add(stripSlash(cmd)); }
     public void clearCommands() { commands.clear(); }
 
-    // NEW: explicit restore location controls (ignored for END)
     public void setExplicitRestore(String world, double x, double y, double z, float yaw, float pitch) {
         if (type == ParcourRegionType.END) return; // not applicable
         this.restoreWorld = world;
@@ -64,7 +62,6 @@ public final class ParcourRegion {
         return Optional.of(new Location(world, restoreX, restoreY, restoreZ, restoreYaw, restorePitch));
     }
 
-    // NEW: choose explicit restore if present, else region center (may return null)
     public Location resolveRestoreLocation(Server server) {
         return explicitRestore(server).orElseGet(() -> region != null ? region.center(server) : null);
     }

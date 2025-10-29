@@ -26,17 +26,12 @@ public final class ParcourSession {
     // Actionbar task handle (nullable)
     private BukkitTask actionBarTask;
 
-    // NEW: particle highlight task handle (nullable)
     private BukkitTask particleTask;
 
     // Finished state: freeze timer and show N/N for a short hold
     private boolean finished;
     private long finalElapsedMs;
-
-    // NEW: per-session inventory snapshot
     private ParcourInventorySnapshot snapshot;
-
-    // NEW: last time a player-initiated checkpoint teleport occurred (ms since epoch)
     private long lastCheckpointTeleportMs = 0L;
 
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
@@ -75,7 +70,6 @@ public final class ParcourSession {
         }
     }
 
-    // NEW: particle highlight task controls
     public void setParticleTask(BukkitTask task) { this.particleTask = task; }
 
     public void cancelParticleTask() {

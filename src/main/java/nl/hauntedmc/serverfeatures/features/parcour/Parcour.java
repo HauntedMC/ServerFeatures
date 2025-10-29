@@ -84,6 +84,11 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.damage.set", "&aSchade voor &f{id}&a ingesteld op &f{value}&a.");
         m.add("parcour.checkpoint.cooldown", "&cWacht nog &f{seconds}s &cvoordat je terug naar je checkpoint kunt.");
         m.add("parcour.admin.checkpointcooldown.set", "&aCheckpoint-cooldown voor &f{id} &agingesteld op &f{seconds}&as.");
+        m.add("parcour.admin.startkit.added", "&aStartkit-item toegevoegd aan &f{id}&a: &7{item}");
+        m.add("parcour.admin.startkit.cleared", "&aStartkit leeggemaakt voor &f{id}&a.");
+        m.add("parcour.admin.startkit.removed", "&aStartkit-item &f#{index}&a verwijderd voor &f{id}&a.");
+        m.add("parcour.admin.startkit.list.header", "&6&lStartkit &7({id})");
+        m.add("parcour.admin.startkit.list.entry", "&7- &f#{index}&7: &f{item}");
 
         return m;
     }
@@ -107,7 +112,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        // NEW: restore all active sessions on plugin disable (safety)
         if (handler != null) {
             int restored = handler.restoreAllAndClearSessions();
             getLogger().info("Parcour disabled: restored " + restored + " active player session(s).");
