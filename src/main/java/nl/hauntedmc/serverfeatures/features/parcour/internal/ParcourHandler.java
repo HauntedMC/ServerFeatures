@@ -182,9 +182,9 @@ public final class ParcourHandler {
             if (effectNameOrNull == null) {
                 def.setEffect(null, null);
             } else {
-                String up = effectNameOrNull.trim().toUpperCase(java.util.Locale.ROOT);
-                if (PotionEffectType.getByName(up) == null) return false; // kept for config validation; application uses registry-safe methods
-                def.setEffect(up, amplifier);
+                String raw = effectNameOrNull.trim();
+                if (resolveEffectType(raw) == null) return false; // registry-based validation (no deprecated API)
+                def.setEffect(raw, amplifier);
             }
             registry.saveParcour(def);
 
@@ -203,8 +203,8 @@ public final class ParcourHandler {
 
     private void applyEffectIfConfigured(Player p, ParcourDefinition def, ParcourSession s) {
         if (def.effectTypeName().isEmpty()) return;
-        // Resolve via registry where possible, but accept legacy names from config
-        PotionEffectType type = PotionEffectType.getByName(def.effectTypeName().get());
+        // Resolve via registry (supports namespaced ids like "minecraft:speed" and simple names like "speed"/"SPEED")
+        PotionEffectType type = resolveEffectType(def.effectTypeName().get());
         if (type == null) return;
 
         s.setAppliedEffectType(type);
@@ -719,6 +719,7 @@ public final class ParcourHandler {
 
                             updateRegionHighlight(p, def, s);
                             progressed = true;
+                            hitSomething = true;
                             // loop again to see if we also crossed the next checkpoint in the same move
                             continue;
                         }
@@ -876,7 +877,7 @@ public final class ParcourHandler {
 
             Component go = feature.getLocalizationHandler().getMessage("parcour.countdown.go").forAudience(p).build();
             p.showTitle(Title.title(go, Component.empty(),
-                    Title.Times.of(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(50))));
+                    Title.Times.times(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(50))));
 
             s.setCountdownActive(false);
             s.cancelCountdownTask();
@@ -893,7 +894,7 @@ public final class ParcourHandler {
                 .with("seconds", String.valueOf(sec))
                 .forAudience(p).build();
         p.showTitle(Title.title(countdown, Component.empty(),
-                Title.Times.of(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(0))));
+                Title.Times.times(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(0))));
     }
 
     private void applyCleanParcourInventory(Player p) {
@@ -1172,5 +1173,12 @@ public final class ParcourHandler {
         }
         if (key == null) return null;
         return BukkitRegistry.particleRegistry().get(key);
+    }
+
+    private PotionEffectType resolveEffectType(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(raw);
+        if (key == null) return null;
+        return org.bukkit.Registry.POTION_EFFECT_TYPE.get(key);
     }
 }
