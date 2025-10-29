@@ -1,3 +1,4 @@
+// File: nl/hauntedmc/serverfeatures/features/parcour/internal/ParcourHandler.java
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import net.kyori.adventure.text.Component;
@@ -9,15 +10,15 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
-import org.bukkit.*;
-import org.bukkit.attribute.Attribute;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -34,47 +35,19 @@ public final class ParcourHandler {
     // upper bound target count for outline points per emission (to pick step size)
     private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
 
-    private static final String WAND_NAME = "§6Parcour Wand";
-
     // Control item materials/slots
     private static final org.bukkit.Material ITEM_LEAVE_MAT = org.bukkit.Material.BARRIER;
-    private static final org.bukkit.Material ITEM_CKPT_MAT = Material.NETHER_STAR;
+    private static final org.bukkit.Material ITEM_CKPT_MAT = org.bukkit.Material.NETHER_STAR;
     private static final int SLOT_CKPT = 3;
     private static final int SLOT_LEAVE = 5;
 
     private final Parcour feature;
     private final ParcourRegistry registry;
     private final FeatureLogger log;
-    private final NamespacedKey wandKey;
     private final NamespacedKey leaveKey;
     private final NamespacedKey checkpointKey;
     private final NamespacedKey kitKey;
 
-    // ====== Selection (editor) ======
-    public static final class Selection {
-        public String selectedParcourId;
-        public Integer pos1x, pos1y, pos1z;
-        public Integer pos2x, pos2y, pos2z;
-        public String world1, world2;
-
-        public boolean hasBoth() {
-            return world1 != null && Objects.equals(world1, world2)
-                    && pos1x != null && pos1y != null && pos1z != null
-                    && pos2x != null && pos2y != null && pos2z != null;
-        }
-
-        public Region toRegionOrNull() {
-            if (!hasBoth()) return null;
-            return new Region(world1, pos1x, pos1y, pos1z, pos2x, pos2y, pos2z);
-        }
-
-        public void clearRegion() {
-            world1 = world2 = null;
-            pos1x = pos1y = pos1z = pos2x = pos2y = pos2z = null;
-        }
-    }
-
-    private final Map<UUID, Selection> selections = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastTrigger = new ConcurrentHashMap<>();
     private final Map<UUID, Long> ignoreUntil = new ConcurrentHashMap<>();
     private final Map<UUID, ParcourSession> sessions = new ConcurrentHashMap<>();
@@ -83,36 +56,21 @@ public final class ParcourHandler {
         this.feature = feature;
         this.registry = registry;
         this.log = feature.getLogger();
-        this.wandKey = new NamespacedKey(feature.getPlugin(), "parcour_wand");
         this.leaveKey = new NamespacedKey(feature.getPlugin(), "parcour_leave");
         this.checkpointKey = new NamespacedKey(feature.getPlugin(), "parcour_checkpoint");
         this.kitKey = new NamespacedKey(feature.getPlugin(), "parcour_kit");
     }
 
-    public NamespacedKey wandKey() { return wandKey; }
-    public NamespacedKey leaveKey() { return leaveKey; }
-    public NamespacedKey checkpointKey() { return checkpointKey; }
-    public NamespacedKey kitKey() { return kitKey; }
-
-    // ===== Selections (editor) =====
-    public Selection selection(Player p) {
-        return selections.computeIfAbsent(p.getUniqueId(), k -> new Selection());
+    public NamespacedKey leaveKey() {
+        return leaveKey;
     }
 
-    public void setPos1(Player p, Location loc) {
-        var s = selection(p);
-        s.world1 = loc.getWorld().getName();
-        s.pos1x = loc.getBlockX();
-        s.pos1y = loc.getBlockY();
-        s.pos1z = loc.getBlockZ();
+    public NamespacedKey checkpointKey() {
+        return checkpointKey;
     }
 
-    public void setPos2(Player p, Location loc) {
-        var s = selection(p);
-        s.world2 = loc.getWorld().getName();
-        s.pos2x = loc.getBlockX();
-        s.pos2y = loc.getBlockY();
-        s.pos2z = loc.getBlockZ();
+    public NamespacedKey kitKey() {
+        return kitKey;
     }
 
     // ===== Admin editing / map settings =====
@@ -278,11 +236,11 @@ public final class ParcourHandler {
 
     public boolean removeRegion(String id, String key) {
         return registry.get(id).map(def -> {
-            if (isStartKey(key)) {
+            if ("START".equalsIgnoreCase(key)) {
                 boolean ok = def.clearStartRegion();
                 if (ok) registry.saveParcour(def);
                 return ok;
-            } else if (isEndKey(key)) {
+            } else if ("END".equalsIgnoreCase(key)) {
                 boolean ok = def.clearEndRegion();
                 if (ok) registry.saveParcour(def);
                 return ok;
@@ -346,13 +304,17 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    private boolean isStartKey(String key) { return "START".equalsIgnoreCase(key); }
-    private boolean isEndKey(String key) { return "END".equalsIgnoreCase(key); }
-    private Integer parseOrder(String key) { try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; } }
+    private Integer parseOrder(String key) {
+        try {
+            return Integer.parseInt(key);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     private ParcourRegion getRegionByKey(ParcourDefinition def, String key) {
-        if (isStartKey(key)) return def.startRegion().orElse(null);
-        if (isEndKey(key)) return def.endRegion().orElse(null);
+        if ("START".equalsIgnoreCase(key)) return def.startRegion().orElse(null);
+        if ("END".equalsIgnoreCase(key)) return def.endRegion().orElse(null);
         Integer ord = parseOrder(key);
         if (ord == null) return null;
         return def.checkpoint(ord).orElse(null);
@@ -376,23 +338,15 @@ public final class ParcourHandler {
         return true;
     }
 
-    public void giveWand(Player p) {
-        ItemStack wand = new ItemStack(org.bukkit.Material.BLAZE_ROD, 1);
-        ItemMeta meta = wand.getItemMeta();
-        meta.displayName(Component.text(WAND_NAME));
-        meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        meta.getPersistentDataContainer().set(wandKey, PersistentDataType.BYTE, (byte) 1);
-        wand.setItemMeta(meta);
-        Map<Integer, ItemStack> notStored = p.getInventory().addItem(wand);
-        if (!notStored.isEmpty()) {
-            p.getWorld().dropItemNaturally(p.getLocation(), wand);
-        }
-    }
-
     // ===== Gameplay (sessions & triggers) =====
 
-    public boolean isPlaying(Player p) { return sessions.containsKey(p.getUniqueId()); }
-    public Optional<ParcourSession> session(Player p) { return Optional.ofNullable(sessions.get(p.getUniqueId())); }
+    public boolean isPlaying(Player p) {
+        return sessions.containsKey(p.getUniqueId());
+    }
+
+    public Optional<ParcourSession> session(Player p) {
+        return Optional.ofNullable(sessions.get(p.getUniqueId()));
+    }
 
     public void clearSession(Player p) {
         ParcourSession s = sessions.remove(p.getUniqueId());
@@ -407,7 +361,10 @@ public final class ParcourHandler {
         for (ParcourSession s : new ArrayList<>(sessions.values())) {
             Player p = Bukkit.getPlayer(s.playerId);
             if (p != null && p.isOnline() && s.snapshot() != null) {
-                try { s.snapshot().restore(p); } catch (Throwable ignored) {}
+                try {
+                    s.snapshot().restore(p);
+                } catch (Throwable ignored) {
+                }
                 count++;
             }
             s.cancelActionBarTask();
@@ -495,6 +452,7 @@ public final class ParcourHandler {
 
     /**
      * Teleport to the last restore location.
+     *
      * @param enforceCooldown if true, applies per-map cooldown (command/item); if false, no cooldown (e.g., death/void)
      */
     public boolean teleportToCheckpoint(Player p, boolean enforceCooldown) {
@@ -560,7 +518,7 @@ public final class ParcourHandler {
         giveStartKitItems(p, def);
 
         // full health & hunger on start
-        p.setHealth(p.getAttribute(Attribute.MAX_HEALTH).getValue());
+        p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
         p.setFoodLevel(20);
         p.setSaturation(20);
 
@@ -786,11 +744,6 @@ public final class ParcourHandler {
         }, BukkitTime.ticks(1));
     }
 
-    public void selectParcour(Player p, String id) {
-        var sel = selection(p);
-        sel.selectedParcourId = id;
-    }
-
     // ===== Inventory helpers =====
 
     private void applyCleanParcourInventory(Player p) {
@@ -803,7 +756,7 @@ public final class ParcourHandler {
     private void giveControlItems(Player p) {
         // Leave item
         ItemStack leave = new ItemStack(ITEM_LEAVE_MAT, 1);
-        ItemMeta lm = leave.getItemMeta();
+        var lm = leave.getItemMeta();
         lm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.leave.name").forAudience(p).build());
         lm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.leave.lore").forAudience(p).build()));
         lm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -812,7 +765,7 @@ public final class ParcourHandler {
 
         // Checkpoint item
         ItemStack ck = new ItemStack(ITEM_CKPT_MAT, 1);
-        ItemMeta cm = ck.getItemMeta();
+        var cm = ck.getItemMeta();
         cm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.name").forAudience(p).build());
         cm.lore(java.util.List.of(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.lore").forAudience(p).build()));
         cm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
@@ -833,20 +786,33 @@ public final class ParcourHandler {
 
             ItemStack item = isOpt.get().clone();
             // tag as kit item to protect from moving/dropping
-            ItemMeta meta = item.getItemMeta();
+            var meta = item.getItemMeta();
             meta.getPersistentDataContainer().set(kitKey, PersistentDataType.BYTE, (byte) 1);
             item.setItemMeta(meta);
 
             // try to auto-equip armor/elytra/shield/totem
-            Material mat = item.getType();
+            org.bukkit.Material mat = item.getType();
             boolean placed = false;
 
-            if (isHelmet(mat) && isEmpty(inv.getHelmet())) { inv.setHelmet(item); placed = true; }
-            else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
-            else if (mat == Material.ELYTRA && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
-            else if (isLeggings(mat) && isEmpty(inv.getLeggings())) { inv.setLeggings(item); placed = true; }
-            else if (isBoots(mat) && isEmpty(inv.getBoots())) { inv.setBoots(item); placed = true; }
-            else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) { inv.setItemInOffHand(item); placed = true; }
+            if (isHelmet(mat) && isEmpty(inv.getHelmet())) {
+                inv.setHelmet(item);
+                placed = true;
+            } else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) {
+                inv.setChestplate(item);
+                placed = true;
+            } else if (mat == org.bukkit.Material.ELYTRA && isEmpty(inv.getChestplate())) {
+                inv.setChestplate(item);
+                placed = true;
+            } else if (isLeggings(mat) && isEmpty(inv.getLeggings())) {
+                inv.setLeggings(item);
+                placed = true;
+            } else if (isBoots(mat) && isEmpty(inv.getBoots())) {
+                inv.setBoots(item);
+                placed = true;
+            } else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) {
+                inv.setItemInOffHand(item);
+                placed = true;
+            }
 
             if (!placed) {
                 // put in first empty slot, preferring hotbar, skipping reserved control slots
@@ -862,26 +828,28 @@ public final class ParcourHandler {
         p.updateInventory();
     }
 
-    private boolean isEmpty(ItemStack it) { return it == null || it.getType().isAir(); }
-
-    private boolean isHelmet(Material m) {
-        return m.name().endsWith("_HELMET") || m == Material.TURTLE_HELMET || m == Material.CARVED_PUMPKIN;
+    private boolean isEmpty(ItemStack it) {
+        return it == null || it.getType().isAir();
     }
 
-    private boolean isChestArmor(Material m) {
+    private boolean isHelmet(org.bukkit.Material m) {
+        return m.name().endsWith("_HELMET") || m == org.bukkit.Material.TURTLE_HELMET || m == org.bukkit.Material.CARVED_PUMPKIN;
+    }
+
+    private boolean isChestArmor(org.bukkit.Material m) {
         return m.name().endsWith("_CHESTPLATE");
     }
 
-    private boolean isLeggings(Material m) {
+    private boolean isLeggings(org.bukkit.Material m) {
         return m.name().endsWith("_LEGGINGS");
     }
 
-    private boolean isBoots(Material m) {
+    private boolean isBoots(org.bukkit.Material m) {
         return m.name().endsWith("_BOOTS");
     }
 
-    private boolean isOffhandItem(Material m) {
-        return m == Material.SHIELD || m == Material.TOTEM_OF_UNDYING;
+    private boolean isOffhandItem(org.bukkit.Material m) {
+        return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING;
     }
 
     private int firstFreePlayableSlot(PlayerInventory inv) {
@@ -922,9 +890,9 @@ public final class ParcourHandler {
         Optional<String> pname = def.regionHighlightParticleName();
         if (pname.isEmpty()) return;
 
-        final Particle particle;
+        final org.bukkit.Particle particle;
         try {
-            particle = Particle.valueOf(pname.get().trim().toUpperCase(Locale.ROOT));
+            particle = org.bukkit.Particle.valueOf(pname.get().trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ex) {
             // misconfigured; ignore
             return;
@@ -948,7 +916,7 @@ public final class ParcourHandler {
         s.setParticleTask(task);
     }
 
-    private void spawnRegionOutline(Player p, Region r, Particle particle) {
+    private void spawnRegionOutline(Player p, Region r, org.bukkit.Particle particle) {
         final int minX = r.minX();
         final int minY = r.minY();
         final int minZ = r.minZ();
@@ -991,22 +959,18 @@ public final class ParcourHandler {
         flushParticleQueue(p, particle);
     }
 
-    // ------- small, allocation-free particle batching helpers -------
-
     private static final ThreadLocal<List<Location>> TL_PARTICLE_BUF = ThreadLocal.withInitial(ArrayList::new);
 
     private void spawnParticle(Player p, int bx, int by, int bz) {
-        // store centered within the block (slightly above floor)
         List<Location> buf = TL_PARTICLE_BUF.get();
         buf.add(new Location(p.getWorld(), bx + 0.5, by + 0.1, bz + 0.5));
     }
 
-    private void flushParticleQueue(Player p, Particle particle) {
+    private void flushParticleQueue(Player p, org.bukkit.Particle particle) {
         List<Location> buf = TL_PARTICLE_BUF.get();
         if (buf.isEmpty()) return;
         try {
             for (Location l : buf) {
-                // count=1, no velocity, small spread for visibility
                 p.spawnParticle(particle, l.getX(), l.getY(), l.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
             }
         } finally {

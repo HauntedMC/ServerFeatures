@@ -1,3 +1,4 @@
+// File: nl/hauntedmc/serverfeatures/features/parcour/Parcour.java
 package nl.hauntedmc.serverfeatures.features.parcour;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
@@ -46,13 +47,8 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.created", "&aParcour &f{id} &aaangemaakt.");
         m.add("parcour.admin.deleted", "&aParcour &f{id} &averwijderd.");
         m.add("parcour.admin.exists", "&cParcour &f{id} &cbestaat al.");
-        m.add("parcour.admin.select.current", "&7Geselecteerde parcour: &f{id}");
-        m.add("parcour.admin.select.none", "&cGeen parcour geselecteerd. Gebruik: &f/parcour select <id>");
-        m.add("parcour.admin.wand.given", "&aJe hebt de &fParcour Wand &agekregen. Selecteer 2 punten met &fLinker (&7Pos1&f) &aen &fRechter (&7Pos2&f) &amuis.");
-        m.add("parcour.admin.pos1.set", "&aPos1 gezet op &7{world} {x} {y} {z}");
-        m.add("parcour.admin.pos2.set", "&aPos2 gezet op &7{world} {x} {y} {z}");
         m.add("parcour.admin.region.deleted", "&aRegio verwijderd: &f{type} &8(key {order})");
-        m.add("parcour.admin.region.missing", "&cRegio ontbreekt: zet &f/parcour pos1 &cen &f/parcour pos2&c.");
+        m.add("parcour.admin.region.missing", "&cRegio ontbreekt: selecteer eerst een WorldEdit regio (&f//wand&c, linker/rechter klik).");
         m.add("parcour.admin.region.world_mismatch", "&cPos1 en Pos2 moeten in dezelfde wereld liggen.");
         m.add("parcour.admin.region.not_found", "&cGeen regio met sleutel &f{order}&c (gebruik &fSTART&c, &fEND&c of een nummer).");
         m.add("parcour.admin.region.added", "&aRegio toegevoegd: &f{type} &8(key {order}) &7restore={restore}");
@@ -98,7 +94,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         this.handler = new ParcourHandler(this, registry);
 
         getLifecycleManager().getListenerManager().registerListener(new ParcourListener(handler));
-        getLifecycleManager().getListenerManager().registerListener(new ParcourWandListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourDeathVoidListener(this, handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourItemListener(handler));
         getLifecycleManager().getListenerManager().registerListener(new ParcourProtectionListener(this, handler));

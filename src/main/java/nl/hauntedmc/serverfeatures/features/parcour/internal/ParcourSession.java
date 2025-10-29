@@ -44,12 +44,25 @@ public final class ParcourSession {
         this.finalElapsedMs = 0L;
     }
 
-    public int expectedNextOrder() { return expectedNextOrder; }
-    public void advanceExpectedOrder() { expectedNextOrder++; }
-    public void setExpectedOrder(int ord) { expectedNextOrder = ord; }
+    public int expectedNextOrder() {
+        return expectedNextOrder;
+    }
 
-    public Location restoreLocation() { return restoreLocation; }
-    public void setRestoreLocation(Location loc) { this.restoreLocation = loc; }
+    public void advanceExpectedOrder() {
+        expectedNextOrder++;
+    }
+
+    public void setExpectedOrder(int ord) {
+        expectedNextOrder = ord;
+    }
+
+    public Location restoreLocation() {
+        return restoreLocation;
+    }
+
+    public void setRestoreLocation(Location loc) {
+        this.restoreLocation = loc;
+    }
 
     public boolean markTriggered(ParcourRegion region) {
         return triggeredOrders.add(region.order());
@@ -59,29 +72,37 @@ public final class ParcourSession {
         return triggeredOrders.contains(region.order());
     }
 
-    public void setActionBarTask(BukkitTask task) { this.actionBarTask = task; }
+    public void setActionBarTask(BukkitTask task) {
+        this.actionBarTask = task;
+    }
 
     public void cancelActionBarTask() {
         if (this.actionBarTask != null) {
             try {
                 this.actionBarTask.cancel();
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
             this.actionBarTask = null;
         }
     }
 
-    public void setParticleTask(BukkitTask task) { this.particleTask = task; }
+    public void setParticleTask(BukkitTask task) {
+        this.particleTask = task;
+    }
 
     public void cancelParticleTask() {
         if (this.particleTask != null) {
             try {
                 this.particleTask.cancel();
-            } catch (Throwable ignored) {}
+            } catch (Throwable ignored) {
+            }
             this.particleTask = null;
         }
     }
 
-    public boolean isFinished() { return finished; }
+    public boolean isFinished() {
+        return finished;
+    }
 
     public void markFinished(long elapsedMs) {
         this.finished = true;
@@ -92,9 +113,19 @@ public final class ParcourSession {
         return finalElapsedMs / 1000.0;
     }
 
-    public ParcourInventorySnapshot snapshot() { return snapshot; }
-    public void setSnapshot(ParcourInventorySnapshot snap) { this.snapshot = snap; }
+    public ParcourInventorySnapshot snapshot() {
+        return snapshot;
+    }
 
-    public long lastCheckpointTeleportMs() { return lastCheckpointTeleportMs; }
-    public void setLastCheckpointTeleportMs(long ms) { this.lastCheckpointTeleportMs = ms; }
+    public void setSnapshot(ParcourInventorySnapshot snap) {
+        this.snapshot = snap;
+    }
+
+    public long lastCheckpointTeleportMs() {
+        return lastCheckpointTeleportMs;
+    }
+
+    public void setLastCheckpointTeleportMs(long ms) {
+        this.lastCheckpointTeleportMs = ms;
+    }
 }

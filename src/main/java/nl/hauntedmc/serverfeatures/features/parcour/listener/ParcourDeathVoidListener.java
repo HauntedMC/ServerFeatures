@@ -24,9 +24,9 @@ public final class ParcourDeathVoidListener implements Listener {
         if (!(event.getEntity() instanceof org.bukkit.entity.Player p)) return;
         if (event.getCause() == EntityDamageEvent.DamageCause.VOID) {
             if (handler.isPlaying(p)) {
-            // Prevent death; send back to checkpoint
-            event.setCancelled(true);
-            handler.onPlayerDeathOrVoid(p);
+                // Prevent death; send back to checkpoint
+                event.setCancelled(true);
+                handler.onPlayerDeathOrVoid(p);
             }
         }
     }

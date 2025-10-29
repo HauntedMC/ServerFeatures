@@ -26,35 +26,66 @@ public final class ParcourRegion {
         this.commands = new ArrayList<>();
     }
 
-    public int order() { return order; }
-    public ParcourRegionType type() { return type; }
-    public void setType(ParcourRegionType t) { this.type = t; }
+    public int order() {
+        return order;
+    }
 
-    public Optional<Region> region() { return Optional.ofNullable(region); }
-    public void setRegion(Region r) { this.region = r; }
+    public ParcourRegionType type() {
+        return type;
+    }
 
-    public boolean restoreCheckpoint() { return type != ParcourRegionType.END && restoreCheckpoint; }
+    public void setType(ParcourRegionType t) {
+        this.type = t;
+    }
+
+    public Optional<Region> region() {
+        return Optional.ofNullable(region);
+    }
+
+    public void setRegion(Region r) {
+        this.region = r;
+    }
+
+    public boolean restoreCheckpoint() {
+        return type != ParcourRegionType.END && restoreCheckpoint;
+    }
+
     public void setRestoreCheckpoint(boolean restore) {
         if (type != ParcourRegionType.END) this.restoreCheckpoint = restore;
     }
 
-    public List<String> commands() { return Collections.unmodifiableList(commands); }
-    public void addCommand(String cmd) { if (cmd != null && !cmd.isBlank()) commands.add(stripSlash(cmd)); }
-    public void clearCommands() { commands.clear(); }
+    public List<String> commands() {
+        return Collections.unmodifiableList(commands);
+    }
+
+    public void addCommand(String cmd) {
+        if (cmd != null && !cmd.isBlank()) commands.add(stripSlash(cmd));
+    }
+
+    public void clearCommands() {
+        commands.clear();
+    }
 
     public void setExplicitRestore(String world, double x, double y, double z, float yaw, float pitch) {
         if (type == ParcourRegionType.END) return; // not applicable
         this.restoreWorld = world;
-        this.restoreX = x; this.restoreY = y; this.restoreZ = z;
-        this.restoreYaw = yaw; this.restorePitch = pitch;
+        this.restoreX = x;
+        this.restoreY = y;
+        this.restoreZ = z;
+        this.restoreYaw = yaw;
+        this.restorePitch = pitch;
     }
+
     public void clearExplicitRestore() {
-        this.restoreWorld = null; this.restoreX = this.restoreY = this.restoreZ = null;
+        this.restoreWorld = null;
+        this.restoreX = this.restoreY = this.restoreZ = null;
         this.restoreYaw = this.restorePitch = null;
     }
+
     public boolean hasExplicitRestore() {
         return restoreWorld != null && restoreX != null && restoreY != null && restoreZ != null && restoreYaw != null && restorePitch != null;
     }
+
     public Optional<Location> explicitRestore(Server server) {
         if (!hasExplicitRestore()) return Optional.empty();
         var world = server.getWorld(restoreWorld);

@@ -184,7 +184,11 @@ public final class ParcourRegistry {
     }
 
     private static Integer parseOrder(String k) {
-        try { return Integer.parseInt(k); } catch (NumberFormatException e) { return null; }
+        try {
+            return Integer.parseInt(k);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private ParcourRegion readRegionKey(ConfigNode parent, String key, ParcourRegionType type, int orderForInternal, FeatureLogger log, String parcourId) {

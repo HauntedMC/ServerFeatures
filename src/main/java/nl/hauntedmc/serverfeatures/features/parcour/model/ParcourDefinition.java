@@ -40,16 +40,38 @@ public final class ParcourDefinition {
         this.id = Objects.requireNonNull(id, "id");
     }
 
-    public String id() { return id; }
+    public String id() {
+        return id;
+    }
 
     // ===== START / END =====
-    public Optional<ParcourRegion> startRegion() { return Optional.ofNullable(start); }
-    public void setStartRegion(ParcourRegion r) { this.start = r; }
-    public boolean clearStartRegion() { boolean had = this.start != null; this.start = null; return had; }
+    public Optional<ParcourRegion> startRegion() {
+        return Optional.ofNullable(start);
+    }
 
-    public Optional<ParcourRegion> endRegion() { return Optional.ofNullable(end); }
-    public void setEndRegion(ParcourRegion r) { this.end = r; }
-    public boolean clearEndRegion() { boolean had = this.end != null; this.end = null; return had; }
+    public void setStartRegion(ParcourRegion r) {
+        this.start = r;
+    }
+
+    public boolean clearStartRegion() {
+        boolean had = this.start != null;
+        this.start = null;
+        return had;
+    }
+
+    public Optional<ParcourRegion> endRegion() {
+        return Optional.ofNullable(end);
+    }
+
+    public void setEndRegion(ParcourRegion r) {
+        this.end = r;
+    }
+
+    public boolean clearEndRegion() {
+        boolean had = this.end != null;
+        this.end = null;
+        return had;
+    }
 
     // ===== Checkpoints =====
     public Collection<ParcourRegion> checkpoints() {
@@ -84,8 +106,11 @@ public final class ParcourDefinition {
     // ===== Leave / Finish locations =====
     public void setLeaveSpawn(String world, double x, double y, double z, float yaw, float pitch) {
         this.leaveWorld = world;
-        this.leaveX = x; this.leaveY = y; this.leaveZ = z;
-        this.leaveYaw = yaw; this.leavePitch = pitch;
+        this.leaveX = x;
+        this.leaveY = y;
+        this.leaveZ = z;
+        this.leaveYaw = yaw;
+        this.leavePitch = pitch;
     }
 
     public Optional<Location> leaveSpawn() {
@@ -97,8 +122,11 @@ public final class ParcourDefinition {
 
     public void setFinishSpawn(String world, double x, double y, double z, float yaw, float pitch) {
         this.finishWorld = world;
-        this.finishX = x; this.finishY = y; this.finishZ = z;
-        this.finishYaw = yaw; this.finishPitch = pitch;
+        this.finishX = x;
+        this.finishY = y;
+        this.finishZ = z;
+        this.finishYaw = yaw;
+        this.finishPitch = pitch;
     }
 
     public Optional<Location> finishSpawn() {
@@ -114,43 +142,97 @@ public final class ParcourDefinition {
     }
 
     // ===== Progress toggle (chat) =====
-    public boolean notifyProgress() { return notifyProgress; }
-    public void setNotifyProgress(boolean v) { this.notifyProgress = v; }
+    public boolean notifyProgress() {
+        return notifyProgress;
+    }
+
+    public void setNotifyProgress(boolean v) {
+        this.notifyProgress = v;
+    }
 
     // ===== Sounds (map-level) =====
-    public Optional<String> checkpointSoundName() { return Optional.ofNullable(checkpointSoundName); }
-    public void setCheckpointSoundName(String name) { this.checkpointSoundName = (name == null || name.isBlank()) ? null : name; }
+    public Optional<String> checkpointSoundName() {
+        return Optional.ofNullable(checkpointSoundName);
+    }
 
-    public Optional<String> endSoundName() { return Optional.ofNullable(endSoundName); }
-    public void setEndSoundName(String name) { this.endSoundName = (name == null || name.isBlank()) ? null : name; }
+    public void setCheckpointSoundName(String name) {
+        this.checkpointSoundName = (name == null || name.isBlank()) ? null : name;
+    }
+
+    public Optional<String> endSoundName() {
+        return Optional.ofNullable(endSoundName);
+    }
+
+    public void setEndSoundName(String name) {
+        this.endSoundName = (name == null || name.isBlank()) ? null : name;
+    }
 
     // ===== Actionbar toggle =====
-    public boolean useActionBar() { return useActionBar; }
-    public void setUseActionBar(boolean use) { this.useActionBar = use; }
+    public boolean useActionBar() {
+        return useActionBar;
+    }
+
+    public void setUseActionBar(boolean use) {
+        this.useActionBar = use;
+    }
 
     // ===== Finish delayed teleport =====
-    public int finishTeleportDelaySeconds() { return finishTeleportDelaySeconds; }
-    public void setFinishTeleportDelaySeconds(int seconds) { this.finishTeleportDelaySeconds = Math.max(0, seconds); }
+    public int finishTeleportDelaySeconds() {
+        return finishTeleportDelaySeconds;
+    }
+
+    public void setFinishTeleportDelaySeconds(int seconds) {
+        this.finishTeleportDelaySeconds = Math.max(0, seconds);
+    }
 
     // ===== Region highlight particle =====
-    public Optional<String> regionHighlightParticleName() { return Optional.ofNullable(regionHighlightParticleName); }
-    public void setRegionHighlightParticleName(String name) { this.regionHighlightParticleName = (name == null || name.isBlank()) ? null : name; }
+    public Optional<String> regionHighlightParticleName() {
+        return Optional.ofNullable(regionHighlightParticleName);
+    }
+
+    public void setRegionHighlightParticleName(String name) {
+        this.regionHighlightParticleName = (name == null || name.isBlank()) ? null : name;
+    }
 
     // ===== Toggles =====
-    public boolean hungerEnabled() { return hungerEnabled; }
-    public void setHungerEnabled(boolean v) { this.hungerEnabled = v; }
+    public boolean hungerEnabled() {
+        return hungerEnabled;
+    }
 
-    public boolean damageEnabled() { return damageEnabled; }
-    public void setDamageEnabled(boolean v) { this.damageEnabled = v; }
+    public void setHungerEnabled(boolean v) {
+        this.hungerEnabled = v;
+    }
+
+    public boolean damageEnabled() {
+        return damageEnabled;
+    }
+
+    public void setDamageEnabled(boolean v) {
+        this.damageEnabled = v;
+    }
 
     // ===== Checkpoint cooldown =====
-    public int checkpointCooldownSeconds() { return checkpointCooldownSeconds; }
-    public void setCheckpointCooldownSeconds(int seconds) { this.checkpointCooldownSeconds = Math.max(0, seconds); }
+    public int checkpointCooldownSeconds() {
+        return checkpointCooldownSeconds;
+    }
+
+    public void setCheckpointCooldownSeconds(int seconds) {
+        this.checkpointCooldownSeconds = Math.max(0, seconds);
+    }
 
     // ===== Start kit (encoded ItemStacks) =====
-    public List<String> startKitEncoded() { return Collections.unmodifiableList(startKitEncoded); }
-    public void clearStartKit() { startKitEncoded.clear(); }
-    public void addStartKitSerialized(String base64) { if (base64 != null && !base64.isBlank()) startKitEncoded.add(base64); }
+    public List<String> startKitEncoded() {
+        return Collections.unmodifiableList(startKitEncoded);
+    }
+
+    public void clearStartKit() {
+        startKitEncoded.clear();
+    }
+
+    public void addStartKitSerialized(String base64) {
+        if (base64 != null && !base64.isBlank()) startKitEncoded.add(base64);
+    }
+
     public boolean removeStartKitIndex(int oneBasedIndex) {
         int idx = oneBasedIndex - 1;
         if (idx < 0 || idx >= startKitEncoded.size()) return false;
