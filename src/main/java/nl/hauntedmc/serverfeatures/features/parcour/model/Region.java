@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/model/Region.java
 package nl.hauntedmc.serverfeatures.features.parcour.model;
 
 import org.bukkit.Location;

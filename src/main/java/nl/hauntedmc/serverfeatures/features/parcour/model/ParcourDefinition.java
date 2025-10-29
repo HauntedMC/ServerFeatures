@@ -141,7 +141,7 @@ public final class ParcourDefinition {
     }
 
     public Location fallbackWorldSpawn() {
-        World w = Bukkit.getWorlds().get(0);
+        World w = Bukkit.getWorlds().getFirst();
         return w.getSpawnLocation();
     }
 

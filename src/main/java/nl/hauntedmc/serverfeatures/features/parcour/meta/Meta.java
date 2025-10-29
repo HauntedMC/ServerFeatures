@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/meta/Meta.java
 package nl.hauntedmc.serverfeatures.features.parcour.meta;
 
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;

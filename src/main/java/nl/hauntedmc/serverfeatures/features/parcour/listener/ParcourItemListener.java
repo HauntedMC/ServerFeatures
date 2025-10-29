@@ -50,7 +50,7 @@ public final class ParcourItemListener implements Listener {
      * Make right-click in AIR work and avoid missing the event when another plugin cancels it.
      * We listen even if cancelled and handle both main-hand and off-hand distinctly.
      */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent event) {
         Action a = event.getAction();
         if (a != Action.RIGHT_CLICK_AIR && a != Action.RIGHT_CLICK_BLOCK) return;

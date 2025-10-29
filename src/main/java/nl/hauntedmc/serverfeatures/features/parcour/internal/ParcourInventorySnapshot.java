@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Arrays;
-import java.util.Objects;
 
 /**
  * In-memory snapshot of a player's inventory & vital stats.
@@ -46,7 +46,7 @@ public final class ParcourInventorySnapshot {
                 .toArray(ItemStack[]::new);
 
         ItemStack off = p.getInventory().getItemInOffHand();
-        off = (off == null ? null : off.clone());
+        ItemStack offClone = off.clone();
 
         int level = p.getLevel();
         float exp = p.getExp();
@@ -55,7 +55,7 @@ public final class ParcourInventorySnapshot {
         int food = p.getFoodLevel();
         float sat = p.getSaturation();
 
-        return new ParcourInventorySnapshot(inv, arm, off, level, exp, hp, food, sat);
+        return new ParcourInventorySnapshot(inv, arm, offClone, level, exp, hp, food, sat);
     }
 
     public void restore(Player p) {
@@ -74,10 +74,9 @@ public final class ParcourInventorySnapshot {
         p.setSaturation(saturation);
 
         // Restore health safely under current max
-        double max = p.getAttribute(Attribute.MAX_HEALTH) != null
-                ? Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue()
-                : p.getMaxHealth();
-        p.setHealth(Math.max(0.1, Math.min(health, max))); // avoid 0
+        AttributeInstance maxHealthAttr = p.getAttribute(Attribute.MAX_HEALTH);
+        double max = (maxHealthAttr != null) ? maxHealthAttr.getValue() : 20.0D; // sensible default
+        p.setHealth(Math.max(0.1D, Math.min(health, max))); // avoid 0 and clamp to max
     }
 
     private static ItemStack[] cloneArray(ItemStack[] arr) {
