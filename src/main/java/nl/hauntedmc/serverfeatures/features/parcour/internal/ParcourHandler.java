@@ -1,7 +1,9 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/internal/ParcourHandler.java
 package nl.hauntedmc.serverfeatures.features.parcour.internal;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
@@ -22,20 +24,19 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParcourHandler {
 
-    private static final long TRIGGER_COOLDOWN_MS = 500L; // prevent spam
-    private static final long TELEPORT_IGNORE_MS = 1000L;  // ignore triggers after controlled teleports
+    private static final long TRIGGER_COOLDOWN_MS = 500L;
+    private static final long TELEPORT_IGNORE_MS = 1000L;
     private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
 
-    private static final long PARTICLE_INTERVAL_TICKS = 12L; // ~0.6s
-    // upper bound target count for outline points per emission (to pick step size)
+    private static final long PARTICLE_INTERVAL_TICKS = 12L;
     private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
 
-    // Control item materials/slots
     private static final org.bukkit.Material ITEM_LEAVE_MAT = org.bukkit.Material.BARRIER;
     private static final org.bukkit.Material ITEM_CKPT_MAT = org.bukkit.Material.NETHER_STAR;
     private static final int SLOT_CKPT = 3;
@@ -72,8 +73,6 @@ public final class ParcourHandler {
     public NamespacedKey kitKey() {
         return kitKey;
     }
-
-    // ===== Admin editing / map settings =====
 
     public boolean createParcour(String id) {
         if (registry.get(id).isPresent()) return false;
@@ -127,7 +126,6 @@ public final class ParcourHandler {
             def.setRegionHighlightParticleName(particleOrNull);
             registry.saveParcour(def);
 
-            // live-update any active sessions on this parcour
             for (ParcourSession s : sessions.values()) {
                 if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
                 Player pl = Bukkit.getPlayer(s.playerId);
@@ -163,7 +161,29 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // ===== NEW: Start kit management =====
+    public boolean setStartCountdownSeconds(String id, int seconds) {
+        return registry.get(id).map(def -> {
+            def.setStartCountdownSeconds(seconds);
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean setStartPosition(String id, Location loc) {
+        return registry.get(id).map(def -> {
+            def.setStartPosition(loc.getWorld().getName(), loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch());
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
+
+    public boolean clearStartPosition(String id) {
+        return registry.get(id).map(def -> {
+            def.clearStartPosition();
+            registry.saveParcour(def);
+            return true;
+        }).orElse(false);
+    }
 
     public boolean addStartKitFromHand(String id, Player p) {
         ItemStack hand = p.getInventory().getItemInMainHand();
@@ -212,7 +232,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // END has no restore-flag
     public boolean addRegionEnd(String id, Region region) {
         return registry.get(id).map(def -> {
             ParcourRegion r = new ParcourRegion(Integer.MAX_VALUE, ParcourRegionType.END);
@@ -257,7 +276,7 @@ public final class ParcourHandler {
     public boolean setRegionRestore(String id, String key, boolean restore) {
         return registry.get(id).map(def -> {
             ParcourRegion pr = getRegionByKey(def, key);
-            if (pr == null || pr.type() == ParcourRegionType.END) return false; // not applicable for END
+            if (pr == null || pr.type() == ParcourRegionType.END) return false;
             pr.setRestoreCheckpoint(restore);
             registry.saveParcour(def);
             return true;
@@ -284,7 +303,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // Set explicit restore-location (START/CHECKPOINT only)
     public boolean setRegionRestoreLocation(String id, String key, Location loc) {
         return registry.get(id).map(def -> {
             ParcourRegion pr = getRegionByKey(def, key);
@@ -295,7 +313,6 @@ public final class ParcourHandler {
         }).orElse(false);
     }
 
-    // Toggle progress notifications per parcour (chat)
     public boolean setProgressNotify(String id, boolean value) {
         return registry.get(id).map(def -> {
             def.setNotifyProgress(value);
@@ -338,8 +355,6 @@ public final class ParcourHandler {
         return true;
     }
 
-    // ===== Gameplay (sessions & triggers) =====
-
     public boolean isPlaying(Player p) {
         return sessions.containsKey(p.getUniqueId());
     }
@@ -353,6 +368,7 @@ public final class ParcourHandler {
         if (s != null) {
             s.cancelActionBarTask();
             s.cancelParticleTask();
+            s.cancelCountdownTask();
         }
     }
 
@@ -369,6 +385,7 @@ public final class ParcourHandler {
             }
             s.cancelActionBarTask();
             s.cancelParticleTask();
+            s.cancelCountdownTask();
         }
         sessions.clear();
         return count;
@@ -395,7 +412,6 @@ public final class ParcourHandler {
             return false;
         }
 
-        // Prefer explicit restore_location for START if present, else region center
         Location startRestore = def.startRegion().map(sr -> sr.resolveRestoreLocation(Bukkit.getServer())).orElse(null);
         if (startRestore == null) {
             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.cannot_start_missing")
@@ -403,10 +419,7 @@ public final class ParcourHandler {
             return false;
         }
 
-        // Teleport to start
         teleportWithIgnore(p, startRestore);
-
-        // Start session (also applies clean inventory + control items)
         startSession(p, def, startRestore, 0);
 
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
@@ -414,10 +427,11 @@ public final class ParcourHandler {
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.started_teleport")
                 .forAudience(p).build());
 
-        // Execute START commands once
-        def.startRegion().ifPresent(thisRegion -> executeRegionCommands(p, thisRegion));
+        def.startRegion().ifPresent(this::executeRegionCommandsSilently);
 
         updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
+
+        beginStartCountdownIfNeeded(p, def, sessions.get(p.getUniqueId()), startRestore);
         return true;
     }
 
@@ -428,10 +442,8 @@ public final class ParcourHandler {
             return false;
         }
 
-        // Restore inventory first
         restoreInventoryIfPresent(p, s);
 
-        // Teleport to leave location
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.leaveSpawn().orElse(def.fallbackWorldSpawn());
             teleportWithIgnore(p, dst);
@@ -440,21 +452,14 @@ public final class ParcourHandler {
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.left")
                 .with("name", s.parcourId).forAudience(p).build());
 
-        // Cleanup
         clearSession(p);
         return true;
     }
 
-    // Backwards-compatible entry: default enforceCooldown = true
     public boolean teleportToCheckpoint(Player p) {
         return teleportToCheckpoint(p, true);
     }
 
-    /**
-     * Teleport to the last restore location.
-     *
-     * @param enforceCooldown if true, applies per-map cooldown (command/item); if false, no cooldown (e.g., death/void)
-     */
     public boolean teleportToCheckpoint(Player p, boolean enforceCooldown) {
         ParcourSession s = sessions.get(p.getUniqueId());
         if (s == null) {
@@ -462,7 +467,6 @@ public final class ParcourHandler {
             return false;
         }
 
-        // Cooldown check (only for player-triggered)
         Optional<ParcourDefinition> defOpt = registry.get(s.parcourId);
         if (enforceCooldown && defOpt.isPresent()) {
             int cdSec = Math.max(0, defOpt.get().checkpointCooldownSeconds());
@@ -471,7 +475,7 @@ public final class ParcourHandler {
                 long nextAllowed = s.lastCheckpointTeleportMs() + cdSec * 1000L;
                 if (now < nextAllowed) {
                     long remainingMs = nextAllowed - now;
-                    long remainingSec = (remainingMs + 999L) / 1000L; // ceil to whole seconds
+                    long remainingSec = (remainingMs + 999L) / 1000L;
                     p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.cooldown")
                             .with("seconds", String.valueOf(remainingSec)).forAudience(p).build());
                     return false;
@@ -499,7 +503,6 @@ public final class ParcourHandler {
         teleportWithIgnore(p, dst);
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.teleport").forAudience(p).build());
 
-        // Only stamp last-teleport time when cooldown is enforced (player-triggered)
         if (enforceCooldown && defOpt.isPresent() && defOpt.get().checkpointCooldownSeconds() > 0) {
             s.setLastCheckpointTeleportMs(System.currentTimeMillis());
         }
@@ -517,25 +520,22 @@ public final class ParcourHandler {
         giveControlItems(p);
         giveStartKitItems(p, def);
 
-        // full health & hunger on start
         p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
         p.setFoodLevel(20);
         p.setSaturation(20);
 
-        // schedule actionbar if enabled
         if (def.useActionBar()) {
             BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
                 if (!p.isOnline()) {
                     session.cancelActionBarTask();
                     return;
                 }
-                // keep showing while playing OR during finish hold
                 if (!isPlaying(p)) {
                     session.cancelActionBarTask();
                     return;
                 }
                 sendActionBar(p, def, session);
-            }, BukkitTime.seconds(0L), BukkitTime.ticks(2L)); // every 0.5s
+            }, BukkitTime.seconds(0L), BukkitTime.ticks(2L));
             session.setActionBarTask(task);
         }
     }
@@ -543,11 +543,11 @@ public final class ParcourHandler {
     private void sendActionBar(Player p, ParcourDefinition def, ParcourSession s) {
         final double shownSeconds = s.isFinished()
                 ? s.finalSeconds()
-                : (System.currentTimeMillis() - s.startMillis) / 1000.0;
+                : (System.currentTimeMillis() - s.startMillis()) / 1000.0;
 
-        final int total = def.totalCheckpoints() + 1; // include END
+        final int total = def.totalCheckpoints() + 1;
         final int current = s.isFinished()
-                ? total              // force N/N after finish
+                ? total
                 : Math.min(s.expectedNextOrder(), total);
 
         Component c = feature.getLocalizationHandler()
@@ -567,18 +567,23 @@ public final class ParcourHandler {
         if (prev != null && (now - prev) < TRIGGER_COOLDOWN_MS) return;
 
         for (ParcourDefinition def : registry.all()) {
-            // START auto-start if not playing
             if (!isPlaying(p)) {
                 if (def.startRegion().isPresent() && def.startRegion().get().region().isPresent()) {
                     Region r = def.startRegion().get().region().get();
                     if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
                         Location startRestore = def.startRegion().get().resolveRestoreLocation(Bukkit.getServer());
                         if (startRestore == null) continue;
+
                         startSession(p, def, startRestore, 0);
+
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                                 .with("name", def.id()).forAudience(p).build());
+
                         executeRegionCommands(p, def.startRegion().get());
+
                         updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
+
+                        beginStartCountdownIfNeeded(p, def, sessions.get(p.getUniqueId()), to.clone());
                         lastTrigger.put(p.getUniqueId(), now);
                         return;
                     }
@@ -586,11 +591,14 @@ public final class ParcourHandler {
                 continue;
             }
 
-            // If playing, only the active parcours can react
             ParcourSession s = sessions.get(p.getUniqueId());
             if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
 
-            // If already finished, ignore further triggers during the hold window
+            if (s.isCountdownActive()) {
+                lastTrigger.put(p.getUniqueId(), now);
+                return;
+            }
+
             if (s.isFinished()) {
                 lastTrigger.put(p.getUniqueId(), now);
                 return;
@@ -598,7 +606,6 @@ public final class ParcourHandler {
 
             int expected = s.expectedNextOrder();
 
-            // expected checkpoint
             Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
             if (expectedCkpt.isPresent()) {
                 ParcourRegion pr = expectedCkpt.get();
@@ -618,13 +625,11 @@ public final class ParcourHandler {
                                 p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set").forAudience(p).build());
                             }
                         }
-                        // Progress one
                         s.advanceExpectedOrder();
 
-                        // Progress notification (optional chat)
                         if (def.notifyProgress()) {
-                            int current = s.expectedNextOrder(); // after increment
-                            int total = def.totalCheckpoints() + 1; // also add endpoint
+                            int current = s.expectedNextOrder();
+                            int total = def.totalCheckpoints() + 1;
                             p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
                                     .with("current", String.valueOf(current))
                                     .with("total", String.valueOf(total))
@@ -640,11 +645,9 @@ public final class ParcourHandler {
                 continue;
             }
 
-            // No more checkpoints expected -> END must complete
             if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
                 Region r = def.endRegion().get().region().get();
                 if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                    // run END commands once
                     ParcourRegion endPr = def.endRegion().get();
                     boolean firstEnd = !s.alreadyTriggered(endPr);
                     if (firstEnd) {
@@ -653,9 +656,8 @@ public final class ParcourHandler {
                         s.markTriggered(endPr);
                     }
 
-                    // send final progress if enabled (report total/total)
                     if (def.notifyProgress()) {
-                        int total = def.totalCheckpoints() + 1; // checkpoints + END
+                        int total = def.totalCheckpoints() + 1;
                         int current = total;
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
                                 .with("current", String.valueOf(current))
@@ -663,7 +665,6 @@ public final class ParcourHandler {
                                 .forAudience(p).build());
                     }
 
-                    // Finish (only once)
                     if (!s.isFinished()) {
                         finishParcour(p, s, def);
                     }
@@ -681,7 +682,15 @@ public final class ParcourHandler {
             Sound s = Sound.valueOf(raw.trim().toUpperCase(Locale.ROOT));
             p.playSound(p.getLocation(), s, 1.0f, 1.0f);
         } catch (IllegalArgumentException ignored) {
-            // invalid name slipped in; ignore silently
+        }
+    }
+
+    private void executeRegionCommandsSilently(ParcourRegion pr) {
+        if (pr.commands().isEmpty()) return;
+        ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
+        for (String cmd : pr.commands()) {
+            String real = cmd.replace("{player}", console.getName());
+            Bukkit.dispatchCommand(console, real);
         }
     }
 
@@ -695,22 +704,19 @@ public final class ParcourHandler {
     }
 
     private void finishParcour(Player p, ParcourSession s, ParcourDefinition def) {
-        long elapsedMs = System.currentTimeMillis() - s.startMillis;
+        long elapsedMs = System.currentTimeMillis() - s.startMillis();
         double seconds = elapsedMs / 1000.0;
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.finished")
                 .with("name", s.parcourId)
                 .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
                 .forAudience(p).build());
 
-        // mark finished (freeze timer & show N/N in actionbar)
         s.markFinished(elapsedMs);
         s.cancelParticleTask();
         restoreInventoryIfPresent(p, s);
 
-        // schedule cleanup of session + actionbar after a short hold
         long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            // Only clean up if still the same active session and not already removed
             ParcourSession current = sessions.get(p.getUniqueId());
             if (current != null && current == s) {
                 s.cancelActionBarTask();
@@ -718,7 +724,6 @@ public final class ParcourHandler {
             }
         }, BukkitTime.ticks(holdTicks));
 
-        // optional delayed teleport to finish location
         int delaySec = def.finishTeleportDelaySeconds();
         if (delaySec > 0) {
             Location dst = def.finishSpawn().orElse(def.fallbackWorldSpawn());
@@ -732,7 +737,6 @@ public final class ParcourHandler {
 
     public void onPlayerDeathOrVoid(Player p) {
         if (!isPlaying(p)) return;
-        // Do NOT enforce cooldown on death/void
         teleportToCheckpoint(p, false);
     }
 
@@ -744,7 +748,63 @@ public final class ParcourHandler {
         }, BukkitTime.ticks(1));
     }
 
-    // ===== Inventory helpers =====
+    public boolean isMovementFrozen(Player p) {
+        ParcourSession s = sessions.get(p.getUniqueId());
+        return s != null && s.isCountdownActive();
+    }
+
+    private void beginStartCountdownIfNeeded(Player p, ParcourDefinition def, ParcourSession s, Location entryPosition) {
+        if (s == null) return;
+        int seconds = Math.max(0, def.startCountdownSeconds());
+        if (seconds <= 0) {
+            s.setStartToNow();
+            return;
+        }
+
+        Location freezeAt = def.startPosition().orElse(entryPosition);
+        teleportWithIgnore(p, freezeAt);
+
+        s.setCountdownActive(true);
+        s.setFrozenAt(freezeAt);
+
+        final int[] remaining = {seconds};
+        showCountdownTitle(p, remaining[0]);
+
+        BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
+            if (!p.isOnline() || !isPlaying(p)) {
+                s.cancelCountdownTask();
+                s.setCountdownActive(false);
+                return;
+            }
+            ParcourSession current = sessions.get(p.getUniqueId());
+            if (current == null || current != s) {
+                s.cancelCountdownTask();
+                s.setCountdownActive(false);
+                return;
+            }
+
+            remaining[0]--;
+            if (remaining[0] > 0) {
+                showCountdownTitle(p, remaining[0]);
+                return;
+            }
+
+            Component go = feature.getLocalizationHandler().getMessage("parcour.countdown.go").forAudience(p).build();
+            p.showTitle(Title.title(go, Component.empty(),
+                    Title.Times.of(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(50))));
+
+            s.setCountdownActive(false);
+            s.cancelCountdownTask();
+            s.setStartToNow();
+        }, BukkitTime.seconds(1L), BukkitTime.seconds(1L));
+        s.setCountdownTask(task);
+    }
+
+    private void showCountdownTitle(Player p, int number) {
+        Component c = Component.text(String.valueOf(number)).color(NamedTextColor.GOLD).decorate(TextDecoration.BOLD);
+        p.showTitle(Title.title(c, Component.empty(),
+                Title.Times.of(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(0))));
+    }
 
     private void applyCleanParcourInventory(Player p) {
         p.getInventory().clear();
@@ -754,7 +814,6 @@ public final class ParcourHandler {
     }
 
     private void giveControlItems(Player p) {
-        // Leave item
         ItemStack leave = new ItemStack(ITEM_LEAVE_MAT, 1);
         var lm = leave.getItemMeta();
         lm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.leave.name").forAudience(p).build());
@@ -763,7 +822,6 @@ public final class ParcourHandler {
         lm.getPersistentDataContainer().set(leaveKey, PersistentDataType.BYTE, (byte) 1);
         leave.setItemMeta(lm);
 
-        // Checkpoint item
         ItemStack ck = new ItemStack(ITEM_CKPT_MAT, 1);
         var cm = ck.getItemMeta();
         cm.displayName(feature.getLocalizationHandler().getMessage("parcour.item.checkpoint.name").forAudience(p).build());
@@ -785,12 +843,10 @@ public final class ParcourHandler {
             if (isOpt.isEmpty()) continue;
 
             ItemStack item = isOpt.get().clone();
-            // tag as kit item to protect from moving/dropping
             var meta = item.getItemMeta();
             meta.getPersistentDataContainer().set(kitKey, PersistentDataType.BYTE, (byte) 1);
             item.setItemMeta(meta);
 
-            // try to auto-equip armor/elytra/shield/totem
             org.bukkit.Material mat = item.getType();
             boolean placed = false;
 
@@ -815,12 +871,10 @@ public final class ParcourHandler {
             }
 
             if (!placed) {
-                // put in first empty slot, preferring hotbar, skipping reserved control slots
                 int slot = firstFreePlayableSlot(inv);
                 if (slot >= 0) {
                     inv.setItem(slot, item);
                 } else {
-                    // inventory unexpectedly full (shouldn't happen) -> drop at feet
                     p.getWorld().dropItemNaturally(p.getLocation(), item);
                 }
             }
@@ -853,13 +907,11 @@ public final class ParcourHandler {
     }
 
     private int firstFreePlayableSlot(PlayerInventory inv) {
-        // hotbar 0..8, skip reserved
         for (int i = 0; i <= 8; i++) {
             if (i == SLOT_CKPT || i == SLOT_LEAVE) continue;
             ItemStack it = inv.getItem(i);
             if (isEmpty(it)) return i;
         }
-        // main inventory 9..35
         for (int i = 9; i <= 35; i++) {
             ItemStack it = inv.getItem(i);
             if (isEmpty(it)) return i;
@@ -879,12 +931,9 @@ public final class ParcourHandler {
         }
     }
 
-    // ===== Particle highlight implementation =====
-
     private void updateRegionHighlight(Player p, ParcourDefinition def, ParcourSession s) {
         if (s == null) return;
 
-        // Clear any previous particle task
         s.cancelParticleTask();
 
         Optional<String> pname = def.regionHighlightParticleName();
@@ -894,22 +943,17 @@ public final class ParcourHandler {
         try {
             particle = org.bukkit.Particle.valueOf(pname.get().trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            // misconfigured; ignore
             return;
         }
 
-        // Determine the next region: checkpoint(expected) or END
         ParcourRegion target = def.checkpoint(s.expectedNextOrder()).orElseGet(() -> def.endRegion().orElse(null));
         if (target == null || target.region().isEmpty()) return;
         Region r = target.region().get();
 
-        // Only render if player is in the same world (particles are world-specific)
         if (!Objects.equals(p.getWorld().getName(), r.worldName())) return;
 
-        // Schedule a repeating outline render for this player
         BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             if (!p.isOnline()) return;
-            // if session ended or moved to a different next target, we will be called again to replace task
             spawnRegionOutline(p, r, particle);
         }, BukkitTime.ticks(2L), BukkitTime.ticks(PARTICLE_INTERVAL_TICKS));
 
@@ -924,16 +968,13 @@ public final class ParcourHandler {
         final int maxY = r.maxY();
         final int maxZ = r.maxZ();
 
-        // Decide step to keep particle count reasonable for large regions
         int dx = Math.max(1, maxX - minX);
         int dy = Math.max(1, maxY - minY);
         int dz = Math.max(1, maxZ - minZ);
 
-        // perimeter ~ 2*(dx+dz) on two faces + vertical 4*dy; pick a step so total ~ target points
         int approxPerimeter = 2 * (dx + dz) * 2 + 4 * dy;
         int step = Math.max(1, (int) Math.ceil((double) approxPerimeter / PARTICLE_OUTLINE_TARGET_POINTS));
 
-        // Top and bottom rectangles
         for (int x = minX; x <= maxX; x += step) {
             spawnParticle(p, x, minY, minZ);
             spawnParticle(p, x, minY, maxZ);
@@ -947,7 +988,6 @@ public final class ParcourHandler {
             spawnParticle(p, maxX, maxY, z);
         }
 
-        // Vertical edges
         for (int y = minY; y <= maxY; y += step) {
             spawnParticle(p, minX, y, minZ);
             spawnParticle(p, minX, y, maxZ);
@@ -955,7 +995,6 @@ public final class ParcourHandler {
             spawnParticle(p, maxX, y, maxZ);
         }
 
-        // Emit the particles for all queued positions using the player's personal stream
         flushParticleQueue(p, particle);
     }
 
@@ -977,8 +1016,6 @@ public final class ParcourHandler {
             buf.clear();
         }
     }
-
-    // ===== Quit/Disconnect inventory safety =====
 
     public void onQuit(Player p) {
         ParcourSession s = sessions.get(p.getUniqueId());

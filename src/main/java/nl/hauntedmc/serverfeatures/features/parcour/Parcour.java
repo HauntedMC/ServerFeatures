@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/Parcour.java
 package nl.hauntedmc.serverfeatures.features.parcour;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
@@ -84,6 +83,12 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.admin.startkit.removed", "&aStartkit-item &f#{index}&a verwijderd voor &f{id}&a.");
         m.add("parcour.admin.startkit.list.header", "&6&lStartkit &7({id})");
         m.add("parcour.admin.startkit.list.entry", "&7- &f#{index}&7: &f{item}");
+        m.add("parcour.admin.startcountdown.set", "&aStart-countdown voor &f{id}&a ingesteld op &f{seconds}&as.");
+        m.add("parcour.admin.startpos.set", "&aStartpositie gezet: &7{world} {x} {y} {z} {yaw} {pitch}");
+        m.add("parcour.admin.startpos.cleared", "&aStartpositie verwijderd.");
+        m.add("parcour.countdown.go", "&aStart!");
+        m.add("parcour.countdown.blocked", "&cJe kunt dit nog niet: de start telt nog af.");
+
         return m;
     }
 

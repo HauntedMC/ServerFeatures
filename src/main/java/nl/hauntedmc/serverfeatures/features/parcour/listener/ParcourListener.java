@@ -1,4 +1,3 @@
-// File: nl/hauntedmc/serverfeatures/features/parcour/listener/ParcourListener.java
 package nl.hauntedmc.serverfeatures.features.parcour.listener;
 
 import nl.hauntedmc.serverfeatures.features.parcour.internal.ParcourHandler;
@@ -24,6 +23,12 @@ public final class ParcourListener implements Listener {
             return;
         }
         Player p = event.getPlayer();
+
+        if (handler.isMovementFrozen(p)) {
+            event.setTo(event.getFrom());
+            return;
+        }
+
         handler.tryTrigger(p, event.getTo());
     }
 }

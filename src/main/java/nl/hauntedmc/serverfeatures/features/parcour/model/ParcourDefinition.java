@@ -9,13 +9,11 @@ import java.util.*;
 public final class ParcourDefinition {
     private final String id;
 
-    private ParcourRegion start; // START (-1)
-    private ParcourRegion end;   // END (Integer.MAX_VALUE)
+    private ParcourRegion start;
+    private ParcourRegion end;
 
-    // Numbered checkpoints (0..N)
     private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
 
-    // Leave / Finish locations
     private String leaveWorld;
     private double leaveX, leaveY, leaveZ;
     private float leaveYaw, leavePitch;
@@ -24,16 +22,22 @@ public final class ParcourDefinition {
     private double finishX, finishY, finishZ;
     private float finishYaw, finishPitch;
 
-    // Progress notify (chat)
     private boolean notifyProgress;
-    private String checkpointSoundName; // org.bukkit.Sound enum name, null = none
-    private String endSoundName;        // org.bukkit.Sound enum name, null = none
+    private String checkpointSoundName;
+    private String endSoundName;
     private boolean useActionBar;
     private int finishTeleportDelaySeconds;
     private String regionHighlightParticleName;
     private boolean hungerEnabled = true;
     private boolean damageEnabled = true;
     private int checkpointCooldownSeconds = 3;
+
+    private int startCountdownSeconds = 0;
+
+    private String startPosWorld;
+    private double startPosX, startPosY, startPosZ;
+    private float startPosYaw, startPosPitch;
+
     private final List<String> startKitEncoded = new ArrayList<>();
 
     public ParcourDefinition(String id) {
@@ -44,7 +48,6 @@ public final class ParcourDefinition {
         return id;
     }
 
-    // ===== START / END =====
     public Optional<ParcourRegion> startRegion() {
         return Optional.ofNullable(start);
     }
@@ -73,7 +76,6 @@ public final class ParcourDefinition {
         return had;
     }
 
-    // ===== Checkpoints =====
     public Collection<ParcourRegion> checkpoints() {
         return new ArrayList<>(checkpointsByOrder.values());
     }
@@ -103,7 +105,6 @@ public final class ParcourDefinition {
         return checkpointsByOrder.size();
     }
 
-    // ===== Leave / Finish locations =====
     public void setLeaveSpawn(String world, double x, double y, double z, float yaw, float pitch) {
         this.leaveWorld = world;
         this.leaveX = x;
@@ -141,7 +142,6 @@ public final class ParcourDefinition {
         return w.getSpawnLocation();
     }
 
-    // ===== Progress toggle (chat) =====
     public boolean notifyProgress() {
         return notifyProgress;
     }
@@ -150,7 +150,6 @@ public final class ParcourDefinition {
         this.notifyProgress = v;
     }
 
-    // ===== Sounds (map-level) =====
     public Optional<String> checkpointSoundName() {
         return Optional.ofNullable(checkpointSoundName);
     }
@@ -167,7 +166,6 @@ public final class ParcourDefinition {
         this.endSoundName = (name == null || name.isBlank()) ? null : name;
     }
 
-    // ===== Actionbar toggle =====
     public boolean useActionBar() {
         return useActionBar;
     }
@@ -176,7 +174,6 @@ public final class ParcourDefinition {
         this.useActionBar = use;
     }
 
-    // ===== Finish delayed teleport =====
     public int finishTeleportDelaySeconds() {
         return finishTeleportDelaySeconds;
     }
@@ -185,7 +182,6 @@ public final class ParcourDefinition {
         this.finishTeleportDelaySeconds = Math.max(0, seconds);
     }
 
-    // ===== Region highlight particle =====
     public Optional<String> regionHighlightParticleName() {
         return Optional.ofNullable(regionHighlightParticleName);
     }
@@ -194,7 +190,6 @@ public final class ParcourDefinition {
         this.regionHighlightParticleName = (name == null || name.isBlank()) ? null : name;
     }
 
-    // ===== Toggles =====
     public boolean hungerEnabled() {
         return hungerEnabled;
     }
@@ -211,7 +206,6 @@ public final class ParcourDefinition {
         this.damageEnabled = v;
     }
 
-    // ===== Checkpoint cooldown =====
     public int checkpointCooldownSeconds() {
         return checkpointCooldownSeconds;
     }
@@ -220,7 +214,34 @@ public final class ParcourDefinition {
         this.checkpointCooldownSeconds = Math.max(0, seconds);
     }
 
-    // ===== Start kit (encoded ItemStacks) =====
+    public int startCountdownSeconds() {
+        return startCountdownSeconds;
+    }
+
+    public void setStartCountdownSeconds(int seconds) {
+        this.startCountdownSeconds = Math.max(0, seconds);
+    }
+
+    public void setStartPosition(String world, double x, double y, double z, float yaw, float pitch) {
+        this.startPosWorld = world;
+        this.startPosX = x;
+        this.startPosY = y;
+        this.startPosZ = z;
+        this.startPosYaw = yaw;
+        this.startPosPitch = pitch;
+    }
+
+    public void clearStartPosition() {
+        this.startPosWorld = null;
+    }
+
+    public Optional<Location> startPosition() {
+        if (startPosWorld == null) return Optional.empty();
+        World w = Bukkit.getWorld(startPosWorld);
+        if (w == null) return Optional.empty();
+        return Optional.of(new Location(w, startPosX, startPosY, startPosZ, startPosYaw, startPosPitch));
+    }
+
     public List<String> startKitEncoded() {
         return Collections.unmodifiableList(startKitEncoded);
     }

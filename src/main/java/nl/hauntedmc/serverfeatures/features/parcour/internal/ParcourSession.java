@@ -12,27 +12,25 @@ import java.util.UUID;
 public final class ParcourSession {
     public final UUID playerId;
     public final String parcourId;
-    public final long startMillis;
 
-    // Expected next checkpoint order (0,1,2,...) — when no checkpoint with this order exists, END is expected.
+    private long startMillis;
+
     private int expectedNextOrder;
-
-    // Last restore/respawn location
     private Location restoreLocation;
 
-    // Regions triggered in this session (avoid re-running commands on the same region)
     private final Set<Integer> triggeredOrders = new HashSet<>();
 
-    // Actionbar task handle (nullable)
     private BukkitTask actionBarTask;
-
     private BukkitTask particleTask;
 
-    // Finished state: freeze timer and show N/N for a short hold
     private boolean finished;
     private long finalElapsedMs;
     private ParcourInventorySnapshot snapshot;
     private long lastCheckpointTeleportMs = 0L;
+
+    private boolean countdownActive;
+    private BukkitTask countdownTask;
+    private Location frozenAt;
 
     public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         this.playerId = playerId;
@@ -42,6 +40,15 @@ public final class ParcourSession {
         this.expectedNextOrder = firstExpectedOrder;
         this.finished = false;
         this.finalElapsedMs = 0L;
+        this.countdownActive = false;
+    }
+
+    public long startMillis() {
+        return startMillis;
+    }
+
+    public void setStartToNow() {
+        this.startMillis = System.currentTimeMillis();
     }
 
     public int expectedNextOrder() {
@@ -127,5 +134,35 @@ public final class ParcourSession {
 
     public void setLastCheckpointTeleportMs(long ms) {
         this.lastCheckpointTeleportMs = ms;
+    }
+
+    public boolean isCountdownActive() {
+        return countdownActive;
+    }
+
+    public void setCountdownActive(boolean active) {
+        this.countdownActive = active;
+    }
+
+    public void setCountdownTask(BukkitTask task) {
+        this.countdownTask = task;
+    }
+
+    public void cancelCountdownTask() {
+        if (this.countdownTask != null) {
+            try {
+                this.countdownTask.cancel();
+            } catch (Throwable ignored) {
+            }
+            this.countdownTask = null;
+        }
+    }
+
+    public Location frozenAt() {
+        return frozenAt;
+    }
+
+    public void setFrozenAt(Location frozenAt) {
+        this.frozenAt = frozenAt;
     }
 }
