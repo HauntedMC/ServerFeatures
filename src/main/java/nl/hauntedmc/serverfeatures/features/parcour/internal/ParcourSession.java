@@ -37,12 +37,12 @@ public final class ParcourSession {
     private PotionEffectType appliedEffectType;
     private PotionEffect previousEffect;
 
-    public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
+    public ParcourSession(UUID playerId, ParcourDefinition def, Location startRestore) {
         this.playerId = playerId;
         this.parcourId = def.id();
         this.startMillis = System.currentTimeMillis();
         this.restoreLocation = startRestore;
-        this.expectedNextOrder = firstExpectedOrder;
+        this.expectedNextOrder = 0;
         this.finished = false;
         this.finalElapsedMs = 0L;
         this.countdownActive = false;

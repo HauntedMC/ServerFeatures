@@ -487,7 +487,7 @@ public final class ParcourHandler {
         }
 
         teleport(p, startRestore);
-        startSession(p, def, startRestore, 0);
+        startSession(p, def, startRestore);
 
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                 .with("name", def.id()).forAudience(p).build());
@@ -573,8 +573,8 @@ public final class ParcourHandler {
         return true;
     }
 
-    private void startSession(Player p, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
-        ParcourSession session = new ParcourSession(p.getUniqueId(), def, startRestore, firstExpectedOrder);
+    private void startSession(Player p, ParcourDefinition def, Location startRestore) {
+        ParcourSession session = new ParcourSession(p.getUniqueId(), def, startRestore);
         sessions.put(p.getUniqueId(), session);
 
         ParcourInventorySnapshot snap = ParcourInventorySnapshot.capture(p);
@@ -654,7 +654,7 @@ public final class ParcourHandler {
                         Location startRestore = def.startRegion().get().resolveRestoreLocation(Bukkit.getServer());
                         if (startRestore == null) continue;
 
-                        startSession(p, def, startRestore, 0);
+                        startSession(p, def, startRestore);
 
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
                                 .with("name", def.id()).forAudience(p).build());
@@ -679,20 +679,22 @@ public final class ParcourHandler {
             }
 
             // Catch up through multiple checkpoints crossed in the same tick at high speed (elytra + fireworks)
+            // Catch up through multiple checkpoints crossed in the same tick at high speed (elytra + fireworks)
             int safety = 0;
             boolean progressed = false;
             while (safety++ < 10) { // hard cap to avoid infinite loops on misconfig
                 int expected = s.expectedNextOrder();
                 Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
 
-                boolean hitSomething = false;
+                boolean advanced = false;
 
                 if (expectedCkpt.isPresent()) {
                     ParcourRegion pr = expectedCkpt.get();
                     if (pr.region().isPresent()) {
-                        Region r = pr.region().get();
-                        if (Objects.equals(r.worldName(), to.getWorld().getName())
-                                && (contains(r, to) || segmentIntersectsRegion(from, to, r))) {
+                        Region rr = pr.region().get();
+                        if (Objects.equals(rr.worldName(), to.getWorld().getName())
+                                && (contains(rr, to) || segmentIntersectsRegion(from, to, rr))) {
+
                             boolean firstTimeHere = !s.alreadyTriggered(pr);
                             if (firstTimeHere) {
                                 executeRegionCommands(p, pr);
@@ -719,15 +721,13 @@ public final class ParcourHandler {
 
                             updateRegionHighlight(p, def, s);
                             progressed = true;
-                            hitSomething = true;
-                            // loop again to see if we also crossed the next checkpoint in the same move
-                            continue;
+                            advanced = true;
                         }
                     }
                 }
 
-                // If we didn't hit the expected checkpoint this iteration, break the loop.
-                if (!hitSomething) break;
+                // Stop de catch-up-lus als we in deze iteratie geen checkpoint geraakt hebben
+                if (!advanced) break;
             }
 
             // After catching up checkpoints, also check END with swept segment
@@ -898,9 +898,13 @@ public final class ParcourHandler {
     }
 
     private void applyCleanParcourInventory(Player p) {
-        p.getInventory().clear();
-        p.getInventory().setArmorContents(null);
-        p.getInventory().setItemInOffHand(null);
+        PlayerInventory inv = p.getInventory();
+        inv.clear();
+        inv.setHelmet(null);
+        inv.setChestplate(null);
+        inv.setLeggings(null);
+        inv.setBoots(null);
+        inv.setItemInOffHand(null);
         p.updateInventory();
     }
 
