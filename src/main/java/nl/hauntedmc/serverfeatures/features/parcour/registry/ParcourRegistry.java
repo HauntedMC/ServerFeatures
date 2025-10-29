@@ -1,6 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
@@ -8,18 +11,20 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.*;
-
-import org.bukkit.util.io.BukkitObjectInputStream;
-import org.bukkit.util.io.BukkitObjectOutputStream;
 
 public final class ParcourRegistry {
 
@@ -171,32 +176,66 @@ public final class ParcourRegistry {
         feature.getLogger().info("Loaded " + loaded + " parcour(s).");
     }
 
+    // ---- Modern registry-based validators (Paper 1.21+)
+
     private static boolean isValidSound(String name, FeatureLogger log, String parcourId, String kind) {
         if (name == null || name.isBlank()) return false;
-        try { Sound.valueOf(name.trim().toUpperCase(Locale.ROOT)); return true; }
-        catch (IllegalArgumentException ex) {
-            log.warning("Parcour '" + parcourId + "': invalid " + kind + " sound '" + name + "'. Ignoring.");
+
+        NamespacedKey key = parseKeyOrLegacy(name);
+        if (key == null) {
+            log.warning("Parcour '" + parcourId + "': invalid " + kind + " sound key '" + name + "'. Ignoring.");
             return false;
         }
+
+        Sound s = BukkitRegistry.soundRegistry().get(key);
+        if (s != null) return true;
+
+        log.warning("Parcour '" + parcourId + "': unknown " + kind + " sound '" + name + "' (key: " + key + "). Ignoring.");
+        return false;
     }
 
     private static boolean isValidParticle(String name, FeatureLogger log, String parcourId) {
         if (name == null || name.isBlank()) return false;
-        try { Particle.valueOf(name.trim().toUpperCase(Locale.ROOT)); return true; }
-        catch (IllegalArgumentException ex) {
-            log.warning("Parcour '" + parcourId + "': invalid region_highlight_particle '" + name + "'. Ignoring.");
+
+        NamespacedKey key = parseKeyOrLegacy(name);
+        if (key == null) {
+            log.warning("Parcour '" + parcourId + "': invalid particle key '" + name + "'. Ignoring.");
             return false;
         }
+
+        Particle p = BukkitRegistry.particleRegistry().get(key);
+        if (p != null) return true;
+
+        log.warning("Parcour '" + parcourId + "': unknown region_highlight_particle '" + name + "' (key: " + key + "). Ignoring.");
+        return false;
     }
 
     private static boolean isValidEffect(String name, FeatureLogger log, String parcourId) {
         if (name == null || name.isBlank()) return false;
-        PotionEffectType t = PotionEffectType.getByName(name.trim().toUpperCase(Locale.ROOT));
-        if (t == null) {
-            log.warning("Parcour '" + parcourId + "': invalid effect '" + name + "'. Ignoring.");
+
+        NamespacedKey key = parseKeyOrLegacy(name);
+        if (key == null) {
+            log.warning("Parcour '" + parcourId + "': invalid effect key '" + name + "'. Ignoring.");
             return false;
         }
-        return true;
+
+        PotionEffectType type = BukkitRegistry.mobEffectRegistry().get(key);
+        if (type != null) return true;
+
+        log.warning("Parcour '" + parcourId + "': unknown effect '" + name + "' (key: " + key + "). Ignoring.");
+        return false;
+    }
+
+    /** Try to parse a NamespacedKey; if legacy enum-style (e.g. ENTITY_PLAYER_LEVELUP), convert to minecraft:entity.player.levelup */
+    private static NamespacedKey parseKeyOrLegacy(String input) {
+        String trimmed = input.trim();
+        // If it's already namespaced (e.g. "minecraft:entity.player.levelup")
+        NamespacedKey parsed = NamespacedKey.fromString(trimmed.toLowerCase(Locale.ROOT));
+        if (parsed != null) return parsed;
+
+        // Legacy enum constant -> dot path under minecraft namespace
+        String legacyPath = trimmed.toLowerCase(Locale.ROOT).replace(' ', '\0').replace('_', '.');
+        return NamespacedKey.fromString("minecraft:" + legacyPath);
     }
 
     private static Integer parseOrder(String k) {
@@ -227,7 +266,7 @@ public final class ParcourRegistry {
                 region = new Region(world, x1, y1, z1, x2, y2, z2);
             }
 
-            ParcourRegion pr = new ParcourRegion(orderForInternal, ParcourRegionType.CHECKPOINT == type ? ParcourRegionType.CHECKPOINT : type);
+            ParcourRegion pr = new ParcourRegion(orderForInternal, type);
             pr.setRestoreCheckpoint(restore);
             if (region != null) pr.setRegion(region);
 
