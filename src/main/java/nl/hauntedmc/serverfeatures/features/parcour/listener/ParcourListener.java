@@ -17,18 +17,22 @@ public final class ParcourListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
+        // Ignore micro-moves within same block to reduce spam
         if (event.getFrom().getBlockX() == event.getTo().getBlockX()
                 && event.getFrom().getBlockY() == event.getTo().getBlockY()
                 && event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
             return;
         }
+
         Player p = event.getPlayer();
 
         if (handler.isMovementFrozen(p)) {
+            // Hard-freeze movement during countdown
             event.setTo(event.getFrom());
             return;
         }
 
-        handler.tryTrigger(p, event.getTo());
+        // Use swept AABB between from->to so high-speed elytra movement cannot skip regions.
+        handler.tryTrigger(p, event.getFrom(), event.getTo());
     }
 }

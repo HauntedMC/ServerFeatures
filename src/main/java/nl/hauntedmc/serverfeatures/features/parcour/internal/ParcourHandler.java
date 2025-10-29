@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.parcour.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
@@ -13,7 +14,9 @@ import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
@@ -30,8 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParcourHandler {
 
-    private static final long TRIGGER_COOLDOWN_MS = 500L;
-    private static final long TELEPORT_IGNORE_MS = 1000L;
+    // Cooldowns throttled elsewhere; do not block sweep checks with a coarse move-cooldown.
     private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
 
     private static final long PARTICLE_INTERVAL_TICKS = 12L;
@@ -49,8 +51,6 @@ public final class ParcourHandler {
     private final NamespacedKey checkpointKey;
     private final NamespacedKey kitKey;
 
-    private final Map<UUID, Long> lastTrigger = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> ignoreUntil = new ConcurrentHashMap<>();
     private final Map<UUID, ParcourSession> sessions = new ConcurrentHashMap<>();
 
     public ParcourHandler(Parcour feature, ParcourRegistry registry) {
@@ -183,7 +183,7 @@ public final class ParcourHandler {
                 def.setEffect(null, null);
             } else {
                 String up = effectNameOrNull.trim().toUpperCase(java.util.Locale.ROOT);
-                if (PotionEffectType.getByName(up) == null) return false;
+                if (PotionEffectType.getByName(up) == null) return false; // kept for config validation; application uses registry-safe methods
                 def.setEffect(up, amplifier);
             }
             registry.saveParcour(def);
@@ -203,6 +203,7 @@ public final class ParcourHandler {
 
     private void applyEffectIfConfigured(Player p, ParcourDefinition def, ParcourSession s) {
         if (def.effectTypeName().isEmpty()) return;
+        // Resolve via registry where possible, but accept legacy names from config
         PotionEffectType type = PotionEffectType.getByName(def.effectTypeName().get());
         if (type == null) return;
 
@@ -247,7 +248,7 @@ public final class ParcourHandler {
 
     public boolean addStartKitFromHand(String id, Player p) {
         ItemStack hand = p.getInventory().getItemInMainHand();
-        if (hand == null || hand.getType().isAir()) return false;
+        if (hand.getType().isAir()) return false;
         return registry.get(id).map(def -> {
             registry.serializeItemToBase64(hand.clone()).ifPresent(def::addStartKitSerialized);
             registry.saveParcour(def);
@@ -485,7 +486,7 @@ public final class ParcourHandler {
             return false;
         }
 
-        teleportWithIgnore(p, startRestore);
+        teleport(p, startRestore);
         startSession(p, def, startRestore, 0);
 
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.starting")
@@ -514,7 +515,7 @@ public final class ParcourHandler {
 
         registry.get(s.parcourId).ifPresent(def -> {
             Location dst = def.leaveSpawn().orElse(def.fallbackWorldSpawn());
-            teleportWithIgnore(p, dst);
+            teleport(p, dst);
         });
 
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.left")
@@ -523,8 +524,6 @@ public final class ParcourHandler {
         clearSession(p);
         return true;
     }
-
-    public boolean teleportToCheckpoint(Player p) { return teleportToCheckpoint(p, true); }
 
     public boolean teleportToCheckpoint(Player p, boolean enforceCooldown) {
         ParcourSession s = sessions.get(p.getUniqueId());
@@ -557,19 +556,15 @@ public final class ParcourHandler {
             defOpt.flatMap(ParcourDefinition::startRegion)
                     .ifPresentOrElse(pr -> {
                         Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
-                        if (pref != null) {
-                            teleportWithIgnore(p, pref);
-                        } else {
-                            teleportWithIgnore(p, p.getWorld().getSpawnLocation());
-                        }
+                        teleport(p, Objects.requireNonNullElseGet(pref, () -> p.getWorld().getSpawnLocation()));
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.no_checkpoint").forAudience(p).build());
                     }, () -> {
-                        teleportWithIgnore(p, p.getWorld().getSpawnLocation());
+                        teleport(p, p.getWorld().getSpawnLocation());
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.no_checkpoint").forAudience(p).build());
                     });
             return true;
         }
-        teleportWithIgnore(p, dst);
+        teleport(p, dst);
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.teleport").forAudience(p).build());
 
         if (enforceCooldown && defOpt.isPresent() && defOpt.get().checkpointCooldownSeconds() > 0) {
@@ -581,7 +576,6 @@ public final class ParcourHandler {
     private void startSession(Player p, ParcourDefinition def, Location startRestore, int firstExpectedOrder) {
         ParcourSession session = new ParcourSession(p.getUniqueId(), def, startRestore, firstExpectedOrder);
         sessions.put(p.getUniqueId(), session);
-        lastTrigger.put(p.getUniqueId(), 0L);
 
         ParcourInventorySnapshot snap = ParcourInventorySnapshot.capture(p);
         session.setSnapshot(snap);
@@ -589,7 +583,7 @@ public final class ParcourHandler {
         giveControlItems(p);
         giveStartKitItems(p, def);
 
-        p.setHealth(p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue());
+        p.setHealth(Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue());
         p.setFoodLevel(20);
         p.setSaturation(20);
 
@@ -643,18 +637,20 @@ public final class ParcourHandler {
         p.sendActionBar(c);
     }
 
-    public void tryTrigger(Player p, Location to) {
-        long now = System.currentTimeMillis();
-        Long ignore = ignoreUntil.get(p.getUniqueId());
-        if (ignore != null && now < ignore) return;
-        Long prev = lastTrigger.get(p.getUniqueId());
-        if (prev != null && (now - prev) < TRIGGER_COOLDOWN_MS) return;
+    /**
+     * High-speed safe trigger: checks both the destination and the swept segment from->to against regions.
+     */
+    public void tryTrigger(Player p, Location from, Location to) {
+        if (from == null || to == null) return;
 
+        // Process all parcours; use swept AABB so we cannot skip at high velocity
         for (ParcourDefinition def : registry.all()) {
             if (!isPlaying(p)) {
                 if (def.startRegion().isPresent() && def.startRegion().get().region().isPresent()) {
                     Region r = def.startRegion().get().region().get();
-                    if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
+                    if (Objects.equals(r.worldName(), to.getWorld().getName())
+                            && (contains(r, to) || segmentIntersectsRegion(from, to, r))) {
+
                         Location startRestore = def.startRegion().get().resolveRestoreLocation(Bukkit.getServer());
                         if (startRestore == null) continue;
 
@@ -667,8 +663,8 @@ public final class ParcourHandler {
 
                         updateRegionHighlight(p, def, sessions.get(p.getUniqueId()));
 
-                        beginStartCountdownIfNeeded(p, def, sessions.get(p.getUniqueId()), to.clone());
-                        lastTrigger.put(p.getUniqueId(), now);
+                        // Use 'from' (entry trajectory) as freeze hint so titles are shown where the player was when crossing.
+                        beginStartCountdownIfNeeded(p, def, sessions.get(p.getUniqueId()), from.clone());
                         return;
                     }
                 }
@@ -678,60 +674,66 @@ public final class ParcourHandler {
             ParcourSession s = sessions.get(p.getUniqueId());
             if (!s.parcourId.equalsIgnoreCase(def.id())) continue;
 
-            if (s.isCountdownActive()) {
-                lastTrigger.put(p.getUniqueId(), now);
+            if (s.isCountdownActive() || s.isFinished()) {
                 return;
             }
 
-            if (s.isFinished()) {
-                lastTrigger.put(p.getUniqueId(), now);
-                return;
-            }
+            // Catch up through multiple checkpoints crossed in the same tick at high speed (elytra + fireworks)
+            int safety = 0;
+            boolean progressed = false;
+            while (safety++ < 10) { // hard cap to avoid infinite loops on misconfig
+                int expected = s.expectedNextOrder();
+                Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
 
-            int expected = s.expectedNextOrder();
+                boolean hitSomething = false;
 
-            Optional<ParcourRegion> expectedCkpt = def.checkpoint(expected);
-            if (expectedCkpt.isPresent()) {
-                ParcourRegion pr = expectedCkpt.get();
-                if (pr.region().isPresent()) {
-                    Region r = pr.region().get();
-                    if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
-                        boolean firstTimeHere = !s.alreadyTriggered(pr);
-                        if (firstTimeHere) {
-                            executeRegionCommands(p, pr);
-                            playSoundIfDefined(p, def.checkpointSoundName());
-                            s.markTriggered(pr);
-                        }
-                        if (pr.restoreCheckpoint()) {
-                            Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
-                            if (pref != null) {
-                                s.setRestoreLocation(pref);
-                                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set").forAudience(p).build());
+                if (expectedCkpt.isPresent()) {
+                    ParcourRegion pr = expectedCkpt.get();
+                    if (pr.region().isPresent()) {
+                        Region r = pr.region().get();
+                        if (Objects.equals(r.worldName(), to.getWorld().getName())
+                                && (contains(r, to) || segmentIntersectsRegion(from, to, r))) {
+                            boolean firstTimeHere = !s.alreadyTriggered(pr);
+                            if (firstTimeHere) {
+                                executeRegionCommands(p, pr);
+                                playSoundIfDefined(p, def.checkpointSoundName());
+                                s.markTriggered(pr);
                             }
+                            if (pr.restoreCheckpoint()) {
+                                Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
+                                if (pref != null) {
+                                    s.setRestoreLocation(pref);
+                                    p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set").forAudience(p).build());
+                                }
+                            }
+                            s.advanceExpectedOrder();
+
+                            if (def.notifyProgress()) {
+                                int current = s.expectedNextOrder();
+                                int total = def.totalCheckpoints() + 1;
+                                p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
+                                        .with("current", String.valueOf(current))
+                                        .with("total", String.valueOf(total))
+                                        .forAudience(p).build());
+                            }
+
+                            updateRegionHighlight(p, def, s);
+                            progressed = true;
+                            // loop again to see if we also crossed the next checkpoint in the same move
+                            continue;
                         }
-                        s.advanceExpectedOrder();
-
-                        if (def.notifyProgress()) {
-                            int current = s.expectedNextOrder();
-                            int total = def.totalCheckpoints() + 1;
-                            p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
-                                    .with("current", String.valueOf(current))
-                                    .with("total", String.valueOf(total))
-                                    .forAudience(p).build());
-                        }
-
-                        updateRegionHighlight(p, def, s);
-
-                        lastTrigger.put(p.getUniqueId(), now);
-                        return;
                     }
                 }
-                continue;
+
+                // If we didn't hit the expected checkpoint this iteration, break the loop.
+                if (!hitSomething) break;
             }
 
+            // After catching up checkpoints, also check END with swept segment
             if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
                 Region r = def.endRegion().get().region().get();
-                if (Objects.equals(r.worldName(), to.getWorld().getName()) && r.contains(to)) {
+                if (Objects.equals(r.worldName(), to.getWorld().getName())
+                        && (contains(r, to) || segmentIntersectsRegion(from, to, r))) {
                     ParcourRegion endPr = def.endRegion().get();
                     boolean firstEnd = !s.alreadyTriggered(endPr);
                     if (firstEnd) {
@@ -742,9 +744,8 @@ public final class ParcourHandler {
 
                     if (def.notifyProgress()) {
                         int total = def.totalCheckpoints() + 1;
-                        int current = total;
                         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.progress")
-                                .with("current", String.valueOf(current))
+                                .with("current", String.valueOf(total))
                                 .with("total", String.valueOf(total))
                                 .forAudience(p).build());
                     }
@@ -752,20 +753,20 @@ public final class ParcourHandler {
                     if (!s.isFinished()) {
                         finishParcour(p, s, def);
                     }
-                    lastTrigger.put(p.getUniqueId(), now);
-                    return;
                 }
             }
+
+            // If we touched anything for this parcours, we're done this tick
+            if (progressed) return;
         }
     }
 
     private void playSoundIfDefined(Player p, Optional<String> nameOpt) {
         if (nameOpt.isEmpty()) return;
-        String raw = nameOpt.get();
-        try {
-            Sound s = Sound.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        Sound s = resolveSound(nameOpt.get());
+        if (s != null) {
             p.playSound(p.getLocation(), s, 1.0f, 1.0f);
-        } catch (IllegalArgumentException ignored) { }
+        }
     }
 
     private void executeRegionCommandsSilently(ParcourRegion pr) {
@@ -815,7 +816,7 @@ public final class ParcourHandler {
             Location dst = def.finishSpawn().orElse(def.fallbackWorldSpawn());
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
                 if (p.isOnline()) {
-                    teleportWithIgnore(p, dst);
+                    teleport(p, dst);
                 }
             }, BukkitTime.seconds(delaySec));
         }
@@ -826,8 +827,7 @@ public final class ParcourHandler {
         teleportToCheckpoint(p, false);
     }
 
-    public void teleportWithIgnore(Player p, Location dst) {
-        ignoreUntil.put(p.getUniqueId(), System.currentTimeMillis() + TELEPORT_IGNORE_MS);
+    public void teleport(Player p, Location dst) {
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             if (!p.isOnline()) return;
             p.teleport(dst);
@@ -842,13 +842,13 @@ public final class ParcourHandler {
     private void beginStartCountdownIfNeeded(Player p, ParcourDefinition def, ParcourSession s, Location entryPosition) {
         if (s == null) return;
         int seconds = Math.max(0, def.startCountdownSeconds());
-        if (seconds <= 0) {
+        if (seconds == 0) {
             s.setStartToNow();
             return;
         }
 
         Location freezeAt = def.startPosition().orElse(entryPosition);
-        teleportWithIgnore(p, freezeAt);
+        teleport(p, freezeAt);
 
         s.setCountdownActive(true);
         s.setFrozenAt(freezeAt);
@@ -863,9 +863,8 @@ public final class ParcourHandler {
                 return;
             }
             ParcourSession current = sessions.get(p.getUniqueId());
-            if (current == null || current != s) {
+            if (current == null || current == s && !current.isCountdownActive()) {
                 s.cancelCountdownTask();
-                s.setCountdownActive(false);
                 return;
             }
 
@@ -992,10 +991,8 @@ public final class ParcourHandler {
         Optional<String> pname = def.regionHighlightParticleName();
         if (pname.isEmpty()) return;
 
-        final org.bukkit.Particle particle;
-        try {
-            particle = org.bukkit.Particle.valueOf(pname.get().trim().toUpperCase(java.util.Locale.ROOT));
-        } catch (IllegalArgumentException ex) { return; }
+        final Particle particle = resolveParticle(pname.get());
+        if (particle == null) return;
 
         ParcourRegion target = def.checkpoint(s.expectedNextOrder()).orElseGet(() -> def.endRegion().orElse(null));
         if (target == null || target.region().isEmpty()) return;
@@ -1011,7 +1008,7 @@ public final class ParcourHandler {
         s.setParticleTask(task);
     }
 
-    private void spawnRegionOutline(Player p, Region r, org.bukkit.Particle particle) {
+    private void spawnRegionOutline(Player p, Region r, Particle particle) {
         final int minX = r.minX();
         final int minY = r.minY();
         final int minZ = r.minZ();
@@ -1056,7 +1053,7 @@ public final class ParcourHandler {
         buf.add(new Location(p.getWorld(), bx + 0.5, by + 0.1, bz + 0.5));
     }
 
-    private void flushParticleQueue(Player p, org.bukkit.Particle particle) {
+    private void flushParticleQueue(Player p, Particle particle) {
         List<Location> buf = TL_PARTICLE_BUF.get();
         if (buf.isEmpty()) return;
         try {
@@ -1074,5 +1071,106 @@ public final class ParcourHandler {
         try { cleanupEffectForSession(p, s); } catch (Throwable ignored) {}
         restoreInventoryIfPresent(p, s);
         clearSession(p);
+    }
+
+    // ---------- Utilities ----------
+
+    private boolean contains(Region r, Location loc) {
+        if (!Objects.equals(r.worldName(), loc.getWorld().getName())) return false;
+        // Assume Region.contains(Location) internally uses block coordinates.
+        // We mimic that behavior: floor to block coords inclusive.
+        int bx = loc.getBlockX();
+        int by = loc.getBlockY();
+        int bz = loc.getBlockZ();
+        return bx >= r.minX() && bx <= r.maxX()
+                && by >= r.minY() && by <= r.maxY()
+                && bz >= r.minZ() && bz <= r.maxZ();
+    }
+
+    /**
+     * Robust line-segment vs. axis-aligned box intersection (slab method),
+     * using continuous coordinates. Box spans full blocks: [min, max+1] on each axis.
+     */
+    private boolean segmentIntersectsRegion(Location a, Location b, Region r) {
+        if (a == null || b == null) return false;
+        if (!Objects.equals(a.getWorld().getName(), r.worldName())) return false;
+        if (!Objects.equals(b.getWorld().getName(), r.worldName())) return false;
+
+        // Expand to full block volumes
+        double minX = Math.min(r.minX(), r.maxX());
+        double minY = Math.min(r.minY(), r.maxY());
+        double minZ = Math.min(r.minZ(), r.maxZ());
+        double maxX = Math.max(r.minX(), r.maxX()) + 1.0;
+        double maxY = Math.max(r.minY(), r.maxY()) + 1.0;
+        double maxZ = Math.max(r.minZ(), r.maxZ()) + 1.0;
+
+        double ax = a.getX(), ay = a.getY(), az = a.getZ();
+        double bx = b.getX(), by = b.getY(), bz = b.getZ();
+
+        double dx = bx - ax, dy = by - ay, dz = bz - az;
+        double tMin = 0.0, tMax = 1.0;
+
+        // X
+        if (Math.abs(dx) < 1e-9) {
+            if (ax < minX || ax > maxX) return false;
+        } else {
+            double inv = 1.0 / dx;
+            double t1 = (minX - ax) * inv;
+            double t2 = (maxX - ax) * inv;
+            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMax < tMin) return false;
+        }
+
+        // Y
+        if (Math.abs(dy) < 1e-9) {
+            if (ay < minY || ay > maxY) return false;
+        } else {
+            double inv = 1.0 / dy;
+            double t1 = (minY - ay) * inv;
+            double t2 = (maxY - ay) * inv;
+            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMax < tMin) return false;
+        }
+
+        // Z
+        if (Math.abs(dz) < 1e-9) {
+            if (az < minZ || az > maxZ) return false;
+        } else {
+            double inv = 1.0 / dz;
+            double t1 = (minZ - az) * inv;
+            double t2 = (maxZ - az) * inv;
+            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            tMin = Math.max(tMin, t1);
+            tMax = Math.min(tMax, t2);
+            if (tMax < tMin) return false;
+        }
+
+        return tMax >= tMin && tMax >= 0.0 && tMin <= 1.0;
+    }
+
+    private Sound resolveSound(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        NamespacedKey key = NamespacedKey.fromString(raw.trim());
+        if (key == null) {
+            String guess = raw.trim().toLowerCase(Locale.ROOT).replace('_', '.'); // enum-style to dot style
+            key = NamespacedKey.fromString("minecraft:" + guess);
+        }
+        if (key == null) return null;
+        return BukkitRegistry.soundRegistry().get(key);
+    }
+
+    private Particle resolveParticle(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        NamespacedKey key = NamespacedKey.fromString(raw.trim());
+        if (key == null) {
+            String guess = raw.trim().toLowerCase(Locale.ROOT); // particles keep underscores
+            key = NamespacedKey.fromString("minecraft:" + guess);
+        }
+        if (key == null) return null;
+        return BukkitRegistry.particleRegistry().get(key);
     }
 }
