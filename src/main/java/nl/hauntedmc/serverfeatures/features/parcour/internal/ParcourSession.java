@@ -3,9 +3,9 @@ package nl.hauntedmc.serverfeatures.features.parcour.internal;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import org.bukkit.Location;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashSet;
 import java.util.Set;

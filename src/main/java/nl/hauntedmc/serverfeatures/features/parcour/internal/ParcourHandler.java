@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.parcour.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
@@ -12,11 +12,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.features.parcour.registry.ParcourRegistry;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
@@ -24,9 +20,9 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.time.Duration;
 import java.util.*;
@@ -34,12 +30,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParcourHandler {
 
-    // Cooldowns throttled elsewhere; do not block sweep checks with a coarse move-cooldown.
     private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
-
     private static final long PARTICLE_INTERVAL_TICKS = 12L;
     private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
-
     private static final org.bukkit.Material ITEM_LEAVE_MAT = org.bukkit.Material.BARRIER;
     private static final org.bukkit.Material ITEM_CKPT_MAT = org.bukkit.Material.NETHER_STAR;
     private static final int SLOT_CKPT = 3;
@@ -63,9 +56,17 @@ public final class ParcourHandler {
         this.kitKey = new NamespacedKey(feature.getPlugin(), "parcour_kit");
     }
 
-    public NamespacedKey leaveKey() { return leaveKey; }
-    public NamespacedKey checkpointKey() { return checkpointKey; }
-    public NamespacedKey kitKey() { return kitKey; }
+    public NamespacedKey leaveKey() {
+        return leaveKey;
+    }
+
+    public NamespacedKey checkpointKey() {
+        return checkpointKey;
+    }
+
+    public NamespacedKey kitKey() {
+        return kitKey;
+    }
 
     public boolean createParcour(String id) {
         if (registry.get(id).isPresent()) return false;
@@ -398,7 +399,11 @@ public final class ParcourHandler {
     }
 
     private Integer parseOrder(String key) {
-        try { return Integer.parseInt(key); } catch (NumberFormatException e) { return null; }
+        try {
+            return Integer.parseInt(key);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private ParcourRegion getRegionByKey(ParcourDefinition def, String key) {
@@ -427,8 +432,13 @@ public final class ParcourHandler {
         return true;
     }
 
-    public boolean isPlaying(Player p) { return sessions.containsKey(p.getUniqueId()); }
-    public Optional<ParcourSession> session(Player p) { return Optional.ofNullable(sessions.get(p.getUniqueId())); }
+    public boolean isPlaying(Player p) {
+        return sessions.containsKey(p.getUniqueId());
+    }
+
+    public Optional<ParcourSession> session(Player p) {
+        return Optional.ofNullable(sessions.get(p.getUniqueId()));
+    }
 
     public void clearSession(Player p) {
         ParcourSession s = sessions.remove(p.getUniqueId());
@@ -445,9 +455,15 @@ public final class ParcourHandler {
             Player p = Bukkit.getPlayer(s.playerId);
             if (p != null && p.isOnline()) {
                 // cleanup effect and restore inventory if we can
-                try { cleanupEffectForSession(p, s); } catch (Throwable ignored) {}
+                try {
+                    cleanupEffectForSession(p, s);
+                } catch (Throwable ignored) {
+                }
                 if (s.snapshot() != null) {
-                    try { s.snapshot().restore(p); } catch (Throwable ignored) { }
+                    try {
+                        s.snapshot().restore(p);
+                    } catch (Throwable ignored) {
+                    }
                     count++;
                 }
             }
@@ -1008,12 +1024,25 @@ public final class ParcourHandler {
             org.bukkit.Material mat = item.getType();
             boolean placed = false;
 
-            if (isHelmet(mat) && isEmpty(inv.getHelmet())) { inv.setHelmet(item); placed = true; }
-            else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
-            else if (mat == org.bukkit.Material.ELYTRA && isEmpty(inv.getChestplate())) { inv.setChestplate(item); placed = true; }
-            else if (isLeggings(mat) && isEmpty(inv.getLeggings())) { inv.setLeggings(item); placed = true; }
-            else if (isBoots(mat) && isEmpty(inv.getBoots())) { inv.setBoots(item); placed = true; }
-            else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) { inv.setItemInOffHand(item); placed = true; }
+            if (isHelmet(mat) && isEmpty(inv.getHelmet())) {
+                inv.setHelmet(item);
+                placed = true;
+            } else if (isChestArmor(mat) && isEmpty(inv.getChestplate())) {
+                inv.setChestplate(item);
+                placed = true;
+            } else if (mat == org.bukkit.Material.ELYTRA && isEmpty(inv.getChestplate())) {
+                inv.setChestplate(item);
+                placed = true;
+            } else if (isLeggings(mat) && isEmpty(inv.getLeggings())) {
+                inv.setLeggings(item);
+                placed = true;
+            } else if (isBoots(mat) && isEmpty(inv.getBoots())) {
+                inv.setBoots(item);
+                placed = true;
+            } else if (isOffhandItem(mat) && isEmpty(inv.getItemInOffHand())) {
+                inv.setItemInOffHand(item);
+                placed = true;
+            }
 
             if (!placed) {
                 int slot = firstFreePlayableSlot(inv);
@@ -1024,12 +1053,29 @@ public final class ParcourHandler {
         p.updateInventory();
     }
 
-    private boolean isEmpty(ItemStack it) { return it == null || it.getType().isAir(); }
-    private boolean isHelmet(org.bukkit.Material m) { return m.name().endsWith("_HELMET") || m == org.bukkit.Material.TURTLE_HELMET || m == org.bukkit.Material.CARVED_PUMPKIN; }
-    private boolean isChestArmor(org.bukkit.Material m) { return m.name().endsWith("_CHESTPLATE"); }
-    private boolean isLeggings(org.bukkit.Material m) { return m.name().endsWith("_LEGGINGS"); }
-    private boolean isBoots(org.bukkit.Material m) { return m.name().endsWith("_BOOTS"); }
-    private boolean isOffhandItem(org.bukkit.Material m) { return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING; }
+    private boolean isEmpty(ItemStack it) {
+        return it == null || it.getType().isAir();
+    }
+
+    private boolean isHelmet(org.bukkit.Material m) {
+        return m.name().endsWith("_HELMET") || m == org.bukkit.Material.TURTLE_HELMET || m == org.bukkit.Material.CARVED_PUMPKIN;
+    }
+
+    private boolean isChestArmor(org.bukkit.Material m) {
+        return m.name().endsWith("_CHESTPLATE");
+    }
+
+    private boolean isLeggings(org.bukkit.Material m) {
+        return m.name().endsWith("_LEGGINGS");
+    }
+
+    private boolean isBoots(org.bukkit.Material m) {
+        return m.name().endsWith("_BOOTS");
+    }
+
+    private boolean isOffhandItem(org.bukkit.Material m) {
+        return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING;
+    }
 
     private int firstFreePlayableSlot(PlayerInventory inv) {
         for (int i = 0; i <= 8; i++) {
@@ -1047,7 +1093,11 @@ public final class ParcourHandler {
     private void restoreInventoryIfPresent(Player p, ParcourSession s) {
         ParcourInventorySnapshot snap = s.snapshot();
         if (snap != null) {
-            try { snap.restore(p); } catch (Throwable t) { log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage()); }
+            try {
+                snap.restore(p);
+            } catch (Throwable t) {
+                log.warning("Failed to restore inventory for " + p.getName() + ": " + t.getMessage());
+            }
             s.setSnapshot(null);
         }
     }
@@ -1137,7 +1187,10 @@ public final class ParcourHandler {
     public void onQuit(Player p) {
         ParcourSession s = sessions.get(p.getUniqueId());
         if (s == null) return;
-        try { cleanupEffectForSession(p, s); } catch (Throwable ignored) {}
+        try {
+            cleanupEffectForSession(p, s);
+        } catch (Throwable ignored) {
+        }
         restoreInventoryIfPresent(p, s);
         clearSession(p);
     }
@@ -1186,7 +1239,11 @@ public final class ParcourHandler {
             double inv = 1.0 / dx;
             double t1 = (minX - ax) * inv;
             double t2 = (maxX - ax) * inv;
-            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            if (t1 > t2) {
+                double t = t1;
+                t1 = t2;
+                t2 = t;
+            }
             tMin = Math.max(tMin, t1);
             tMax = Math.min(tMax, t2);
             if (tMax < tMin) return false;
@@ -1199,7 +1256,11 @@ public final class ParcourHandler {
             double inv = 1.0 / dy;
             double t1 = (minY - ay) * inv;
             double t2 = (maxY - ay) * inv;
-            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            if (t1 > t2) {
+                double t = t1;
+                t1 = t2;
+                t2 = t;
+            }
             tMin = Math.max(tMin, t1);
             tMax = Math.min(tMax, t2);
             if (tMax < tMin) return false;
@@ -1212,7 +1273,11 @@ public final class ParcourHandler {
             double inv = 1.0 / dz;
             double t1 = (minZ - az) * inv;
             double t2 = (maxZ - az) * inv;
-            if (t1 > t2) { double t = t1; t1 = t2; t2 = t; }
+            if (t1 > t2) {
+                double t = t1;
+                t1 = t2;
+                t2 = t;
+            }
             tMin = Math.max(tMin, t1);
             tMax = Math.min(tMax, t2);
             if (tMax < tMin) return false;

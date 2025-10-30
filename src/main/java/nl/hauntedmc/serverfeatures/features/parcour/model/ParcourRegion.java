@@ -9,12 +9,12 @@ import java.util.List;
 import java.util.Optional;
 
 public final class ParcourRegion {
-    private final int order; // -1 for START, 0..N for checkpoints, Integer.MAX_VALUE for END
+
+    private final int order;
     private ParcourRegionType type;
     private Region region;
     private boolean restoreCheckpoint; // ignored for END
     private final List<String> commands; // executed on enter, as console, {player}
-
     private String restoreWorld;
     private Double restoreX, restoreY, restoreZ;
     private Float restoreYaw, restorePitch;

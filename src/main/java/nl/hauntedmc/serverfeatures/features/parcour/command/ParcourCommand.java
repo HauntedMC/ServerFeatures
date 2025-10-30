@@ -51,7 +51,9 @@ public final class ParcourCommand implements BrigadierCommand {
     }
 
     @Override
-    public @NotNull String name() { return "parcour"; }
+    public @NotNull String name() {
+        return "parcour";
+    }
 
     @Override
     public String description() {
@@ -1074,7 +1076,10 @@ public final class ParcourCommand implements BrigadierCommand {
 
     private CompletableFuture<Suggestions> suggestRegionKeysForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String id = null;
-        try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) { }
+        try {
+            id = StringArgumentType.getString(ctx, "parcourId");
+        } catch (IllegalArgumentException ignored) {
+        }
         if ("start".startsWith(b.getRemaining().toLowerCase(java.util.Locale.ROOT))) b.suggest("START");
         if ("end".startsWith(b.getRemaining().toLowerCase(java.util.Locale.ROOT))) b.suggest("END");
 
@@ -1096,7 +1101,10 @@ public final class ParcourCommand implements BrigadierCommand {
 
     private CompletableFuture<Suggestions> suggestStartOrNumbersForParcour(CommandContext<CommandSourceStack> ctx, SuggestionsBuilder b) {
         String id = null;
-        try { id = StringArgumentType.getString(ctx, "parcourId"); } catch (IllegalArgumentException ignored) { }
+        try {
+            id = StringArgumentType.getString(ctx, "parcourId");
+        } catch (IllegalArgumentException ignored) {
+        }
         if ("start".startsWith(b.getRemaining().toLowerCase(java.util.Locale.ROOT))) b.suggest("START");
 
         if (id != null) {
@@ -1249,7 +1257,9 @@ public final class ParcourCommand implements BrigadierCommand {
         return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(java.util.Locale.ROOT, "%.2f", d);
     }
 
-    private String fmt(float f) { return String.format(java.util.Locale.ROOT, "%.1f", f); }
+    private String fmt(float f) {
+        return String.format(java.util.Locale.ROOT, "%.1f", f);
+    }
 
     private static boolean isClearKeyword(String s) {
         String v = s.trim();

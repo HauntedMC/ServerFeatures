@@ -7,21 +7,17 @@ import org.bukkit.World;
 import java.util.*;
 
 public final class ParcourDefinition {
-    private final String id;
 
+    private final String id;
     private ParcourRegion start;
     private ParcourRegion end;
-
     private final Map<Integer, ParcourRegion> checkpointsByOrder = new TreeMap<>();
-
     private String leaveWorld;
     private double leaveX, leaveY, leaveZ;
     private float leaveYaw, leavePitch;
-
     private String finishWorld;
     private double finishX, finishY, finishZ;
     private float finishYaw, finishPitch;
-
     private boolean notifyProgress;
     private String checkpointSoundName;
     private String endSoundName;
@@ -30,18 +26,14 @@ public final class ParcourDefinition {
     private String regionHighlightParticleName;
     private boolean hungerEnabled = true;
     private boolean damageEnabled = true;
-    private int checkpointCooldownSeconds = 3;
-
-    private int startCountdownSeconds = 0;
-
+    private int checkpointCooldownSeconds;
+    private int startCountdownSeconds;
     private String startPosWorld;
     private double startPosX, startPosY, startPosZ;
     private float startPosYaw, startPosPitch;
-
     private final List<String> startKitEncoded = new ArrayList<>();
-
-    private String effectTypeName; // e.g. "SPEED"
-    private int effectAmplifier = 0;
+    private String effectTypeName;
+    private int effectAmplifier;
 
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
