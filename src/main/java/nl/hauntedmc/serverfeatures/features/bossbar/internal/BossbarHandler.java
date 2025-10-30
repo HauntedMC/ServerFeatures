@@ -1,18 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
+import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarFlag;
-import org.bukkit.boss.BossBar;
+import org.bukkit.boss.BarStyle;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,17 +44,20 @@ public class BossbarHandler {
 
     private void scheduleNextMessage() {
         BossbarMessage currentMessage = messageRegistry.get(currentMessageIndex);
-        // Update all active bossbars with the current message
-        for (BossBar bossBar : activeBossbars.values()) {
-            updateBossbar(bossBar, currentMessage);
+
+        // Per-player update so localization/placeholders are correct
+        for (Map.Entry<UUID, BossBar> entry : activeBossbars.entrySet()) {
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player == null) continue;
+            updateBossbar(player, entry.getValue(), currentMessage);
         }
-        // If autoFade is enabled, schedule a task to gradually reduce the progress over the message duration.
+
         if (currentMessage.isAutoFade()) {
             startAutoFade(currentMessage);
         }
-        // Schedule the next message after the current message’s duration
+
         taskManager.scheduleDelayedTask(() -> {
-            currentMessageIndex = (currentMessageIndex + 1) % messageRegistry.getTotalMessages();
+            currentMessageIndex = (currentMessageIndex + 1) % Math.max(1, messageRegistry.getTotalMessages());
             scheduleNextMessage();
         }, BukkitTime.ticks(currentMessage.getDurationTicks()));
     }
@@ -63,12 +68,9 @@ public class BossbarHandler {
         int fadeDelay = Math.max(0, anim.get("fade_delay").as(Integer.class, 0));
 
         long duration = message.getDurationTicks();
-        if (duration <= fadeDelay) {
-            return;
-        }
-        long fadeDuration = duration - fadeDelay;
+        if (duration <= fadeDelay) return;
 
-        // Compute total steps safely (avoid division by zero)
+        long fadeDuration = duration - fadeDelay;
         long seconds = Math.max(1, fadeDuration / 20L);
         int totalSteps = Math.max(1, (int) (seconds * (long) stepsPerSecond));
         long timePerStep = Math.max(1L, fadeDuration / totalSteps);
@@ -81,7 +83,7 @@ public class BossbarHandler {
                 int currentStep = stepCounter.getAndIncrement();
                 double progress = 1.0 - ((double) currentStep / totalSteps);
                 for (BossBar bossBar : activeBossbars.values()) {
-                    bossBar.setProgress(Math.max(0.0, Math.min(progress, 1.0)));
+                    bossBar.progress((float) Math.max(0.0, Math.min(progress, 1.0)));
                 }
                 if (currentStep >= totalSteps) {
                     taskManager.cancelTask(taskRef.get());
@@ -91,46 +93,52 @@ public class BossbarHandler {
         }, BukkitTime.ticks(fadeDelay));
     }
 
-    private void updateBossbar(BossBar bossBar, BossbarMessage message) {
-        String messageKey = message.getMessageKey();
-        String text = getMessage(bossBar.getPlayers().getFirst(), messageKey);
+    private void updateBossbar(@NotNull Player player, @NotNull BossBar bar, @NotNull BossbarMessage message) {
+        Component title = getMessageComponent(player, message);
 
-        bossBar.setTitle(text);
-        bossBar.setColor(message.getColor());
-        bossBar.setStyle(message.getStyle());
-        bossBar.setProgress(message.getInitialProgress());
+        bar.name(title);
+        bar.color(mapColor(message.getColor()));
+        bar.overlay(mapOverlay(message.getStyle()));
+        bar.progress((float) message.getInitialProgress());
 
-        for (BarFlag flag : BarFlag.values()) {
-            bossBar.removeFlag(flag);
+        // Reset Adventure flags to match message flags
+        for (BossBar.Flag f : BossBar.Flag.values()) {
+            bar.removeFlag(f);
         }
-        for (BarFlag flag : message.getFlags()) {
-            bossBar.addFlag(flag);
+        for (BossBar.Flag f : mapFlags(message.getFlags())) {
+            bar.addFlag(f);
         }
     }
 
-    private @NotNull String getMessage(Player player, String messageKey) {
-        Component messageComponent = feature.getLocalizationHandler().getMessage("bossbar." + messageKey).forAudience(player).build();
-        return ComponentFormatter.serialize(messageComponent).format(ComponentFormatter.Serializer.Format.LEGACY_AMPERSAND).build();
+    private @NotNull Component getMessageComponent(Player player, BossbarMessage message) {
+        return feature.getLocalizationHandler()
+                .getMessage("bossbar." + message.getMessageKey())
+                .forAudience(player)
+                .build();
     }
 
     public void showBossbar(Player player) {
         BossbarMessage currentMessage = messageRegistry.get(currentMessageIndex);
-        String messageKey = currentMessage.getMessageKey();
-        String text = getMessage(player, messageKey);
+        Component title = getMessageComponent(player, currentMessage);
 
-        BossBar bossBar = Bukkit.createBossBar(text, currentMessage.getColor(), currentMessage.getStyle());
-        bossBar.setProgress(currentMessage.getInitialProgress());
-        for (BarFlag flag : currentMessage.getFlags()) {
-            bossBar.addFlag(flag);
+        BossBar bar = BossBar.bossBar(
+                title,
+                (float) currentMessage.getInitialProgress(),
+                mapColor(currentMessage.getColor()),
+                mapOverlay(currentMessage.getStyle())
+        );
+        for (BossBar.Flag f : mapFlags(currentMessage.getFlags())) {
+            bar.addFlag(f);
         }
-        bossBar.addPlayer(player);
-        activeBossbars.put(player.getUniqueId(), bossBar);
+
+        player.showBossBar(bar);
+        activeBossbars.put(player.getUniqueId(), bar);
     }
 
     public void removeBossbar(Player player) {
-        BossBar bossBar = activeBossbars.remove(player.getUniqueId());
-        if (bossBar != null) {
-            bossBar.removeAll();
+        BossBar bar = activeBossbars.remove(player.getUniqueId());
+        if (bar != null) {
+            player.hideBossBar(bar);
         }
     }
 
@@ -141,9 +149,45 @@ public class BossbarHandler {
     }
 
     public void removeAllBossbars() {
-        for (BossBar bossBar : activeBossbars.values()) {
-            bossBar.removeAll();
+        for (Map.Entry<UUID, BossBar> e : activeBossbars.entrySet()) {
+            Player p = Bukkit.getPlayer(e.getKey());
+            if (p != null) p.hideBossBar(e.getValue());
         }
         activeBossbars.clear();
+    }
+
+    private static BossBar.Color mapColor(BarColor c) {
+        return switch (c) {
+            case PINK -> BossBar.Color.PINK;
+            case BLUE -> BossBar.Color.BLUE;
+            case RED -> BossBar.Color.RED;
+            case GREEN -> BossBar.Color.GREEN;
+            case YELLOW -> BossBar.Color.YELLOW;
+            case PURPLE -> BossBar.Color.PURPLE;
+            case WHITE -> BossBar.Color.WHITE;
+        };
+    }
+
+    private static BossBar.Overlay mapOverlay(BarStyle s) {
+        return switch (s) {
+            case SOLID -> BossBar.Overlay.PROGRESS;
+            case SEGMENTED_6 -> BossBar.Overlay.NOTCHED_6;
+            case SEGMENTED_10 -> BossBar.Overlay.NOTCHED_10;
+            case SEGMENTED_12 -> BossBar.Overlay.NOTCHED_12;
+            case SEGMENTED_20 -> BossBar.Overlay.NOTCHED_20;
+        };
+    }
+
+    private static EnumSet<BossBar.Flag> mapFlags(Iterable<BarFlag> flags) {
+        EnumSet<BossBar.Flag> set = EnumSet.noneOf(BossBar.Flag.class);
+        if (flags == null) return set;
+        for (BarFlag f : flags) {
+            switch (f) {
+                case CREATE_FOG -> set.add(BossBar.Flag.CREATE_WORLD_FOG);
+                case DARKEN_SKY -> set.add(BossBar.Flag.DARKEN_SCREEN);
+                case PLAY_BOSS_MUSIC -> set.add(BossBar.Flag.PLAY_BOSS_MUSIC);
+            }
+        }
+        return set;
     }
 }
