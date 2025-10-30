@@ -294,6 +294,7 @@ public final class ParcourCommand implements BrigadierCommand {
                 // clear all
                 // list
                 .then(Commands.literal("list")
+                        .requires(src -> src.getSender().hasPermission(P_ADMIN))
                         .then(Commands.argument("parcourId", StringArgumentType.word())
                                 .suggests(this::suggestParcourIds)
                                 .then(Commands.argument("key", StringArgumentType.word())
