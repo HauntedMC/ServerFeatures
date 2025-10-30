@@ -757,7 +757,6 @@ public final class ParcourHandler {
                     ParcourRegion endPr = def.endRegion().get();
                     boolean firstEnd = !s.alreadyTriggered(endPr);
                     if (firstEnd) {
-                        executeRegionCommands(p, endPr);
                         playSoundIfDefined(p, def.endSoundName());
                         s.markTriggered(endPr);
                     }
@@ -820,10 +819,13 @@ public final class ParcourHandler {
 
         s.markFinished(elapsedMs);
         s.cancelParticleTask();
-
         // cleanup effect and restore inventory
         cleanupEffectForSession(p, s);
         restoreInventoryIfPresent(p, s);
+
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            def.endRegion().ifPresent(rg -> executeRegionCommands(p, rg));
+        }, BukkitTime.ticks(20));
 
         long holdTicks = Math.max(1L, (def.finishActionbarHoldMs() + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
