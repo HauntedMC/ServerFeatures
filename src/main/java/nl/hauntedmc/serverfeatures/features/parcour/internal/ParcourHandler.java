@@ -30,14 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class ParcourHandler {
 
-    private static final long FINISH_ACTIONBAR_HOLD_MS = 3000L;
-    private static final long PARTICLE_INTERVAL_TICKS = 12L;
-    private static final int PARTICLE_OUTLINE_TARGET_POINTS = 280;
-    private static final org.bukkit.Material ITEM_LEAVE_MAT = org.bukkit.Material.BARRIER;
-    private static final org.bukkit.Material ITEM_CKPT_MAT = org.bukkit.Material.NETHER_STAR;
-    private static final int SLOT_CKPT = 3;
-    private static final int SLOT_LEAVE = 5;
-
     private final Parcour feature;
     private final ParcourRegistry registry;
     private final FeatureLogger log;
@@ -597,7 +589,7 @@ public final class ParcourHandler {
         ParcourInventorySnapshot snap = ParcourInventorySnapshot.capture(p);
         session.setSnapshot(snap);
         applyCleanParcourInventory(p);
-        giveControlItems(p);
+        giveControlItems(p, def);
         giveStartKitItems(p, def);
 
         p.setHealth(Objects.requireNonNull(p.getAttribute(Attribute.MAX_HEALTH)).getValue());
@@ -833,7 +825,7 @@ public final class ParcourHandler {
         cleanupEffectForSession(p, s);
         restoreInventoryIfPresent(p, s);
 
-        long holdTicks = Math.max(1L, (FINISH_ACTIONBAR_HOLD_MS + 49L) / 50L);
+        long holdTicks = Math.max(1L, (def.finishActionbarHoldMs() + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             ParcourSession current = sessions.get(p.getUniqueId());
             if (current != null && current == s) {
@@ -970,48 +962,60 @@ public final class ParcourHandler {
         p.updateInventory();
     }
 
-    private void giveControlItems(Player p) {
-        ItemStack leave = new ItemStack(ITEM_LEAVE_MAT, 1);
-        var lm = leave.getItemMeta();
-        lm.displayName(feature.getLocalizationHandler()
-                .getMessage("parcour.item.leave.name")
-                .forAudience(p)
-                .build()
-                .decoration(TextDecoration.ITALIC, false)
-                .decoration(TextDecoration.BOLD, true));
-        lm.lore(java.util.List.of(feature.getLocalizationHandler()
-                .getMessage("parcour.item.leave.lore")
-                .forAudience(p)
-                .build()
-                .decoration(TextDecoration.ITALIC, false)));
-        lm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        lm.getPersistentDataContainer().set(leaveKey, PersistentDataType.BYTE, (byte) 1);
-        leave.setItemMeta(lm);
+    private void giveControlItems(Player p, ParcourDefinition def) {
+        PlayerInventory inv = p.getInventory();
 
-        ItemStack ck = new ItemStack(ITEM_CKPT_MAT, 1);
-        var cm = ck.getItemMeta();
-        cm.displayName(feature.getLocalizationHandler()
-                .getMessage("parcour.item.checkpoint.name")
-                .forAudience(p)
-                .build()
-                .decoration(TextDecoration.ITALIC, false)
-                .decoration(TextDecoration.BOLD, true));
-        cm.lore(java.util.List.of(feature.getLocalizationHandler()
-                .getMessage("parcour.item.checkpoint.lore")
-                .forAudience(p)
-                .build()
-                .decoration(TextDecoration.ITALIC, false)));
-        cm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
-        cm.getPersistentDataContainer().set(checkpointKey, PersistentDataType.BYTE, (byte) 1);
-        ck.setItemMeta(cm);
+        if (def.enableLeaveItem()) {
+            ItemStack leave = new ItemStack(resolveMaterial(def.itemLeaveMaterialKey(), Material.BARRIER), 1);
+            var lm = leave.getItemMeta();
+            lm.displayName(feature.getLocalizationHandler()
+                    .getMessage("parcour.item.leave.name")
+                    .forAudience(p)
+                    .build()
+                    .decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, true));
+            lm.lore(java.util.List.of(feature.getLocalizationHandler()
+                    .getMessage("parcour.item.leave.lore")
+                    .forAudience(p)
+                    .build()
+                    .decoration(TextDecoration.ITALIC, false)));
+            lm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            lm.getPersistentDataContainer().set(leaveKey, PersistentDataType.BYTE, (byte) 1);
+            leave.setItemMeta(lm);
+            inv.setItem(def.slotLeave(), leave);
+        }
 
-        p.getInventory().setItem(SLOT_LEAVE, leave);
-        p.getInventory().setItem(SLOT_CKPT, ck);
+        if (def.enableCheckpointItem()) {
+            ItemStack ck = new ItemStack(resolveMaterial(def.itemCheckpointMaterialKey(), Material.NETHER_STAR), 1);
+            var cm = ck.getItemMeta();
+            cm.displayName(feature.getLocalizationHandler()
+                    .getMessage("parcour.item.checkpoint.name")
+                    .forAudience(p)
+                    .build()
+                    .decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, true));
+            cm.lore(java.util.List.of(feature.getLocalizationHandler()
+                    .getMessage("parcour.item.checkpoint.lore")
+                    .forAudience(p)
+                    .build()
+                    .decoration(TextDecoration.ITALIC, false)));
+            cm.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            cm.getPersistentDataContainer().set(checkpointKey, PersistentDataType.BYTE, (byte) 1);
+            ck.setItemMeta(cm);
+            inv.setItem(def.slotCheckpoint(), ck);
+        }
+
         p.updateInventory();
     }
 
     private void giveStartKitItems(Player p, ParcourDefinition def) {
         PlayerInventory inv = p.getInventory();
+
+        // Compute reserved slots (control items)
+        Set<Integer> reserved = new HashSet<>();
+        if (def.enableCheckpointItem()) reserved.add(def.slotCheckpoint());
+        if (def.enableLeaveItem()) reserved.add(def.slotLeave());
+
         for (String b64 : def.startKitEncoded()) {
             var isOpt = registry.deserializeItemFromBase64(b64);
             if (isOpt.isEmpty()) continue;
@@ -1045,7 +1049,7 @@ public final class ParcourHandler {
             }
 
             if (!placed) {
-                int slot = firstFreePlayableSlot(inv);
+                int slot = firstFreePlayableSlot(inv, reserved);
                 if (slot >= 0) inv.setItem(slot, item);
                 else p.getWorld().dropItemNaturally(p.getLocation(), item);
             }
@@ -1077,13 +1081,14 @@ public final class ParcourHandler {
         return m == org.bukkit.Material.SHIELD || m == org.bukkit.Material.TOTEM_OF_UNDYING;
     }
 
-    private int firstFreePlayableSlot(PlayerInventory inv) {
+    private int firstFreePlayableSlot(PlayerInventory inv, Set<Integer> reserved) {
         for (int i = 0; i <= 8; i++) {
-            if (i == SLOT_CKPT || i == SLOT_LEAVE) continue;
+            if (reserved.contains(i)) continue;
             ItemStack it = inv.getItem(i);
             if (isEmpty(it)) return i;
         }
         for (int i = 9; i <= 35; i++) {
+            if (reserved.contains(i)) continue;
             ItemStack it = inv.getItem(i);
             if (isEmpty(it)) return i;
         }
@@ -1119,15 +1124,16 @@ public final class ParcourHandler {
 
         if (!Objects.equals(p.getWorld().getName(), r.worldName())) return;
 
+        long intervalTicks = Math.max(1L, def.particleIntervalTicks());
         BukkitTask task = feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             if (!p.isOnline()) return;
-            spawnRegionOutline(p, r, particle);
-        }, BukkitTime.ticks(2L), BukkitTime.ticks(PARTICLE_INTERVAL_TICKS));
+            spawnRegionOutline(p, r, particle, def.particleOutlineTargetPoints());
+        }, BukkitTime.ticks(2L), BukkitTime.ticks(intervalTicks));
 
         s.setParticleTask(task);
     }
 
-    private void spawnRegionOutline(Player p, Region r, Particle particle) {
+    private void spawnRegionOutline(Player p, Region r, Particle particle, int targetPoints) {
         final int minX = r.minX();
         final int minY = r.minY();
         final int minZ = r.minZ();
@@ -1140,7 +1146,7 @@ public final class ParcourHandler {
         int dz = Math.max(1, maxZ - minZ);
 
         int approxPerimeter = 2 * (dx + dz) * 2 + 4 * dy;
-        int step = Math.max(1, (int) Math.ceil((double) approxPerimeter / PARTICLE_OUTLINE_TARGET_POINTS));
+        int step = Math.max(1, (int) Math.ceil((double) approxPerimeter / Math.max(1, targetPoints)));
 
         for (int x = minX; x <= maxX; x += step) {
             spawnParticle(p, x, minY, minZ);
@@ -1306,6 +1312,22 @@ public final class ParcourHandler {
         }
         if (key == null) return null;
         return BukkitRegistry.particleRegistry().get(key);
+    }
+
+    private Material resolveMaterial(String raw, Material fallback) {
+        if (raw == null || raw.isBlank()) return fallback;
+        NamespacedKey key = BukkitRegistry.deserializeNamespacedKey(raw);
+        if (key != null) {
+            Material m = org.bukkit.Registry.MATERIAL.get(key);
+            if (m != null) return m;
+        }
+        Material m2 = Material.matchMaterial(raw, false);
+        if (m2 != null) return m2;
+        try {
+            return Material.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ignored) {
+        }
+        return fallback;
     }
 
     private PotionEffectType resolveEffectType(String raw) {

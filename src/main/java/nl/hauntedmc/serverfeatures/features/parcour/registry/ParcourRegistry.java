@@ -9,8 +9,10 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
@@ -48,6 +50,26 @@ public final class ParcourRegistry {
                 def.setFinishTeleportDelaySeconds(n.get("finish_teleport_delay_seconds").as(Integer.class, 0));
                 def.setCheckpointCooldownSeconds(n.get("checkpoint_cooldown_seconds").as(Integer.class, 3));
                 def.setStartCountdownSeconds(n.get("start_countdown_seconds").as(Integer.class, 0));
+
+                def.setFinishActionbarHoldMs(n.get("finish_actionbar_hold_ms").as(Integer.class, 3000));
+                def.setParticleIntervalTicks(n.get("particle_interval_ticks").as(Integer.class, 12));
+                def.setParticleOutlineTargetPoints(n.get("particle_outline_target_points").as(Integer.class, 280));
+
+                String leaveMat = n.get("item_leave_material").as(String.class, "minecraft:barrier");
+                if (isValidMaterial(leaveMat, log, id, "item_leave_material")) {
+                    def.setItemLeaveMaterialKey(toCanonicalMaterialKey(leaveMat));
+                }
+
+                String ckptMat = n.get("item_checkpoint_material").as(String.class, "minecraft:nether_star");
+                if (isValidMaterial(ckptMat, log, id, "item_checkpoint_material")) {
+                    def.setItemCheckpointMaterialKey(toCanonicalMaterialKey(ckptMat));
+                }
+
+                def.setSlotCheckpoint(n.get("slot_checkpoint").as(Integer.class, 3));
+                def.setSlotLeave(n.get("slot_leave").as(Integer.class, 5));
+                def.setEnableLeaveItem(n.get("enable_leave_item").as(Boolean.class, true));
+                def.setEnableCheckpointItem(n.get("enable_checkpoint_item").as(Boolean.class, true));
+                // End new options
 
                 ConfigNode eff = n.get("effect");
                 String effType = eff.get("type").as(String.class, null);
@@ -217,6 +239,26 @@ public final class ParcourRegistry {
         return false;
     }
 
+    private static boolean isValidMaterial(String name, FeatureLogger log, String parcourId, String field) {
+        if (name == null || name.isBlank()) return false;
+        NamespacedKey key = parseKeyOrLegacy(name);
+        if (key == null) {
+            log.warning("Parcour '" + parcourId + "': invalid material key for " + field + " '" + name + "'. Ignoring.");
+            return false;
+        }
+        Material m = Registry.MATERIAL.get(key);
+        if (m != null) return true;
+        log.warning("Parcour '" + parcourId + "': unknown material for " + field + " '" + name + "' (key: " + key + "). Ignoring.");
+        return false;
+    }
+
+    private static String toCanonicalMaterialKey(String input) {
+        NamespacedKey key = parseKeyOrLegacy(input);
+        if (key == null) return null;
+        Material m = Registry.MATERIAL.get(key);
+        return (m == null) ? null : m.getKey().toString();
+    }
+
     /**
      * Try to parse a NamespacedKey; if legacy enum-style (e.g. ENTITY_PLAYER_LEVELUP), convert to minecraft:entity.player.levelup
      */
@@ -301,6 +343,17 @@ public final class ParcourRegistry {
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
             b.put(base + ".checkpoint_cooldown_seconds", def.checkpointCooldownSeconds());
             b.put(base + ".start_countdown_seconds", def.startCountdownSeconds());
+
+            // write advanced per-parcour options
+            b.put(base + ".finish_actionbar_hold_ms", def.finishActionbarHoldMs());
+            b.put(base + ".particle_interval_ticks", def.particleIntervalTicks());
+            b.put(base + ".particle_outline_target_points", def.particleOutlineTargetPoints());
+            b.put(base + ".item_leave_material", def.itemLeaveMaterialKey());
+            b.put(base + ".item_checkpoint_material", def.itemCheckpointMaterialKey());
+            b.put(base + ".slot_checkpoint", def.slotCheckpoint());
+            b.put(base + ".slot_leave", def.slotLeave());
+            b.put(base + ".enable_leave_item", def.enableLeaveItem());
+            b.put(base + ".enable_checkpoint_item", def.enableCheckpointItem());
 
             // clear then write optional effect
             b.remove(base + ".effect");
@@ -413,6 +466,18 @@ public final class ParcourRegistry {
             b.remove(base + ".damage_enabled");
             b.remove(base + ".start_kit");
             b.remove(base + ".effect");
+
+            // also remove new advanced options
+            b.remove(base + ".finish_actionbar_hold_ms");
+            b.remove(base + ".particle_interval_ticks");
+            b.remove(base + ".particle_outline_target_points");
+            b.remove(base + ".item_leave_material");
+            b.remove(base + ".item_checkpoint_material");
+            b.remove(base + ".slot_checkpoint");
+            b.remove(base + ".slot_leave");
+            b.remove(base + ".enable_leave_item");
+            b.remove(base + ".enable_checkpoint_item");
+
             b.remove(base);
         });
 

@@ -34,6 +34,15 @@ public final class ParcourDefinition {
     private final List<String> startKitEncoded = new ArrayList<>();
     private String effectTypeName;
     private int effectAmplifier;
+    private int finishActionbarHoldMs = 3000;               // default 3000 ms
+    private int particleIntervalTicks = 12;                 // default 12 ticks
+    private int particleOutlineTargetPoints = 280;          // default 280 points
+    private String itemLeaveMaterialKey = "minecraft:barrier";
+    private String itemCheckpointMaterialKey = "minecraft:nether_star";
+    private int slotCheckpoint = 3;                         // default hotbar slot 3
+    private int slotLeave = 5;                              // default hotbar slot 5
+    private boolean enableLeaveItem = true;                 // default enabled
+    private boolean enableCheckpointItem = true;            // default enabled
 
     public ParcourDefinition(String id) {
         this.id = Objects.requireNonNull(id, "id");
@@ -272,5 +281,85 @@ public final class ParcourDefinition {
             this.effectTypeName = typeNameOrNull.trim().toUpperCase(java.util.Locale.ROOT);
             this.effectAmplifier = Math.max(0, amplifierOrNull == null ? 0 : amplifierOrNull);
         }
+    }
+
+    public int finishActionbarHoldMs() {
+        return finishActionbarHoldMs;
+    }
+
+    public void setFinishActionbarHoldMs(int ms) {
+        this.finishActionbarHoldMs = Math.max(0, ms);
+    }
+
+    public int particleIntervalTicks() {
+        return particleIntervalTicks;
+    }
+
+    public void setParticleIntervalTicks(int ticks) {
+        this.particleIntervalTicks = Math.max(1, ticks);
+    }
+
+    public int particleOutlineTargetPoints() {
+        return particleOutlineTargetPoints;
+    }
+
+    public void setParticleOutlineTargetPoints(int points) {
+        this.particleOutlineTargetPoints = Math.max(1, points);
+    }
+
+    public String itemLeaveMaterialKey() {
+        return itemLeaveMaterialKey;
+    }
+
+    public void setItemLeaveMaterialKey(String namespacedKey) {
+        if (namespacedKey != null && !namespacedKey.isBlank()) {
+            this.itemLeaveMaterialKey = namespacedKey.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    public String itemCheckpointMaterialKey() {
+        return itemCheckpointMaterialKey;
+    }
+
+    public void setItemCheckpointMaterialKey(String namespacedKey) {
+        if (namespacedKey != null && !namespacedKey.isBlank()) {
+            this.itemCheckpointMaterialKey = namespacedKey.trim().toLowerCase(java.util.Locale.ROOT);
+        }
+    }
+
+    public int slotCheckpoint() {
+        return slotCheckpoint;
+    }
+
+    public void setSlotCheckpoint(int slot) {
+        this.slotCheckpoint = clampSlot(slot);
+    }
+
+    public int slotLeave() {
+        return slotLeave;
+    }
+
+    public void setSlotLeave(int slot) {
+        this.slotLeave = clampSlot(slot);
+    }
+
+    public boolean enableLeaveItem() {
+        return enableLeaveItem;
+    }
+
+    public void setEnableLeaveItem(boolean enable) {
+        this.enableLeaveItem = enable;
+    }
+
+    public boolean enableCheckpointItem() {
+        return enableCheckpointItem;
+    }
+
+    public void setEnableCheckpointItem(boolean enable) {
+        this.enableCheckpointItem = enable;
+    }
+
+    private int clampSlot(int s) {
+        return Math.max(0, Math.min(35, s));
     }
 }
