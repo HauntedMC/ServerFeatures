@@ -1246,7 +1246,7 @@ public final class ParcourCommand implements BrigadierCommand {
     }
 
     private String fmt(double d) {
-        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(java.util.Locale.ROOT, "%.3f", d);
+        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(java.util.Locale.ROOT, "%.2f", d);
     }
 
     private String fmt(float f) { return String.format(java.util.Locale.ROOT, "%.1f", f); }

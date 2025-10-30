@@ -52,6 +52,11 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
         m.add("parcour.countdown.title", "&6&l{seconds}");
         m.add("parcour.countdown.blocked", "&cJe kunt dit niet doen als de countdown loopt.");
 
+        m.add("parcour.title.checkpoint.title", "&e&lCheckpoint Gehaald!");
+        m.add("parcour.title.checkpoint.subtitle", "&7Ga zo door!");
+        m.add("parcour.title.end.title", "&6&lGefeliciteerd!");
+        m.add("parcour.title.end.subtitle", "&7{name} voltooid in &f{seconds}s");
+
         m.add("parcour.help.player", "&7Speler: &f/parcour start <naam>&7, &f/parcour leave&7, &f/parcour checkpoint");
         m.add("parcour.help.admin.header", "&7Admin:");
         m.add("parcour.help.admin.maps", " &f/parcour createmap|deletemap|mapinfo|maplist");

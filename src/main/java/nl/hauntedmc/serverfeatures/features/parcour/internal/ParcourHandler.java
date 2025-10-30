@@ -680,7 +680,6 @@ public final class ParcourHandler {
             }
 
             // Catch up through multiple checkpoints crossed in the same tick at high speed (elytra + fireworks)
-            // Catch up through multiple checkpoints crossed in the same tick at high speed (elytra + fireworks)
             int safety = 0;
             boolean progressed = false;
             while (safety++ < 10) { // hard cap to avoid infinite loops on misconfig
@@ -702,14 +701,25 @@ public final class ParcourHandler {
                                 playSoundIfDefined(p, def.checkpointSoundName());
                                 s.markTriggered(pr);
                             }
+
+                            boolean showCheckpointTitle = false;
                             if (pr.restoreCheckpoint()) {
                                 Location pref = pr.resolveRestoreLocation(Bukkit.getServer());
                                 if (pref != null) {
                                     s.setRestoreLocation(pref);
                                     p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.checkpoint.set").forAudience(p).build());
                                 }
+                                // Only show a title on checkpoints that act as restore points, and only on first entry.
+                                if (firstTimeHere) {
+                                    showCheckpointTitle = true;
+                                }
                             }
+
                             s.advanceExpectedOrder();
+
+                            if (showCheckpointTitle) {
+                                showCheckpointTitle(p);
+                            }
 
                             if (def.notifyProgress()) {
                                 int current = s.expectedNextOrder();
@@ -727,7 +737,7 @@ public final class ParcourHandler {
                     }
                 }
 
-                // Stop de catch-up-lus als we in deze iteratie geen checkpoint geraakt hebben
+                // Stop the catch-up loop if we didn't hit a checkpoint this iteration
                 if (!advanced) break;
             }
 
@@ -792,9 +802,12 @@ public final class ParcourHandler {
     private void finishParcour(Player p, ParcourSession s, ParcourDefinition def) {
         long elapsedMs = System.currentTimeMillis() - s.startMillis();
         double seconds = elapsedMs / 1000.0;
+
+        showEndTitle(p, def, seconds);
+
         p.sendMessage(feature.getLocalizationHandler().getMessage("parcour.finished")
                 .with("name", s.parcourId)
-                .with("seconds", String.format(java.util.Locale.ROOT, "%.3f", seconds))
+                .with("seconds", String.format(java.util.Locale.ROOT, "%.2f", seconds))
                 .forAudience(p).build());
 
         s.markFinished(elapsedMs);
@@ -896,6 +909,38 @@ public final class ParcourHandler {
                 .forAudience(p).build();
         p.showTitle(Title.title(countdown, Component.empty(),
                 Title.Times.times(Duration.ofMillis(150), Duration.ofMillis(850), Duration.ofMillis(0))));
+    }
+
+    private void showCheckpointTitle(Player p) {
+        Component title = feature.getLocalizationHandler()
+                .getMessage("parcour.title.checkpoint.title")
+                .forAudience(p).build();
+
+        Component sub = feature.getLocalizationHandler()
+                .getMessage("parcour.title.checkpoint.subtitle")
+                .forAudience(p).build();
+
+        p.showTitle(Title.title(title, sub,
+                Title.Times.times(Duration.ofMillis(150), Duration.ofMillis(1000), Duration.ofMillis(100))));
+    }
+
+    private void showEndTitle(Player p, ParcourDefinition def, double seconds) {
+        String secs = String.format(java.util.Locale.ROOT, "%.2f", seconds);
+
+        Component title = feature.getLocalizationHandler()
+                .getMessage("parcour.title.end.title")
+                .with("name", def.id())
+                .with("seconds", secs)
+                .forAudience(p).build();
+
+        Component sub = feature.getLocalizationHandler()
+                .getMessage("parcour.title.end.subtitle")
+                .with("name", def.id())
+                .with("seconds", secs)
+                .forAudience(p).build();
+
+        p.showTitle(Title.title(title, sub,
+                Title.Times.times(Duration.ofMillis(150), Duration.ofMillis(1200), Duration.ofMillis(150))));
     }
 
     private void applyCleanParcourInventory(Player p) {

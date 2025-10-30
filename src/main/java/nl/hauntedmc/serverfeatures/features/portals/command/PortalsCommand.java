@@ -379,7 +379,7 @@ public class PortalsCommand extends FeatureCommand {
     }
 
     private static String format(double d) {
-        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(Locale.ROOT, "%.3f", d);
+        return (Math.abs(d - Math.rint(d)) < 1e-9) ? String.valueOf((long) Math.rint(d)) : String.format(Locale.ROOT, "%.2f", d);
     }
 
     private static String format(float f) {
