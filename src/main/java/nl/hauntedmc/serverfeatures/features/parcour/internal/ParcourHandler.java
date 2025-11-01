@@ -750,7 +750,9 @@ public final class ParcourHandler {
             }
 
             // After catching up checkpoints, also check END with swept segment
-            if (def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
+            boolean mayFinish = s.expectedNextOrder() >= def.totalCheckpoints();
+
+            if (mayFinish && def.endRegion().isPresent() && def.endRegion().get().region().isPresent()) {
                 Region r = def.endRegion().get().region().get();
                 if (Objects.equals(r.worldName(), to.getWorld().getName())
                         && (contains(r, to) || segmentIntersectsRegion(from, to, r))) {
