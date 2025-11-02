@@ -25,8 +25,7 @@ public class SilkSpawnersHandler {
 
     public SilkSpawnersHandler(SilkSpawners feature) {
         this.feature = feature;
-        allowed_spawners = CastUtils.safeCastToList(feature.getConfigHandler()
-                .getSetting("allowed_spawner_types"), String.class);
+        allowed_spawners = CastUtils.safeCastToList(feature.getConfigHandler().get("allowed_spawner_types"), String.class);
     }
 
     public void handleSpawnerBreak(BlockBreakEvent event) {

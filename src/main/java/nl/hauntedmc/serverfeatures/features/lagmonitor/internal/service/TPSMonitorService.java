@@ -26,11 +26,11 @@ public class TPSMonitorService {
         this.feature = feature;
         this.discordService = discordService;
 
-        this.CHECK_INTERVAL = (int) feature.getConfigHandler().getSetting("tps_check_interval");
-        this.MONITOR_DURATION = (int) feature.getConfigHandler().getSetting("tps_monitor_duration");
-        this.ALERT_INTERVAL = (int) feature.getConfigHandler().getSetting("tps_alert_interval");
-        this.TPS_THRESHOLD = (double) feature.getConfigHandler().getSetting("tps_threshold");
-        this.TPS_CHECKER_INTERVAL = (int) feature.getConfigHandler().getSetting("tps_checker_interval");
+        this.CHECK_INTERVAL = (int) feature.getConfigHandler().get("tps_check_interval");
+        this.MONITOR_DURATION = (int) feature.getConfigHandler().get("tps_monitor_duration");
+        this.ALERT_INTERVAL = (int) feature.getConfigHandler().get("tps_alert_interval");
+        this.TPS_THRESHOLD = (double) feature.getConfigHandler().get("tps_threshold");
+        this.TPS_CHECKER_INTERVAL = (int) feature.getConfigHandler().get("tps_checker_interval");
     }
 
     public void start() {

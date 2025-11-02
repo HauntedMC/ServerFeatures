@@ -73,17 +73,17 @@ public class ChatHandler {
         this.itemTokenService = itemTokenService;
         this.invTokenService = invTokenService;
 
-        this.itemPreviewEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
-        this.inventoryPreviewEnabled = feature.getConfigHandler().getSetting("inventory_preview.enabled", Boolean.class);
-        this.mentionsEnabled = feature.getConfigHandler().getSetting("mention.enabled", Boolean.class);
-        this.mentionsCooldown = feature.getConfigHandler().getSetting("mention.cooldown_seconds", Long.class);
-        this.commandSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
+        this.itemPreviewEnabled = feature.getConfigHandler().get("item_preview.enabled", Boolean.class);
+        this.inventoryPreviewEnabled = feature.getConfigHandler().get("inventory_preview.enabled", Boolean.class);
+        this.mentionsEnabled = feature.getConfigHandler().get("mention.enabled", Boolean.class);
+        this.mentionsCooldown = feature.getConfigHandler().get("mention.cooldown_seconds", Long.class);
+        this.commandSuggestEnabled = feature.getConfigHandler().get("command_suggest.enabled", Boolean.class);
 
-        this.itemTokenMaxUses = feature.getConfigHandler().getSetting("item_preview.token.max_uses", Integer.class);
-        this.itemTokenExpireSeconds = feature.getConfigHandler().getSetting("item_preview.token.expire_seconds", Long.class);
+        this.itemTokenMaxUses = feature.getConfigHandler().get("item_preview.token.max_uses", Integer.class);
+        this.itemTokenExpireSeconds = feature.getConfigHandler().get("item_preview.token.expire_seconds", Long.class);
 
-        this.invTokenMaxUses = feature.getConfigHandler().getSetting("inventory_preview.token.max_uses", Integer.class);
-        this.invTokenExpireSeconds = feature.getConfigHandler().getSetting("inventory_preview.token.expire_seconds", Long.class);
+        this.invTokenMaxUses = feature.getConfigHandler().get("inventory_preview.token.max_uses", Integer.class);
+        this.invTokenExpireSeconds = feature.getConfigHandler().get("inventory_preview.token.expire_seconds", Long.class);
     }
 
     /**

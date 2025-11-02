@@ -98,7 +98,7 @@ public class ChatCommand extends FeatureCommand {
             return;
         }
 
-        int lines = (int) feature.getConfigHandler().getSetting("clear_lines");
+        int lines = (int) feature.getConfigHandler().get("clear_lines");
         for (Player p : Bukkit.getOnlinePlayers()) {
             for (int i = 0; i < lines; i++) p.sendMessage("");
         }

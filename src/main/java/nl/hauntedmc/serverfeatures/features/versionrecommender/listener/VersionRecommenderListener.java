@@ -22,7 +22,7 @@ public final class VersionRecommenderListener implements Listener {
     public VersionRecommenderListener(VersionRecommender feature, RecommendationService service) {
         this.feature = feature;
         this.service = service;
-        int cfg = (int) feature.getConfigHandler().getSetting("delay_seconds");
+        int cfg = (int) feature.getConfigHandler().get("delay_seconds");
         this.delaySeconds = Math.max(0, cfg);
     }
 

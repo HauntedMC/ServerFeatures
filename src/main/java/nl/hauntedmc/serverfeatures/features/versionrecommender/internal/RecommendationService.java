@@ -20,8 +20,8 @@ public final class RecommendationService {
     public RecommendationService(VersionRecommender feature, ViaVersionHook via) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.via = Objects.requireNonNull(via, "via");
-        this.warnOlder = (boolean) feature.getConfigHandler().getSetting("warn_players_older");
-        this.warnNewer = (boolean) feature.getConfigHandler().getSetting("warn_players_newer");
+        this.warnOlder = (boolean) feature.getConfigHandler().get("warn_players_older");
+        this.warnNewer = (boolean) feature.getConfigHandler().get("warn_players_newer");
     }
 
     public void recommendIfNeeded(Player player) {

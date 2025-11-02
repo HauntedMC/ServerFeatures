@@ -28,7 +28,7 @@ public class ScoreboardHandler {
     public ScoreboardHandler(Scoreboard feature) {
         this.feature = feature;
         this.i18n = feature.getLocalizationHandler();
-        this.refreshInterval = (int) feature.getConfigHandler().getSetting("refresh_interval");
+        this.refreshInterval = (int) feature.getConfigHandler().get("refresh_interval");
     }
 
     /**

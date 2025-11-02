@@ -27,9 +27,11 @@ public class RecipeService {
      */
     public void loadRecipes() {
         RecipeConfigHandler loader = new RecipeConfigHandler(feature);
-        List<RecipeData> recipes = loader.loadRecipes();
+        var recipes = loader.loadRecipes();
+
         for (RecipeData data : recipes) {
             NamespacedKey key = data.getKey();
+
             if (data.getType() == RecipeType.DISABLE) {
                 Recipe vanillaRecipe = Bukkit.getRecipe(key);
                 if (vanillaRecipe != null) {
@@ -53,6 +55,7 @@ public class RecipeService {
                 Bukkit.addRecipe(data.getRecipe());
                 feature.getLogger().info("Registered recipe with key: " + key);
             }
+
             repository.registerRecipe(data);
         }
     }
@@ -67,7 +70,7 @@ public class RecipeService {
                 if (data.getType() == RecipeType.DISABLE) {
                     if (data.getRecipe() != null) {
                         Bukkit.addRecipe(data.getRecipe());
-                        feature.getLogger().info("Restored vanilla recipe with key: " + key.toString());
+                        feature.getLogger().info("Restored vanilla recipe with key: " + key);
                     }
                 } else {
                     if (Bukkit.getRecipe(key) != null) {
@@ -91,31 +94,24 @@ public class RecipeService {
      */
     public boolean disableRecipe(NamespacedKey key) {
         RecipeData data = repository.getRecipe(key);
-        if (data == null || repository.isDisabled(key)) {
-            return false;
-        }
+        if (data == null || repository.isDisabled(key)) return false;
+
         if (data.getType() == RecipeType.DISABLE) {
             if (data.getRecipe() != null) {
                 if (Bukkit.addRecipe(data.getRecipe())) {
                     repository.markDisabled(key);
                     return true;
-                } else {
-                    return false;
                 }
-            } else {
-                return false;
             }
+            return false;
         } else {
             if (Bukkit.getRecipe(key) != null) {
                 if (Bukkit.removeRecipe(key)) {
                     repository.markDisabled(key);
                     return true;
-                } else {
-                    return false;
                 }
-            } else {
-                return false;
             }
+            return false;
         }
     }
 
@@ -127,17 +123,15 @@ public class RecipeService {
      */
     public boolean enableRecipe(NamespacedKey key) {
         RecipeData data = repository.getRecipe(key);
-        if (data == null || !repository.isDisabled(key)) {
-            return false;
-        }
+        if (data == null || !repository.isDisabled(key)) return false;
+
         if (data.getType() == RecipeType.DISABLE) {
             if (Bukkit.getRecipe(key) != null) {
                 Bukkit.removeRecipe(key);
                 repository.markEnabled(key);
                 return true;
-            } else {
-                return false;
             }
+            return false;
         } else {
             Bukkit.addRecipe(data.getRecipe());
             repository.markEnabled(key);
@@ -145,9 +139,7 @@ public class RecipeService {
         }
     }
 
-    /**
-     * Returns a list of active recipe keys as strings.
-     */
+    /** Returns a list of active recipe keys as strings. */
     public List<String> getActiveRecipeKeys() {
         List<String> keys = new ArrayList<>();
         for (RecipeData data : repository.getActiveRecipes()) {
@@ -156,9 +148,7 @@ public class RecipeService {
         return keys;
     }
 
-    /**
-     * Returns a list of disabled recipe keys as strings.
-     */
+    /** Returns a list of disabled recipe keys as strings. */
     public List<String> getDisabledRecipeKeys() {
         List<String> keys = new ArrayList<>();
         for (RecipeData data : repository.getDisabledRecipes()) {
@@ -167,9 +157,7 @@ public class RecipeService {
         return keys;
     }
 
-    /**
-     * Returns the RecipeData for a given key.
-     */
+    /** Returns the RecipeData for a given key. */
     public RecipeData getRecipeData(NamespacedKey key) {
         return repository.getRecipe(key);
     }

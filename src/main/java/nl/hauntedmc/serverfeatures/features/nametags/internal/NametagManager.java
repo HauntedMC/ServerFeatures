@@ -36,11 +36,11 @@ public class NametagManager {
         this.feature = feature;
         this.registry = new NametagRegistry();
         this.visibilityManager = new VisibilityManager(feature);
-        this.updateIntervalTicks = (int) feature.getConfigHandler().getSetting("update_interval_ticks");
-        this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().getSetting("viewer_update_delay_ticks");
-        this.remountFixEnabled = (boolean) feature.getConfigHandler().getSetting("remount_fix.enabled");
-        this.remountIntervalTicks = (int) feature.getConfigHandler().getSetting("remount_fix.interval_ticks");
-        this.debounceUpdateTicks = (int) feature.getConfigHandler().getSetting("debounce_update_ticks");
+        this.updateIntervalTicks = (int) feature.getConfigHandler().get("update_interval_ticks");
+        this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().get("viewer_update_delay_ticks");
+        this.remountFixEnabled = (boolean) feature.getConfigHandler().get("remount_fix.enabled");
+        this.remountIntervalTicks = (int) feature.getConfigHandler().get("remount_fix.interval_ticks");
+        this.debounceUpdateTicks = (int) feature.getConfigHandler().get("debounce_update_ticks");
 
         this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
 

@@ -21,7 +21,7 @@ public class TeleportState {
 
     public int getCooldownSeconds(TeleportAction action) {
         String path = "cooldown_seconds." + action.configKey();
-        Object v = feature.getConfigHandler().getSetting(path);
+        Object v = feature.getConfigHandler().get(path);
         if (v instanceof Number n) return n.intValue();
         return 10;
     }

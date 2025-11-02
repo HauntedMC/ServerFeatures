@@ -16,13 +16,13 @@ public class ChatChannelHandler {
     public ChatChannelHandler(StaffChat feature) {
         this.channels = new HashMap<>();
 
-        String staffPrefix = (String) feature.getConfigHandler().getSetting("staff_prefix");
+        String staffPrefix = (String) feature.getConfigHandler().get("staff_prefix");
         channels.put(staffPrefix, new ChatChannel("staff", staffPrefix));
 
-        String teamPrefix = (String) feature.getConfigHandler().getSetting("team_prefix");
+        String teamPrefix = (String) feature.getConfigHandler().get("team_prefix");
         channels.put(teamPrefix, new ChatChannel("team", teamPrefix));
 
-        String adminPrefix = (String) feature.getConfigHandler().getSetting("admin_prefix");
+        String adminPrefix = (String) feature.getConfigHandler().get("admin_prefix");
         channels.put(adminPrefix, new ChatChannel("admin", adminPrefix));
     }
 

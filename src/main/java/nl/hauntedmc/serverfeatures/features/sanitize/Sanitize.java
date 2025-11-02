@@ -93,12 +93,12 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
     }
 
     private boolean getBoolean(String key, boolean def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         return (v instanceof Boolean b) ? b : def;
     }
 
     private int getInt(String key, int def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) {
             try {

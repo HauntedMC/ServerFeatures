@@ -21,7 +21,7 @@ public class DiscordService {
      * @param filteredMsg The filtered message.
      */
     public void sendFilterNotification(String playerName, String filterType, String filteredMsg) {
-        String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");
+        String webhookUrl = (String) feature.getConfigHandler().get("discordWebhookURL");
         String server = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         if (webhookUrl == null || webhookUrl.isEmpty()) {
             feature.getLogger().warning("Discord webhook URL not configured.");

@@ -21,7 +21,7 @@ public class VisibilityManager {
     private void initializePlayerConditions() {
         playerConditions.add(new DeathCondition());
         playerConditions.add(new GsitCondition());
-        playerConditions.add(new DistanceCondition((int) feature.getConfigHandler().getSetting("max_distance"))); // 64 blocks
+        playerConditions.add(new DistanceCondition((int) feature.getConfigHandler().get("max_distance"))); // 64 blocks
         if (Bukkit.getPluginManager().isPluginEnabled("LibsDisguises")) {
             playerConditions.add(new DisguiseCondition());
         }

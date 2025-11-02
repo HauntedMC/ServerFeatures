@@ -42,7 +42,7 @@ public class ChatReportCommand extends FeatureCommand {
 
         // Determine the report timeframe from configuration.
         long currentTime = System.currentTimeMillis();
-        int timeframeMinutes = (int) feature.getConfigHandler().getSetting("reportTimeFrameMinutes");
+        int timeframeMinutes = (int) feature.getConfigHandler().get("reportTimeFrameMinutes");
         long reportStart = currentTime - timeframeMinutes * 60 * 1000L;
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
 
@@ -66,7 +66,7 @@ public class ChatReportCommand extends FeatureCommand {
         if (!reportedPlayers.isEmpty()) {
             String reportId = UUID.randomUUID().toString().replace("-", "");
             feature.getReportHandler().createReport(serverName, reportedPlayers, reportStart, currentTime, reportId);
-            String baseUrl = (String) feature.getConfigHandler().getSetting("URL");
+            String baseUrl = (String) feature.getConfigHandler().get("URL");
             String fullUrl = baseUrl + reportId;
 
             // Build a clickable component with the report URL.

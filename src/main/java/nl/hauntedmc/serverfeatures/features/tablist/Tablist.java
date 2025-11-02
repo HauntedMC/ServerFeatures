@@ -87,7 +87,7 @@ public class Tablist extends BukkitBaseFeature<Meta> {
         this.handler = new TablistHandler(this);
         getLifecycleManager().getListenerManager().registerListener(new TablistListener(this));
 
-        long refreshInterval = (int) getConfigHandler().getSetting("refresh_interval") * 20L;
+        long refreshInterval = (int) getConfigHandler().get("refresh_interval") * 20L;
 
         getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
                 () -> handler.refreshAllPlayers(),

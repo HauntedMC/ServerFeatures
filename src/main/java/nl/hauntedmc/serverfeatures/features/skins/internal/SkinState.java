@@ -22,7 +22,7 @@ public class SkinState {
     /* ----------------------------------------------- */
 
     public int getCooldownSeconds() {
-        Object v = feature.getConfigHandler().getSetting("cooldown_seconds");
+        Object v = feature.getConfigHandler().get("cooldown_seconds");
         return (v instanceof Number) ? ((Number) v).intValue() : 60;
     }
 

@@ -16,7 +16,7 @@ public class TeleportEffects {
     }
 
     private boolean playSoundsEnabled() {
-        Object v = feature.getConfigHandler().getSetting("play_sounds");
+        Object v = feature.getConfigHandler().get("play_sounds");
         return (v instanceof Boolean b) ? b : true;
     }
 

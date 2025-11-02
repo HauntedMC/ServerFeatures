@@ -78,7 +78,7 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
         });
 
         // Global periodic refresh of active mutes (once per configured interval)
-        int seconds = ((Number) getConfigHandler().getSetting("muteRefreshSeconds")).intValue();
+        int seconds = ((Number) getConfigHandler().get("muteRefreshSeconds")).intValue();
         seconds = Math.max(10, seconds); // guardrails
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 () -> muteRegistry.refreshAll(),

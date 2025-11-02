@@ -25,17 +25,17 @@ public class SafeLocationFinder {
     }
 
     public int maxAttempts() {
-        Object v = feature.getConfigHandler().getSetting("randomtp.max_attempts");
+        Object v = feature.getConfigHandler().get("randomtp.max_attempts");
         return (v instanceof Number n) ? n.intValue() : 250;
     }
 
     private double yOffsetAfterHighest() {
-        Object v = feature.getConfigHandler().getSetting("randomtp.y_offset_after_highest");
+        Object v = feature.getConfigHandler().get("randomtp.y_offset_after_highest");
         return (v instanceof Number n) ? n.doubleValue() : 4.0D;
     }
 
     private Set<Material> readDisabledMaterials() {
-        Object o = feature.getConfigHandler().getSetting("disabled_blocks");
+        Object o = feature.getConfigHandler().get("disabled_blocks");
         if (o instanceof java.util.List<?> list) {
             return list.stream()
                     .map(String::valueOf)

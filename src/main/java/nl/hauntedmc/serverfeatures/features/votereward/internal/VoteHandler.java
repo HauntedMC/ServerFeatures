@@ -25,11 +25,11 @@ public class VoteHandler {
 
     public VoteHandler(VoteReward feature) {
         this.feature = feature;
-        msgDelay = (int) feature.getConfigHandler().getSetting("join_message_delay");
-        startDelay = (int) feature.getConfigHandler().getSetting("rewards_start_delay");
-        interval = (int) feature.getConfigHandler().getSetting("reward_interval");
-        whitelist = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("vote_whitelist"), String.class);
-        commands = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("rewards"), String.class);
+        msgDelay = (int) feature.getConfigHandler().get("join_message_delay");
+        startDelay = (int) feature.getConfigHandler().get("rewards_start_delay");
+        interval = (int) feature.getConfigHandler().get("reward_interval");
+        whitelist = CastUtils.safeCastToList(feature.getConfigHandler().get("vote_whitelist"), String.class);
+        commands = CastUtils.safeCastToList(feature.getConfigHandler().get("rewards"), String.class);
     }
 
     /**
@@ -92,7 +92,7 @@ public class VoteHandler {
         CacheDirectory dir = feature.getPlayerCacheDir();
         FileCacheStore cache = (FileCacheStore) dir.getStore(username, CacheType.JSON);
 
-        long ttl = ((Number) feature.getConfigHandler().getSetting("cache_ttl_millis")).longValue();
+        long ttl = ((Number) feature.getConfigHandler().get("cache_ttl_millis")).longValue();
         CacheValue cv = CacheValue.builder(ttl).with("service", service).build();
 
         String key = "vote_" + System.currentTimeMillis();

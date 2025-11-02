@@ -27,7 +27,7 @@ public class TabListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onTab(TabCompleteEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("filter_tab_completion")) return;
+        if (!(boolean) feature.getConfigHandler().get("filter_tab_completion")) return;
         if (!(e.getSender() instanceof Player sender)) return;
         if (sender.hasPermission(VanishService.PERM_SEE)) return;
 

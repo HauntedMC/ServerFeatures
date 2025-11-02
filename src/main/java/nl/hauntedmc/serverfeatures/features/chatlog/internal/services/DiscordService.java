@@ -24,7 +24,7 @@ public class DiscordService {
      * @param chatlogLink     The link to the chatlog report.
      */
     public void sendNotification(String creator, List<String> reportedPlayers, String server, String chatlogLink) {
-        String webhookUrl = (String) feature.getConfigHandler().getSetting("discordWebhookURL");
+        String webhookUrl = (String) feature.getConfigHandler().get("discordWebhookURL");
         if (webhookUrl == null || webhookUrl.isEmpty()) {
             feature.getLogger().warning("Discord webhook URL not configured.");
             return;

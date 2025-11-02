@@ -54,7 +54,7 @@ public class EventBusHandler {
         // Validate against whitelist
         List<String> whitelist =
                 CastUtils.safeCastToList(
-                        feature.getConfigHandler().getSetting("command_whitelist"),
+                        feature.getConfigHandler().get("command_whitelist"),
                         String.class
                 );
 

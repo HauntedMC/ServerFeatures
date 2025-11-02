@@ -13,7 +13,7 @@ public class VillagerRestockHandler {
 
     public VillagerRestockHandler(VillagerOptimizer feature) {
         this.feature = feature;
-        this.restockTimes = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("restockTimes"), Integer.class);
+        this.restockTimes = CastUtils.safeCastToList(feature.getConfigHandler().get("restockTimes"), Integer.class);
     }
 
     public void sendRestockMessage(long timeTillNextRestock, Player player) {

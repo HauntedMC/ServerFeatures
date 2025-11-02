@@ -58,10 +58,10 @@ public final class JoinItemsHandler {
         templateCache.clear();
 
         // ---- Global options (typed getters)
-        includeAllItems = feature.getConfigHandler().getSetting("include-all-items", Boolean.class, false);
-        removeOnJoin = feature.getConfigHandler().getSetting("remove-on-join", Boolean.class, true);
-        removeOnLeave = feature.getConfigHandler().getSetting("remove-on-leave", Boolean.class, true);
-        joinDelayTicks = feature.getConfigHandler().getSetting("join-delay", Integer.class, 2);
+        includeAllItems = feature.getConfigHandler().get("include-all-items", Boolean.class, false);
+        removeOnJoin = feature.getConfigHandler().get("remove-on-join", Boolean.class, true);
+        removeOnLeave = feature.getConfigHandler().get("remove-on-leave", Boolean.class, true);
+        joinDelayTicks = feature.getConfigHandler().get("join-delay", Integer.class, 2);
 
         // ---- Items section using ConfigNode (normalized + typed)
         ConfigNode items = feature.getConfigHandler().node("items");

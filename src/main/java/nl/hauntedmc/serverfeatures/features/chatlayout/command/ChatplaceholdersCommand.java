@@ -26,9 +26,9 @@ public final class ChatplaceholdersCommand implements BrigadierCommand {
         this.feature = feature;
 
         // Read once from config
-        this.itemEnabled = feature.getConfigHandler().getSetting("item_preview.enabled", Boolean.class);
-        this.invEnabled = feature.getConfigHandler().getSetting("inventory_preview.enabled", Boolean.class);
-        this.cmdSuggestEnabled = feature.getConfigHandler().getSetting("command_suggest.enabled", Boolean.class);
+        this.itemEnabled = feature.getConfigHandler().get("item_preview.enabled", Boolean.class);
+        this.invEnabled = feature.getConfigHandler().get("inventory_preview.enabled", Boolean.class);
+        this.cmdSuggestEnabled = feature.getConfigHandler().get("command_suggest.enabled", Boolean.class);
     }
 
     @Override

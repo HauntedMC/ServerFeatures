@@ -15,7 +15,7 @@ public class DurabilityAlertHandler {
 
     public DurabilityAlertHandler(DurabilityAlert feature) {
         this.feature = feature;
-        this.defaultValue = (int) feature.getConfigHandler().getSetting("defaultvalue");
+        this.defaultValue = (int) feature.getConfigHandler().get("defaultvalue");
 
     }
 

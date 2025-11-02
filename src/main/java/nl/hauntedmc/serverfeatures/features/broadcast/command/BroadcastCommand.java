@@ -123,9 +123,9 @@ public class BroadcastCommand extends FeatureCommand {
                 .autoLinkUrls()
                 .toComponent();
 
-        int fadeIn = (int) feature.getConfigHandler().getSetting("title_fade_in");
-        int stay = (int) feature.getConfigHandler().getSetting("title_stay");
-        int fadeOut = (int) feature.getConfigHandler().getSetting("title_fade_out");
+        int fadeIn = (int) feature.getConfigHandler().get("title_fade_in");
+        int stay = (int) feature.getConfigHandler().get("title_stay");
+        int fadeOut = (int) feature.getConfigHandler().get("title_fade_out");
 
         for (Player p : Bukkit.getOnlinePlayers()) {
             p.showTitle(Title.title(

@@ -122,7 +122,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getListenerManager().registerListener(new TabListener(this));
 
         // Actionbar loop
-        int interval = Math.max(5, (int) getConfigHandler().getSetting("actionbar_interval_ticks"));
+        int interval = Math.max(5, (int) getConfigHandler().get("actionbar_interval_ticks"));
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             try {
                 service.tickActionBars();

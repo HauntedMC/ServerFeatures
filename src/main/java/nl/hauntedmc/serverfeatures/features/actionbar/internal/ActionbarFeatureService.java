@@ -94,7 +94,7 @@ public final class ActionbarFeatureService {
             }
         }
 
-        int intervalTicks = (int) feature.getConfigHandler().getSetting("message_interval");
+        int intervalTicks = (int) feature.getConfigHandler().get("message_interval");
         b.gapSeconds(Math.max(0, ceilTicksToSeconds(intervalTicks)));
         return b.build();
     }

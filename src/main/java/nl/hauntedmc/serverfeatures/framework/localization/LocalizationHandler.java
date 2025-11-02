@@ -6,12 +6,12 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,27 +22,44 @@ public class LocalizationHandler {
     public static final String LANG_DIR = "lang";
 
     private final ServerFeatures plugin;
-    private final ResourceHandler defaultMessagesResource;
-    private final EnumMap<Language, ResourceHandler> languageResources = new EnumMap<>(Language.class);
+
+    // messages.yml (defaults/fallbacks)
+    private final ConfigView defaultMessages;
+
+    // language-specific YAMLs (e.g., lang/nl_NL.yml)
+    private final EnumMap<Language, ConfigView> languageViews = new EnumMap<>(Language.class);
 
     public LocalizationHandler(ServerFeatures plugin) {
         this.plugin = plugin;
-        this.defaultMessagesResource = new ResourceHandler(plugin, LANG_DIR + "/messages.yml");
-        loadLanguageFiles();
+
+        ConfigService service = new ConfigService(plugin);
+
+        // Always ensure default messages file exists (copy from jar if present)
+        this.defaultMessages = service.view(LANG_DIR + "/messages.yml", /*copyDefaultsIfPresent*/ true);
+
+        // Load all language views
+        loadLanguageFiles(service);
     }
 
     /**
-     * Loads each language file using ResourceHandler.
+     * Loads each language file via ConfigService/ConfigView.
+     * If the file isn't bundled in the jar, we still create an empty local file
+     * (and warn once so admins know to populate it).
      */
-    private void loadLanguageFiles() {
+    private void loadLanguageFiles(ConfigService service) {
         for (Language lang : Language.values()) {
             String resourcePath = LANG_DIR + "/" + lang.getFileName();
-            ResourceHandler resource = new ResourceHandler(plugin, resourcePath);
-            if (resource.getConfig() == null) {
-                plugin.getLogger().warning("Language file " + lang.getFileName() + " not found. Please create it manually.");
-                continue;
+
+            // Create/open the file; copy defaults if present in the jar
+            ConfigView view = service.view(resourcePath, /*copyDefaultsIfPresent*/ true);
+            languageViews.put(lang, view);
+
+            // If not bundled in the jar, log a gentle warning (same spirit as before)
+            if (plugin.getResource(resourcePath) == null) {
+                plugin.getLogger().warning("Language file " + lang.getFileName() +
+                        " not found in jar. An empty file is created under " + resourcePath +
+                        ". Please populate it to localize messages.");
             }
-            languageResources.put(lang, resource);
         }
     }
 
@@ -50,28 +67,25 @@ public class LocalizationHandler {
      * Reloads both the default messages and language-specific files.
      */
     public void reloadLocalization() {
-        defaultMessagesResource.reload();
-        languageResources.values().forEach(ResourceHandler::reload);
+        defaultMessages.file.reload();
+        languageViews.values().forEach(v -> v.file.reload());
         plugin.getLogger().info("All localization files reloaded.");
     }
 
     /**
-     * Registers multiple default messages.
+     * Registers multiple default messages into lang/messages.yml if absent.
      */
     public void registerDefaultMessages(MessageMap messageMap) {
-        boolean changes = false;
-        FileConfiguration config = defaultMessagesResource.getConfig();
-        for (Map.Entry<String, String> entry : messageMap.getMessages().entrySet()) {
-            String key = entry.getKey();
-            String defaultValue = entry.getValue();
-            if (!config.contains(key)) {
-                config.set(key, defaultValue);
-                changes = true;
+        defaultMessages.batch(b -> {
+            for (Map.Entry<String, String> entry : messageMap.getMessages().entrySet()) {
+                String key = entry.getKey();
+                String def = entry.getValue();
+                // Only write when missing (keeps admin edits intact)
+                if (defaultMessages.get(key) == null) {
+                    b.put(key, def);
+                }
             }
-        }
-        if (changes) {
-            defaultMessagesResource.save();
-        }
+        });
     }
 
     // --- Fluent Builder API ---
@@ -80,10 +94,10 @@ public class LocalizationHandler {
      * Entry point for retrieving a localized message.
      * Usage:
      * Component comp = localizationHandler
-     * .getMessage("welcome.message")
-     * .forAudience(player)
-     * .withPlaceholders(Map.of("player", player.getName()))
-     * .build();
+     *     .getMessage("welcome.message")
+     *     .forAudience(player)
+     *     .withPlaceholders(MessagePlaceholders.of("player", player.getName()))
+     *     .build();
      */
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
@@ -150,7 +164,7 @@ public class LocalizationHandler {
         public Component build() {
             String rawMessage = (audience instanceof Player player)
                     ? getTranslateMessage(key, player)
-                    : defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
+                    : defaultMessages.get(key, String.class, "&cMessage not found: " + key);
 
             return renderComponent(rawMessage);
         }
@@ -177,7 +191,6 @@ public class LocalizationHandler {
 
             return converter.toComponent();
         }
-
     }
 
     // --- Private Helper Methods ---
@@ -188,18 +201,19 @@ public class LocalizationHandler {
      */
     private @NotNull String getTranslateMessage(String key, Player player) {
         Language language = PlayerRegistryAPI.getPlayerLanguage(player);
-        String message = null;
+
+        // Try language-specific file first
         if (language != null) {
-            ResourceHandler resource = languageResources.get(language);
-            if (resource != null && resource.getConfig().contains(key)) {
-                message = resource.getConfig().getString(key);
+            ConfigView view = languageViews.get(language);
+            if (view != null) {
+                String localized = view.get(key, String.class);
+                if (localized != null) {
+                    return localized;
+                }
             }
         }
-        if (message == null) {
-            message = defaultMessagesResource.getConfig().getString(key, "&cMessage not found: " + key);
-        }
-        return message;
+
+        // Fallback to defaults
+        return defaultMessages.get(key, String.class, "&cMessage not found: " + key);
     }
-
-
 }

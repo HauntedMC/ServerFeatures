@@ -58,7 +58,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         BlockState blockState = block.getState();
         if (!(blockState instanceof CreatureSpawner spawner)) return;
 
-        int defaultRange = (int) getConfigHandler().getSetting("default_spawn_range");
+        int defaultRange = (int) getConfigHandler().get("default_spawn_range");
 
         if (spawner.getRequiredPlayerRange() == defaultRange) {
             spawner.setRequiredPlayerRange(0);

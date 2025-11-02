@@ -24,8 +24,8 @@ public class ItemHandler {
 
     public ItemHandler(ItemEdit feature) {
         this.feature = feature;
-        this.blockedNames = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("blockedNames"), String.class);
-        this.blockAnvilItemNames = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("blockedAnvilItems"), String.class);
+        this.blockedNames = CastUtils.safeCastToList(feature.getConfigHandler().get("blockedNames"), String.class);
+        this.blockAnvilItemNames = CastUtils.safeCastToList(feature.getConfigHandler().get("blockedAnvilItems"), String.class);
     }
 
     public void renameItemInAnvil(PrepareAnvilEvent event) {

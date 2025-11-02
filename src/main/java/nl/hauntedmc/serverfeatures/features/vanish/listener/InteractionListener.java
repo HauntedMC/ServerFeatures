@@ -21,7 +21,7 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onDamage(EntityDamageByEntityEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("prevent_damage_and_interact")) return;
+        if (!(boolean) feature.getConfigHandler().get("prevent_damage_and_interact")) return;
 
         if (e.getEntity() instanceof Player victim && feature.getService().isPlayerVanished(victim)) {
             e.setCancelled(true);
@@ -34,7 +34,7 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onInteract(PlayerInteractEntityEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("prevent_damage_and_interact")) return;
+        if (!(boolean) feature.getConfigHandler().get("prevent_damage_and_interact")) return;
 
         if (e.getRightClicked() instanceof Player p && feature.getService().isPlayerVanished(p)) {
             e.setCancelled(true);
@@ -47,7 +47,7 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onTarget(EntityTargetLivingEntityEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("prevent_entity_targeting")) return;
+        if (!(boolean) feature.getConfigHandler().get("prevent_entity_targeting")) return;
 
         if (e.getTarget() instanceof Player p && feature.getService().isPlayerVanished(p)) {
             e.setCancelled(true);
@@ -56,7 +56,7 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPickup(EntityPickupItemEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("prevent_item_pickup")) return;
+        if (!(boolean) feature.getConfigHandler().get("prevent_item_pickup")) return;
 
         if (e.getEntity() instanceof Player p && feature.getService().isPlayerVanished(p)) {
             e.setCancelled(true);
@@ -65,7 +65,7 @@ public class InteractionListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onArrowPickup(PlayerPickupArrowEvent e) {
-        if (!(boolean) feature.getConfigHandler().getSetting("prevent_item_pickup")) return;
+        if (!(boolean) feature.getConfigHandler().get("prevent_item_pickup")) return;
 
         if (feature.getService().isPlayerVanished(e.getPlayer())) {
             e.setCancelled(true);

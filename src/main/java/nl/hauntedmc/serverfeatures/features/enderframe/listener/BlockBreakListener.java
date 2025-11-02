@@ -95,7 +95,7 @@ public class BlockBreakListener implements Listener {
                 .build());
 
         // Remove any END_PORTAL blocks within a certain radius (on the same Y-level):
-        int radius = (int) feature.getConfigHandler().getSetting("pickup_radius");
+        int radius = (int) feature.getConfigHandler().get("pickup_radius");
         Location location = block.getLocation();
         for (int x = location.getBlockX() - radius; x <= location.getBlockX() + radius; x++) {
             for (int z = location.getBlockZ() - radius; z <= location.getBlockZ() + radius; z++) {

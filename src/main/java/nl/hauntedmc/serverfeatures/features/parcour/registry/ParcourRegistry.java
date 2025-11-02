@@ -7,7 +7,7 @@ import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
-import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -413,7 +413,7 @@ public final class ParcourRegistry {
         byId.put(keyId.toLowerCase(Locale.ROOT), def);
     }
 
-    private void writeRegion(FeatureConfigHandler.FeatureBatch b, String path, ParcourRegion pr) {
+    private void writeRegion(ConfigView.Batch b, String path, ParcourRegion pr) {
         if (pr.type() != ParcourRegionType.END) {
             b.put(path + ".restore", pr.restoreCheckpoint());
             if (pr.hasExplicitRestore()) {

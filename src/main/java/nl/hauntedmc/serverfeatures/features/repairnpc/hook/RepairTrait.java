@@ -26,12 +26,12 @@ public class RepairTrait extends Trait {
 
     private final Map<String, Calendar> cooldowns = new HashMap<>();
 
-    private final int minDelay = ((Number) feature.getConfigHandler().getSetting("delays-in-seconds.minimum")).intValue();
-    private final int maxDelay = ((Number) feature.getConfigHandler().getSetting("delays-in-seconds.maximum")).intValue();
-    private final int cooldown = ((Number) feature.getConfigHandler().getSetting("delays-in-seconds.reforge-cooldown")).intValue();
-    private final boolean dropItem = (Boolean) feature.getConfigHandler().getSetting("dropitem");
-    private final boolean noCooldown = (Boolean) feature.getConfigHandler().getSetting("disablecooldown");
-    private final boolean noDelay = (Boolean) feature.getConfigHandler().getSetting("disabledelay");
+    private final int minDelay = ((Number) feature.getConfigHandler().get("delays-in-seconds.minimum")).intValue();
+    private final int maxDelay = ((Number) feature.getConfigHandler().get("delays-in-seconds.maximum")).intValue();
+    private final int cooldown = ((Number) feature.getConfigHandler().get("delays-in-seconds.reforge-cooldown")).intValue();
+    private final boolean dropItem = (Boolean) feature.getConfigHandler().get("dropitem");
+    private final boolean noCooldown = (Boolean) feature.getConfigHandler().get("disablecooldown");
+    private final boolean noDelay = (Boolean) feature.getConfigHandler().get("disabledelay");
 
     private RepairSession session;
     private long sessionStart;

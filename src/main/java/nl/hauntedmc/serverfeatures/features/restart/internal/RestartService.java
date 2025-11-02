@@ -175,7 +175,7 @@ public class RestartService {
     }
 
     private List<Integer> parseSchedule() {
-        Object raw = feature.getConfigHandler().getSetting("announce.schedule");
+        Object raw = feature.getConfigHandler().get("announce.schedule");
         List<Integer> out = new ArrayList<>();
 
         List<?> items = (raw instanceof List<?> l) ? l : List.of(60, 30, 0);

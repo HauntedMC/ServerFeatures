@@ -40,7 +40,7 @@ public class TablistHandler {
      */
     private void loadRankPriorityMap() {
         List<String> rankOrderSetting = CastUtils.safeCastToList(
-                feature.getConfigHandler().getSetting("rank_order"), String.class
+                feature.getConfigHandler().get("rank_order"), String.class
         );
         for (int i = 0; i < rankOrderSetting.size(); i++) {
             String rank = rankOrderSetting.get(i).toLowerCase().trim();

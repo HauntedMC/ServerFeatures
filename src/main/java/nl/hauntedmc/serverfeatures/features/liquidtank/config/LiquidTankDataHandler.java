@@ -1,33 +1,31 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.config;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.UnloadedTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl.AbstractTank;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LiquidTankDataHandler {
+public final class LiquidTankDataHandler extends ConfigView {
 
     private final LiquidTank feature;
-    private final ResourceHandler resourceHandler;
-    private final FileConfiguration config;
 
     // Lists to keep track of loaded tanks and tanks from unloaded worlds.
     private final List<AbstractTank> tankList = new ArrayList<>();
     private final List<UnloadedTank> unloadedTankList = new ArrayList<>();
 
     public LiquidTankDataHandler(LiquidTank feature) {
+        super(new ConfigService(feature.getPlugin()).open("local/liquidtanks.yml", /* copyDefaultsIfPresent */ true), "");
         this.feature = feature;
-        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "local/liquidtanks.yml");
-        this.config = resourceHandler.getConfig();
     }
 
     /**
@@ -41,7 +39,7 @@ public class LiquidTankDataHandler {
 
         int count = 0;
 
-        ConfigNode tanksNode = ConfigNode.ofRaw(config.get("tanks"), "local/liquidtanks.yml:tanks");
+        ConfigNode tanksNode = node("tanks");
         Map<String, ConfigNode> children = tanksNode.children();
         if (children.isEmpty()) {
             feature.getLogger().info("Loaded 0 Liquid tanks!");
@@ -98,15 +96,15 @@ public class LiquidTankDataHandler {
 
         int count = 0;
 
-        // Build a plain nested map (tanks -> key -> { tankType, quantity }) and set once.
-        java.util.LinkedHashMap<String, Object> tanksOut = new java.util.LinkedHashMap<>();
+        // Build a plain nested map (tanks -> key -> { tankType, quantity }) and write once.
+        LinkedHashMap<String, Object> tanksOut = new LinkedHashMap<>();
 
         // Save each loaded tank.
         for (AbstractTank tank : tankList) {
             Location loc = tank.getLocation().clone();
             String key = loc.getBlockX() + "_" + loc.getBlockY() + "_" + loc.getBlockZ() + "_" + loc.getWorld().getName();
 
-            java.util.LinkedHashMap<String, Object> node = new java.util.LinkedHashMap<>();
+            LinkedHashMap<String, Object> node = new LinkedHashMap<>();
             node.put("tankType", tank.getTankType().toString().toLowerCase().replace("_", ""));
             node.put("quantity", tank.getQuantity());
             tanksOut.put(key, node);
@@ -121,17 +119,21 @@ public class LiquidTankDataHandler {
         for (UnloadedTank unloaded : unloadedTankList) {
             String key = unloaded.getX() + "_" + unloaded.getY() + "_" + unloaded.getZ() + "_" + unloaded.getWorld();
 
-            java.util.LinkedHashMap<String, Object> node = new java.util.LinkedHashMap<>();
+            LinkedHashMap<String, Object> node = new LinkedHashMap<>();
             node.put("tankType", unloaded.getType().toString().toLowerCase().replace("_", ""));
             node.put("quantity", unloaded.getQuantity());
             tanksOut.put(key, node);
             count++;
         }
 
-        // Overwrite section once and save file.
-        config.set("tanks", tanksOut);
-        resourceHandler.save();
+        // Overwrite section once (auto-saves via ConfigView).
+        put("tanks", tanksOut);
         return count;
+    }
+
+    /** Reload the YAML from disk. */
+    public void reload() {
+        file.reload();
     }
 
     public List<AbstractTank> getTankList() {
@@ -154,8 +156,7 @@ public class LiquidTankDataHandler {
     // helpers
     // -----------------
 
-    private record ParsedKey(int x, int y, int z, String worldName) {
-    }
+    private record ParsedKey(int x, int y, int z, String worldName) {}
 
     /**
      * Parses a key in the form x_y_z_worldName (worldName may contain underscores).

@@ -25,7 +25,7 @@ public class VillagerAIHandler {
 
     public VillagerAIHandler(VillagerOptimizer feature, VillagerRestockHandler villagerRestockHandler, VillagerLevelHandler villagerLevelHandler) {
         this.feature = feature;
-        this.cooldown = (long) (int) feature.getConfigHandler().getSetting("cooldown");
+        this.cooldown = (long) (int) feature.getConfigHandler().get("cooldown");
         this.villagerRestockHandler = villagerRestockHandler;
         this.villagerLevelHandler = villagerLevelHandler;
     }

@@ -28,10 +28,10 @@ public class NicknameHandler {
     public NicknameHandler(Nickname feature) {
         this.feature = feature;
         this.nicknameService = new NicknameService(feature);
-        this.maxNicknameLength = (int) feature.getConfigHandler().getSetting("maxNicknameLength");
-        this.minNicknameLength = (int) feature.getConfigHandler().getSetting("minNicknameLength");
-        this.allowedCharacters = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("allowedCharacters"), String.class);
-        this.disallowedFormatting = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("disallowedFormatting"), String.class);
+        this.maxNicknameLength = (int) feature.getConfigHandler().get("maxNicknameLength");
+        this.minNicknameLength = (int) feature.getConfigHandler().get("minNicknameLength");
+        this.allowedCharacters = CastUtils.safeCastToList(feature.getConfigHandler().get("allowedCharacters"), String.class);
+        this.disallowedFormatting = CastUtils.safeCastToList(feature.getConfigHandler().get("disallowedFormatting"), String.class);
     }
 
     private static @NotNull String translateColours(String unformattedNickname) {

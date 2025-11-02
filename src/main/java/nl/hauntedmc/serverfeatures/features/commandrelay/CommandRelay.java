@@ -78,8 +78,8 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         this.eventBusHandler = new EventBusHandler(this, redisBus);
 
         // Fetch settings
-        boolean listen = (Boolean) getConfigHandler().getSetting("listening");
-        boolean send = (Boolean) getConfigHandler().getSetting("sending");
+        boolean listen = (Boolean) getConfigHandler().get("listening");
+        boolean send = (Boolean) getConfigHandler().get("sending");
         String serverName = (String) getConfigHandler().getGlobalSetting("server_name");
 
         // If listening, subscribe to incoming commands for this server

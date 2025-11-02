@@ -27,15 +27,15 @@ public class BackupService {
     }
 
     public void runStartupBackup() {
-        String folderName = asString(feature.getConfigHandler().getSetting("backup_folder_name"), "backups");
-        String zipPrefix = asString(feature.getConfigHandler().getSetting("zip_name_prefix"), "backup_");
-        int level = asInt(feature.getConfigHandler().getSetting("compression_level"), 6);
+        String folderName = asString(feature.getConfigHandler().get("backup_folder_name"), "backups");
+        String zipPrefix = asString(feature.getConfigHandler().get("zip_name_prefix"), "backup_");
+        int level = asInt(feature.getConfigHandler().get("compression_level"), 6);
 
-        int dailyDays = asInt(feature.getConfigHandler().getSetting("retention.daily_days"), 7);
-        int keepMonthly = asInt(feature.getConfigHandler().getSetting("retention.keep_monthly"), 1);
-        int monthlyThresh = asInt(feature.getConfigHandler().getSetting("retention.monthly_threshold_days"), 30);
-        int keepQuarter = asInt(feature.getConfigHandler().getSetting("retention.keep_quarterly"), 1);
-        int quarterThresh = asInt(feature.getConfigHandler().getSetting("retention.quarterly_threshold_days"), 90);
+        int dailyDays = asInt(feature.getConfigHandler().get("retention.daily_days"), 7);
+        int keepMonthly = asInt(feature.getConfigHandler().get("retention.keep_monthly"), 1);
+        int monthlyThresh = asInt(feature.getConfigHandler().get("retention.monthly_threshold_days"), 30);
+        int keepQuarter = asInt(feature.getConfigHandler().get("retention.keep_quarterly"), 1);
+        int quarterThresh = asInt(feature.getConfigHandler().get("retention.quarterly_threshold_days"), 90);
 
         List<String> includes = readIncludes();
 
@@ -208,7 +208,7 @@ public class BackupService {
     }
 
     private List<String> readIncludes() {
-        Object raw = feature.getConfigHandler().getSetting("include.paths");
+        Object raw = feature.getConfigHandler().get("include.paths");
         if (raw instanceof List<?> list) {
             return list.stream().filter(Objects::nonNull).map(String::valueOf).toList();
         }

@@ -140,7 +140,7 @@ public class VanishService {
         }
 
         // Collisions off
-        if ((boolean) feature.getConfigHandler().getSetting("disable_collisions")) {
+        if ((boolean) feature.getConfigHandler().get("disable_collisions")) {
             try {
                 p.setCollidable(false);
             } catch (Throwable ignored) {
@@ -148,7 +148,7 @@ public class VanishService {
         }
 
         // Optional invisible flag; restore safely on unvanish
-        if ((boolean) feature.getConfigHandler().getSetting("set_invisible_flag")) {
+        if ((boolean) feature.getConfigHandler().get("set_invisible_flag")) {
             if (!p.isInvisible()) {
                 p.setInvisible(true);
             }
@@ -175,14 +175,14 @@ public class VanishService {
         }
 
         // Collisions off
-        if ((boolean) feature.getConfigHandler().getSetting("disable_collisions")) {
+        if ((boolean) feature.getConfigHandler().get("disable_collisions")) {
             if (!p.isCollidable()) {
                 p.setCollidable(true);
             }
         }
 
         // Optional invisible flag; restore safely on unvanish
-        if ((boolean) feature.getConfigHandler().getSetting("set_invisible_flag")) {
+        if ((boolean) feature.getConfigHandler().get("set_invisible_flag")) {
             if (p.isInvisible()) {
                 p.setInvisible(false);
             }

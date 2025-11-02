@@ -46,7 +46,7 @@ public class TankInteractListener implements Listener {
                 AbstractTank liquidTank = feature.getTankManager().getTank(Objects.requireNonNull(playerInteractEvent.getClickedBlock()).getLocation());
                 if (liquidTank != null) {
                     playerInteractEvent.setCancelled(true);
-                    if (!player.hasPermission("serverfeatures.feature.liquidtank.use") && (boolean) feature.getConfigHandler().getSetting("enable-permission")) {
+                    if (!player.hasPermission("serverfeatures.feature.liquidtank.use") && (boolean) feature.getConfigHandler().get("enable-permission")) {
                         return;
                     }
                     feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> liquidTank.onInteract(player));

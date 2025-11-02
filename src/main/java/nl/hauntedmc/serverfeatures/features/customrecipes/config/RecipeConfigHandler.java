@@ -1,63 +1,59 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.config;
 
-import nl.hauntedmc.serverfeatures.api.io.resources.ResourceHandler;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.RecipeFactory;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-public class RecipeConfigHandler {
+/**
+ * Recipes config backed by the unified config system.
+ * File: local/recipes.yml
+ */
+public final class RecipeConfigHandler extends ConfigView {
 
-    private final ResourceHandler resourceHandler;
     private final CustomRecipes feature;
-    private FileConfiguration config;
 
     public RecipeConfigHandler(CustomRecipes feature) {
+        super(new ConfigService(feature.getPlugin()).open("local/recipes.yml", /* copyDefaultsIfPresent */ true), "");
         this.feature = feature;
-        // Initialize the ResourceHandler for recipes.yml.
-        this.resourceHandler = new ResourceHandler(feature.getPlugin(), "local/recipes.yml");
-        this.config = resourceHandler.getConfig();
     }
 
     /**
-     * Loads recipes from the recipes.yml file.
-     *
-     * @return A list of RecipeData objects loaded from the file.
+     * Loads recipes from the 'recipes' list in local/recipes.yml.
      */
     public List<RecipeData> loadRecipes() {
-        List<RecipeData> recipes = new ArrayList<>();
-        if (!config.contains("recipes")) {
-            feature.getLogger().severe("recipes.yml does not contain a 'recipes' section!");
-            return recipes;
+        List<RecipeData> out = new ArrayList<>();
+
+        // Read as List<Map<?, ?>> to avoid generic mismatch; RecipeFactory accepts Map<?, ?>.
+        List<Map> defs = getList("recipes", Map.class, List.of());
+        if (defs.isEmpty()) {
+            feature.getLogger().severe("recipes.yml does not contain a non-empty 'recipes' list!");
+            return out;
         }
-        List<Map<?, ?>> recipesList = config.getMapList("recipes");
+
         int index = 0;
-        for (Map<?, ?> recipeConfig : recipesList) {
-            RecipeData recipeData = RecipeFactory.createRecipe(feature, recipeConfig, index);
-            if (recipeData != null) {
-                recipes.add(recipeData);
-            }
-            index++;
+        for (Map<?, ?> def : defs) {
+            RecipeData rd = RecipeFactory.createRecipe(feature, def, index++);
+            if (rd != null) out.add(rd);
         }
-        return recipes;
+        return out;
     }
 
-    /**
-     * Reloads the recipes configuration from disk.
-     */
+    /** Reloads the YAML from disk. */
     public void reload() {
-        resourceHandler.reload();
-        this.config = resourceHandler.getConfig();
+        file.reload();
     }
 
     /**
-     * Saves the current recipes configuration to disk.
+     * No-op: all write operations via put/batch/compute auto-save.
+     * Kept for backwards compatibility with the previous API.
      */
     public void save() {
-        resourceHandler.save();
+        // intentionally empty
     }
 }

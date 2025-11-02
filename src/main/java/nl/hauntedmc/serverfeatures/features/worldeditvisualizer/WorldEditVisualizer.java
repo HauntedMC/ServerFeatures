@@ -93,12 +93,12 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     /* helpers */
     public boolean getBoolean(String key, boolean def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         return (v instanceof Boolean b) ? b : def;
     }
 
     public int getInt(String key, int def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         if (v instanceof Number n) return n.intValue();
         try {
             return Integer.parseInt(String.valueOf(v));
@@ -108,7 +108,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
     }
 
     public double getDouble(String key, double def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         if (v instanceof Number n) return n.doubleValue();
         try {
             return Double.parseDouble(String.valueOf(v));
@@ -118,7 +118,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
     }
 
     public String getString(String key, String def) {
-        Object v = getConfigHandler().getSetting(key);
+        Object v = getConfigHandler().get(key);
         return v == null ? def : String.valueOf(v);
     }
 }

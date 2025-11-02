@@ -26,11 +26,11 @@ public class BeaconEffectListener implements Listener {
     public void onBeaconEffect(BeaconEffectEvent event) {
         Player player = event.getPlayer();
 
-        int yLevel = (int) feature.getConfigHandler().getSetting("y_level");
+        int yLevel = (int) feature.getConfigHandler().get("y_level");
 
         if (player.getLocation().getY() < yLevel) {
             if (event.getEffect().getType() == PotionEffectType.HASTE) {
-                int amplifier = (int) feature.getConfigHandler().getSetting("haste_amplifier");
+                int amplifier = (int) feature.getConfigHandler().get("haste_amplifier");
                 event.setEffect(new PotionEffect(PotionEffectType.HASTE, 320, amplifier));
             }
         }
@@ -40,12 +40,12 @@ public class BeaconEffectListener implements Listener {
     public void onMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
 
-        int yLevel = (int) feature.getConfigHandler().getSetting("y_level");
+        int yLevel = (int) feature.getConfigHandler().get("y_level");
 
         PotionEffect hasteEffect = player.getPotionEffect(PotionEffectType.HASTE);
         if (hasteEffect != null) {
             int amplifier = hasteEffect.getAmplifier();
-            int configuredAmplifier = (int) feature.getConfigHandler().getSetting("haste_amplifier");
+            int configuredAmplifier = (int) feature.getConfigHandler().get("haste_amplifier");
 
             if (player.getLocation().getY() > yLevel && amplifier == configuredAmplifier) {
                 player.removePotionEffect(PotionEffectType.HASTE);

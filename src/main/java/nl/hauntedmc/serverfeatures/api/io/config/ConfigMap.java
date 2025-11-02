@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.api.io.config;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 /**
  * A type-safe wrapper around a configurable key-value map.
@@ -42,9 +43,12 @@ public class ConfigMap {
         return values.entrySet();
     }
 
-
     public Map<String, Object> toMap() {
         return new HashMap<>(values);
+    }
+
+    public void forEach(BiConsumer<String, Object> action) {
+        values.forEach(action);
     }
 
     @Override

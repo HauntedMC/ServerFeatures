@@ -63,9 +63,9 @@ public class LiquidTankManager implements Listener {
     }
 
     private void readConfigOptions() {
-        maxAmountPerChunk = (int) feature.getConfigHandler().getSetting("amount-per-chunk");
-        itemName = ((String) feature.getConfigHandler().getSetting("item-name"));
-        enableItems = (boolean) feature.getConfigHandler().getSetting("enable-items");
+        maxAmountPerChunk = (int) feature.getConfigHandler().get("amount-per-chunk");
+        itemName = ((String) feature.getConfigHandler().get("item-name"));
+        enableItems = (boolean) feature.getConfigHandler().get("enable-items");
     }
 
     public List<AbstractTank> getTankList() {

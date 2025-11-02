@@ -168,7 +168,7 @@ public class AfkService implements AfkServiceFacade {
     }
 
     private boolean broadcast() {
-        Object o = feature.getConfigHandler().getSetting("broadcast_on_state_change");
+        Object o = feature.getConfigHandler().get("broadcast_on_state_change");
         return (o instanceof Boolean b) && b;
     }
 
@@ -253,17 +253,17 @@ public class AfkService implements AfkServiceFacade {
     }
 
     private boolean getBool(String key, boolean def) {
-        Object o = feature.getConfigHandler().getSetting(key);
+        Object o = feature.getConfigHandler().get(key);
         return (o instanceof Boolean b) ? b : def;
     }
 
     private int getInt(String key, int def) {
-        Object o = feature.getConfigHandler().getSetting(key);
+        Object o = feature.getConfigHandler().get(key);
         return (o instanceof Number n) ? n.intValue() : def;
     }
 
     private double getDouble(String key, double def) {
-        Object o = feature.getConfigHandler().getSetting(key);
+        Object o = feature.getConfigHandler().get(key);
         return (o instanceof Number n) ? n.doubleValue() : def;
     }
 

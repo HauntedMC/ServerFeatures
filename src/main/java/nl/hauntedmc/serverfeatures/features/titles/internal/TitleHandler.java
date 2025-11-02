@@ -19,10 +19,10 @@ public class TitleHandler {
 
     public TitleHandler(Titles feature) {
         this.feature = feature;
-        fadeIn = (int) feature.getConfigHandler().getSetting("fade-in");
-        stay = (int) feature.getConfigHandler().getSetting("stay");
-        fadeOut = (int) feature.getConfigHandler().getSetting("fade-out");
-        delay = (int) feature.getConfigHandler().getSetting("delay");
+        fadeIn = (int) feature.getConfigHandler().get("fade-in");
+        stay = (int) feature.getConfigHandler().get("stay");
+        fadeOut = (int) feature.getConfigHandler().get("fade-out");
+        delay = (int) feature.getConfigHandler().get("delay");
     }
 
     public void sendJoinTitle(Player player) {

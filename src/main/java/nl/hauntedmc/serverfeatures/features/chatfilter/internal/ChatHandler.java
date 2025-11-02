@@ -34,10 +34,10 @@ public class ChatHandler {
 
     public ChatHandler(ChatFilter feature) {
         this.feature = feature;
-        this.disallowedWords = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("disallowedWords"), String.class);
-        this.whitelistedDomains = CastUtils.safeCastToList(feature.getConfigHandler().getSetting("whitelistedDomains"), String.class);
-        this.minPrefixLength = (int) feature.getConfigHandler().getSetting("minPrefixLength");
-        this.minSuffixLength = (int) feature.getConfigHandler().getSetting("minSuffixLength");
+        this.disallowedWords = CastUtils.safeCastToList(feature.getConfigHandler().get("disallowedWords"), String.class);
+        this.whitelistedDomains = CastUtils.safeCastToList(feature.getConfigHandler().get("whitelistedDomains"), String.class);
+        this.minPrefixLength = (int) feature.getConfigHandler().get("minPrefixLength");
+        this.minSuffixLength = (int) feature.getConfigHandler().get("minSuffixLength");
         this.discordService = new DiscordService(feature);
     }
 
@@ -111,8 +111,8 @@ public class ChatHandler {
     }
 
     private String applyAntiCapsFilter(String message) {
-        int minCapsLength = (int) feature.getConfigHandler().getSetting("minCapsLength");
-        double maxCapsPercentage = (double) feature.getConfigHandler().getSetting("maxCapsPercentage");
+        int minCapsLength = (int) feature.getConfigHandler().get("minCapsLength");
+        double maxCapsPercentage = (double) feature.getConfigHandler().get("maxCapsPercentage");
 
         if (message.length() >= minCapsLength) {
             long capsCount = message.chars().filter(Character::isUpperCase).count();
@@ -158,8 +158,8 @@ public class ChatHandler {
 
     private boolean isSpam(String normalizedMessage, Player player) {
         UUID playerId = player.getUniqueId();
-        int maxRecentMessages = (int) feature.getConfigHandler().getSetting("maxRecentMessages");
-        double similarityThreshold = (double) feature.getConfigHandler().getSetting("similarityThreshold");
+        int maxRecentMessages = (int) feature.getConfigHandler().get("maxRecentMessages");
+        double similarityThreshold = (double) feature.getConfigHandler().get("similarityThreshold");
 
         List<String> recent = recentMessages.computeIfAbsent(playerId, k -> new ArrayList<>());
         if (normalizedMessage.length() <= 6) {
