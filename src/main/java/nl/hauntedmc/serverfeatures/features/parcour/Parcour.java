@@ -23,7 +23,6 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
-        cfg.put("parcours", new java.util.LinkedHashMap<String, Object>());
         return cfg;
     }
 

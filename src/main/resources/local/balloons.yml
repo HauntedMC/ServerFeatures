@@ -1,0 +1,121 @@
+balloons:
+  beacon:
+    permission: serverfeatures.feature.balloons.beacon
+    item: BEACON
+    displayname: §bBeacon Ballon
+  dragon:
+    permission: serverfeatures.feature.balloons.dragon
+    item: DRAGON_HEAD
+    displayname: §bDragon Ballon
+  spawner:
+    permission: serverfeatures.feature.balloons.spawner
+    item: SPAWNER
+    displayname: §bSpawner Ballon
+  ancient_debris:
+    permission: serverfeatures.feature.balloons.ancient_debris
+    item: ANCIENT_DEBRIS
+    displayname: §bAncient Debris Ballon
+  shulkerbox:
+    permission: serverfeatures.feature.balloons.shulkerbox
+    item: SHULKER_BOX
+    displayname: §bShulker Box Ballon
+  dragonegg:
+    permission: serverfeatures.feature.balloons.dragonegg
+    item: DRAGON_EGG
+    displayname: §bDragon Egg Ballon
+  tnt:
+    permission: serverfeatures.feature.balloons.tnt
+    item: TNT
+    displayname: §bTNT Ballon
+  netherite_block:
+    permission: serverfeatures.feature.balloons.netherite_block
+    item: NETHERITE_BLOCK
+    displayname: §bNetherite Block Balloon
+  end_portal_frame:
+    permission: serverfeatures.feature.balloons.end_portal_frame
+    item: END_PORTAL_FRAME
+    displayname: §bEnd Portal Frame Balloon
+  respawn_anchor:
+    permission: serverfeatures.feature.balloons.respawn_anchor
+    item: RESPAWN_ANCHOR
+    displayname: §bRespawn Anchor Balloon
+  enchanting_table:
+    permission: serverfeatures.feature.balloons.enchanting_table
+    item: ENCHANTING_TABLE
+    displayname: §bEnchanting Table Balloon
+  command_block:
+    permission: serverfeatures.feature.balloons.command_block
+    item: COMMAND_BLOCK
+    displayname: §bCommand Block Balloon
+  rood:
+    permission: serverfeatures.feature.balloons.rood
+    item: RED_CONCRETE
+    displayname: §bRode Ballon
+  oranje:
+    permission: serverfeatures.feature.balloons.oranje
+    item: ORANGE_CONCRETE
+    displayname: §bOranje Ballon
+  geel:
+    permission: serverfeatures.feature.balloons.geel
+    item: YELLOW_CONCRETE
+    displayname: §bGele Ballon
+  groen:
+    permission: serverfeatures.feature.balloons.groen
+    item: LIME_CONCRETE
+    displayname: §bGroene Ballon
+  donkergroen:
+    permission: serverfeatures.feature.balloons.donkergroen
+    item: GREEN_CONCRETE
+    displayname: §bDonker Groene Ballon
+  cyan:
+    permission: serverfeatures.feature.balloons.cyan
+    item: CYAN_CONCRETE
+    displayname: §bCyan Ballon
+  blauw:
+    permission: serverfeatures.feature.balloons.blauw
+    item: LIGHT_BLUE_CONCRETE
+    displayname: §bBlauwe Ballon
+  donkerblauw:
+    permission: serverfeatures.feature.balloons.donkerblauw
+    item: BLUE_CONCRETE
+    displayname: §bDonker Blauwe Ballon
+  paars:
+    permission: serverfeatures.feature.balloons.paars
+    item: PURPLE_CONCRETE
+    displayname: §bPaarse Ballon
+  magenta:
+    permission: serverfeatures.feature.balloons.magenta
+    item: MAGENTA_CONCRETE
+    displayname: §bMagenta Ballon
+  roze:
+    permission: serverfeatures.feature.balloons.roze
+    item: PINK_CONCRETE
+    displayname: §bRoze Ballon
+  wit:
+    permission: serverfeatures.feature.balloons.wit
+    item: WHITE_CONCRETE
+    displayname: §bWit Ballon
+  grijs:
+    permission: serverfeatures.feature.balloons.grijs
+    item: LIGHT_GRAY_CONCRETE
+    displayname: §bGrijze Ballon
+  donkergrijs:
+    permission: serverfeatures.feature.balloons.donkergrijs
+    item: GRAY_CONCRETE
+    displayname: §bDonker Grijze Ballon
+  zwart:
+    permission: serverfeatures.feature.balloons.zwart
+    item: BLACK_CONCRETE
+    displayname: §bZwarte Ballon
+  bruin:
+    permission: serverfeatures.feature.balloons.bruin
+    item: BROWN_CONCRETE
+    displayname: §bBruine Ballon
+  paasevent24:
+    permission: serverfeatures.feature.balloons.paasevent24
+    head: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGYzZjRkM2EyZjQ4NDY2OTE4ZmEwNWNkNjBjOTgzMGNjMThmYzc0MzkwY2ZhZWFhZDFhMTE3Nzg2YWJhOTBjZCJ9fX0=
+    displayname: §bPaasEvent 2024
+  paasevent25:
+    permission: serverfeatures.feature.balloons.paasevent25
+    head: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGUzYmE1NGU0NmY0ZmNkOTI4MWVjNTkyYTVjODE3OTAxY2UzZjgxMTE4NWY3N2E5MzhjZjBjNjMzNDZlMGU2MiJ9fX0=
+    displayname: §bPaasEvent 2025

@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.balloons.registry;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.features.balloons.Balloons;
@@ -11,21 +13,23 @@ import org.bukkit.Material;
 import java.util.*;
 
 /**
- * Loads balloons from feature config
+ * Loads balloons from local/balloons.yml (root key: "balloons"), using the unified config API.
  */
 public final class BalloonRegistry {
 
     private final Balloons feature;
+    private final ConfigView store; // points at local/balloons.yml
     private final Map<String, BalloonDefinition> byId = new LinkedHashMap<>();
 
     public BalloonRegistry(Balloons feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/balloons.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {
         byId.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("balloons");
+        ConfigNode root = store.node("balloons");
         Map<String, ConfigNode> children = root.children();
         if (children.isEmpty()) {
             feature.getLogger().warning("No balloons configured.");
@@ -87,6 +91,10 @@ public final class BalloonRegistry {
 
     private static Component toComponent(String s) {
         if (s == null || s.isBlank()) return Component.empty();
-        return ComponentFormatter.deserialize(s).expect(TextFormatter.InputFormat.MIXED_INPUT).features(ComponentFormatter.ALL_DEFAULTS()).toComponent();
+        return ComponentFormatter
+                .deserialize(s)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
+                .features(ComponentFormatter.ALL_DEFAULTS())
+                .toComponent();
     }
 }

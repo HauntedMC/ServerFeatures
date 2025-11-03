@@ -25,7 +25,6 @@ public class Portals extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
-        cfg.put("portals", new java.util.LinkedHashMap<String, Object>());
         return cfg;
     }
 
