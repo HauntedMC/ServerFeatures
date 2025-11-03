@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.portals.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
 import nl.hauntedmc.serverfeatures.features.portals.model.PortalDefinition;
@@ -13,22 +15,24 @@ import org.bukkit.Material;
 import java.util.*;
 
 /**
- * Loads/saves portals; stores sound/particle as namespaced keys in config,
- * resolves via Paper registry at runtime (no deprecated enum calls).
+ * Loads/saves portals from/to local/portals.yml (root key: "portals").
+ * Stores sound/particle as namespaced keys; resolves via Paper registry at runtime.
  */
 public final class PortalRegistry {
 
     private final Portals feature;
+    private final ConfigView store; // points at local/portals.yml
     private final Map<String, PortalDefinition> byId = new LinkedHashMap<>();
 
     public PortalRegistry(Portals feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/portals.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {
         byId.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("portals");
+        ConfigNode root = store.node("portals");
         Map<String, ConfigNode> children = root.children();
         FeatureLogger log = feature.getLogger();
 
@@ -118,11 +122,10 @@ public final class PortalRegistry {
     }
 
     public void savePortal(PortalDefinition def) {
-        var cfg = feature.getConfigHandler();
         String keyId = def.id().toLowerCase(Locale.ROOT);
         String base = "portals." + keyId;
 
-        cfg.batch(b -> {
+        store.batch(b -> {
             b.put(base + ".mode", def.mode().name());
 
             // region
@@ -199,7 +202,7 @@ public final class PortalRegistry {
         byId.remove(keyLower);
         String base = "portals." + keyLower;
 
-        feature.getConfigHandler().batch(b -> {
+        store.batch(b -> {
             b.remove(base + ".mode");
             b.remove(base + ".region");
             b.remove(base + ".teleport");
