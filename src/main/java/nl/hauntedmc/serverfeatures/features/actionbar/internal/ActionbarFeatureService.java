@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.*;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
@@ -14,15 +16,20 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Builds cycles from config and talks to the global ActionBars API.
+ * Builds cycles from local/actionbars.yml and talks to the global ActionBars API.
+ * Root keys in actionbars.yml:
+ * - message_interval: <ticks>
+ * - messages: { <id>: { message_key: ..., duration: <ticks> }, ... }
  */
 public final class ActionbarFeatureService {
 
     private final Actionbar feature;
+    private final ConfigView store; // local/actionbars.yml
     private ActionBarCycleHandle cycleHandle;
 
     public ActionbarFeatureService(@NotNull Actionbar feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/actionbars.yml", /*copyDefaultsIfPresent*/ true);
     }
 
     public boolean isCycleRunning() {
@@ -71,11 +78,11 @@ public final class ActionbarFeatureService {
     private @NotNull ActionBarCycle buildCycleFromConfig() {
         ActionBarCycle.Builder b = ActionBarCycle.builder();
 
-        ConfigNode root = feature.getConfigHandler().node("messages");
+        ConfigNode root = store.node("messages");
         Map<String, ConfigNode> children = root.children();
 
         if (children.isEmpty()) {
-            // default 100 ticks → 5s
+            // fallback: a single default message for 5 seconds
             int seconds = ceilTicksToSeconds(100);
             b.add(ActionBarEntry.perPlayer(p ->
                     feature.getLocalizationHandler().getMessage("actionbar.default").forAudience(p).build(), seconds));
@@ -94,7 +101,7 @@ public final class ActionbarFeatureService {
             }
         }
 
-        int intervalTicks = (int) feature.getConfigHandler().get("message_interval");
+        int intervalTicks = store.get("message_interval", Integer.class, 100);
         b.gapSeconds(Math.max(0, ceilTicksToSeconds(intervalTicks)));
         return b.build();
     }

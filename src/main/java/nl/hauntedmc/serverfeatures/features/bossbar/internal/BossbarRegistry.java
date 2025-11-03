@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
@@ -10,22 +12,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads bossbar messages
+ * Loads bossbar messages from local/bossbars.yml (root key: "messages").
  */
 public class BossbarRegistry {
 
     private final Bossbars feature;
+    private final ConfigView store; // local/bossbars.yml
     private final List<BossbarMessage> messages = new ArrayList<>();
 
     public BossbarRegistry(Bossbars feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/bossbars.yml", /*copyDefaultsIfPresent*/ true);
         loadMessagesFromConfig();
     }
 
     private void loadMessagesFromConfig() {
         messages.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("messages");
+        ConfigNode root = store.node("messages");
         Map<String, ConfigNode> children = root.children();
         if (children.isEmpty()) {
             return;

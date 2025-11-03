@@ -1,0 +1,13 @@
+messages:
+  text1:
+    duration: 100
+    color: YELLOW
+    style: SOLID
+    autoFade: true
+    initialProgress: 1.0
+  text2:
+    duration: 100
+    color: GREEN
+    style: SEGMENTED_6
+    autoFade: false
+    initialProgress: 1.0

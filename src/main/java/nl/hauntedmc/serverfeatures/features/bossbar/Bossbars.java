@@ -24,26 +24,6 @@ public class Bossbars extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
 
-        Map<String, Object> messages = new LinkedHashMap<>();
-
-        Map<String, Object> text1 = new LinkedHashMap<>();
-        text1.put("duration", 100);
-        text1.put("color", "YELLOW");
-        text1.put("style", "SOLID");
-        text1.put("autoFade", true);
-        text1.put("initialProgress", 1.0);
-        messages.put("text1", text1);
-
-        Map<String, Object> text2 = new LinkedHashMap<>();
-        text2.put("duration", 100);
-        text2.put("color", "GREEN");
-        text2.put("style", "SEGMENTED_6");
-        text2.put("autoFade", false);
-        text2.put("initialProgress", 1.0);
-        messages.put("text2", text2);
-
-        defaults.put("messages", messages);
-
         Map<String, Object> animation = new LinkedHashMap<>();
         animation.put("steps_per_second", 20);
         animation.put("fade_delay", 0);

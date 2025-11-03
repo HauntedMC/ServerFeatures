@@ -1,0 +1,21 @@
+holograms:
+  example:
+    world: world
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    yaw: 0.0
+    pitch: 0.0
+    billboard: FIXED
+    alignment: CENTER
+    line_width: 220
+    see_through: false
+    shadowed: true
+    use_default_background: false
+    background_color: '#00aa22ee'
+    glow: false
+    glow_color: '#45FFEEFF'
+    view_range: 32.0
+    brightness:
+      block: 15
+      sky: 15
