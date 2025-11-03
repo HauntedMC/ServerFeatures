@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.holograms.registry;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.holograms.Holograms;
 import nl.hauntedmc.serverfeatures.features.holograms.model.HologramDefinition;
 import org.bukkit.entity.Display;
@@ -11,19 +13,22 @@ import org.bukkit.entity.TextDisplay;
 import java.util.*;
 
 /**
- * Loads hologram definitions
+ * Loads hologram definitions from local/holograms.yml (root key: "holograms"),
+ * using the unified ConfigService/ConfigView API.
  */
 public final class HologramRegistry {
 
     private static final String END_MARKER = "<end>";
 
     private final Holograms feature;
+    private final ConfigView store; // points at local/holograms.yml
 
     private final Map<String, HologramDefinition> byId = new LinkedHashMap<>();
     private final Map<String, List<Component>> cachedLines = new LinkedHashMap<>();
 
     public HologramRegistry(Holograms feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/holograms.yml", /* copyDefaultsIfPresent */ true);
         reload();
     }
 
@@ -31,7 +36,7 @@ public final class HologramRegistry {
         byId.clear();
         cachedLines.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("holograms");
+        ConfigNode root = store.node("holograms");
         Map<String, ConfigNode> children = root.children();
         if (children.isEmpty()) {
             feature.getLogger().warning("No 'holograms' section found or empty");

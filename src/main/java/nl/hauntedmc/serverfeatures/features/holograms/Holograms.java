@@ -34,30 +34,6 @@ public final class Holograms extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
-
-        Map<String, Object> holograms = new LinkedHashMap<>();
-
-        holograms.put("spawn", mapOf(
-                "world", "world",
-                "x", 0.5D,
-                "y", 65.0D,
-                "z", 0.5D,
-                "yaw", 0.0F,
-                "pitch", 0.0F,
-                "billboard", "CENTER",        // FIXED, CENTER, VERTICAL, HORIZONTAL
-                "alignment", "CENTER",        // LEFT, CENTER, RIGHT
-                "line_width", 220,            // pixels; 0 or missing = no wrapping
-                "see_through", true,
-                "shadowed", true,
-                "use_default_background", false,
-                "background_color", "#66000000", // AARRGGBB or RRGGBB (assumes FF alpha if missing)
-                "glow", false,
-                "glow_color", "#00FFFF",
-                "view_range", 32.0F,
-                "brightness", mapOf("block", 15, "sky", 15)
-        ));
-
-        cfg.put("holograms", holograms);
         return cfg;
     }
 
