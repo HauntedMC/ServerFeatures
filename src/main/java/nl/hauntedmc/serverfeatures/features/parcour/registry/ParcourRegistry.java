@@ -1,13 +1,14 @@
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourDefinition;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegion;
 import nl.hauntedmc.serverfeatures.features.parcour.model.ParcourRegionType;
 import nl.hauntedmc.serverfeatures.features.parcour.model.Region;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -18,20 +19,27 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffectType;
 
 import java.util.*;
+import java.util.Base64;
 
+/**
+ * Registry that persists parcours in local/parcours.yml (root key: "parcours"),
+ * using the unified ConfigService/ConfigView API.
+ */
 public final class ParcourRegistry {
 
     private final Parcour feature;
+    private final ConfigView store; // points at local/parcours.yml
     private final Map<String, ParcourDefinition> byId = new LinkedHashMap<>();
 
     public ParcourRegistry(Parcour feature) {
         this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/parcours.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {
         byId.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("parcours");
+        ConfigNode root = store.node("parcours");
         Map<String, ConfigNode> children = root.children();
         FeatureLogger log = feature.getLogger();
 
@@ -69,7 +77,6 @@ public final class ParcourRegistry {
                 def.setSlotLeave(n.get("slot_leave").as(Integer.class, 5));
                 def.setEnableLeaveItem(n.get("enable_leave_item").as(Boolean.class, true));
                 def.setEnableCheckpointItem(n.get("enable_checkpoint_item").as(Boolean.class, true));
-                // End new options
 
                 ConfigNode eff = n.get("effect");
                 String effType = eff.get("type").as(String.class, null);
@@ -333,11 +340,10 @@ public final class ParcourRegistry {
     }
 
     public void saveParcour(ParcourDefinition def) {
-        var cfg = feature.getConfigHandler();
         String keyId = def.id();
         String base = "parcours." + keyId;
 
-        cfg.batch(b -> {
+        store.batch(b -> {
             b.put(base + ".notify_progress", def.notifyProgress());
             b.put(base + ".use_actionbar", def.useActionBar());
             b.put(base + ".finish_teleport_delay_seconds", def.finishTeleportDelaySeconds());
@@ -450,7 +456,7 @@ public final class ParcourRegistry {
         byId.remove(keyLower);
         String base = "parcours." + id;
 
-        feature.getConfigHandler().batch(b -> {
+        store.batch(b -> {
             b.remove(base + ".leave_location");
             b.remove(base + ".finish_location");
             b.remove(base + ".regions");
@@ -501,7 +507,6 @@ public final class ParcourRegistry {
     public Optional<String> serializeItemToBase64(ItemStack item) {
         if (item == null) return Optional.empty();
         try {
-            // Modern, safe binary serialization provided by Bukkit/Paper 1.21+
             byte[] bytes = item.serializeAsBytes();
             return Optional.of(Base64.getEncoder().encodeToString(bytes));
         } catch (Throwable ex) {
@@ -520,7 +525,6 @@ public final class ParcourRegistry {
             return Optional.empty();
         }
         try {
-            // Counterpart of serializeAsBytes()
             ItemStack item = ItemStack.deserializeBytes(data);
             return Optional.of(item);
         } catch (Throwable ex) {
@@ -534,7 +538,7 @@ public final class ParcourRegistry {
         if (defOpt.isEmpty()) return false;
         String realId = defOpt.get().id();
         String base = "parcours." + realId;
-        feature.getConfigHandler().batch(b -> b.remove(base + ".leave_location"));
+        store.batch(b -> b.remove(base + ".leave_location"));
         // Reload to ensure in-memory defs reflect cleared state
         reloadFromConfig();
         return true;
@@ -545,7 +549,7 @@ public final class ParcourRegistry {
         if (defOpt.isEmpty()) return false;
         String realId = defOpt.get().id();
         String base = "parcours." + realId;
-        feature.getConfigHandler().batch(b -> b.remove(base + ".finish_location"));
+        store.batch(b -> b.remove(base + ".finish_location"));
         reloadFromConfig();
         return true;
     }
@@ -567,7 +571,7 @@ public final class ParcourRegistry {
         }
 
         String base = "parcours." + def.id() + ".regions." + pathKey + ".restore_location";
-        feature.getConfigHandler().batch(b -> b.remove(base));
+        store.batch(b -> b.remove(base));
         reloadFromConfig();
         return true;
     }
