@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.joinitems.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.joinitems.JoinItems;
 import nl.hauntedmc.serverfeatures.features.joinitems.model.JoinItemDefinition;
 import org.bukkit.Material;
@@ -20,7 +22,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Core logic:
- * - Parse & hold definitions and global options from ConfigHandler (typed + ConfigNode).
+ * - Parse & hold definitions and global options.
+ *   - Global options come from feature config.yml (scoped view).
+ *   - Item definitions are read from local/joinitems.yml under "items".
  * - Create and tag ItemStacks (PDC) for robust identification.
  * - Give/remove items; detect managed items using PDC.
  * <p>
@@ -33,6 +37,10 @@ public final class JoinItemsHandler {
 
     private final JoinItems feature;
     private final NamespacedKey pdcItemKey;
+
+    /** local/joinitems.yml store (root key used here: "items") */
+    private final ConfigView store;
+
     // Item definitions, deterministic order (config insertion order preserved)
     private final Map<String, JoinItemDefinition> defsById = new LinkedHashMap<>();
     // (defIdLower -> ItemStack template). Rebuilt on reload.
@@ -46,6 +54,7 @@ public final class JoinItemsHandler {
     public JoinItemsHandler(JoinItems feature) {
         this.feature = feature;
         this.pdcItemKey = new NamespacedKey(feature.getPlugin(), KEY_ITEM_ID);
+        this.store = new ConfigService(feature.getPlugin()).view("local/joinitems.yml", /* copyDefaultsIfPresent */ true);
     }
 
     // Convenience for right-hand interactions only
@@ -57,17 +66,22 @@ public final class JoinItemsHandler {
         defsById.clear();
         templateCache.clear();
 
-        // ---- Global options (typed getters)
+        // ---- Global options (typed getters) from feature config.yml
         includeAllItems = feature.getConfigHandler().get("include-all-items", Boolean.class, false);
         removeOnJoin = feature.getConfigHandler().get("remove-on-join", Boolean.class, true);
         removeOnLeave = feature.getConfigHandler().get("remove-on-leave", Boolean.class, true);
         joinDelayTicks = feature.getConfigHandler().get("join-delay", Integer.class, 2);
 
-        // ---- Items section using ConfigNode (normalized + typed)
-        ConfigNode items = feature.getConfigHandler().node("items");
-        int loaded = 0;
+        // ---- Items section using ConfigNode (normalized + typed) from local/joinitems.yml
+        ConfigNode items = store.node("items");
+        Map<String, ConfigNode> children = items.children();
+        if (children.isEmpty()) {
+            feature.getLogger().warning("[JoinItems] No 'items' section found in local/joinitems.yml or it is empty.");
+            return;
+        }
 
-        for (Map.Entry<String, ConfigNode> entry : items.children().entrySet()) {
+        int loaded = 0;
+        for (Map.Entry<String, ConfigNode> entry : children.entrySet()) {
             String idKey = entry.getKey();
             ConfigNode n = entry.getValue();
 
@@ -94,7 +108,7 @@ public final class JoinItemsHandler {
 
             Material mat = Material.matchMaterial(materialStr);
             if (mat == null) {
-                feature.getLogger().warning("Unknown material '" + materialStr + "' for item '" + idKey + "'. Defaulting to STONE.");
+                feature.getLogger().warning("[JoinItems] Unknown material '" + materialStr + "' for item '" + idKey + "'. Defaulting to STONE.");
                 mat = Material.STONE;
             }
 
@@ -110,7 +124,7 @@ public final class JoinItemsHandler {
             loaded++;
         }
 
-        feature.getLogger().info("Loaded " + loaded + " join items");
+        feature.getLogger().info("Loaded " + loaded + " join items from local/joinitems.yml");
     }
 
     public boolean isIncludeAllItems() {

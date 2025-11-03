@@ -1,0 +1,34 @@
+items:
+  cosmetic-item:
+    material: END_CRYSTAL
+    slot: 4
+    name: '&d&lCosmetics'
+    command:
+      - balloons
+    lore:
+      - '&7Klik om het menu te openen.'
+    locked: true
+    unmovable: true
+    undroppable: true
+  server-item:
+    material: COMPASS
+    slot: 0
+    name: '&b&lHaunted&6&lMC &e&lMenu'
+    command:
+      - menu
+    lore:
+      - '&7Klik om het menu te openen.'
+    locked: true
+    unmovable: true
+    undroppable: true
+  lobby-item:
+    material: NETHER_STAR
+    slot: 8
+    name: '&e&lLobby Selector'
+    command:
+      - lobbymenu
+    lore:
+      - '&7Klik om het menu te openen.'
+    locked: true
+    unmovable: true
+    undroppable: true

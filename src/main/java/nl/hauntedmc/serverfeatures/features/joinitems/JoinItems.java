@@ -34,45 +34,6 @@ public final class JoinItems extends BukkitBaseFeature<Meta> {
         cfg.put("remove-on-join", true);
         cfg.put("remove-on-leave", true);
         cfg.put("join-delay", 2); // ticks
-
-
-        Map<String, Object> items = new LinkedHashMap<>();
-
-        Map<String, Object> cosmetic = new LinkedHashMap<>();
-        cosmetic.put("material", "END_CRYSTAL");
-        cosmetic.put("slot", 4);
-        cosmetic.put("name", "&d&lCosmetics");
-        cosmetic.put("command", List.of("cosmetics"));
-        cosmetic.put("lore", List.of("&7Klik om het menu te openen."));
-        cosmetic.put("locked", true);
-        cosmetic.put("unmovable", true);
-        cosmetic.put("undroppable", true);
-        items.put("cosmetic-item", cosmetic);
-
-        Map<String, Object> server = new LinkedHashMap<>();
-        server.put("material", "COMPASS");
-        server.put("slot", 0);
-        server.put("name", "&b&lHaunted&6&lMC &e&lMenu");
-        server.put("command", List.of("menu"));
-        server.put("lore", List.of("&7Klik om het menu te openen."));
-        server.put("locked", true);
-        server.put("unmovable", true);
-        server.put("undroppable", true);
-        items.put("server-item", server);
-
-        Map<String, Object> lobby = new LinkedHashMap<>();
-        lobby.put("material", "NETHER_STAR");
-        lobby.put("slot", 8);
-        lobby.put("name", "&e&lLobby Selector");
-        lobby.put("command", List.of("lobbymenu"));
-        lobby.put("lore", List.of("&7Klik om het menu te openen."));
-        lobby.put("locked", true);
-        lobby.put("unmovable", true);
-        lobby.put("undroppable", true);
-        items.put("lobby-item", lobby);
-
-        cfg.put("items", items);
-
         return cfg;
     }
 

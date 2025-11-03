@@ -1,0 +1,29 @@
+formats:
+  default:
+    prefix_click_command: /store
+    name_tooltip:
+      - '&bUsername: &7%player_name%'
+      - '&bPing: &7%player_ping%ms'
+      - ''
+      - '&eKlik om &a%player_name% &eeen'
+      - '&ebericht te sturen.'
+    prefix_tooltip:
+      - '&6Rank: %vault_rankprefix%'
+      - '&6Star Tier: &f<star_tier>'
+      - ''
+      - '&7Bekijk de voordelen op'
+      - '&bwww.hauntedmc.nl/ranks'
+      - ''
+      - '&7Bekijk onze winkel op'
+      - '&astore.hauntedmc.nl'
+      - ''
+      - '&eKlik voor een link'
+      - '&enaar de Store.'
+    prefix: '&f%vault_rankprefix%'
+    name_click_command: '/msg %player_name% '
+    name: '&7%serverfeatures_nickname%'
+    suffix_click_command: ''
+    priority: 100
+    suffix: '&f: '
+    suffix_tooltip:
+      - ''
