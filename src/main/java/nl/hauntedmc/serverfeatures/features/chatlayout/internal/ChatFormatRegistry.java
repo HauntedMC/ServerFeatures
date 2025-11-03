@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import org.bukkit.entity.Player;
 
@@ -11,10 +13,17 @@ import java.util.TreeMap;
 
 public class ChatFormatRegistry {
 
+    /** local/chatformats.yml (root key used: "formats") */
+    private final ConfigView store;
+    private final ChatLayout feature;
+
+    /** priority -> format (TreeMap keeps priorities ordered) */
     private final TreeMap<Integer, ChatFormat> formats = new TreeMap<>();
 
     public ChatFormatRegistry(ChatLayout feature) {
-        loadFormats(feature);
+        this.feature = feature;
+        this.store = new ConfigService(feature.getPlugin()).view("local/chatformats.yml", /* copyDefaultsIfPresent */ true);
+        loadFormats();
     }
 
     public ChatFormat getPlayerFormat(Player player) {
@@ -36,12 +45,13 @@ public class ChatFormatRegistry {
         return defaultFormat;
     }
 
-    private void loadFormats(ChatLayout feature) {
+    private void loadFormats() {
         formats.clear();
 
-        ConfigNode root = feature.getConfigHandler().node("formats");
+        ConfigNode root = store.node("formats");
         Map<String, ConfigNode> children = root.children();
         if (children.isEmpty()) {
+            feature.getLogger().warning("[ChatLayout] No 'formats' section found in local/chatformats.yml or it is empty.");
             return;
         }
 

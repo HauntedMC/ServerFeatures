@@ -55,42 +55,6 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
         placeholders.put("ping", "[ping]");
         defaults.put("placeholders", placeholders);
 
-
-        Map<String, Object> defaultFormat = new HashMap<>();
-        defaultFormat.put("priority", 100);
-        defaultFormat.put("prefix", "&f%vault_rankprefix%");
-        defaultFormat.put("name", "&7%serverfeatures_nickname%");
-        defaultFormat.put("suffix", "&f: ");
-        defaultFormat.put("prefix_tooltip", List.of(
-                "&6Rank: %vault_rankprefix%",
-                "&6Star Tier: &f<star_tier>",
-                "",
-                "&7Bekijk de voordelen op",
-                "&bwww.hauntedmc.nl/ranks",
-                "",
-                "&7Bekijk onze winkel op",
-                "&astore.hauntedmc.nl",
-                "",
-                "&eKlik voor een link",
-                "&enaar de Store."
-        ));
-        defaultFormat.put("name_tooltip", List.of(
-                "&bUsername: &7%player_name%",
-                "&bPing: &7%player_ping%ms",
-                "",
-                "&eKlik om &a%player_name% &eeen",
-                "&ebericht te sturen."
-        ));
-        defaultFormat.put("suffix_tooltip", List.of(""));
-
-        defaultFormat.put("prefix_click_command", "/store");
-        defaultFormat.put("name_click_command", "/msg %player_name% ");
-        defaultFormat.put("suffix_click_command", "");
-
-        Map<String, Object> formats = new HashMap<>();
-        formats.put("default", defaultFormat);
-        defaults.put("formats", formats);
-
         return defaults;
     }
 
