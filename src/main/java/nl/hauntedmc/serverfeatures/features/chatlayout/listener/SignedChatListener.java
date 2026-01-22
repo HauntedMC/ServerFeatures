@@ -26,13 +26,13 @@ public class SignedChatListener implements Listener {
         event.renderer((sender, playerName, message, audience) -> {
             // Build the base formatted message with your ChatLayout (prefix + name + suffix + message)
             Component base = feature.getChatHandler().renderBaseMessage(sender, audience, message);
-            boolean senderIsStaff = sender.hasPermission("staff.remove");
+            boolean senderIsStaff = sender.hasPermission("serverfeatures.feature.chatlayout.remove.staff");
 
             // Show staff delete control in FRONT when:
             if (audience instanceof Player viewer)
-                if (viewer.hasPermission("admin.remove")) {
+                if (viewer.hasPermission("serverfeatures.feature.chatlayout.remove.admin")) {
                     return staffRemoveButton(base, event.signedMessage());
-                } else if (viewer.hasPermission("staff.remove") && (!senderIsStaff || sender == viewer)) {
+                } else if (viewer.hasPermission("serverfeatures.feature.chatlayout.remove.staff") && (!senderIsStaff || sender == viewer)) {
                     return staffRemoveButton(base, event.signedMessage());
                 }
             // Normal viewers (and staff viewing staff messages) just see the base layout
