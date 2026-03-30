@@ -5,11 +5,15 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import java.util.*;
 
 public class FeatureRegistry {
-    private final Map<String, BukkitBaseFeature<?>> loadedFeatures = new HashMap<>();
-    private final Map<String, FeatureDescriptor> availableFeatures = new HashMap<>();
+    private final Map<String, BukkitBaseFeature<?>> loadedFeatures = new LinkedHashMap<>();
+    private final Map<String, FeatureDescriptor> availableFeatures = new LinkedHashMap<>();
 
     public void registerAvailableFeature(FeatureDescriptor descriptor) {
         availableFeatures.put(descriptor.registryName(), descriptor);
+    }
+
+    public void deregisterAvailableFeature(String featureName) {
+        availableFeatures.remove(featureName);
     }
 
     public void registerLoadedFeature(String featureName, BukkitBaseFeature<?> feature) {

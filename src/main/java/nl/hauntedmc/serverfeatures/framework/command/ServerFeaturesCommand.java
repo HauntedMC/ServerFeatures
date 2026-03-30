@@ -265,19 +265,8 @@ public final class ServerFeaturesCommand {
             return;
         }
 
-        // Not loaded: exists in available?
-        Map<String, FeatureDescriptor> available = reg.getAvailableFeatures();
-        String availableKey = null;
-        if (available.containsKey(featureName)) {
-            availableKey = featureName;
-        } else {
-            for (String k : available.keySet()) {
-                if (k != null && k.equalsIgnoreCase(featureName)) {
-                    availableKey = k;
-                    break;
-                }
-            }
-        }
+        // Not loaded: resolve against available feature keys (case-insensitive, aliases)
+        String availableKey = plugin.getFeatureLoadManager().resolveFeatureKey(featureName);
 
         if (availableKey != null) {
             FeatureDescriptor descriptor = reg.getAvailableFeature(availableKey);

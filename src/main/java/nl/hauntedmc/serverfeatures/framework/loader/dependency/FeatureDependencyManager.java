@@ -23,8 +23,14 @@ public class FeatureDependencyManager {
      * Ensures that all dependencies of a feature are enabled before loading.
      */
     public boolean areDependenciesMet(String featureName) {
-        return checkDependencies(featureName, new HashSet<>(), new HashSet<>())
-                && arePluginDependenciesMet(featureName);
+        String featureKey = featureLoadManager.resolveFeatureKey(featureName);
+        if (featureKey == null) {
+            logger.warning("Feature not found in registry: " + featureName);
+            return false;
+        }
+
+        return checkDependencies(featureKey, new HashSet<>(), new HashSet<>())
+                && arePluginDependenciesMet(featureKey);
     }
 
     /**
@@ -52,13 +58,19 @@ public class FeatureDependencyManager {
             }
 
             for (String dependency : descriptor.featureDependencies()) {
-                if (!checkDependencies(dependency, activePath, resolved)) {
+                String dependencyKey = featureLoadManager.resolveFeatureKey(dependency);
+                if (dependencyKey == null) {
+                    logger.warning("Missing dependency '" + dependency + "' for feature " + featureName);
                     return false;
                 }
 
-                if (!featureLoadManager.getFeatureRegistry().isFeatureLoaded(dependency)) {
-                    logger.info("Enabling dependency " + dependency + " for " + featureName);
-                    if (!featureLoadManager.loadFeature(dependency)) {
+                if (!checkDependencies(dependencyKey, activePath, resolved)) {
+                    return false;
+                }
+
+                if (!featureLoadManager.getFeatureRegistry().isFeatureLoaded(dependencyKey)) {
+                    logger.info("Enabling dependency " + dependencyKey + " for " + featureName);
+                    if (!featureLoadManager.loadFeature(dependencyKey)) {
                         return false;
                     }
                 }
@@ -88,10 +100,24 @@ public class FeatureDependencyManager {
      * Finds features that depend on a given feature.
      */
     public List<String> getDependentFeatures(String featureName) {
+        String targetKey = featureLoadManager.resolveFeatureKey(featureName);
+        if (targetKey == null) {
+            return List.of();
+        }
+
         return featureLoadManager.getFeatureRegistry().getLoadedFeatureNames().stream()
                 .filter(name -> {
                     FeatureDescriptor descriptor = featureLoadManager.getFeatureRegistry().getAvailableFeature(name);
-                    return descriptor != null && descriptor.featureDependencies().contains(featureName);
+                    if (descriptor == null) {
+                        return false;
+                    }
+                    for (String dependency : descriptor.featureDependencies()) {
+                        String dependencyKey = featureLoadManager.resolveFeatureKey(dependency);
+                        if (targetKey.equals(dependencyKey)) {
+                            return true;
+                        }
+                    }
+                    return false;
                 })
                 .toList();
     }
