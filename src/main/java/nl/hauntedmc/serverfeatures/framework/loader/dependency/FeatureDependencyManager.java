@@ -4,8 +4,6 @@ import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
 
 import java.util.HashSet;
 import java.util.List;
@@ -50,10 +48,7 @@ public class FeatureDependencyManager {
             if (!featureLoadManager.getFeatureRegistry().isFeatureLoaded(dependency)) {
                 logger.info("Enabling dependency " + dependency + " for " + featureName);
 
-                BukkitBaseFeature<?> dependencyFeature = FeatureFactory.createFeature(
-                        featureLoadManager.getFeatureRegistry().getAvailableFeatures().get(dependency),
-                        this.plugin
-                );
+                BukkitBaseFeature<?> dependencyFeature = instantiateFeature(dependency);
 
                 if (dependencyFeature == null) {
                     logger.warning("Failed to instantiate dependency " + dependency + " for " + featureName);
@@ -78,23 +73,14 @@ public class FeatureDependencyManager {
      * Checks if all required external plugins are loaded.
      */
     public boolean arePluginDependenciesMet(BukkitBaseFeature<?> feature) {
-        List<String> requiredPlugins = feature.getPluginDependencies();
-
-        for (String pluginName : requiredPlugins) {
-            if (!isPluginLoaded(pluginName)) {
-                logger.warning("Cannot enable " + feature.getFeatureName() + " because required plugin " + pluginName + " is missing.");
-                return false;
-            }
+        Set<String> missingPlugins = featureLoadManager.getMissingPluginDependencies(feature);
+        if (!missingPlugins.isEmpty()) {
+            logger.warning("Cannot enable " + feature.getFeatureName() + " because required plugin(s) "
+                    + String.join(", ", missingPlugins) + " are missing.");
+            return false;
         }
-        return true;
-    }
 
-    /**
-     * Checks if a specific plugin is loaded.
-     */
-    public boolean isPluginLoaded(String pluginName) {
-        Plugin foundPlugin = Bukkit.getPluginManager().getPlugin(pluginName);
-        return foundPlugin != null && foundPlugin.isEnabled();
+        return true;
     }
 
     /**
@@ -105,5 +91,17 @@ public class FeatureDependencyManager {
                 .filter(name -> featureLoadManager.getFeatureRegistry().getLoadedFeature(name)
                         .getDependencies().contains(featureName))
                 .toList();
+    }
+
+    private BukkitBaseFeature<?> instantiateFeature(String featureName) {
+        Class<? extends BukkitBaseFeature<?>> featureClass = featureLoadManager
+                .getFeatureRegistry()
+                .getAvailableFeatures()
+                .get(featureName);
+        if (featureClass == null) {
+            logger.warning("Dependency feature not found: " + featureName);
+            return null;
+        }
+        return FeatureFactory.createFeature(featureClass, this.plugin);
     }
 }

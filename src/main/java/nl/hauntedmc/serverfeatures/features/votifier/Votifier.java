@@ -37,15 +37,16 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // Init data provider and get Redis messaging access
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
+            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
+        }
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
                 .registerDataAccess("redis", DatabaseType.REDIS_MESSAGING, CONNECTION, MessagingDataAccess.class);
 
         if (redisBus.isEmpty()) {
-            getLogger().warning("Redis messaging provider not available; subscribe skipped.");
-            return;
+            throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
         }
 
         // Subscribe to the vote channel

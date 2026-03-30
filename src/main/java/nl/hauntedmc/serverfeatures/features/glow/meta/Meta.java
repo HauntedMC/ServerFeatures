@@ -22,4 +22,9 @@ public class Meta implements BaseMeta {
     public List<String> getDependencies() {
         return List.of("Nametags");
     }
+
+    @Override
+    public List<String> getPluginDependencies() {
+        return List.of("DataProvider", "DataRegistry");
+    }
 }

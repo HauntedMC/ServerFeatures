@@ -15,7 +15,9 @@ public class FeatureLifecycleManager {
         this.taskManager = new FeatureTaskManager(plugin);
         this.commandManager = new FeatureCommandManager(plugin);
         this.listenerManager = new FeatureListenerManager(plugin);
-        this.dataManager = new FeatureDataManager(plugin);
+        this.dataManager = plugin.getServer().getPluginManager().isPluginEnabled("DataProvider")
+                ? new FeatureDataManager(plugin)
+                : null;
         this.cacheManager = new FeatureCacheManager(plugin);
         this.guiManager = new FeatureGUIManager(plugin, taskManager);
         this.listenerManager.registerListener(guiManager);
@@ -46,6 +48,9 @@ public class FeatureLifecycleManager {
      * Provides access to the data manager.
      */
     public FeatureDataManager getDataManager() {
+        if (dataManager == null) {
+            throw new IllegalStateException("DataProvider is not enabled; data manager is unavailable.");
+        }
         return dataManager;
     }
 
@@ -72,7 +77,9 @@ public class FeatureLifecycleManager {
         taskManager.cancelAllTasks();
         commandManager.unregisterAllFeatureCommands();
         commandManager.unregisterAllBrigadierCommands();
-        dataManager.closeAllConnections();
+        if (dataManager != null) {
+            dataManager.closeAllConnections();
+        }
         cacheManager.cleanupAll();
     }
 }

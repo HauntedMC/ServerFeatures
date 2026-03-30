@@ -17,7 +17,6 @@ import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReload
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResult;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.logging.Level;
 
@@ -52,8 +51,8 @@ public class FeatureLoadManager {
                         Class<? extends BukkitBaseFeature<?>> featureClass = (Class<? extends BukkitBaseFeature<?>>) clazz;
                         featureRegistry.registerAvailableFeature(classInfo.getSimpleName(), featureClass);
                     }
-                } catch (ClassNotFoundException e) {
-                    plugin.getLogger().log(Level.SEVERE, "Failed to load feature class: " + classInfo.getName(), e);
+                } catch (Throwable t) {
+                    plugin.getLogger().log(Level.SEVERE, "Failed to load feature class: " + classInfo.getName(), t);
                 }
             });
         }
@@ -234,27 +233,19 @@ public class FeatureLoadManager {
         plugin.getLogger().info("All features have been unloaded.");
     }
 
-    private DependencyCheckResult diagnoseDependencies(BukkitBaseFeature<?> feature) {
+    public Set<String> getMissingPluginDependencies(BukkitBaseFeature<?> feature) {
         Set<String> missingPlugins = new LinkedHashSet<>();
-        Set<String> missingFeatures = new LinkedHashSet<>();
-
-        // Optional: getPluginDependencies()
-        try {
-            Method m = feature.getClass().getMethod("getPluginDependencies");
-            Object o = m.invoke(feature);
-            if (o instanceof Collection<?> col) {
-                for (Object item : col) {
-                    String name = String.valueOf(item);
-                    var pl = plugin.getServer().getPluginManager().getPlugin(name);
-                    if (pl == null || !pl.isEnabled()) {
-                        missingPlugins.add(name);
-                    }
-                }
+        for (String pluginName : feature.getPluginDependencies()) {
+            if (!isPluginEnabled(pluginName)) {
+                missingPlugins.add(pluginName);
             }
-        } catch (NoSuchMethodException ignored) {
-        } catch (Throwable t) {
-            plugin.getLogger().log(Level.WARNING, "Failed to read plugin dependencies for " + feature.getFeatureName(), t);
         }
+        return missingPlugins;
+    }
+
+    private DependencyCheckResult diagnoseDependencies(BukkitBaseFeature<?> feature) {
+        Set<String> missingPlugins = getMissingPluginDependencies(feature);
+        Set<String> missingFeatures = new LinkedHashSet<>();
 
         // Feature dependencies
         for (String dep : feature.getDependencies()) {
@@ -284,11 +275,23 @@ public class FeatureLoadManager {
                 plugin.getLogger().warning("Feature " + featureName + " is missing dependencies and cannot be enabled.");
                 return false;
             }
-            feature.initialize();
+
+            try {
+                feature.initialize();
+            } catch (Throwable t) {
+                plugin.getLogger().log(Level.SEVERE, "Feature '" + featureName + "' failed to initialize.", t);
+                return false;
+            }
+
             featureRegistry.registerLoadedFeature(featureName, feature);
             plugin.getLogger().info("Feature loaded: " + featureName);
             return true;
         }
         return false;
+    }
+
+    private boolean isPluginEnabled(String pluginName) {
+        var foundPlugin = plugin.getServer().getPluginManager().getPlugin(pluginName);
+        return foundPlugin != null && foundPlugin.isEnabled();
     }
 }

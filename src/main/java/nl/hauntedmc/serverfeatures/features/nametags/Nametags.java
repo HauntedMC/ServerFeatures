@@ -63,7 +63,9 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         new PlaceholderHook(this);
 
         // Data layer (ORM)
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
+            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
+        }
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         this.ormContext = getLifecycleManager().getDataManager()
                 .createORMContext("ormConnection", PlayerEntity.class, PlayerNametagEntity.class)

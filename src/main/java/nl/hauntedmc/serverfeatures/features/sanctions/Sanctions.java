@@ -46,7 +46,9 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // DB & ORM setup
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
+            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
+        }
         getLifecycleManager().getDataManager().registerConnection(
                 "orm", DatabaseType.MYSQL, "player_data_rw");
         orm = getLifecycleManager().getDataManager()

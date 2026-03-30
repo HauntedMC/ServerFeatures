@@ -55,18 +55,18 @@ public class FeatureDataManager {
      *
      * @param featureName the name of the feature
      */
-    public void initDataProvider(String featureName) {
+    public boolean initDataProvider(String featureName) {
         this.featureName = featureName;
         this.initialized = false;
 
         if (featureName == null || featureName.isBlank()) {
             plugin.getLogger().severe("Feature name cannot be null or blank.");
-            return;
+            return false;
         }
 
         if (getDataProviderApi().isEmpty()) {
             plugin.getLogger().severe("DataProviderAPI is not available for feature '" + featureName + "'.");
-            return;
+            return false;
         }
 
         initialized = true;
@@ -74,6 +74,7 @@ public class FeatureDataManager {
                 "DataProvider initialized for feature '" + featureName
                         + "'. Caller identity is resolved automatically by DataProvider."
         );
+        return true;
     }
 
     /**
@@ -248,6 +249,10 @@ public class FeatureDataManager {
      */
     public int getActiveConnCount() {
         return connectionsByIdentifier.size();
+    }
+
+    public boolean isInitialized() {
+        return initialized;
     }
 
     ORMContext newOrmContext(String ownerName, DataSource dataSource, Class<?>... entityClasses) {

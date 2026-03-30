@@ -43,9 +43,11 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // Init Redis messaging
-        getLifecycleManager()
+        if (!getLifecycleManager()
                 .getDataManager()
-                .initDataProvider(getFeatureName());
+                .initDataProvider(getFeatureName())) {
+            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
+        }
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
@@ -57,7 +59,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
                 );
 
         if (redisBus.isEmpty()) {
-            return;
+            throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
         }
 
         // Create the handler

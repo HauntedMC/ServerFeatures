@@ -93,7 +93,9 @@ public class Vanish extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // --- Data layer (ORM) ---
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
+            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
+        }
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         ormContext = getLifecycleManager().getDataManager().createORMContext(
                 "ormConnection",

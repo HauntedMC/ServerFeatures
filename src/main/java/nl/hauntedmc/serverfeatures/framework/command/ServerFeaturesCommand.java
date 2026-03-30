@@ -11,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureDataManager;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
 
@@ -449,18 +450,30 @@ public final class ServerFeaturesCommand {
         List<String> cmds = new ArrayList<>();
         int loadedCount = loaded.size();
         int tasks = 0, listeners = 0, commands = 0, conns = 0;
+        boolean hasInitializedDataManager = false;
 
         for (BukkitBaseFeature<?> f : loaded) {
             commands += f.getLifecycleManager().getCommandManager().getTotalRegisteredCommandCount();
             cmds.addAll(f.getLifecycleManager().getCommandManager().getAllRegisteredCommandNames());
             tasks += f.getLifecycleManager().getTaskManager().getActiveTaskCount();
             listeners += f.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
-            conns += f.getLifecycleManager().getDataManager().getActiveConnCount();
+
+            try {
+                FeatureDataManager dataManager = f.getLifecycleManager().getDataManager();
+                if (dataManager.isInitialized()) {
+                    conns += dataManager.getActiveConnCount();
+                    hasInitializedDataManager = true;
+                }
+            } catch (IllegalStateException ignored) {
+                // Data manager is unavailable for this feature (e.g. missing DataProvider classes).
+            }
         }
 
         sender.sendMessage(Component.text("ServerFeatures Status:", NamedTextColor.YELLOW));
         sender.sendMessage(Component.text("- Number of loaded features: " + loadedCount, NamedTextColor.WHITE));
-        sender.sendMessage(Component.text("- Number of active database connections: " + conns, NamedTextColor.WHITE));
+        if (hasInitializedDataManager) {
+            sender.sendMessage(Component.text("- Number of active database connections: " + conns, NamedTextColor.WHITE));
+        }
         sender.sendMessage(Component.text("- Number of active tasks: " + tasks, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of registered listeners: " + listeners, NamedTextColor.WHITE));
         sender.sendMessage(Component.text("- Number of registered commands: " + commands, NamedTextColor.WHITE));
