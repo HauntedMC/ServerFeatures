@@ -1,16 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.staffchat;
 
-import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.ChatChannelHandler;
 import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.EventBusHandler;
-import nl.hauntedmc.serverfeatures.features.staffchat.internal.messaging.StaffChatMessage;
 import nl.hauntedmc.serverfeatures.features.staffchat.listener.ChatListener;
 import nl.hauntedmc.serverfeatures.features.staffchat.meta.Meta;
 
@@ -46,29 +43,20 @@ public class StaffChat extends BukkitBaseFeature<Meta> {
                 .getDataManager()
                 .initDataProvider(getFeatureName());
 
-        Optional<DatabaseProvider> opt = getLifecycleManager()
+        Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
-                .registerConnection(
+                .registerDataAccess(
                         "redis",
                         DatabaseType.REDIS_MESSAGING,
-                        "default"
+                        "hauntedmc",
+                        MessagingDataAccess.class
                 );
 
-        if (opt.isEmpty()) {
+        if (redisBus.isEmpty()) {
             return;
         }
 
-        DatabaseProvider dbp = opt.get();
-        MessagingDataAccess redisBus;
-        try {
-            redisBus = (MessagingDataAccess) dbp.getDataAccess();
-        } catch (ClassCastException e) {
-            return;
-        }
-
-        MessageRegistry.register("staffchat", StaffChatMessage.class);
-
-        eventBusHandler = new EventBusHandler(this, redisBus);
+        eventBusHandler = new EventBusHandler(this, redisBus.get());
 
         this.chatChannelHandler = new ChatChannelHandler(this);
         getLifecycleManager().getListenerManager().registerListener(new ChatListener(this));

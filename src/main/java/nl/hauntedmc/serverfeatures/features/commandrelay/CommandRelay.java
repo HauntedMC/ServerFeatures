@@ -1,16 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay;
 
-import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.commandrelay.command.CommandRelayCommand;
 import nl.hauntedmc.serverfeatures.features.commandrelay.internal.EventBusHandler;
-import nl.hauntedmc.serverfeatures.features.commandrelay.internal.messaging.CommandRelayMessage;
 import nl.hauntedmc.serverfeatures.features.commandrelay.meta.Meta;
 
 import java.util.List;
@@ -50,32 +47,21 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
                 .getDataManager()
                 .initDataProvider(getFeatureName());
 
-        Optional<DatabaseProvider> opt = getLifecycleManager()
+        Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
-                .registerConnection(
+                .registerDataAccess(
                         "redis",
                         DatabaseType.REDIS_MESSAGING,
-                        "default"
+                        "hauntedmc",
+                        MessagingDataAccess.class
                 );
 
-        if (opt.isEmpty()) {
+        if (redisBus.isEmpty()) {
             return;
         }
-
-        // Obtain the Redis bus
-        DatabaseProvider dbp = opt.get();
-        MessagingDataAccess redisBus;
-        try {
-            redisBus = (MessagingDataAccess) dbp.getDataAccess();
-        } catch (ClassCastException e) {
-            return;
-        }
-
-        // Register the message type
-        MessageRegistry.register("commandrelay", CommandRelayMessage.class);
 
         // Create the handler
-        this.eventBusHandler = new EventBusHandler(this, redisBus);
+        this.eventBusHandler = new EventBusHandler(this, redisBus.get());
 
         // Fetch settings
         boolean listen = (Boolean) getConfigHandler().get("listening");

@@ -16,13 +16,6 @@
         <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
     </properties>
 
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/HauntedMC/${project.name}</url>
-        </repository>
-    </distributionManagement>
     <build>
         <finalName>${project.name}</finalName>
         <plugins>
@@ -199,6 +192,10 @@
             <id>viaversion-repo</id>
             <url>https://repo.viaversion.com</url>
         </repository>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/HauntedMC/*</url>
+        </repository>
     </repositories>
     <dependencies>
         <dependency>
@@ -210,19 +207,18 @@
         <dependency>
             <groupId>nl.hauntedmc.dataregistry</groupId>
             <artifactId>dataregistry</artifactId>
-            <version>1.5.1</version>
+            <version>1.7.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.dataprovider</groupId>
             <artifactId>dataprovider</artifactId>
-            <version>1.19.0</version>
-            <scope>provided</scope>
+            <version>2.0.0</version>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.proxyfeatures</groupId>
             <artifactId>proxyfeatures</artifactId>
-            <version>1.6.0</version>
+            <version>1.7.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>

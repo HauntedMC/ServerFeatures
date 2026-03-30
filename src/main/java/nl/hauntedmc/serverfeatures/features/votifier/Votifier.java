@@ -1,15 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.votifier;
 
-import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.dataprovider.database.messaging.api.MessageRegistry;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.votifier.internal.EventBusHandler;
-import nl.hauntedmc.serverfeatures.features.votifier.messaging.VoteMessage;
 import nl.hauntedmc.serverfeatures.features.votifier.meta.Meta;
 
 import java.util.Optional;
@@ -17,7 +14,7 @@ import java.util.Optional;
 public class Votifier extends BukkitBaseFeature<Meta> {
 
     private static final String CHANNEL = "vote";     // must match proxy publisher
-    private static final String CONNECTION = "default";
+    private static final String CONNECTION = "hauntedmc";
 
     private EventBusHandler eventBusHandler;
 
@@ -42,28 +39,17 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         // Init data provider and get Redis messaging access
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
 
-        Optional<DatabaseProvider> opt = getLifecycleManager()
+        Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
-                .registerConnection("redis", DatabaseType.REDIS_MESSAGING, CONNECTION);
+                .registerDataAccess("redis", DatabaseType.REDIS_MESSAGING, CONNECTION, MessagingDataAccess.class);
 
-        if (opt.isEmpty()) {
+        if (redisBus.isEmpty()) {
             getLogger().warning("Redis messaging provider not available; subscribe skipped.");
             return;
         }
 
-        MessagingDataAccess redisBus;
-        try {
-            redisBus = (MessagingDataAccess) opt.get().getDataAccess();
-        } catch (ClassCastException e) {
-            getLogger().warning("DataAccess is not MessagingDataAccess; subscribe skipped.");
-            return;
-        }
-
-        // Register message schema (matches proxy publisher key "votifier")
-        MessageRegistry.register("votifier", VoteMessage.class);
-
         // Subscribe to the vote channel
-        this.eventBusHandler = new EventBusHandler(this, redisBus);
+        this.eventBusHandler = new EventBusHandler(this, redisBus.get());
         this.eventBusHandler.subscribe(CHANNEL);
     }
 
