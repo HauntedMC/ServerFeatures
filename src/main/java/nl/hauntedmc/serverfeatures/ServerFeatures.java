@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
@@ -28,7 +29,7 @@ public class ServerFeatures extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (Bukkit.getPluginManager().getPlugin("packetevents") != null) {
+        if (Bukkit.getPluginManager().getPlugin(BaseMeta.PACKET_EVENTS) != null) {
             PacketEvents.getAPI().init();
         }
 

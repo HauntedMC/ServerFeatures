@@ -19,7 +19,7 @@ public class Meta implements BaseMeta {
 
     @Override
     public List<String> getPluginDependencies() {
-        return List.of("packetevents", "DataProvider", "DataRegistry");
+        return List.of(PACKET_EVENTS, DATA_PROVIDER, DATA_REGISTRY);
     }
 
 }

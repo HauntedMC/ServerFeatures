@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 
 public class FeatureLifecycleManager {
@@ -15,7 +16,7 @@ public class FeatureLifecycleManager {
         this.taskManager = new FeatureTaskManager(plugin);
         this.commandManager = new FeatureCommandManager(plugin);
         this.listenerManager = new FeatureListenerManager(plugin);
-        this.dataManager = plugin.getServer().getPluginManager().isPluginEnabled("DataProvider")
+        this.dataManager = plugin.getServer().getPluginManager().isPluginEnabled(BaseMeta.DATA_PROVIDER)
                 ? new FeatureDataManager(plugin)
                 : null;
         this.cacheManager = new FeatureCacheManager(plugin);

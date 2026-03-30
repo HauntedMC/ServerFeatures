@@ -32,7 +32,7 @@ public class Actionbar extends BukkitBaseFeature<Meta> {
         messages.add("actionbar.usage", "&7Gebruik: /actionbar <start|stop|send> <seconden> <bericht...>");
         messages.add("actionbar.started", "&7De ActionBar cyclus is gestart.");
         messages.add("actionbar.stopped", "&7De ActionBar cyclus is gestopt.");
-        messages.add("actionbar.send_usage", "&7Gebruik: /actionbar send <seconden> <bericht>");
+        messages.add("actionbar.send_usage", "&7Gebruik: /actionbar send <bericht> [tijd in seconden]");
         messages.add("actionbar.invalid_time", "&cOngeldige tijd. Gebruik een numerieke waarde voor seconden.");
         messages.add("actionbar.sent_once", "&7ActionBar bericht verzonden: {message}");
         messages.add("actionbar.sent_timer", "&7ActionBar bericht verzonden voor {time} seconden: {message}");

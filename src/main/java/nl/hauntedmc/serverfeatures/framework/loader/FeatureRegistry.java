@@ -6,10 +6,10 @@ import java.util.*;
 
 public class FeatureRegistry {
     private final Map<String, BukkitBaseFeature<?>> loadedFeatures = new HashMap<>();
-    private final Map<String, Class<? extends BukkitBaseFeature<?>>> availableFeatures = new HashMap<>();
+    private final Map<String, FeatureDescriptor> availableFeatures = new HashMap<>();
 
-    public void registerAvailableFeature(String featureName, Class<? extends BukkitBaseFeature<?>> featureClass) {
-        availableFeatures.put(featureName, featureClass);
+    public void registerAvailableFeature(FeatureDescriptor descriptor) {
+        availableFeatures.put(descriptor.registryName(), descriptor);
     }
 
     public void registerLoadedFeature(String featureName, BukkitBaseFeature<?> feature) {
@@ -25,15 +25,19 @@ public class FeatureRegistry {
     }
 
     public Set<String> getLoadedFeatureNames() {
-        return loadedFeatures.keySet();
+        return Collections.unmodifiableSet(new LinkedHashSet<>(loadedFeatures.keySet()));
     }
 
     public boolean isFeatureLoaded(String featureName) {
         return loadedFeatures.containsKey(featureName);
     }
 
-    public Map<String, Class<? extends BukkitBaseFeature<?>>> getAvailableFeatures() {
-        return availableFeatures;
+    public Map<String, FeatureDescriptor> getAvailableFeatures() {
+        return Collections.unmodifiableMap(availableFeatures);
+    }
+
+    public FeatureDescriptor getAvailableFeature(String featureName) {
+        return availableFeatures.get(featureName);
     }
 
     public List<BukkitBaseFeature<?>> getLoadedFeatures() {

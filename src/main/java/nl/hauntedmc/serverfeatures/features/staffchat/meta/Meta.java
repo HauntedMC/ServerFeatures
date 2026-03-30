@@ -19,6 +19,6 @@ public class Meta implements BaseMeta {
 
     @Override
     public List<String> getPluginDependencies() {
-        return List.of("DataProvider");
+        return List.of(DATA_PROVIDER);
     }
 }

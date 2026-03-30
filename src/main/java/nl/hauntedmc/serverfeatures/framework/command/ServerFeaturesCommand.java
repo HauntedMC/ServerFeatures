@@ -10,7 +10,9 @@ import io.papermc.paper.command.brigadier.MessageComponentSerializer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.framework.loader.FeatureDescriptor;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureDataManager;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.NotNull;
@@ -158,16 +160,17 @@ public final class ServerFeaturesCommand {
 
     private void suggestLoadedFeatures(SuggestionsBuilder b) {
         final String prefix = b.getRemainingLowerCase();
-        var loaded = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
-        for (BukkitBaseFeature<?> f : loaded) {
-            String name = f.getFeatureName();
-            if (name == null) continue;
-            String low = name.toLowerCase(Locale.ROOT);
+        var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
+        for (String featureKey : reg.getLoadedFeatureNames()) {
+            if (featureKey == null) continue;
+            String low = featureKey.toLowerCase(Locale.ROOT);
             if (!low.startsWith(prefix)) continue;
 
-            String version = Objects.toString(f.getFeatureVersion(), "?");
-            b.suggest(name, MessageComponentSerializer.message()
-                    .serialize(Component.text("v" + version).color(NamedTextColor.GRAY)));
+            FeatureDescriptor descriptor = reg.getAvailableFeature(featureKey);
+            String version = descriptor == null ? "?" : Objects.toString(descriptor.featureVersion(), "?");
+            String displayName = descriptor == null ? featureKey : Objects.toString(descriptor.featureName(), featureKey);
+            b.suggest(featureKey, MessageComponentSerializer.message()
+                    .serialize(Component.text(displayName + " • v" + version).color(NamedTextColor.GRAY)));
         }
     }
 
@@ -177,31 +180,36 @@ public final class ServerFeaturesCommand {
     private void suggestAnyFeature(SuggestionsBuilder b) {
         final String prefix = b.getRemainingLowerCase();
 
-        // Enabled
         Set<String> suggested = new HashSet<>();
         var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
-        var loaded = reg.getLoadedFeatures();
-        for (BukkitBaseFeature<?> f : loaded) {
-            String name = f.getFeatureName();
-            if (name == null) continue;
-            String low = name.toLowerCase(Locale.ROOT);
-            if (low.startsWith(prefix)) {
-                suggested.add(low);
-                String version = Objects.toString(f.getFeatureVersion(), "?");
-                b.suggest(name, MessageComponentSerializer.message()
-                        .serialize(Component.text("enabled • v" + version).color(NamedTextColor.GREEN)));
-            }
+        for (String featureKey : reg.getLoadedFeatureNames()) {
+            if (featureKey == null) continue;
+
+            String low = featureKey.toLowerCase(Locale.ROOT);
+            if (!low.startsWith(prefix)) continue;
+
+            FeatureDescriptor descriptor = reg.getAvailableFeature(featureKey);
+            String version = descriptor == null ? "?" : Objects.toString(descriptor.featureVersion(), "?");
+            String displayName = descriptor == null ? featureKey : Objects.toString(descriptor.featureName(), featureKey);
+
+            suggested.add(low);
+            b.suggest(featureKey, MessageComponentSerializer.message()
+                    .serialize(Component.text("enabled • " + displayName + " • v" + version).color(NamedTextColor.GREEN)));
         }
 
-        // Disabled (available but not loaded)
-        Map<String, ?> available = reg.getAvailableFeatures();
-        for (String name : available.keySet()) {
+        Map<String, FeatureDescriptor> available = reg.getAvailableFeatures();
+        for (Map.Entry<String, FeatureDescriptor> entry : available.entrySet()) {
+            String name = entry.getKey();
             if (name == null) continue;
             String low = name.toLowerCase(Locale.ROOT);
             if (!low.startsWith(prefix)) continue;
             if (suggested.contains(low)) continue;
+
+            FeatureDescriptor descriptor = entry.getValue();
+            String version = descriptor == null ? "?" : Objects.toString(descriptor.featureVersion(), "?");
+            String displayName = descriptor == null ? name : Objects.toString(descriptor.featureName(), name);
             b.suggest(name, MessageComponentSerializer.message()
-                    .serialize(Component.text("disabled").color(NamedTextColor.RED)));
+                    .serialize(Component.text("disabled • " + displayName + " • v" + version).color(NamedTextColor.RED)));
         }
     }
 
@@ -210,9 +218,7 @@ public final class ServerFeaturesCommand {
         var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
         Set<String> available = reg.getAvailableFeatures().keySet();
 
-        Set<String> loadedLower = reg.getLoadedFeatures().stream()
-                .map(BukkitBaseFeature::getFeatureName)
-                .filter(Objects::nonNull)
+        Set<String> loadedLower = reg.getLoadedFeatureNames().stream()
                 .map(s -> s.toLowerCase(Locale.ROOT))
                 .collect(Collectors.toSet());
 
@@ -260,7 +266,7 @@ public final class ServerFeaturesCommand {
         }
 
         // Not loaded: exists in available?
-        Map<String, ?> available = reg.getAvailableFeatures();
+        Map<String, FeatureDescriptor> available = reg.getAvailableFeatures();
         String availableKey = null;
         if (available.containsKey(featureName)) {
             availableKey = featureName;
@@ -274,7 +280,20 @@ public final class ServerFeaturesCommand {
         }
 
         if (availableKey != null) {
-            sendFeatureInfo(sender, availableKey, false, "?", List.of(), List.of());
+            FeatureDescriptor descriptor = reg.getAvailableFeature(availableKey);
+            if (descriptor == null) {
+                sendFeatureInfo(sender, availableKey, false, "?", List.of(), List.of());
+                return;
+            }
+
+            sendFeatureInfo(
+                    sender,
+                    descriptor.featureName(),
+                    false,
+                    descriptor.featureVersion(),
+                    List.copyOf(descriptor.pluginDependencies()),
+                    List.copyOf(descriptor.featureDependencies())
+            );
         } else {
             sender.sendMessage(Component.text("Feature not found: ", NamedTextColor.RED)
                     .append(Component.text(featureName, NamedTextColor.WHITE)));
@@ -446,26 +465,34 @@ public final class ServerFeaturesCommand {
     }
 
     private void sendPluginStatus(@NotNull CommandSender sender) {
-        List<BukkitBaseFeature<?>> loaded = plugin.getFeatureLoadManager().getFeatureRegistry().getLoadedFeatures();
+        var reg = plugin.getFeatureLoadManager().getFeatureRegistry();
         List<String> cmds = new ArrayList<>();
-        int loadedCount = loaded.size();
+        int loadedCount = reg.getLoadedFeatureNames().size();
         int tasks = 0, listeners = 0, commands = 0, conns = 0;
+        boolean dataProviderEnabled = plugin.getServer().getPluginManager().isPluginEnabled(BaseMeta.DATA_PROVIDER);
         boolean hasInitializedDataManager = false;
 
-        for (BukkitBaseFeature<?> f : loaded) {
+        for (String featureKey : reg.getLoadedFeatureNames()) {
+            BukkitBaseFeature<?> f = reg.getLoadedFeature(featureKey);
+            if (f == null) {
+                continue;
+            }
+
             commands += f.getLifecycleManager().getCommandManager().getTotalRegisteredCommandCount();
             cmds.addAll(f.getLifecycleManager().getCommandManager().getAllRegisteredCommandNames());
             tasks += f.getLifecycleManager().getTaskManager().getActiveTaskCount();
             listeners += f.getLifecycleManager().getListenerManager().getRegisteredListenerCount();
 
-            try {
+            if (dataProviderEnabled) {
+                FeatureDescriptor descriptor = reg.getAvailableFeature(featureKey);
+                if (descriptor == null || !descriptor.pluginDependencies().contains(BaseMeta.DATA_PROVIDER)) {
+                    continue;
+                }
                 FeatureDataManager dataManager = f.getLifecycleManager().getDataManager();
                 if (dataManager.isInitialized()) {
                     conns += dataManager.getActiveConnCount();
                     hasInitializedDataManager = true;
                 }
-            } catch (IllegalStateException ignored) {
-                // Data manager is unavailable for this feature (e.g. missing DataProvider classes).
             }
         }
 

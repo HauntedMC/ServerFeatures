@@ -72,7 +72,7 @@ public class Tablist extends BukkitBaseFeature<Meta> {
         messages.add("tablist.footer",
                 "&b\uD83E\uDDED &7%server_name% (%vanish_playercount%/%server_max_players%) &f&l| &r&b\uD83D\uDCF6 &7%player_ping%ms &f&l| &r&b\uD83D\uDC8E &7store.hauntedmc.nl");
 
-        messages.add("tablist.prefix", "%essentials_afk%%vault_prefix%");
+        messages.add("tablist.prefix", "%afk_formatted%%vault_prefix%");
         messages.add("tablist.playername", "&7%player_name%");
         messages.add("tablist.suffix", " &f%voicechat_installed%");
 
