@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.betterdoors.internal;
 
 import nl.hauntedmc.serverfeatures.features.betterdoors.BetterDoors;
-import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.SoundCategory;
 import org.bukkit.Tag;

@@ -1,13 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.portals.util;
 
-import io.papermc.paper.registry.RegistryAccess;
-import io.papermc.paper.registry.RegistryKey;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
-import org.bukkit.Registry;
 import org.bukkit.Sound;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Locale;

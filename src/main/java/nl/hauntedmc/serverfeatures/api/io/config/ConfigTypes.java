@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * Shared conversion + normalization utilities for config values.
- * - Deeply normalizes Bukkit ConfigurationSection into LinkedHashMap<String,Object>
+ * - Deeply normalizes Bukkit ConfigurationSection into {@code LinkedHashMap<String, Object>}
  * - Converts scalars to target types (String/boolean/int/long/double/enum)
  * - Converts Lists (with nested normalization) and Maps with typed values
  */

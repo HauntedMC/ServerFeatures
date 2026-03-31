@@ -98,7 +98,7 @@ public final class ConfigNode {
     }
 
     /**
-     * Returns a Map<String,V> converting values to V.
+     * Returns a {@code Map<String, V>} converting values to V.
      */
     public <V> Map<String, V> mapValues(Class<V> valueType) {
         return ConfigTypes.convertMapValues(value, valueType);

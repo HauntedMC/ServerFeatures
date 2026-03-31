@@ -8,8 +8,6 @@ import nl.hauntedmc.serverfeatures.features.actionbar.command.ActionbarCommand;
 import nl.hauntedmc.serverfeatures.features.actionbar.internal.ActionbarFeatureService;
 import nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta;
 
-import java.util.Map;
-
 public class Actionbar extends BukkitBaseFeature<Meta> {
 
     private ActionbarFeatureService service;

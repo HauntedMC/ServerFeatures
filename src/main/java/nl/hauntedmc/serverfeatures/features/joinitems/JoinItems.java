@@ -8,10 +8,6 @@ import nl.hauntedmc.serverfeatures.features.joinitems.internal.JoinItemsHandler;
 import nl.hauntedmc.serverfeatures.features.joinitems.listener.JoinItemsListener;
 import nl.hauntedmc.serverfeatures.features.joinitems.meta.Meta;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
 /**
  * JoinItems feature:
  * - Gives configured items at fixed inventory slots after join (with a delay).
