@@ -63,9 +63,7 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
-            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
-        }
+        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection("glowOrmConnection", DatabaseType.MYSQL, "player_data_rw");
 
         ormContext = getLifecycleManager().getDataManager().createORMContext(

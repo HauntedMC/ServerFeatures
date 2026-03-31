@@ -590,12 +590,10 @@ public class FeatureLoadManager {
         List<String> loadedFeatureNames = new ArrayList<>(featureRegistry.getLoadedFeatureNames());
         for (String featureName : loadedFeatureNames) {
             BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-            if (feature == null) {
-                continue;
-            }
-
             try {
-                feature.cleanup();
+                if (feature != null) {
+                    feature.cleanup();
+                }
             } catch (Throwable t) {
                 plugin.getLogger().log(Level.SEVERE, "Failed to cleanup feature during unload: " + featureName, t);
             } finally {
@@ -677,6 +675,11 @@ public class FeatureLoadManager {
             feature.initialize();
         } catch (Throwable t) {
             plugin.getLogger().log(Level.SEVERE, "Feature '" + featureKey + "' failed to initialize.", t);
+            try {
+                feature.cleanup();
+            } catch (Throwable cleanupError) {
+                plugin.getLogger().log(Level.SEVERE, "Feature '" + featureKey + "' failed to cleanup after initialization failure.", cleanupError);
+            }
             return false;
         }
 

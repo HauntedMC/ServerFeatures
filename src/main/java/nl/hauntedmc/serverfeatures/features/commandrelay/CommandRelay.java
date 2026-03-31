@@ -43,11 +43,9 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // Init Redis messaging
-        if (!getLifecycleManager()
+        getLifecycleManager()
                 .getDataManager()
-                .initDataProvider(getFeatureName())) {
-            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
-        }
+                .initDataProvider(getFeatureName());
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()

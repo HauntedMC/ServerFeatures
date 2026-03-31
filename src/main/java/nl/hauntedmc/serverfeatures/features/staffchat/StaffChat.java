@@ -39,11 +39,9 @@ public class StaffChat extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        if (!getLifecycleManager()
+        getLifecycleManager()
                 .getDataManager()
-                .initDataProvider(getFeatureName())) {
-            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
-        }
+                .initDataProvider(getFeatureName());
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()

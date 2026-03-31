@@ -37,9 +37,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // Init data provider and get Redis messaging access
-        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
-            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
-        }
+        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()

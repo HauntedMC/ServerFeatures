@@ -37,9 +37,7 @@ public class CommandLogger extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         // Database init and ORM registration
-        if (!getLifecycleManager().getDataManager().initDataProvider(getFeatureName())) {
-            throw new IllegalStateException("DataProvider is not available for feature '" + getFeatureName() + "'.");
-        }
+        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
 
         ormContext = getLifecycleManager().getDataManager().createORMContext(
