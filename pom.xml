@@ -16,6 +16,14 @@
         <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
     </properties>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/HauntedMC/${project.name}</url>
+        </repository>
+    </distributionManagement>
+
     <build>
         <finalName>${project.name}</finalName>
         <plugins>
