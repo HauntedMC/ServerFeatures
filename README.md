@@ -1,5 +1,11 @@
 # ServerFeatures
 
+[![CI Lint](https://github.com/HauntedMC/ServerFeatures/actions/workflows/ci-lint.yml/badge.svg?branch=main)](https://github.com/HauntedMC/ServerFeatures/actions/workflows/ci-lint.yml)
+[![CI Tests and Coverage](https://github.com/HauntedMC/ServerFeatures/actions/workflows/ci-tests-and-coverage.yml/badge.svg?branch=main)](https://github.com/HauntedMC/ServerFeatures/actions/workflows/ci-tests-and-coverage.yml)
+[![Latest Release](https://img.shields.io/github/v/release/HauntedMC/ServerFeatures?sort=semver)](https://github.com/HauntedMC/ServerFeatures/releases/latest)
+[![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)](https://adoptium.net/)
+[![License](https://img.shields.io/github/license/HauntedMC/ServerFeatures)](LICENSE)
+
 One modular feature framework for your Paper server.
 
 ## Quick Start
