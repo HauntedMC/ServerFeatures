@@ -182,11 +182,11 @@ public class BackupService {
                 + (fails.isEmpty() ? "" : ("; failed: " + String.join(", ", fails))));
     }
 
-    private static int daysOld(LocalDate date, LocalDate today) {
+    static int daysOld(LocalDate date, LocalDate today) {
         return (int) Duration.between(date.atStartOfDay(), today.atStartOfDay()).toDays();
     }
 
-    private static Optional<LocalDate> extractDate(String filename) {
+    static Optional<LocalDate> extractDate(String filename) {
         Matcher m = TextPatterns.DATE_IN_NAME.matcher(filename);
         if (m.matches()) {
             try {
@@ -232,18 +232,18 @@ public class BackupService {
         return out;
     }
 
-    private static String humanBytes(long bytes) {
+    static String humanBytes(long bytes) {
         if (bytes < 1024) return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         String pre = "KMGTPE".charAt(exp - 1) + "";
         return String.format(Locale.ROOT, "%.1f %sB", bytes / Math.pow(1024, exp), pre);
     }
 
-    private static String asString(Object v, String def) {
+    static String asString(Object v, String def) {
         return (v instanceof String s && !s.isBlank()) ? s : def;
     }
 
-    private static int asInt(Object v, int def) {
+    static int asInt(Object v, int def) {
         if (v instanceof Number n) return n.intValue();
         if (v instanceof String s) {
             try {

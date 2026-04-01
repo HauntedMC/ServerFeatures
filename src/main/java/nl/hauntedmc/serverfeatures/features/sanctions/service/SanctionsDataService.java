@@ -80,6 +80,8 @@ public class SanctionsDataService {
         String r = reason.trim();
         if (r.isBlank()) return "-";
         // Optional: strip control chars
-        return r.replaceAll("\\p{Cntrl}", "").substring(0, Math.min(512, r.length()));
+        String cleaned = r.replaceAll("\\p{Cntrl}", "");
+        if (cleaned.isBlank()) return "-";
+        return cleaned.substring(0, Math.min(512, cleaned.length()));
     }
 }

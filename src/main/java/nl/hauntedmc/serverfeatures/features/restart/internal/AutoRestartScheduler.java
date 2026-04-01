@@ -66,7 +66,7 @@ public class AutoRestartScheduler {
         }
     }
 
-    private static LocalTime parseStrictHHmm(String raw) {
+    static LocalTime parseStrictHHmm(String raw) {
         String s = String.valueOf(raw).trim();
         // Only accept exactly HH:mm where HH=00..23 and mm=00..59
         if (!s.matches("^(?:[01]\\d|2[0-3]):[0-5]\\d$")) {

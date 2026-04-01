@@ -80,7 +80,7 @@ public final class PagedMenu<T> extends GuiMenu {
     public Component titleFor(Player p) {
         if (!showPageInTitle) return baseTitle;
         int perPage = contentSlots.size();
-        int total = Math.max(1, (int) Math.ceil(entries.size() / (double) perPage));
+        int total = PagedMenuMath.totalPages(entries.size(), perPage);
         return baseTitle.append(Component.text(" (" + (pageIndex + 1) + "/" + total + ")"));
     }
 
@@ -119,7 +119,7 @@ public final class PagedMenu<T> extends GuiMenu {
         }
 
         // Compute page bounds
-        int maxPage = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
+        int maxPage = PagedMenuMath.maxPageIndex(entries.size(), perPage);
 
         // Prev button: only when pageIndex > 0
         if (pageIndex > 0) {
@@ -154,7 +154,7 @@ public final class PagedMenu<T> extends GuiMenu {
         }
         if (slot == nextSlot) {
             int perPage = contentSlots.size();
-            int maxPage = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
+            int maxPage = PagedMenuMath.maxPageIndex(entries.size(), perPage);
             if (pageIndex < maxPage) {
                 pageIndex++;
                 gui.reopenSame(p, this);
@@ -177,10 +177,8 @@ public final class PagedMenu<T> extends GuiMenu {
      * Clamp and set the current page index.
      */
     public void setPageIndex(int page) {
-        if (page < 0) page = 0;
         int perPage = contentSlots.size();
-        int max = Math.max(0, (int) Math.ceil(entries.size() / (double) perPage) - 1);
-        this.pageIndex = Math.min(page, max);
+        this.pageIndex = PagedMenuMath.clampPageIndex(page, entries.size(), perPage);
     }
 
     public static final class Builder<T> {

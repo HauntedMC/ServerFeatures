@@ -6,7 +6,6 @@ import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -93,33 +92,11 @@ public class MainConfigHandler extends ConfigView {
     }
 
     private Set<String> topLevelKeysFromDefaults(ConfigMap defaults) {
-        Set<String> out = new LinkedHashSet<>();
-        for (String key : defaults.keySet()) {
-            int dot = key.indexOf('.');
-            out.add(dot >= 0 ? key.substring(0, dot) : key);
-        }
-        return out;
+        return FeatureConfigSchema.topLevelKeysFromDefaults(defaults);
     }
 
-    private enum Kind { MAP, LIST, BOOLEAN, NUMBER, STRING, OTHER }
-
-    private Kind classify(Object normalized) {
-        if (normalized == null) return null;
-        if (normalized instanceof Map) return Kind.MAP;
-        if (normalized instanceof java.util.List) return Kind.LIST;
-        if (normalized instanceof Boolean) return Kind.BOOLEAN;
-        if (normalized instanceof Number) return Kind.NUMBER;
-        if (normalized instanceof CharSequence) return Kind.STRING;
-        return Kind.OTHER;
-    }
-
-    private Kind expectedKindForTopKey(String topKey, ConfigMap defaults) {
-        if (defaults.contains(topKey)) return classify(defaults.get(topKey));
-        String prefix = topKey + ".";
-        for (String k : defaults.keySet()) {
-            if (k.startsWith(prefix)) return Kind.MAP;
-        }
-        return null;
+    private FeatureConfigSchema.Kind expectedKindForTopKey(String topKey, ConfigMap defaults) {
+        return FeatureConfigSchema.expectedKindForTopKey(topKey, defaults);
     }
 
     private void pruneUnknownFeatureKeys(String base, Set<String> allowedTop) {
@@ -136,11 +113,11 @@ public class MainConfigHandler extends ConfigView {
         ConfigNode section = node(base);
         for (String topKey : section.keys()) {
             String path = base + "." + topKey;
-            Kind expected = expectedKindForTopKey(topKey, defaults);
+            FeatureConfigSchema.Kind expected = expectedKindForTopKey(topKey, defaults);
             if (expected == null) continue;
 
             Object existing = node(path).raw();
-            Kind actual = classify(existing);
+            FeatureConfigSchema.Kind actual = FeatureConfigSchema.classify(existing);
             if (actual != null && expected != actual) {
                 remove(path);
                 logger.info("[ServerFeatures] [Config] Removed key '" + path + "' due to schema change");

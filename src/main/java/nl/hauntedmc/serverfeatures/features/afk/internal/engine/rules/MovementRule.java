@@ -36,8 +36,8 @@ public final class MovementRule implements AfkRule {
 
         if (cfg.antiEnabled()) {
             if (verticalOnly) {
-                trackAnti(now, state, cfg);
-                if (isSuspicious(state, cfg)) {
+                AfkAntiPattern.track(now, state, cfg);
+                if (AfkAntiPattern.isSuspicious(state, cfg)) {
                     return AfkDecision.of(AfkPriority.HIGH, AfkDecisionType.FLAG_SUSPICIOUS);
                 }
             }
@@ -70,54 +70,4 @@ public final class MovementRule implements AfkRule {
         return dt >= 0 && dt <= window;
     }
 
-    private static void trackAnti(long now, AfkPlayerState s, AfkServiceFacade cfg) {
-        s.antiTimes().addLast(now);
-        while (!s.antiTimes().isEmpty() && now - s.antiTimes().peekFirst() > cfg.antiWindowMs()) {
-            s.antiTimes().removeFirst();
-        }
-    }
-
-    private static boolean isSuspicious(AfkPlayerState s, AfkServiceFacade cfg) {
-        var times = s.antiTimes();
-        if (times.size() < cfg.antiMinSamples() + 1) return false;
-        long[] itv = intervals(times);
-        if (itv.length < cfg.antiMinSamples()) return false;
-        double mean = mean(itv);
-        if (mean < cfg.antiMeanMinMs() || mean > cfg.antiMeanMaxMs()) return false;
-        double sd = stddev(itv, mean);
-        return sd <= cfg.antiStddevMaxMs();
-    }
-
-    private static long[] intervals(Iterable<Long> ts) {
-        long prev = Long.MIN_VALUE;
-        int count = 0;
-        for (Long ignored : ts) count++;
-        long[] out = new long[Math.max(0, count - 1)];
-        int i = 0;
-        for (Long t : ts) {
-            if (prev == Long.MIN_VALUE) {
-                prev = t;
-                continue;
-            }
-            out[i++] = Math.max(0, t - prev);
-            prev = t;
-        }
-        return out;
-    }
-
-    private static double mean(long[] a) {
-        long sum = 0;
-        for (long v : a) sum += v;
-        return sum / (double) a.length;
-    }
-
-    private static double stddev(long[] a, double mean) {
-        if (a.length == 0) return 0;
-        double acc = 0;
-        for (long v : a) {
-            double d = v - mean;
-            acc += d * d;
-        }
-        return Math.sqrt(acc / a.length);
-    }
 }

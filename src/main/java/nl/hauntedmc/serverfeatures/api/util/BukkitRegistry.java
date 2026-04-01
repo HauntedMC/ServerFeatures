@@ -61,7 +61,14 @@ public class BukkitRegistry {
      *  - legacy enum name (ENTITY_PLAYER_LEVELUP) -> minecraft:entity.player.levelup
      */
     public static NamespacedKey deserializeNamespacedKey(String input) {
-        String trimmed = input.trim().toLowerCase(Locale.ROOT);
+        String raw = input.trim();
+        String trimmed = raw.toLowerCase(Locale.ROOT);
+
+        if (!raw.equals(trimmed) && trimmed.indexOf(':') < 0) {
+            NamespacedKey legacyEnum = NamespacedKey.fromString("minecraft:" + trimmed.replace('_', '.'));
+            if (legacyEnum != null) return legacyEnum;
+        }
+
         NamespacedKey direct = NamespacedKey.fromString(trimmed);
         if (direct != null) return direct;
 

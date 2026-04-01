@@ -20,8 +20,8 @@ public final class GuiActions {
      */
     public static Consumer<GuiClickContext> runPlayerCommand(String commandTemplate) {
         return ctx -> {
-            String cmd = commandTemplate.replace("%player%", ctx.player().getName());
-            ctx.player().performCommand(cmd.startsWith("/") ? cmd.substring(1) : cmd);
+            String cmd = renderCommand(commandTemplate, ctx.player().getName());
+            ctx.player().performCommand(normalizeLeadingSlash(cmd));
         };
     }
 
@@ -30,8 +30,8 @@ public final class GuiActions {
      */
     public static Consumer<GuiClickContext> runConsoleCommand(String commandTemplate) {
         return ctx -> {
-            String cmd = commandTemplate.replace("%player%", ctx.player().getName());
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.startsWith("/") ? cmd.substring(1) : cmd);
+            String cmd = renderCommand(commandTemplate, ctx.player().getName());
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), normalizeLeadingSlash(cmd));
         };
     }
 
@@ -74,5 +74,13 @@ public final class GuiActions {
      */
     public static Consumer<GuiClickContext> playSound(Sound sound, float volume, float pitch) {
         return ctx -> ctx.player().playSound(ctx.player().getLocation(), sound, volume, pitch);
+    }
+
+    static String renderCommand(String commandTemplate, String playerName) {
+        return commandTemplate.replace("%player%", playerName);
+    }
+
+    static String normalizeLeadingSlash(String command) {
+        return command.startsWith("/") ? command.substring(1) : command;
     }
 }

@@ -106,7 +106,7 @@ public final class ActionbarFeatureService {
         return b.build();
     }
 
-    private static int ceilTicksToSeconds(long ticks) {
+    static int ceilTicksToSeconds(long ticks) {
         if (ticks <= 0) return 0;
         return (int) ((ticks + 19) / 20);
     }

@@ -6,26 +6,30 @@ import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Thin wrapper around ViaVersion to keep external API usage contained.
  */
 public final class ViaVersionHook {
 
-    private final ViaAPI<?> api;
+    private final ProtocolLookup lookup;
 
     public ViaVersionHook() {
-        this.api = Via.getAPI();
+        this(new ViaProtocolLookup(Via.getAPI()));
+    }
+
+    ViaVersionHook(ProtocolLookup lookup) {
+        this.lookup = Objects.requireNonNull(lookup, "lookup");
     }
 
     public boolean isAvailable() {
-        return api != null;
+        return lookup.isAvailable();
     }
 
     public int getServerNativeProtocolId() {
         ensureAvailable();
-
-        return api.getServerVersion().highestSupportedProtocolVersion().getVersion();
+        return lookup.serverProtocolId();
     }
 
     public String getServerNativeProtocolName() {
@@ -36,7 +40,7 @@ public final class ViaVersionHook {
     public int getClientProtocolId(Player player) {
         Objects.requireNonNull(player, "player");
         ensureAvailable();
-        return api.getPlayerVersion(player.getUniqueId());
+        return lookup.clientProtocolId(player.getUniqueId());
     }
 
     public String getClientProtocolName(Player player) {
@@ -50,5 +54,36 @@ public final class ViaVersionHook {
 
     private void ensureAvailable() {
         if (!isAvailable()) throw new IllegalStateException("ViaVersion is not available");
+    }
+
+    interface ProtocolLookup {
+        boolean isAvailable();
+
+        int serverProtocolId();
+
+        int clientProtocolId(UUID playerId);
+    }
+
+    private static final class ViaProtocolLookup implements ProtocolLookup {
+        private final ViaAPI<?> api;
+
+        private ViaProtocolLookup(ViaAPI<?> api) {
+            this.api = api;
+        }
+
+        @Override
+        public boolean isAvailable() {
+            return api != null;
+        }
+
+        @Override
+        public int serverProtocolId() {
+            return api.getServerVersion().highestSupportedProtocolVersion().getVersion();
+        }
+
+        @Override
+        public int clientProtocolId(UUID playerId) {
+            return api.getPlayerVersion(playerId);
+        }
     }
 }

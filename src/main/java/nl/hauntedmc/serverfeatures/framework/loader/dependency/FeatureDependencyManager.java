@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.framework.loader.dependency;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.framework.loader.FeatureDescriptor;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 
 import java.util.HashSet;
@@ -37,50 +36,17 @@ public class FeatureDependencyManager {
      * Recursively checks dependencies and ensures they are enabled.
      */
     private boolean checkDependencies(String featureName, Set<String> activePath, Set<String> resolved) {
-        if (featureLoadManager.getFeatureRegistry().isFeatureLoaded(featureName)) {
-            resolved.add(featureName);
-            return true;
-        }
-        if (resolved.contains(featureName)) {
-            return true;
-        }
-
-        if (!activePath.add(featureName)) {
-            logger.warning("Circular dependency detected: " + featureName);
-            return false;
-        }
-
-        try {
-            FeatureDescriptor descriptor = featureLoadManager.getFeatureRegistry().getAvailableFeature(featureName);
-            if (descriptor == null) {
-                logger.warning("Feature not found in registry: " + featureName);
-                return false;
-            }
-
-            for (String dependency : descriptor.featureDependencies()) {
-                String dependencyKey = featureLoadManager.resolveFeatureKey(dependency);
-                if (dependencyKey == null) {
-                    logger.warning("Missing dependency '" + dependency + "' for feature " + featureName);
-                    return false;
-                }
-
-                if (!checkDependencies(dependencyKey, activePath, resolved)) {
-                    return false;
-                }
-
-                if (!featureLoadManager.getFeatureRegistry().isFeatureLoaded(dependencyKey)) {
-                    logger.info("Enabling dependency " + dependencyKey + " for " + featureName);
-                    if (!featureLoadManager.loadFeature(dependencyKey)) {
-                        return false;
-                    }
-                }
-            }
-
-            resolved.add(featureName);
-            return true;
-        } finally {
-            activePath.remove(featureName);
-        }
+        return FeatureDependencyTraversal.checkDependencies(
+                featureName,
+                activePath,
+                resolved,
+                name -> featureLoadManager.getFeatureRegistry().isFeatureLoaded(name),
+                name -> featureLoadManager.getFeatureRegistry().getAvailableFeature(name),
+                featureLoadManager::resolveFeatureKey,
+                featureLoadManager::loadFeature,
+                logger::warning,
+                logger::info
+        );
     }
 
     /**
@@ -101,24 +67,11 @@ public class FeatureDependencyManager {
      */
     public List<String> getDependentFeatures(String featureName) {
         String targetKey = featureLoadManager.resolveFeatureKey(featureName);
-        if (targetKey == null) {
-            return List.of();
-        }
-
-        return featureLoadManager.getFeatureRegistry().getLoadedFeatureNames().stream()
-                .filter(name -> {
-                    FeatureDescriptor descriptor = featureLoadManager.getFeatureRegistry().getAvailableFeature(name);
-                    if (descriptor == null) {
-                        return false;
-                    }
-                    for (String dependency : descriptor.featureDependencies()) {
-                        String dependencyKey = featureLoadManager.resolveFeatureKey(dependency);
-                        if (targetKey.equals(dependencyKey)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                })
-                .toList();
+        return FeatureDependentResolver.getDependentFeatures(
+                targetKey,
+                featureLoadManager.getFeatureRegistry().getLoadedFeatureNames(),
+                featureLoadManager.getFeatureRegistry()::getAvailableFeature,
+                featureLoadManager::resolveFeatureKey
+        );
     }
 }

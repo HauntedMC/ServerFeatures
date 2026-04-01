@@ -90,26 +90,8 @@ public class FeatureCommandManager {
         // Aggressively purge from knownCommands: primary, namespaced, aliases
         try {
             Map<String, Command> known = commandMap.getKnownCommands();
-            final String nsPrefix = plugin.getName().toLowerCase(Locale.ROOT) + ":";
-            final String primary = cmd.getName().toLowerCase(Locale.ROOT);
-
-            List<String> keys = new ArrayList<>();
-            keys.add(primary);
-            keys.add(nsPrefix + primary);
-
-            for (String a : cmd.getAliases()) {
-                if (a == null || a.isBlank()) continue;
-                final String al = a.toLowerCase(Locale.ROOT);
-                keys.add(al);
-                keys.add(nsPrefix + al);
-            }
-
-            for (String k : keys) {
-                Command mapped = known.get(k);
-                if (mapped == cmd) known.remove(k);
-            }
-            // Safety net: remove any remaining entries that still reference this Command instance
-            known.entrySet().removeIf(e -> e.getValue() == cmd);
+            List<String> keys = CommandRegistryKeys.knownCommandKeys(plugin.getName(), cmd.getName(), cmd.getAliases());
+            CommandRegistryKeys.purgeKnownCommands(known, cmd, keys);
 
             log.info("Unregistered command: " + commandName);
         } catch (Throwable t) {

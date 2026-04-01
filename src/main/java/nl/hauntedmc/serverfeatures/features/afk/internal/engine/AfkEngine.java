@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.afk.internal.engine.player.AfkPlayer
 import nl.hauntedmc.serverfeatures.features.afk.internal.engine.rules.*;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 public final class AfkEngine {
@@ -16,13 +17,21 @@ public final class AfkEngine {
     private final AfkServiceFacade facade;
 
     public AfkEngine(AfkServiceFacade facade) {
+        this(facade, null);
+    }
+
+    AfkEngine(AfkServiceFacade facade, Collection<? extends AfkRule> customRules) {
         this.facade = facade;
-        rules.add(new ChatCommandRule());
-        rules.add(new InventoryStrongRule());
-        rules.add(new StrongActionRule());
-        rules.add(new WeakActionRule());
-        rules.add(new TeleportRule());
-        rules.add(new MovementRule());
+        if (customRules != null) {
+            rules.addAll(customRules);
+        } else {
+            rules.add(new ChatCommandRule());
+            rules.add(new InventoryStrongRule());
+            rules.add(new StrongActionRule());
+            rules.add(new WeakActionRule());
+            rules.add(new TeleportRule());
+            rules.add(new MovementRule());
+        }
     }
 
     public AfkDecision evaluate(AfkEvent event, AfkPlayerState state) {

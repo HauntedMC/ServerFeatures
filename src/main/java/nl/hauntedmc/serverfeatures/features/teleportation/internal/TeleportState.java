@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Central cooldown store:
@@ -12,16 +13,20 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TeleportState {
 
-    private final Teleportation feature;
+    private final Function<String, Object> configLookup;
     private final ConcurrentHashMap<CooldownKey, Long> lastUseMs = new ConcurrentHashMap<>();
 
     public TeleportState(Teleportation feature) {
-        this.feature = feature;
+        this(path -> feature.getConfigHandler().get(path));
+    }
+
+    public TeleportState(Function<String, Object> configLookup) {
+        this.configLookup = java.util.Objects.requireNonNull(configLookup, "configLookup");
     }
 
     public int getCooldownSeconds(TeleportAction action) {
         String path = "cooldown_seconds." + action.configKey();
-        Object v = feature.getConfigHandler().get(path);
+        Object v = configLookup.apply(path);
         if (v instanceof Number n) return n.intValue();
         return 10;
     }

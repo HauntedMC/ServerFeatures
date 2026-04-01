@@ -38,6 +38,10 @@ public final class AfkEvent {
         return movement;
     }
 
+    public static AfkEvent of(Player p, AfkEventType t, long timestamp, String payload, Movement movement) {
+        return new AfkEvent(p, t, timestamp, payload, movement);
+    }
+
     public static AfkEvent simple(Player p, AfkEventType t) {
         return new AfkEvent(p, t, System.currentTimeMillis(), null, null);
     }

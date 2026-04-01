@@ -222,12 +222,14 @@ public class NametagPacketProperties {
 
     // Index 2: Custom name (Optional Text Component)
     public void setCustomName(Component name) {
-        setEntityData(2, Optional.of(name), EntityDataTypes.OPTIONAL_ADV_COMPONENT);
+        setEntityData(2, Optional.ofNullable(name), EntityDataTypes.OPTIONAL_ADV_COMPONENT);
     }
 
+    @SuppressWarnings("unchecked")
     public Component getCustomName() {
         return getEntityData(2)
-                .map(data -> (Component) data.getValue())
+                .map(data -> (Optional<Component>) data.getValue())
+                .flatMap(v -> v)
                 .orElse(Component.empty());
     }
 
@@ -271,7 +273,14 @@ public class NametagPacketProperties {
 
     public Pose getPose() {
         return getEntityData(6)
-                .map(data -> (Pose) data.getValue())
+                .map(data -> (EntityPose) data.getValue())
+                .map(pose -> {
+                    try {
+                        return Pose.valueOf(pose.name());
+                    } catch (IllegalArgumentException ignored) {
+                        return Pose.STANDING;
+                    }
+                })
                 .orElse(Pose.STANDING);
     }
 

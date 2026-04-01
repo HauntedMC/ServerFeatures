@@ -5,16 +5,21 @@ import nl.hauntedmc.serverfeatures.features.skins.Skins;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 public class SkinState {
 
-    private final Skins feature;
+    private final Function<String, Object> configLookup;
 
     private final Map<UUID, Long> lastUse = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> hasCustomSkin = new ConcurrentHashMap<>();
 
     public SkinState(Skins feature) {
-        this.feature = feature;
+        this(path -> feature.getConfigHandler().get(path));
+    }
+
+    public SkinState(Function<String, Object> configLookup) {
+        this.configLookup = java.util.Objects.requireNonNull(configLookup, "configLookup");
     }
 
     /* ----------------------------------------------- */
@@ -22,7 +27,7 @@ public class SkinState {
     /* ----------------------------------------------- */
 
     public int getCooldownSeconds() {
-        Object v = feature.getConfigHandler().get("cooldown_seconds");
+        Object v = configLookup.apply("cooldown_seconds");
         return (v instanceof Number) ? ((Number) v).intValue() : 60;
     }
 

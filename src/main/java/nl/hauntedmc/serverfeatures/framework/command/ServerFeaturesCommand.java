@@ -295,36 +295,20 @@ public final class ServerFeaturesCommand {
                                  String version,
                                  List<String> pluginDeps,
                                  List<String> featureDeps) {
-
-        // Nicely indented, bullet-styled block
-        Component msg = Component.text("Feature: ", NamedTextColor.GOLD)
-                .append(Component.text(name, NamedTextColor.YELLOW))
-                .append(Component.text("\n  • Status: ", NamedTextColor.GRAY))
-                .append(Component.text(enabled ? "enabled" : "disabled",
-                        enabled ? NamedTextColor.GREEN : NamedTextColor.RED))
-                .append(Component.text("\n  • Version: ", NamedTextColor.GRAY))
-                .append(Component.text(version == null ? "?" : "v" + version, NamedTextColor.WHITE))
-                .append(Component.text("\n  • Plugin deps: ", NamedTextColor.GRAY))
-                .append(renderCsvColored(pluginDeps, NamedTextColor.AQUA, NamedTextColor.DARK_GRAY, true))
-                .append(Component.text("\n  • Feature deps: ", NamedTextColor.GRAY))
-                .append(renderCsvColored(featureDeps, NamedTextColor.GREEN, NamedTextColor.DARK_GRAY, true));
-
-        sender.sendMessage(msg);
+        sender.sendMessage(ServerFeaturesCommandView.buildFeatureInfoMessage(
+                name,
+                enabled,
+                version,
+                pluginDeps,
+                featureDeps
+        ));
     }
 
     /**
      * Renders a CSV list with colored items and differently colored commas. Handles empty.
      */
     private Component renderCsvColored(List<String> items, NamedTextColor itemColor, NamedTextColor commaColor, boolean showNone) {
-        if (items == null || items.isEmpty()) {
-            return Component.text(showNone ? "none" : "", NamedTextColor.DARK_GRAY);
-        }
-        Component out = Component.empty();
-        for (int i = 0; i < items.size(); i++) {
-            if (i > 0) out = out.append(Component.text(", ", commaColor));
-            out = out.append(Component.text(items.get(i), itemColor));
-        }
-        return out;
+        return ServerFeaturesCommandView.renderCsvColored(items, itemColor, commaColor, showNone);
     }
 
     private void handleEnable(CommandSender sender, String feature) {
@@ -428,29 +412,14 @@ public final class ServerFeaturesCommand {
                 String.CASE_INSENSITIVE_ORDER
         ));
 
-        int n = loaded.size();
-        Component header = Component.text("Enabled Features (", NamedTextColor.YELLOW)
-                .append(Component.text(n, NamedTextColor.AQUA))
-                .append(Component.text("): ", NamedTextColor.YELLOW));
+        List<ServerFeaturesCommandView.FeatureListEntry> entries = loaded.stream()
+                .map(f -> new ServerFeaturesCommandView.FeatureListEntry(
+                        Objects.toString(f.getFeatureName(), "?"),
+                        Objects.toString(f.getFeatureVersion(), "?")
+                ))
+                .toList();
 
-        Component list = Component.empty();
-        for (int i = 0; i < loaded.size(); i++) {
-            BukkitBaseFeature<?> f = loaded.get(i);
-            String name = Objects.toString(f.getFeatureName(), "?");
-            String version = Objects.toString(f.getFeatureVersion(), "?");
-
-            if (i > 0) list = list.append(Component.text(", ", NamedTextColor.DARK_GRAY));
-
-            Component entry = Component.text(name, NamedTextColor.GREEN);
-            if (withVersion) {
-                entry = entry.append(Component.text(" (", NamedTextColor.DARK_GRAY))
-                        .append(Component.text("v" + version, NamedTextColor.WHITE))
-                        .append(Component.text(")", NamedTextColor.DARK_GRAY));
-            }
-            list = list.append(entry);
-        }
-
-        sender.sendMessage(header.append(list));
+        sender.sendMessage(ServerFeaturesCommandView.buildLoadedFeaturesOneLine(entries, withVersion));
     }
 
     private void sendPluginStatus(@NotNull CommandSender sender) {

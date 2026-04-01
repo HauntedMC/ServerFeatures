@@ -72,7 +72,8 @@ public final class ConfirmationMenu extends GuiMenu {
         private Component title = Component.text("Confirm");
         private Component question = Component.text("Are you sure?");
         private int size = 27;
-        private org.bukkit.inventory.ItemStack filler = GuiItemHelper.filler();
+        private org.bukkit.inventory.ItemStack filler = null;
+        private boolean fillerExplicitlySet = false;
         private Runnable onConfirm, onCancel;
         private int yesSlot = 11;
         private int noSlot = 15;
@@ -100,6 +101,7 @@ public final class ConfirmationMenu extends GuiMenu {
 
         public Builder filler(org.bukkit.inventory.ItemStack i) {
             this.filler = i;
+            this.fillerExplicitlySet = true;
             return this;
         }
 
@@ -140,7 +142,8 @@ public final class ConfirmationMenu extends GuiMenu {
             }
             if (yesSlot == noSlot) throw new IllegalArgumentException("Yes/No slots must be distinct");
             validateNoCollisionsWithBackAndFixed(java.util.Map.of(), size, backButton, backSlot, java.util.Set.of(yesSlot, noSlot), "ConfirmationMenu");
-            return new ConfirmationMenu(gui, title, size, filler, question, onConfirm, onCancel, yesSlot, noSlot, backButton, backSlot);
+            org.bukkit.inventory.ItemStack effectiveFiller = fillerExplicitlySet ? filler : GuiItemHelper.filler();
+            return new ConfirmationMenu(gui, title, size, effectiveFiller, question, onConfirm, onCancel, yesSlot, noSlot, backButton, backSlot);
         }
     }
 }

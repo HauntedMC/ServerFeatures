@@ -23,12 +23,6 @@ import java.util.logging.Level;
 
 public class FeatureLoadManager {
 
-    private enum LoadOrderState {
-        VISITING,
-        VISITED,
-        FAILED
-    }
-
     private final ServerFeatures plugin;
     private final MainConfigHandler mainConfigHandler;
     private final FeatureRegistry featureRegistry;
@@ -63,7 +57,7 @@ public class FeatureLoadManager {
                 }
 
                 FeatureDescriptor descriptor = descriptorOptional.get();
-                String conflictingKey = findCaseInsensitiveMatch(
+                String conflictingKey = FeatureKeyResolver.findCaseInsensitiveMatch(
                         descriptor.registryName(),
                         featureRegistry.getAvailableFeatures().keySet()
                 );
@@ -113,7 +107,7 @@ public class FeatureLoadManager {
             return Optional.empty();
         }
         String featureKey = featureName;
-        if (!isValidFeatureKey(featureKey)) {
+        if (!FeatureKeyResolver.isValidFeatureKey(featureKey)) {
             plugin.getLogger().severe(
                     "Skipping feature class '" + featureClassName
                             + "' because getFeatureName() produced an invalid key: '" + featureKey + "'."
@@ -185,7 +179,7 @@ public class FeatureLoadManager {
                 );
                 return null;
             }
-            if (!isValidFeatureKey(dependencyKey)) {
+            if (!FeatureKeyResolver.isValidFeatureKey(dependencyKey)) {
                 plugin.getLogger().severe(
                         "Skipping feature class '" + featureClassName
                                 + "' because dependency key is invalid: '" + dependencyKey + "'."
@@ -227,204 +221,45 @@ public class FeatureLoadManager {
     }
 
     public void initializeFeatures() {
-        List<String> loadOrder = new ArrayList<>();
-        Map<String, LoadOrderState> states = new HashMap<>();
-        Set<String> skippedFeatures = new LinkedHashSet<>();
+        FeatureLoadOrderResolver.Result result = FeatureLoadOrderResolver.resolveLoadOrder(
+                featureRegistry.getAvailableFeatures().keySet(),
+                featureRegistry::getAvailableFeature,
+                this::resolveFeatureKey,
+                msg -> plugin.getLogger().severe(msg)
+        );
 
-        for (String featureName : featureRegistry.getAvailableFeatures().keySet()) {
-            if (!resolveFeatureLoadOrder(featureName, states, new ArrayDeque<>(), loadOrder)) {
-                skippedFeatures.add(featureName);
-            }
+        if (!result.skippedFeatures().isEmpty()) {
+            plugin.getLogger().warning(
+                    "Skipping features due dependency graph issues: " + String.join(", ", result.skippedFeatures())
+            );
         }
 
-        if (!skippedFeatures.isEmpty()) {
-            plugin.getLogger().warning("Skipping features due dependency graph issues: " + String.join(", ", skippedFeatures));
-        }
-
-        for (String featureName : loadOrder) {
+        for (String featureName : result.loadOrder()) {
             loadFeature(featureName);
         }
         CommandSync.apply(plugin);
     }
 
-    private boolean resolveFeatureLoadOrder(
-            String featureName,
-            Map<String, LoadOrderState> states,
-            Deque<String> path,
-            List<String> loadOrder
-    ) {
-        LoadOrderState state = states.get(featureName);
-        if (state == LoadOrderState.VISITED) {
-            return true;
-        }
-        if (state == LoadOrderState.FAILED) {
-            return false;
-        }
-        if (state == LoadOrderState.VISITING) {
-            List<String> cyclePath = new ArrayList<>(path);
-            cyclePath.add(featureName);
-            plugin.getLogger().severe("Dependency cycle detected: " + String.join(" -> ", cyclePath));
-            states.put(featureName, LoadOrderState.FAILED);
-            return false;
-        }
-
-        FeatureDescriptor descriptor = featureRegistry.getAvailableFeature(featureName);
-        if (descriptor == null) {
-            plugin.getLogger().severe("Feature '" + featureName + "' is not registered as available.");
-            states.put(featureName, LoadOrderState.FAILED);
-            return false;
-        }
-
-        states.put(featureName, LoadOrderState.VISITING);
-        path.addLast(featureName);
-
-        try {
-            for (String dependency : descriptor.featureDependencies()) {
-                String dependencyKey = resolveFeatureKey(dependency);
-                if (dependencyKey == null) {
-                    states.put(featureName, LoadOrderState.FAILED);
-                    plugin.getLogger().severe(
-                            "Feature '" + featureName + "' cannot be loaded because dependency '" + dependency + "' is unavailable."
-                    );
-                    return false;
-                }
-
-                if (!resolveFeatureLoadOrder(dependencyKey, states, path, loadOrder)) {
-                    states.put(featureName, LoadOrderState.FAILED);
-                    plugin.getLogger().severe(
-                            "Feature '" + featureName + "' cannot be loaded because dependency '" + dependencyKey + "' failed."
-                    );
-                    return false;
-                }
-            }
-
-            states.put(featureName, LoadOrderState.VISITED);
-            loadOrder.add(featureName);
-            return true;
-        } finally {
-            path.removeLast();
-        }
-    }
-
     public String resolveFeatureKey(String inputName) {
-        if (inputName == null) {
-            return null;
-        }
-
-        String candidate = inputName.trim();
-        if (candidate.isEmpty()) {
-            return null;
-        }
-
-        if (featureRegistry.getAvailableFeature(candidate) != null || featureRegistry.isFeatureLoaded(candidate)) {
-            return candidate;
-        }
-
-        String availableCaseMatch = findCaseInsensitiveMatch(candidate, featureRegistry.getAvailableFeatures().keySet());
-        if (availableCaseMatch != null) {
-            return availableCaseMatch;
-        }
-        String loadedCaseMatch = findCaseInsensitiveMatch(candidate, featureRegistry.getLoadedFeatureNames());
-        if (loadedCaseMatch != null) {
-            return loadedCaseMatch;
-        }
-
-        for (FeatureDescriptor descriptor : featureRegistry.getAvailableFeatures().values()) {
-            if (candidate.equalsIgnoreCase(descriptor.featureName())) {
-                return descriptor.registryName();
-            }
-
-            String simpleClassName = simpleClassName(descriptor.featureClassName());
-            if (candidate.equalsIgnoreCase(simpleClassName)) {
-                return descriptor.registryName();
-            }
-        }
-
-        for (String loadedKey : featureRegistry.getLoadedFeatureNames()) {
-            BukkitBaseFeature<?> loadedFeature = featureRegistry.getLoadedFeature(loadedKey);
-            if (loadedFeature == null) {
-                continue;
-            }
-
-            String loadedName = loadedFeature.getFeatureName();
-            if (loadedName != null && candidate.equalsIgnoreCase(loadedName)) {
-                return loadedKey;
-            }
-        }
-
-        return null;
-    }
-
-    private String findCaseInsensitiveMatch(String candidate, Collection<String> values) {
-        for (String value : values) {
-            if (value != null && value.equalsIgnoreCase(candidate)) {
-                return value;
-            }
-        }
-        return null;
-    }
-
-    private String simpleClassName(String className) {
-        if (className == null || className.isBlank()) {
-            return "";
-        }
-        int lastDot = className.lastIndexOf('.');
-        return lastDot < 0 ? className : className.substring(lastDot + 1);
-    }
-
-    private boolean isValidFeatureKey(String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (!Character.isLetterOrDigit(c) && c != '_' && c != '-') {
-                return false;
-            }
-        }
-        return true;
+        return FeatureKeyResolver.resolveFeatureKey(
+                inputName,
+                featureRegistry.getAvailableFeatures(),
+                featureRegistry.getLoadedFeatureNames(),
+                loadedKey -> {
+                    BukkitBaseFeature<?> loadedFeature = featureRegistry.getLoadedFeature(loadedKey);
+                    return loadedFeature == null ? null : loadedFeature.getFeatureName();
+                }
+        );
     }
 
     private DependencyCheckResult diagnoseDependenciesRecursively(String featureName) {
-        String featureKey = resolveFeatureKey(featureName);
-        if (featureKey == null) {
-            return new DependencyCheckResult(Set.of(), Set.of(featureName));
-        }
-
-        Set<String> missingPlugins = new LinkedHashSet<>();
-        Set<String> missingFeatures = new LinkedHashSet<>();
-        collectDependencyGaps(featureKey, new HashSet<>(), missingPlugins, missingFeatures);
-        return new DependencyCheckResult(missingPlugins, missingFeatures);
-    }
-
-    private void collectDependencyGaps(
-            String featureName,
-            Set<String> visited,
-            Set<String> missingPlugins,
-            Set<String> missingFeatures
-    ) {
-        if (!visited.add(featureName)) {
-            return;
-        }
-
-        FeatureDescriptor descriptor = featureRegistry.getAvailableFeature(featureName);
-        if (descriptor == null) {
-            missingFeatures.add(featureName);
-            return;
-        }
-
-        missingPlugins.addAll(getMissingPluginDependencies(featureName));
-        for (String dependency : descriptor.featureDependencies()) {
-            String dependencyKey = resolveFeatureKey(dependency);
-            if (dependencyKey == null) {
-                missingFeatures.add(dependency);
-                continue;
-            }
-            if (!featureRegistry.isFeatureLoaded(dependencyKey)) {
-                missingFeatures.add(dependencyKey);
-            }
-            collectDependencyGaps(dependencyKey, visited, missingPlugins, missingFeatures);
-        }
+        return FeatureDependencyDiagnostics.diagnoseDependenciesRecursively(
+                featureName,
+                this::resolveFeatureKey,
+                featureRegistry::getAvailableFeature,
+                featureRegistry::isFeatureLoaded,
+                this::getMissingPluginDependencies
+        );
     }
 
     private FeatureDescriptor requireAvailableDescriptor(String inputName) {

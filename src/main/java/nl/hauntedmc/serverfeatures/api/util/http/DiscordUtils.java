@@ -10,6 +10,10 @@ import java.nio.charset.StandardCharsets;
 
 public class DiscordUtils {
 
+    @FunctionalInterface
+    interface ConnectionProvider {
+        HttpURLConnection open(URL url) throws Exception;
+    }
 
     /**
      * Sends the provided JSON payload to the specified Discord webhook URL.
@@ -18,9 +22,13 @@ public class DiscordUtils {
      * @param payload    The JSON payload.
      */
     public static void sendPayload(String webhookUrl, String payload) {
+        sendPayload(webhookUrl, payload, url -> (HttpURLConnection) url.openConnection());
+    }
+
+    static void sendPayload(String webhookUrl, String payload, ConnectionProvider connectionProvider) {
         try {
             URL url = URI.create(webhookUrl).toURL();
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            HttpURLConnection connection = connectionProvider.open(url);
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setDoOutput(true);

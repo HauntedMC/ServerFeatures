@@ -6,6 +6,7 @@ import org.bukkit.World;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Boundary logic:
@@ -46,14 +47,18 @@ public class TeleportBounds {
         }
     }
 
-    private final Teleportation feature;
+    private final Function<String, Object> configLookup;
 
     public TeleportBounds(Teleportation feature) {
-        this.feature = feature;
+        this(path -> feature.getConfigHandler().get(path));
+    }
+
+    public TeleportBounds(Function<String, Object> configLookup) {
+        this.configLookup = java.util.Objects.requireNonNull(configLookup, "configLookup");
     }
 
     public boolean useWorldBorder() {
-        Object v = feature.getConfigHandler().get("respect_world_border");
+        Object v = configLookup.apply("respect_world_border");
         return (v instanceof Boolean b) ? b : true;
     }
 
@@ -129,7 +134,7 @@ public class TeleportBounds {
     @SuppressWarnings("unchecked")
     private Rect readRect(String rootKey, String subKey) {
         // Attempt 1: nested map (YAML → Map)
-        Object root = feature.getConfigHandler().get(rootKey);
+        Object root = configLookup.apply(rootKey);
         if (root instanceof Map<?, ?> r) {
             Object sub = r.get(subKey);
             if (sub instanceof Map<?, ?> s) {
@@ -144,10 +149,10 @@ public class TeleportBounds {
         }
 
         // Attempt 2: dotted path lookup (common with flattened config handlers)
-        Integer minX = asInt(feature.getConfigHandler().get(rootKey + "." + subKey + ".min_x"));
-        Integer maxX = asInt(feature.getConfigHandler().get(rootKey + "." + subKey + ".max_x"));
-        Integer minZ = asInt(feature.getConfigHandler().get(rootKey + "." + subKey + ".min_z"));
-        Integer maxZ = asInt(feature.getConfigHandler().get(rootKey + "." + subKey + ".max_z"));
+        Integer minX = asInt(configLookup.apply(rootKey + "." + subKey + ".min_x"));
+        Integer maxX = asInt(configLookup.apply(rootKey + "." + subKey + ".max_x"));
+        Integer minZ = asInt(configLookup.apply(rootKey + "." + subKey + ".min_z"));
+        Integer maxZ = asInt(configLookup.apply(rootKey + "." + subKey + ".max_z"));
         if (minX != null && maxX != null && minZ != null && maxZ != null) {
             return new Rect(minX, maxX, minZ, maxZ);
         }

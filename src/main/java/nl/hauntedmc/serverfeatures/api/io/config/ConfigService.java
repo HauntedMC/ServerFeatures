@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.api.io.config;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
 import org.bukkit.plugin.Plugin;
 
 import java.io.InputStream;
@@ -21,7 +20,7 @@ public final class ConfigService {
     private final Logger logger;
     private final ConcurrentHashMap<Path, YamlFile> cache = new ConcurrentHashMap<>();
 
-    public ConfigService(ServerFeatures plugin) {
+    public ConfigService(Plugin plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.dataDir = plugin.getDataFolder().toPath().toAbsolutePath().normalize();

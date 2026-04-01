@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.ArrayList;
@@ -21,7 +22,7 @@ import java.util.function.Function;
  */
 public class FeatureTaskManager {
 
-    private final ServerFeatures plugin;
+    private final Plugin plugin;
 
     /**
      * Thread-safe list because:
@@ -32,6 +33,10 @@ public class FeatureTaskManager {
             Collections.synchronizedList(new ArrayList<>());
 
     public FeatureTaskManager(ServerFeatures plugin) {
+        this((Plugin) plugin);
+    }
+
+    public FeatureTaskManager(Plugin plugin) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
     }
 
@@ -200,14 +205,14 @@ public class FeatureTaskManager {
     /**
      * Clamp delay to >= 0 ticks.
      */
-    private static long clampDelay(BukkitTime t) {
+    static long clampDelay(BukkitTime t) {
         return Math.max(0L, t.toTicks());
     }
 
     /**
      * Clamp period to at least 1 tick (Bukkit requirement).
      */
-    private static long clampPeriod(BukkitTime t) {
+    static long clampPeriod(BukkitTime t) {
         return Math.max(1L, t.toTicks());
     }
 }
