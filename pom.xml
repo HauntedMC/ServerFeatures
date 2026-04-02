@@ -153,7 +153,7 @@
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
-                <version>1.55</version>
+                <version>1.56</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
