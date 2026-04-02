@@ -295,7 +295,7 @@
         <dependency>
             <groupId>me.libraryaddict.disguises</groupId>
             <artifactId>libsdisguises</artifactId>
-            <version>11.0.13</version>
+            <version>11.0.16</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
