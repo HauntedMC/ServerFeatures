@@ -13,7 +13,7 @@ import java.util.Optional;
 
 public class Votifier extends BukkitBaseFeature<Meta> {
 
-    private static final String CHANNEL = "vote";     // must match proxy publisher
+    private static final String DEFAULT_CHANNEL = "proxy.votifier.vote";
     private static final String CONNECTION = "hauntedmc";
 
     private EventBusHandler eventBusHandler;
@@ -26,6 +26,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
+        cfg.put("channel", DEFAULT_CHANNEL);
         return cfg;
     }
 
@@ -47,9 +48,15 @@ public class Votifier extends BukkitBaseFeature<Meta> {
             throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
         }
 
-        // Subscribe to the vote channel
+        String configuredChannel = getConfigHandler().get("channel", String.class, DEFAULT_CHANNEL);
+        String channel = resolveChannel(configuredChannel);
+
+        if (configuredChannel == null || configuredChannel.isBlank()) {
+            getLogger().warning("Configured Votifier channel is blank; falling back to \"" + DEFAULT_CHANNEL + "\".");
+        }
+
         this.eventBusHandler = new EventBusHandler(this, redisBus.get());
-        this.eventBusHandler.subscribe(CHANNEL);
+        this.eventBusHandler.subscribe(channel);
     }
 
     @Override
@@ -58,5 +65,14 @@ public class Votifier extends BukkitBaseFeature<Meta> {
             eventBusHandler.disable();
             eventBusHandler = null;
         }
+    }
+
+    static String resolveChannel(String configuredChannel) {
+        if (configuredChannel == null) {
+            return DEFAULT_CHANNEL;
+        }
+
+        String channel = configuredChannel.trim();
+        return channel.isEmpty() ? DEFAULT_CHANNEL : channel;
     }
 }
