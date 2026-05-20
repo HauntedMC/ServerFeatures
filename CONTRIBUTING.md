@@ -4,7 +4,7 @@ Thanks for taking the time to contribute.
 
 ## Before You Start
 
-- Use Java 21 and Maven.
+- Use Java 25 and Maven.
 - Make sure you can run a local compile and test pass.
 - If your change affects runtime behavior, test it in a Velocity environment.
 

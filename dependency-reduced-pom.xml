@@ -17,7 +17,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.4.1</version>
+        <version>3.5.0</version>
         <configuration>
           <archive>
             <manifestEntries>
@@ -29,8 +29,8 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>21</source>
-          <target>21</target>
+          <source>25</source>
+          <target>25</target>
         </configuration>
       </plugin>
       <plugin>
@@ -40,7 +40,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>13.4.0</version>
+            <version>13.4.2</version>
           </dependency>
         </dependencies>
         <configuration>
@@ -60,7 +60,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.6.2</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -172,13 +172,13 @@
     <dependency>
       <groupId>nl.hauntedmc.dataregistry</groupId>
       <artifactId>dataregistry</artifactId>
-      <version>1.7.3</version>
+      <version>1.8.0</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>nl.hauntedmc.dataprovider</groupId>
       <artifactId>dataprovider</artifactId>
-      <version>2.0.0</version>
+      <version>2.1.0</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
@@ -190,7 +190,7 @@
     <dependency>
       <groupId>io.papermc.paper</groupId>
       <artifactId>paper-api</artifactId>
-      <version>1.21.11-R0.1-SNAPSHOT</version>
+      <version>[26.1.2.build,)</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -202,7 +202,7 @@
     <dependency>
       <groupId>com.github.retrooper</groupId>
       <artifactId>packetevents-spigot</artifactId>
-      <version>2.11.2</version>
+      <version>2.12.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -220,13 +220,13 @@
     <dependency>
       <groupId>net.luckperms</groupId>
       <artifactId>api</artifactId>
-      <version>5.4</version>
+      <version>5.5</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>me.libraryaddict.disguises</groupId>
       <artifactId>libsdisguises</artifactId>
-      <version>11.0.13</version>
+      <version>11.0.16</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
@@ -238,13 +238,13 @@
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Core</artifactId>
-      <version>2.13.1</version>
+      <version>2.15.0</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.fastasyncworldedit</groupId>
       <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
-      <version>2.13.1</version>
+      <version>2.15.0</version>
       <scope>provided</scope>
       <exclusions>
         <exclusion>
@@ -268,7 +268,7 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.10.2</version>
+      <version>6.0.3</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -333,7 +333,7 @@
       <dependency>
         <groupId>com.intellectualsites.bom</groupId>
         <artifactId>bom-newest</artifactId>
-        <version>1.55</version>
+        <version>1.56</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -348,6 +348,6 @@
   </distributionManagement>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+    <paper.version>[26.1.2.build,)</paper.version>
   </properties>
 </project>
