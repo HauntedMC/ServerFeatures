@@ -38,7 +38,7 @@ class PlayerRegistryAPITest {
         LanguageAPI languageAPI = new LanguageAPI() {
             @Override
             public Language get(UUID playerUuid) {
-                return Language.DE;
+                return Language.EN;
             }
 
             @Override
@@ -48,6 +48,6 @@ class PlayerRegistryAPITest {
 
         APIRegistry.register(LanguageAPI.class, languageAPI);
 
-        assertEquals(Language.DE, PlayerRegistryAPI.getPlayerLanguage(player));
+        assertEquals(Language.EN, PlayerRegistryAPI.getPlayerLanguage(player));
     }
 }

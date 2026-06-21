@@ -2,8 +2,7 @@ package nl.hauntedmc.serverfeatures.api.io.localization;
 
 public enum Language {
     NL("NL"),
-    EN("EN"),
-    DE("DE");
+    EN("EN");
 
     private final String code;
 

@@ -10,6 +10,5 @@ class LanguageTest {
     void getFileNameMatchesExpectedConvention() {
         assertEquals("messages_NL.yml", Language.NL.getFileName());
         assertEquals("messages_EN.yml", Language.EN.getFileName());
-        assertEquals("messages_DE.yml", Language.DE.getFileName());
     }
 }
