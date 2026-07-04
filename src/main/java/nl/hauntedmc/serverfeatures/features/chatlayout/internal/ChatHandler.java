@@ -325,7 +325,7 @@ public class ChatHandler {
     private Component buildChatComponent(Player player, String rawMessage) {
 
         // Admin permissions for chat formatting
-        if (player.hasPermission("deluxechat.interactive")) {
+        if (player.hasPermission("serverfeatures.feature.chatlayout.format.interactive")) {
             return ComponentFormatter.deserialize(rawMessage)
                     .expect(TextFormatter.InputFormat.MIXED_INPUT)
                     .features(ComponentFormatter.Feature.CLICK,
@@ -338,7 +338,7 @@ public class ChatHandler {
                     .autoLinkUrls(true)
                     .toComponent();
             // Formatting permissions for chat formatting with colors and decorations
-        } else if (player.hasPermission("deluxechat.formatting")) {
+        } else if (player.hasPermission("serverfeatures.feature.chatlayout.format.formatting")) {
             return ComponentFormatter.deserialize(rawMessage)
                     .expect(TextFormatter.InputFormat.MIXED_INPUT)
                     .features(ComponentFormatter.Feature.COLORS,
@@ -349,7 +349,7 @@ public class ChatHandler {
                     .autoLinkUrls(true)
                     .toComponent();
             // Formatting permissions for chat formatting with colors only
-        } else if (player.hasPermission("deluxechat.color")) {
+        } else if (player.hasPermission("serverfeatures.feature.chatlayout.format.color")) {
             return ComponentFormatter.deserialize(rawMessage)
                     .expect(TextFormatter.InputFormat.MIXED_INPUT)
                     .features(ComponentFormatter.Feature.COLORS,
