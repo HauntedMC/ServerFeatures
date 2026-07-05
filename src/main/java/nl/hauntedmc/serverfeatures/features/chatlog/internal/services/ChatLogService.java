@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ReportedChatMessageEntity;
 import org.bukkit.entity.Player;
+import org.hibernate.Session;
 
 import java.util.List;
 
@@ -24,28 +25,33 @@ public class ChatLogService {
         long timestamp = System.currentTimeMillis();
 
         feature.getOrmContext().runInTransaction(session -> {
-            // Retrieve the persistent PlayerEntity using the player's UUID.
-            PlayerEntity playerEntity = session.createQuery(
-                            "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                    .setParameter("uuid", player.getUniqueId().toString())
-                    .uniqueResult();
-
-            // If not found, create and persist a new PlayerEntity.
-            if (playerEntity == null) {
-                playerEntity = new PlayerEntity();
-                playerEntity.setUuid(player.getUniqueId().toString());
-                playerEntity.setUsername(player.getName());
-                session.persist(playerEntity);
-            }
-
-            ChatMessageEntity message = new ChatMessageEntity();
-            message.setServer(serverName);
-            message.setPlayer(playerEntity);
-            message.setMessage(rawMessage);
-            message.setTimestamp(timestamp);
-            session.persist(message);
+            addMessage(session, serverName, timestamp, player, rawMessage);
             return null;
         });
+    }
+
+    boolean addMessage(Session session, String serverName, long timestamp, Player player, String rawMessage) {
+        PlayerEntity playerEntity = session.createQuery(
+                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
+                .setParameter("uuid", player.getUniqueId().toString())
+                .uniqueResult();
+
+        if (playerEntity == null) {
+            return false;
+        }
+
+        if (!player.getName().equals(playerEntity.getUsername())) {
+            playerEntity.setUsername(player.getName());
+            session.merge(playerEntity);
+        }
+
+        ChatMessageEntity message = new ChatMessageEntity();
+        message.setServer(serverName);
+        message.setPlayer(playerEntity);
+        message.setMessage(rawMessage);
+        message.setTimestamp(timestamp);
+        session.persist(message);
+        return true;
     }
 
     /**

@@ -64,6 +64,7 @@ public class Nickname extends BukkitBaseFeature<Meta> {
         messages.add("nickname.set_other", "&eDe nickname van {player} is veranderd naar {nickname}.");
         messages.add("nickname.player_not_found", "&cDeze speler is niet online.");
         messages.add("nickname.other_removed", "&eDe nickname van {player} is verwijderd.");
+        messages.add("nickname.data_unavailable", "&cJe spelerdata is momenteel niet beschikbaar. Probeer het opnieuw.");
         return messages;
     }
 

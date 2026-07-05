@@ -42,8 +42,9 @@ public class NickCommand extends FeatureCommand {
 
         if (args.length == 1) {
             if (args[0].equalsIgnoreCase("remove")) {
-                feature.getNicknameHandler().removeNickname(player);
-                player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(player).build());
+                if (feature.getNicknameHandler().removeNickname(player)) {
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(player).build());
+                }
             } else {
                 boolean succes = feature.getNicknameHandler().setNickname(player, args[0]);
                 String nickname = feature.getNicknameHandler().getNickname(player).orElse(args[0]);
@@ -65,12 +66,13 @@ public class NickCommand extends FeatureCommand {
                 return true;
             }
             if (args[1].equalsIgnoreCase("remove")) {
-                feature.getNicknameHandler().removeNickname(player);
-                target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(target).build());
-                sender.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed")
-                        .forAudience(player)
-                        .with("player", target.getName())
-                        .build());
+                if (feature.getNicknameHandler().removeNickname(target)) {
+                    target.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed").forAudience(target).build());
+                    sender.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed")
+                            .forAudience(player)
+                            .with("player", target.getName())
+                            .build());
+                }
             } else {
                 boolean succes = feature.getNicknameHandler().setNickname(target, args[1]);
                 String nickname = feature.getNicknameHandler().getNickname(target).orElse(args[1]);

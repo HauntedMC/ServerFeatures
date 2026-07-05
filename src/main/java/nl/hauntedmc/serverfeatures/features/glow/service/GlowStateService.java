@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;
 import org.bukkit.entity.Player;
+import org.hibernate.Session;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -25,54 +26,8 @@ public class GlowStateService {
      * Save (upsert) the player's glow state. If effect is empty -> disabled.
      */
     public void saveGlowState(Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
-        final String uuid = bukkitPlayer.getUniqueId().toString();
-        final String username = bukkitPlayer.getName();
-
         feature.getOrmContext().runInTransaction(session -> {
-            // Ensure PlayerEntity exists and username is up to date
-            PlayerEntity playerEntity = session.createQuery(
-                            "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                    .setParameter("uuid", uuid)
-                    .uniqueResult();
-
-            if (playerEntity == null) {
-                playerEntity = new PlayerEntity();
-                playerEntity.setUuid(uuid);
-                playerEntity.setUsername(username);
-                session.persist(playerEntity);
-            } else if (!username.equals(playerEntity.getUsername())) {
-                playerEntity.setUsername(username);
-                session.merge(playerEntity);
-            }
-
-            // Fetch or create PlayerGlowStateEntity (shared PK with PlayerEntity)
-            PlayerGlowStateEntity state = session.createQuery(
-                            "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
-                    .setParameter("player", playerEntity)
-                    .uniqueResult();
-
-            boolean isNew = false;
-            if (state == null) {
-                state = new PlayerGlowStateEntity();
-                state.setPlayer(playerEntity); // sets player and maps PK via @MapsId
-                isNew = true;
-            }
-
-            if (effectOpt.isPresent()) {
-                GlowEffect effect = effectOpt.get();
-                state.setEnabled(true);
-                state.setEffectId(effect.id().toLowerCase(Locale.ROOT));
-            } else {
-                state.setEnabled(false);
-                state.setEffectId(null);
-            }
-
-            if (isNew) {
-                session.persist(state);
-            } else {
-                session.merge(state);
-            }
-
+            saveGlowState(session, bukkitPlayer, effectOpt);
             return null;
         });
     }
@@ -82,48 +37,92 @@ public class GlowStateService {
      * Silently skips if effect no longer exists or permissions are missing.
      */
     public void restoreGlowFor(Player bukkitPlayer) {
-        final String uuid = bukkitPlayer.getUniqueId().toString();
-        final String username = bukkitPlayer.getName();
-
         feature.getOrmContext().runInTransaction(session -> {
-            // Ensure PlayerEntity exists (also keeps usernames fresh)
-            PlayerEntity playerEntity = session.createQuery(
-                            "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                    .setParameter("uuid", uuid)
-                    .uniqueResult();
-
-            if (playerEntity == null) {
-                // Brand-new player; create PlayerEntity and no glow yet
-                playerEntity = new PlayerEntity();
-                playerEntity.setUuid(uuid);
-                playerEntity.setUsername(username);
-                session.persist(playerEntity);
-                return null;
-            } else if (!username.equals(playerEntity.getUsername())) {
-                playerEntity.setUsername(username);
-                session.merge(playerEntity);
-            }
-
-            PlayerGlowStateEntity state = session.createQuery(
-                            "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
-                    .setParameter("player", playerEntity)
-                    .uniqueResult();
-
-            if (state == null || !state.isEnabled()) {
-                return null;
-            }
-
-            String effectId = state.getEffectId();
-            if (effectId == null || effectId.isBlank()) {
-                return null;
-            }
-
-            feature.getGlowRegistry().find(effectId).ifPresent(effect -> {
-                // Apply without persisting (DB already reflects this)
-                feature.getGlowHandler().restoreGlow(bukkitPlayer, effect);
-            });
-
+            restoreGlowFor(session, bukkitPlayer);
             return null;
         });
+    }
+
+    void saveGlowState(Session session, Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
+        PlayerEntity playerEntity = resolveExistingPlayerEntity(
+                session,
+                bukkitPlayer.getUniqueId().toString(),
+                bukkitPlayer.getName()
+        );
+
+        if (playerEntity == null) {
+            return;
+        }
+
+        PlayerGlowStateEntity state = session.createQuery(
+                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
+                .setParameter("player", playerEntity)
+                .uniqueResult();
+
+        boolean isNew = false;
+        if (state == null) {
+            state = new PlayerGlowStateEntity();
+            state.setPlayer(playerEntity);
+            isNew = true;
+        }
+
+        if (effectOpt.isPresent()) {
+            GlowEffect effect = effectOpt.get();
+            state.setEnabled(true);
+            state.setEffectId(effect.id().toLowerCase(Locale.ROOT));
+        } else {
+            state.setEnabled(false);
+            state.setEffectId(null);
+        }
+
+        if (isNew) {
+            session.persist(state);
+        } else {
+            session.merge(state);
+        }
+    }
+
+    void restoreGlowFor(Session session, Player bukkitPlayer) {
+        PlayerEntity playerEntity = resolveExistingPlayerEntity(
+                session,
+                bukkitPlayer.getUniqueId().toString(),
+                bukkitPlayer.getName()
+        );
+
+        if (playerEntity == null) {
+            return;
+        }
+
+        PlayerGlowStateEntity state = session.createQuery(
+                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
+                .setParameter("player", playerEntity)
+                .uniqueResult();
+
+        if (state == null || !state.isEnabled()) {
+            return;
+        }
+
+        String effectId = state.getEffectId();
+        if (effectId == null || effectId.isBlank()) {
+            return;
+        }
+
+        feature.getGlowRegistry().find(effectId).ifPresent(effect ->
+                feature.getGlowHandler().restoreGlow(bukkitPlayer, effect)
+        );
+    }
+
+    private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid, String username) {
+        PlayerEntity playerEntity = session.createQuery(
+                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
+                .setParameter("uuid", uuid)
+                .uniqueResult();
+
+        if (playerEntity != null && !username.equals(playerEntity.getUsername())) {
+            playerEntity.setUsername(username);
+            session.merge(playerEntity);
+        }
+
+        return playerEntity;
     }
 }

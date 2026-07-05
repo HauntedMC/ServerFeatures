@@ -17,26 +17,17 @@ public class VanishRepository {
         this.feature = feature;
     }
 
-    /**
-     * Ensures a PlayerEntity exists for the UUID. Creates one if missing.
-     */
-    public PlayerEntity ensurePlayerEntity(Session session, String uuid, String username) {
+    public PlayerEntity findExistingPlayerEntity(Session session, String uuid, String username) {
         PlayerEntity playerEntity = session.createQuery(
                         "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
                 .setParameter("uuid", uuid)
                 .uniqueResult();
 
-        if (playerEntity == null) {
-            playerEntity = new PlayerEntity();
-            playerEntity.setUuid(uuid);
+        if (playerEntity != null && username != null && !username.equals(playerEntity.getUsername())) {
             playerEntity.setUsername(username);
-            session.persist(playerEntity);
-        } else {
-            // Optional: update latest username if changed
-            if (username != null && !username.equals(playerEntity.getUsername())) {
-                playerEntity.setUsername(username);
-            }
+            session.merge(playerEntity);
         }
+
         return playerEntity;
     }
 
@@ -55,24 +46,31 @@ public class VanishRepository {
      */
     public void upsertVanish(String uuid, String username, boolean vanished) {
         feature.getOrmContext().runInTransaction(session -> {
-            PlayerEntity player = ensurePlayerEntity(session, uuid, username);
-
-            PlayerVanishEntity row = session.createQuery(
-                            "SELECT v FROM PlayerVanishEntity v WHERE v.player.id = :pid", PlayerVanishEntity.class)
-                    .setParameter("pid", player.getId())
-                    .uniqueResult();
-
-            if (row == null) {
-                row = new PlayerVanishEntity();
-                row.setPlayer(player);
-                row.setVanished(vanished);
-                session.persist(row);
-            } else {
-                row.setVanished(vanished);
-                session.merge(row);
-            }
+            upsertVanish(session, uuid, username, vanished);
             return null;
         });
+    }
+
+    void upsertVanish(Session session, String uuid, String username, boolean vanished) {
+        PlayerEntity player = findExistingPlayerEntity(session, uuid, username);
+        if (player == null) {
+            return;
+        }
+
+        PlayerVanishEntity row = session.createQuery(
+                        "SELECT v FROM PlayerVanishEntity v WHERE v.player.id = :pid", PlayerVanishEntity.class)
+                .setParameter("pid", player.getId())
+                .uniqueResult();
+
+        if (row == null) {
+            row = new PlayerVanishEntity();
+            row.setPlayer(player);
+            row.setVanished(vanished);
+            session.persist(row);
+        } else {
+            row.setVanished(vanished);
+            session.merge(row);
+        }
     }
 
     /* --------------------- Helpers --------------------- */

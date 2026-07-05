@@ -58,7 +58,7 @@ public class NametagDBService {
                         .uniqueResultOptional();
 
                 if (playerIdOpt.isEmpty()) {
-                    throw new IllegalStateException("PlayerEntity not found for UUID " + playerUuid + " (" + playerName + ")");
+                    return null;
                 }
 
                 session.createNativeMutationQuery(

@@ -65,7 +65,7 @@ public class LanguageService implements LanguageAPI {
     public void set(UUID playerUuid, Language language) {
         Objects.requireNonNull(language, "language");
 
-        orm.runInTransaction(session -> {
+        boolean persisted = Boolean.TRUE.equals(orm.runInTransaction(session -> {
             Long pid = idCache.get(playerUuid);
             PlayerEntity p;
 
@@ -73,14 +73,14 @@ public class LanguageService implements LanguageAPI {
                 p = session.createQuery("FROM PlayerEntity WHERE uuid = :u", PlayerEntity.class)
                         .setParameter("u", playerUuid.toString())
                         .uniqueResult();
-                if (p == null) return null;
+                if (p == null) return false;
                 pid = p.getId();
                 idCache.put(playerUuid, pid);
             } else {
                 p = session.get(PlayerEntity.class, pid);
                 if (p == null) {
                     idCache.remove(playerUuid);
-                    return null;
+                    return false;
                 }
             }
 
@@ -96,10 +96,12 @@ public class LanguageService implements LanguageAPI {
                 ple.setLanguage(code);
                 session.merge(ple);
             }
-            return null;
-        });
+            return true;
+        }));
 
-        langCache.put(playerUuid, language);
+        if (persisted) {
+            langCache.put(playerUuid, language);
+        }
     }
 
     private static String toCode(Language lang) {
