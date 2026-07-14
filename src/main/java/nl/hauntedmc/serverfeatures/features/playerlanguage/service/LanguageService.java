@@ -7,58 +7,59 @@ import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
-public class LanguageService implements LanguageAPI {
+public final class LanguageService implements LanguageAPI {
 
-    private static final Language FALLBACK = Language.EN; // safe default if nothing cached
+    private static final Language FALLBACK = Language.EN;
+
     private final ORMContext orm;
-
-    // In-memory per-session cache (populated on join)
-    private final Map<UUID, Language> langCache = new ConcurrentHashMap<>();
-    // Optional micro-cache to avoid re-querying PlayerEntity primary key on set()
-    private final Map<UUID, Long> idCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, Language> languageCache = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, Long> playerIdCache = new ConcurrentHashMap<>();
 
     public LanguageService(ORMContext orm) {
-        this.orm = orm;
+        this.orm = Objects.requireNonNull(orm, "orm");
     }
 
-    /**
-     * Load language from DB once on join. If missing, do not create;
-     * simply leave cache empty (get() will use FALLBACK).
-     */
-    public void warm(UUID uuid) {
-        orm.runInTransaction(session -> {
-            PlayerEntity p = session.createQuery("FROM PlayerEntity WHERE uuid = :u", PlayerEntity.class)
-                    .setParameter("u", uuid.toString())
-                    .uniqueResult();
-            if (p == null) return null;
-
-            Long pid = p.getId();
-            idCache.put(uuid, pid);
-
-            PlayerLanguageEntity ple = session.get(PlayerLanguageEntity.class, pid);
-            if (ple != null && ple.getLanguage() != null) {
-                langCache.put(uuid, fromCode(ple.getLanguage()));
+    public void warm(UUID playerUuid) {
+        Language language = orm.runInTransaction(session -> {
+            PlayerEntity player = findPlayerEntity(session, playerUuid);
+            if (player == null) {
+                return null;
             }
-            return null;
+
+            playerIdCache.put(playerUuid, player.getId());
+            PlayerLanguageEntity entity = session.get(PlayerLanguageEntity.class, player.getId());
+            if (entity == null) {
+                return null;
+            }
+
+            Language effective = fromStoredCode(entity.getEffectiveLanguage());
+            if (effective != null) {
+                return effective;
+            }
+
+            return fromStoredCode(entity.getLanguage());
         });
+
+        if (language != null) {
+            languageCache.put(playerUuid, language);
+        } else {
+            languageCache.remove(playerUuid);
+        }
     }
 
-    /**
-     * Clear per-session state on quit.
-     */
-    public void forget(UUID uuid) {
-        langCache.remove(uuid);
-        idCache.remove(uuid);
+    public void forget(UUID playerUuid) {
+        languageCache.remove(playerUuid);
+        playerIdCache.remove(playerUuid);
     }
 
     @Override
     public Language get(UUID playerUuid) {
-        return langCache.getOrDefault(playerUuid, FALLBACK);
+        return languageCache.getOrDefault(playerUuid, FALLBACK);
     }
 
     @Override
@@ -66,54 +67,59 @@ public class LanguageService implements LanguageAPI {
         Objects.requireNonNull(language, "language");
 
         boolean persisted = Boolean.TRUE.equals(orm.runInTransaction(session -> {
-            Long pid = idCache.get(playerUuid);
-            PlayerEntity p;
-
-            if (pid == null) {
-                p = session.createQuery("FROM PlayerEntity WHERE uuid = :u", PlayerEntity.class)
-                        .setParameter("u", playerUuid.toString())
-                        .uniqueResult();
-                if (p == null) return false;
-                pid = p.getId();
-                idCache.put(playerUuid, pid);
-            } else {
-                p = session.get(PlayerEntity.class, pid);
-                if (p == null) {
-                    idCache.remove(playerUuid);
-                    return false;
-                }
+            PlayerEntity player = findPlayerEntity(session, playerUuid);
+            if (player == null) {
+                return false;
             }
 
-            String code = toCode(language);
-
-            PlayerLanguageEntity ple = session.get(PlayerLanguageEntity.class, pid);
-            if (ple == null) {
-                ple = new PlayerLanguageEntity();
-                ple.setPlayer(p);
-                ple.setLanguage(code);
-                session.persist(ple);
-            } else {
-                ple.setLanguage(code);
-                session.merge(ple);
+            PlayerLanguageEntity entity = session.get(PlayerLanguageEntity.class, player.getId());
+            if (entity == null) {
+                entity = new PlayerLanguageEntity();
+                entity.setPlayer(player);
+                session.persist(entity);
             }
+
+            entity.setLanguage(language.name());
+            entity.setEffectiveLanguage(language.name());
             return true;
         }));
 
         if (persisted) {
-            langCache.put(playerUuid, language);
+            languageCache.put(playerUuid, language);
         }
     }
 
-    private static String toCode(Language lang) {
-        return (lang == null) ? FALLBACK.name() : lang.name().toUpperCase(Locale.ROOT);
+    private PlayerEntity findPlayerEntity(org.hibernate.Session session, UUID playerUuid) {
+        Long cachedId = playerIdCache.get(playerUuid);
+        if (cachedId != null) {
+            PlayerEntity cached = session.get(PlayerEntity.class, cachedId);
+            if (cached != null) {
+                return cached;
+            }
+            playerIdCache.remove(playerUuid);
+        }
+
+        PlayerEntity player = session.createQuery(
+                        "FROM PlayerEntity WHERE uuid = :uuid",
+                        PlayerEntity.class)
+                .setParameter("uuid", playerUuid.toString())
+                .setMaxResults(1)
+                .uniqueResult();
+        if (player != null) {
+            playerIdCache.put(playerUuid, player.getId());
+        }
+        return player;
     }
 
-    private static Language fromCode(String code) {
-        if (code == null || code.isBlank()) return FALLBACK;
+    private static Language fromStoredCode(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+
         try {
             return Language.valueOf(code.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException ex) {
-            return FALLBACK;
+        } catch (IllegalArgumentException ignored) {
+            return null;
         }
     }
 }

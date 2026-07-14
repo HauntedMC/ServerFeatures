@@ -17,11 +17,11 @@ public class LanguageListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent e) {
-        feature.getService().warm(e.getPlayer().getUniqueId()); // single DB read
+        feature.getService().warm(e.getPlayer().getUniqueId());
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        feature.getService().forget(e.getPlayer().getUniqueId()); // cleanup
+        feature.getService().forget(e.getPlayer().getUniqueId());
     }
 }

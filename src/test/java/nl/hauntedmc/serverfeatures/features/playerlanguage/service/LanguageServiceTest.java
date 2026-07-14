@@ -40,7 +40,7 @@ class LanguageServiceTest {
 
     @SuppressWarnings("unchecked")
     private static Map<UUID, Language> cache(LanguageService service) throws Exception {
-        Field field = LanguageService.class.getDeclaredField("langCache");
+        Field field = LanguageService.class.getDeclaredField("languageCache");
         field.setAccessible(true);
         return (Map<UUID, Language>) field.get(service);
     }
@@ -51,6 +51,7 @@ class LanguageServiceTest {
                 new Class<?>[]{Query.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "setParameter" -> proxy;
+                    case "setMaxResults" -> proxy;
                     case "uniqueResult" -> playerEntity;
                     default -> null;
                 }
