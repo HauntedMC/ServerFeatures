@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage;
 
-import nl.hauntedmc.dataprovider.api.orm.ORMContext;
-import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -34,16 +34,12 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
-        getLifecycleManager().getDataManager().registerConnection("orm", DatabaseType.MYSQL, "player_data_rw");
-
-        ORMContext orm = getLifecycleManager().getDataManager()
-                .createORMContext("orm",
-                        nl.hauntedmc.dataregistry.api.entities.PlayerLanguageEntity.class,
-                        nl.hauntedmc.dataregistry.api.entities.PlayerEntity.class)
-                .orElseThrow();
-
-        this.service = new LanguageService(orm);
+        DataRegistry dataRegistry = getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for PlayerLanguage."));
+        if (!dataRegistry.isFeatureEnabled(DataRegistryFeature.LANGUAGE)) {
+            throw new IllegalStateException("DataRegistry feature 'language' must be enabled for PlayerLanguage.");
+        }
+        this.service = new LanguageService(this, dataRegistry);
 
         getLifecycleManager().getListenerManager().registerListener(new LanguageListener(this));
 

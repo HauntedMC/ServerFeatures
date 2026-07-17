@@ -1,14 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.nickname;
 
-import nl.hauntedmc.dataprovider.api.orm.ORMContext;
-import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.nickname.command.NickCommand;
-import nl.hauntedmc.serverfeatures.features.nickname.entity.NicknameEntity;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknameHandler;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknamePlaceholder;
 import nl.hauntedmc.serverfeatures.features.nickname.listener.PlayerJoinListener;
@@ -18,7 +16,6 @@ import java.util.List;
 
 public class Nickname extends BukkitBaseFeature<Meta> {
 
-    private ORMContext ormContext;
     private NicknameHandler nicknameHandler;
 
     public Nickname(ServerFeatures plugin) {
@@ -70,10 +67,11 @@ public class Nickname extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
-        getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
-        ormContext = getLifecycleManager().getDataManager().createORMContext("ormConnection", NicknameEntity.class, PlayerEntity.class).orElseThrow();
-
+        DataRegistry dataRegistry = getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nickname."));
+        if (!dataRegistry.isFeatureEnabled(DataRegistryFeature.NICKNAMES)) {
+            throw new IllegalStateException("DataRegistry feature 'nicknames' must be enabled for Nickname.");
+        }
         nicknameHandler = new NicknameHandler(this);
 
         getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(this));
@@ -87,10 +85,6 @@ public class Nickname extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-    }
-
-    public ORMContext getOrmContext() {
-        return ormContext;
     }
 
     public NicknameHandler getNicknameHandler() {

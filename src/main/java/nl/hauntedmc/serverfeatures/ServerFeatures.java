@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.platform.common.PlatformPlugin;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
@@ -16,6 +18,8 @@ import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Optional;
 
 public class ServerFeatures extends JavaPlugin {
 
@@ -97,5 +101,12 @@ public class ServerFeatures extends JavaPlugin {
 
     public BrigadierDispatcher getBrigadierDispatcher() {
         return brigadierDispatcher;
+    }
+
+    public Optional<DataRegistry> getDataRegistry() {
+        return Optional.ofNullable(Bukkit.getPluginManager().getPlugin("DataRegistry"))
+                .filter(PlatformPlugin.class::isInstance)
+                .map(PlatformPlugin.class::cast)
+                .map(PlatformPlugin::getDataRegistry);
     }
 }

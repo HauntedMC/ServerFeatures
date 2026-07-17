@@ -17,7 +17,7 @@ public class LanguageListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent e) {
-        feature.getService().warm(e.getPlayer().getUniqueId());
+        feature.getService().warm(e.getPlayer().getUniqueId(), e.getPlayer().getName());
     }
 
     @EventHandler

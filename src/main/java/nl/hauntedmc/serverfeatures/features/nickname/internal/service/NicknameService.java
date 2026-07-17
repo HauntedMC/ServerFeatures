@@ -1,50 +1,56 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal.service;
 
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerNicknameRepository;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
 
 import java.util.Optional;
 
 public class NicknameService {
-    private final Nickname feature;
+    private final PlayerRepository playerRepository;
+    private final PlayerNicknameRepository playerNicknameRepository;
 
     public NicknameService(Nickname feature) {
-        this.feature = feature;
+        DataRegistry dataRegistry = feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nickname."));
+        this.playerRepository = dataRegistry.getPlayerRepository();
+        this.playerNicknameRepository = dataRegistry.getPlayerNicknameRepository();
     }
 
     public Optional<PlayerEntity> getPlayerEntity(OfflinePlayer player) {
-        return feature.getOrmContext().runInTransaction(session ->
-                session.createSelectionQuery("FROM PlayerEntity WHERE uuid = :uuid", PlayerEntity.class)
-                        .setParameter("uuid", player.getUniqueId().toString())
-                        .uniqueResultOptional());
+        String uuid = player.getUniqueId().toString();
+        if (player instanceof Player onlinePlayer) {
+            String username = onlinePlayer.getName();
+            if (username != null && !username.isBlank()) {
+                return Optional.of(playerRepository.getOrCreateActivePlayer(uuid, username));
+            }
+        }
+        return playerRepository.getActivePlayer(uuid)
+                .or(() -> playerRepository.findByUUID(uuid));
     }
 
     public Optional<String> getNickname(PlayerEntity playerEntity) {
-        return feature.getOrmContext().runInTransaction(session ->
-                session.createSelectionQuery(
-                                "SELECT n.nickname FROM NicknameEntity n WHERE n.playerId = :playerId", String.class)
-                        .setParameter("playerId", playerEntity.getId())
-                        .uniqueResultOptional());
+        if (playerEntity == null || playerEntity.getId() == null) {
+            return Optional.empty();
+        }
+        return playerNicknameRepository.findNicknameByPlayerId(playerEntity.getId());
     }
 
     public void setNickname(PlayerEntity playerEntity, String nickname) {
-        feature.getOrmContext().runInTransaction(session ->
-                session.createNativeMutationQuery(
-                                "INSERT INTO player_nicknames (player_id, nickname) " +
-                                        "VALUES (:playerId, :nickname) " +
-                                        "ON DUPLICATE KEY UPDATE nickname = :nickname")
-                        .setParameter("playerId", playerEntity.getId())
-                        .setParameter("nickname", nickname)
-                        .executeUpdate()
-        );
+        if (playerEntity == null || playerEntity.getId() == null) {
+            return;
+        }
+        playerNicknameRepository.saveOrUpdate(playerEntity.getId(), nickname);
     }
 
     public void removeNickname(PlayerEntity playerEntity) {
-        feature.getOrmContext().runInTransaction(session ->
-                session.createMutationQuery("DELETE FROM NicknameEntity WHERE playerId = :playerId")
-                        .setParameter("playerId", playerEntity.getId())
-                        .executeUpdate()
-        );
+        if (playerEntity == null || playerEntity.getId() == null) {
+            return;
+        }
+        playerNicknameRepository.deleteByPlayerId(playerEntity.getId());
     }
 }

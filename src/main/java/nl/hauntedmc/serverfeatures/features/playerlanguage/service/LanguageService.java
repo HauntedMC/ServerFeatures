@@ -1,9 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
-import nl.hauntedmc.dataprovider.api.orm.ORMContext;
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.entities.PlayerLanguageEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerLanguageRepository;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
+import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 
 import java.util.Locale;
@@ -16,37 +19,38 @@ public final class LanguageService implements LanguageAPI {
 
     private static final Language FALLBACK = Language.EN;
 
-    private final ORMContext orm;
+    private final PlayerLanguage feature;
+    private final PlayerRepository playerRepository;
+    private final PlayerLanguageRepository playerLanguageRepository;
     private final ConcurrentMap<UUID, Language> languageCache = new ConcurrentHashMap<>();
-    private final ConcurrentMap<UUID, Long> playerIdCache = new ConcurrentHashMap<>();
 
-    public LanguageService(ORMContext orm) {
-        this.orm = Objects.requireNonNull(orm, "orm");
+    public LanguageService(PlayerLanguage feature, DataRegistry dataRegistry) {
+        this.feature = Objects.requireNonNull(feature, "feature");
+        Objects.requireNonNull(dataRegistry, "dataRegistry");
+        this.playerRepository = dataRegistry.getPlayerRepository();
+        this.playerLanguageRepository = dataRegistry.getPlayerLanguageRepository();
     }
 
-    public void warm(UUID playerUuid) {
-        Language language = orm.runInTransaction(session -> {
-            PlayerEntity player = findPlayerEntity(session, playerUuid);
-            if (player == null) {
-                return null;
-            }
+    public void warm(UUID playerUuid, String usernameHint) {
+        PlayerEntity player = resolvePlayer(playerUuid, usernameHint, true);
+        if (player == null || player.getId() == null) {
+            languageCache.remove(playerUuid);
+            return;
+        }
 
-            playerIdCache.put(playerUuid, player.getId());
-            PlayerLanguageEntity entity = session.get(PlayerLanguageEntity.class, player.getId());
-            if (entity == null) {
-                return null;
-            }
+        PlayerLanguageEntity entity = playerLanguageRepository.findByPlayerId(player.getId()).orElse(null);
+        if (entity == null) {
+            languageCache.remove(playerUuid);
+            return;
+        }
 
-            Language effective = fromStoredCode(entity.getEffectiveLanguage());
-            if (effective != null) {
-                return effective;
-            }
+        Language effective = fromStoredCode(entity.getEffectiveLanguage());
+        if (effective == null) {
+            effective = fromStoredCode(entity.getLanguage());
+        }
 
-            return fromStoredCode(entity.getLanguage());
-        });
-
-        if (language != null) {
-            languageCache.put(playerUuid, language);
+        if (effective != null) {
+            languageCache.put(playerUuid, effective);
         } else {
             languageCache.remove(playerUuid);
         }
@@ -54,7 +58,6 @@ public final class LanguageService implements LanguageAPI {
 
     public void forget(UUID playerUuid) {
         languageCache.remove(playerUuid);
-        playerIdCache.remove(playerUuid);
     }
 
     @Override
@@ -66,49 +69,32 @@ public final class LanguageService implements LanguageAPI {
     public void set(UUID playerUuid, Language language) {
         Objects.requireNonNull(language, "language");
 
-        boolean persisted = Boolean.TRUE.equals(orm.runInTransaction(session -> {
-            PlayerEntity player = findPlayerEntity(session, playerUuid);
-            if (player == null) {
-                return false;
-            }
-
-            PlayerLanguageEntity entity = session.get(PlayerLanguageEntity.class, player.getId());
-            if (entity == null) {
-                entity = new PlayerLanguageEntity();
-                entity.setPlayer(player);
-                session.persist(entity);
-            }
-
-            entity.setLanguage(language.name());
-            entity.setEffectiveLanguage(language.name());
-            return true;
-        }));
-
-        if (persisted) {
-            languageCache.put(playerUuid, language);
+        PlayerEntity player = resolvePlayer(playerUuid, resolveLiveUsername(playerUuid), true);
+        if (player == null || player.getId() == null) {
+            return;
         }
+
+        playerLanguageRepository.saveOrUpdate(player.getId(), language.name(), language.name());
+        languageCache.put(playerUuid, language);
     }
 
-    private PlayerEntity findPlayerEntity(org.hibernate.Session session, UUID playerUuid) {
-        Long cachedId = playerIdCache.get(playerUuid);
-        if (cachedId != null) {
-            PlayerEntity cached = session.get(PlayerEntity.class, cachedId);
-            if (cached != null) {
-                return cached;
+    private PlayerEntity resolvePlayer(UUID playerUuid, String usernameHint, boolean createIfMissing) {
+        String uuid = playerUuid.toString();
+        if (createIfMissing) {
+            String normalizedUsername = normalizeUsername(usernameHint);
+            if (normalizedUsername != null) {
+                return playerRepository.getOrCreateActivePlayer(uuid, normalizedUsername);
             }
-            playerIdCache.remove(playerUuid);
         }
 
-        PlayerEntity player = session.createQuery(
-                        "FROM PlayerEntity WHERE uuid = :uuid",
-                        PlayerEntity.class)
-                .setParameter("uuid", playerUuid.toString())
-                .setMaxResults(1)
-                .uniqueResult();
-        if (player != null) {
-            playerIdCache.put(playerUuid, player.getId());
-        }
-        return player;
+        return playerRepository.getActivePlayer(uuid)
+                .or(() -> playerRepository.findByUUID(uuid))
+                .orElse(null);
+    }
+
+    private String resolveLiveUsername(UUID playerUuid) {
+        var player = feature.getPlugin().getServer().getPlayer(playerUuid);
+        return player == null ? null : player.getName();
     }
 
     private static Language fromStoredCode(String code) {
@@ -121,5 +107,16 @@ public final class LanguageService implements LanguageAPI {
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    private static String normalizeUsername(String username) {
+        if (username == null) {
+            return null;
+        }
+        String trimmed = username.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.length() <= 32 ? trimmed : trimmed.substring(0, 32);
     }
 }
