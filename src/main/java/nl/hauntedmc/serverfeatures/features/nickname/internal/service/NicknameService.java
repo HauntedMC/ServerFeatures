@@ -6,7 +6,6 @@ import nl.hauntedmc.dataregistry.api.repository.PlayerNicknameRepository;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
 
 import java.util.Optional;
 
@@ -23,12 +22,6 @@ public class NicknameService {
 
     public Optional<PlayerEntity> getPlayerEntity(OfflinePlayer player) {
         String uuid = player.getUniqueId().toString();
-        if (player instanceof Player onlinePlayer) {
-            String username = onlinePlayer.getName();
-            if (username != null && !username.isBlank()) {
-                return Optional.of(playerRepository.getOrCreateActivePlayer(uuid, username));
-            }
-        }
         return playerRepository.getActivePlayer(uuid)
                 .or(() -> playerRepository.findByUUID(uuid));
     }

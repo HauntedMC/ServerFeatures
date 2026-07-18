@@ -29,20 +29,14 @@ public final class PlayerEntityResolver {
         return playerRepository.findIdentityByUUID(uuid);
     }
 
-    public PlayerRepository.PlayerIdentity getOrCreateActiveIdentity(UUID uuid, String username) {
-        Objects.requireNonNull(uuid, "uuid");
-        return playerRepository.getOrCreateActiveIdentity(uuid.toString(), requireUsername(username));
-    }
-
     public PlayerEntity resolveManaged(Session session, UUID uuid, String usernameHint) {
         if (session == null || uuid == null) {
             return null;
         }
-        String normalizedUsername = normalizeUsername(usernameHint);
-        Optional<PlayerRepository.PlayerIdentity> identity = normalizedUsername == null
-                ? playerRepository.findIdentityByUUID(uuid.toString())
-                : Optional.of(playerRepository.getOrCreateActiveIdentity(uuid.toString(), normalizedUsername));
-        return identity.map(PlayerRepository.PlayerIdentity::id)
+        String playerUuid = uuid.toString();
+        return playerRepository.getActiveIdentity(playerUuid)
+                .or(() -> playerRepository.findIdentityByUUID(playerUuid))
+                .map(PlayerRepository.PlayerIdentity::id)
                 .filter(playerId -> playerId != null && playerId > 0)
                 .map(playerId -> session.getReference(PlayerEntity.class, playerId))
                 .orElse(null);
@@ -55,19 +49,4 @@ public final class PlayerEntityResolver {
         return session.getReference(PlayerEntity.class, playerId);
     }
 
-    private static String normalizeUsername(String username) {
-        if (username == null) {
-            return null;
-        }
-        String normalized = username.trim();
-        return normalized.isEmpty() ? null : normalized;
-    }
-
-    private static String requireUsername(String username) {
-        String normalized = normalizeUsername(username);
-        if (normalized == null) {
-            throw new IllegalArgumentException("username must not be blank");
-        }
-        return normalized;
-    }
 }

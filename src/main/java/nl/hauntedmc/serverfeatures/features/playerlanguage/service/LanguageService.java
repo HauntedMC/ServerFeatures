@@ -32,7 +32,7 @@ public final class LanguageService implements LanguageAPI {
     }
 
     public void warm(UUID playerUuid, String usernameHint) {
-        PlayerEntity player = resolvePlayer(playerUuid, usernameHint, true);
+        PlayerEntity player = resolvePlayer(playerUuid);
         if (player == null || player.getId() == null) {
             languageCache.remove(playerUuid);
             return;
@@ -69,7 +69,7 @@ public final class LanguageService implements LanguageAPI {
     public void set(UUID playerUuid, Language language) {
         Objects.requireNonNull(language, "language");
 
-        PlayerEntity player = resolvePlayer(playerUuid, resolveLiveUsername(playerUuid), true);
+        PlayerEntity player = resolvePlayer(playerUuid);
         if (player == null || player.getId() == null) {
             return;
         }
@@ -78,23 +78,11 @@ public final class LanguageService implements LanguageAPI {
         languageCache.put(playerUuid, language);
     }
 
-    private PlayerEntity resolvePlayer(UUID playerUuid, String usernameHint, boolean createIfMissing) {
+    private PlayerEntity resolvePlayer(UUID playerUuid) {
         String uuid = playerUuid.toString();
-        if (createIfMissing) {
-            String normalizedUsername = normalizeUsername(usernameHint);
-            if (normalizedUsername != null) {
-                return playerRepository.getOrCreateActivePlayer(uuid, normalizedUsername);
-            }
-        }
-
         return playerRepository.getActivePlayer(uuid)
                 .or(() -> playerRepository.findByUUID(uuid))
                 .orElse(null);
-    }
-
-    private String resolveLiveUsername(UUID playerUuid) {
-        var player = feature.getPlugin().getServer().getPlayer(playerUuid);
-        return player == null ? null : player.getName();
     }
 
     private static Language fromStoredCode(String code) {
@@ -109,14 +97,4 @@ public final class LanguageService implements LanguageAPI {
         }
     }
 
-    private static String normalizeUsername(String username) {
-        if (username == null) {
-            return null;
-        }
-        String trimmed = username.trim();
-        if (trimmed.isEmpty()) {
-            return null;
-        }
-        return trimmed.length() <= 32 ? trimmed : trimmed.substring(0, 32);
-    }
 }

@@ -5,7 +5,6 @@ import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 
 import java.util.Optional;
-import java.util.UUID;
 
 public class NametagDBService {
 
@@ -53,13 +52,9 @@ public class NametagDBService {
      */
     public void upsertSelfView(String playerUuid, String playerName, boolean selfView) {
         try {
-            UUID parsedUuid;
-            try {
-                parsedUuid = UUID.fromString(playerUuid);
-            } catch (IllegalArgumentException exception) {
-                return;
-            }
-            Long playerId = playerResolver.getOrCreateActiveIdentity(parsedUuid, playerName).id();
+            Long playerId = playerResolver.findIdentityByUuid(playerUuid)
+                    .map(nl.hauntedmc.dataregistry.api.repository.PlayerRepository.PlayerIdentity::id)
+                    .orElse(null);
             if (playerId == null || playerId <= 0) {
                 return;
             }

@@ -15,6 +15,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <adventure.version>4.26.1</adventure.version>
         <paper.version>26.1.2.build.74-stable</paper.version>
+        <mockito.version>5.23.0</mockito.version>
     </properties>
 
     <distributionManagement>
@@ -73,6 +74,7 @@
                 <version>3.5.6</version>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <argLine>-Dnet.bytebuddy.experimental=true -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                 </configuration>
             </plugin>
 
@@ -351,6 +353,12 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>6.1.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
