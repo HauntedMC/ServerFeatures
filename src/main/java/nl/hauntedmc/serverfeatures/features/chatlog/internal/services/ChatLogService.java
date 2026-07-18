@@ -4,6 +4,7 @@ import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ReportedChatMessageEntity;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 import org.bukkit.entity.Player;
 import org.hibernate.Session;
 
@@ -12,9 +13,14 @@ import java.util.List;
 public class ChatLogService {
 
     private final ChatLog feature;
+    private final PlayerEntityResolver playerResolver;
 
     public ChatLogService(ChatLog feature) {
         this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(
+                feature.getPlugin().getDataRegistry()
+                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for ChatLog."))
+        );
     }
 
     /**
@@ -31,18 +37,10 @@ public class ChatLogService {
     }
 
     boolean addMessage(Session session, String serverName, long timestamp, Player player, String rawMessage) {
-        PlayerEntity playerEntity = session.createQuery(
-                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                .setParameter("uuid", player.getUniqueId().toString())
-                .uniqueResult();
+        PlayerEntity playerEntity = playerResolver.resolveManaged(session, player.getUniqueId(), player.getName());
 
         if (playerEntity == null) {
             return false;
-        }
-
-        if (!player.getName().equals(playerEntity.getUsername())) {
-            playerEntity.setUsername(player.getName());
-            session.merge(playerEntity);
         }
 
         ChatMessageEntity message = new ChatMessageEntity();

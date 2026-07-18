@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
 import org.hibernate.Session;
@@ -12,23 +13,18 @@ import org.hibernate.Session;
 public class VanishRepository {
 
     private final Vanish feature;
+    private final PlayerEntityResolver playerResolver;
 
     public VanishRepository(Vanish feature) {
         this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(
+                feature.getPlugin().getDataRegistry()
+                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Vanish."))
+        );
     }
 
     public PlayerEntity findExistingPlayerEntity(Session session, String uuid, String username) {
-        PlayerEntity playerEntity = session.createQuery(
-                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                .setParameter("uuid", uuid)
-                .uniqueResult();
-
-        if (playerEntity != null && username != null && !username.equals(playerEntity.getUsername())) {
-            playerEntity.setUsername(username);
-            session.merge(playerEntity);
-        }
-
-        return playerEntity;
+        return playerResolver.resolveManaged(session, java.util.UUID.fromString(uuid), username);
     }
 
     /**

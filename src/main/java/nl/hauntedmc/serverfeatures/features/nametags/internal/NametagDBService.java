@@ -2,17 +2,24 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class NametagDBService {
 
     private final Nametags feature;
     private final ORMContext orm;
+    private final PlayerEntityResolver playerResolver;
 
     public NametagDBService(Nametags feature) {
         this.feature = feature;
         this.orm = feature.getOrmContext();
+        this.playerResolver = new PlayerEntityResolver(
+                feature.getPlugin().getDataRegistry()
+                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nametags."))
+        );
     }
 
     /**
@@ -21,12 +28,8 @@ public class NametagDBService {
      */
     public Optional<Boolean> getSelfView(String playerUuid) {
         try {
-            Optional<Long> playerIdOpt = orm.runInTransaction(session ->
-                    session.createSelectionQuery(
-                                    "SELECT p.id FROM PlayerEntity p WHERE p.uuid = :uuid",
-                                    Long.class)
-                            .setParameter("uuid", playerUuid)
-                            .uniqueResultOptional());
+            Optional<Long> playerIdOpt = playerResolver.findIdentityByUuid(playerUuid)
+                    .map(nl.hauntedmc.dataregistry.api.repository.PlayerRepository.PlayerIdentity::id);
 
             if (playerIdOpt.isEmpty()) {
                 return Optional.empty();
@@ -50,22 +53,22 @@ public class NametagDBService {
      */
     public void upsertSelfView(String playerUuid, String playerName, boolean selfView) {
         try {
+            UUID parsedUuid;
+            try {
+                parsedUuid = UUID.fromString(playerUuid);
+            } catch (IllegalArgumentException exception) {
+                return;
+            }
+            Long playerId = playerResolver.getOrCreateActiveIdentity(parsedUuid, playerName).id();
+            if (playerId == null || playerId <= 0) {
+                return;
+            }
             orm.runInTransaction(session -> {
-                Optional<Long> playerIdOpt = session.createSelectionQuery(
-                                "SELECT p.id FROM PlayerEntity p WHERE p.uuid = :uuid",
-                                Long.class)
-                        .setParameter("uuid", playerUuid)
-                        .uniqueResultOptional();
-
-                if (playerIdOpt.isEmpty()) {
-                    return null;
-                }
-
                 session.createNativeMutationQuery(
                                 "INSERT INTO player_nametags (player_id, self_view) " +
                                         "VALUES (:playerId, :selfView) " +
                                         "ON DUPLICATE KEY UPDATE self_view = :selfView")
-                        .setParameter("playerId", playerIdOpt.get())
+                        .setParameter("playerId", playerId)
                         .setParameter("selfView", selfView)
                         .executeUpdate();
 

@@ -4,6 +4,7 @@ import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 import org.bukkit.entity.Player;
 import org.hibernate.Session;
 
@@ -17,9 +18,14 @@ import java.util.Optional;
 public class GlowStateService {
 
     private final Glow feature;
+    private final PlayerEntityResolver playerResolver;
 
     public GlowStateService(Glow feature) {
         this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(
+                feature.getPlugin().getDataRegistry()
+                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Glow."))
+        );
     }
 
     /**
@@ -113,16 +119,6 @@ public class GlowStateService {
     }
 
     private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid, String username) {
-        PlayerEntity playerEntity = session.createQuery(
-                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class)
-                .setParameter("uuid", uuid)
-                .uniqueResult();
-
-        if (playerEntity != null && !username.equals(playerEntity.getUsername())) {
-            playerEntity.setUsername(username);
-            session.merge(playerEntity);
-        }
-
-        return playerEntity;
+        return playerResolver.resolveManaged(session, java.util.UUID.fromString(uuid), username);
     }
 }
