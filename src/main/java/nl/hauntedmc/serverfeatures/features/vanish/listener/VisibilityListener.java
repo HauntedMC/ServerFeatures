@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.vanish.listener;
 
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -11,15 +13,26 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 
 public class VisibilityListener implements Listener {
 
+    private static final BukkitTime DATA_REGISTRY_WARMUP_DELAY = BukkitTime.ticks(6L);
+
     private final Vanish feature;
 
     public VisibilityListener(Vanish feature) {
         this.feature = feature;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
-        feature.getService().handleJoin(e);
+        Player player = e.getPlayer();
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    feature.getService().handleJoin(player);
+                },
+                DATA_REGISTRY_WARMUP_DELAY
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

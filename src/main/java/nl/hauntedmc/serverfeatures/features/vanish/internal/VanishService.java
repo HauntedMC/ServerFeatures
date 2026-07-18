@@ -93,7 +93,17 @@ public class VanishService {
      * Also re-enforces spectator gamemode shortly after join in case the server forces a default.
      */
     public void handleJoin(PlayerJoinEvent e) {
-        final Player p = e.getPlayer();
+        handleJoin(e.getPlayer());
+    }
+
+    /**
+     * Applies persisted vanish state for a joined player.
+     * Also re-enforces spectator gamemode shortly after join in case the server forces a default.
+     */
+    public void handleJoin(Player p) {
+        if (p == null || !p.isOnline()) {
+            return;
+        }
         boolean persistedVanished = false;
 
         try {

@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.chatlog.internal.services;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
 import org.bukkit.entity.Player;
@@ -12,6 +13,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,12 +21,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ChatLogServiceTest {
 
     @Test
     void addMessageSkipsPersistenceWhenPlayerRowIsMissing() {
-        ChatLogService service = new ChatLogService(null);
+        ChatLogService service = new ChatLogService(null, missingPlayerRepository("22222222-2222-2222-2222-222222222222"));
         Player player = player("22222222-2222-2222-2222-222222222222", "Remy");
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
@@ -38,26 +42,41 @@ class ChatLogServiceTest {
     }
 
     @Test
-    void addMessageUsesExistingPlayerRowAndRefreshesUsername() {
-        ChatLogService service = new ChatLogService(null);
+    void addMessageUsesExistingPlayerRowWithoutRefreshingUsername() {
         Player player = player("33333333-3333-3333-3333-333333333333", "NewName");
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        when(playerRepository.getActiveIdentity("33333333-3333-3333-3333-333333333333"))
+                .thenReturn(Optional.of(new PlayerRepository.PlayerIdentity(
+                        33L,
+                        "33333333-3333-3333-3333-333333333333",
+                        "OldName"
+                )));
+        ChatLogService service = new ChatLogService(null, playerRepository);
         PlayerEntity playerEntity = new PlayerEntity();
+        playerEntity.setId(33L);
         playerEntity.setUsername("OldName");
 
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
-        Session session = session(queryReturning(playerEntity), persisted, merged);
+        Session session = session(queryReturning(null), persisted, merged, playerEntity);
 
         boolean stored = service.addMessage(session, "survival", 789L, player, "message");
 
         assertTrue(stored);
-        assertEquals(List.of(playerEntity), merged);
+        assertTrue(merged.isEmpty());
         assertEquals(1, persisted.size());
 
         ChatMessageEntity message = assertInstanceOf(ChatMessageEntity.class, persisted.getFirst());
         assertSame(playerEntity, message.getPlayer());
         assertEquals("message", message.getMessage());
-        assertEquals("NewName", playerEntity.getUsername());
+        assertEquals("OldName", playerEntity.getUsername());
+    }
+
+    private static PlayerRepository missingPlayerRepository(String uuid) {
+        PlayerRepository playerRepository = mock(PlayerRepository.class);
+        when(playerRepository.getActiveIdentity(uuid)).thenReturn(Optional.empty());
+        when(playerRepository.findIdentityByUUID(uuid)).thenReturn(Optional.empty());
+        return playerRepository;
     }
 
     private static Player player(String uuid, String name) {
@@ -80,8 +99,13 @@ class ChatLogServiceTest {
     }
 
     private static Session session(Query<PlayerEntity> playerQuery, List<Object> persisted, List<Object> merged) {
+        return session(playerQuery, persisted, merged, null);
+    }
+
+    private static Session session(Query<PlayerEntity> playerQuery, List<Object> persisted, List<Object> merged, PlayerEntity reference) {
         return InterfaceProxy.of(Session.class, Map.of(
                 "createQuery", args -> playerQuery,
+                "getReference", args -> reference,
                 "persist", args -> {
                     persisted.add(args[0]);
                     return null;

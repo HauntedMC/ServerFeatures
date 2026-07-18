@@ -1,8 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.glow.listener;
 
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -12,17 +14,27 @@ import org.bukkit.event.player.PlayerQuitEvent;
  */
 public class GlowListener implements Listener {
 
+    private static final BukkitTime DATA_REGISTRY_WARMUP_DELAY = BukkitTime.ticks(6L);
+
     private final Glow feature;
 
     public GlowListener(Glow feature) {
         this.feature = feature;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player p = event.getPlayer();
         // Load persisted state and, if enabled & valid, restore the glow.
-        feature.getGlowStateService().restoreGlowFor(p);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> {
+                    if (!p.isOnline()) {
+                        return;
+                    }
+                    feature.getGlowStateService().restoreGlowFor(p);
+                },
+                DATA_REGISTRY_WARMUP_DELAY
+        );
     }
 
     @EventHandler

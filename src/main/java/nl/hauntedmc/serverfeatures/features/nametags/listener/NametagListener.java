@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
@@ -16,18 +17,34 @@ import org.jetbrains.annotations.NotNull;
 
 public class NametagListener implements Listener {
 
+    private static final BukkitTime DATA_REGISTRY_WARMUP_DELAY = BukkitTime.ticks(6L);
+
     private final Nametags feature;
 
     public NametagListener(Nametags feature) {
         this.feature = feature;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
-        feature.getNametagManager().preloadSelfView(event.getPlayer());
+        Player player = event.getPlayer();
+        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    feature.getNametagManager().preloadSelfView(player);
+                },
+                DATA_REGISTRY_WARMUP_DELAY
+        );
         // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
         this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                () -> this.feature.getNametagManager().updateNametag(event.getPlayer(), new UpdateProperties.Builder().build()),
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    this.feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().build());
+                },
                 BukkitTime.ticks(10L)
         );
     }

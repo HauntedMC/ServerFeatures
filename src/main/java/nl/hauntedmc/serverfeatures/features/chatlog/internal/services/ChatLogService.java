@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.chatlog.internal.services;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ReportedChatMessageEntity;
@@ -16,11 +17,14 @@ public class ChatLogService {
     private final PlayerEntityResolver playerResolver;
 
     public ChatLogService(ChatLog feature) {
+        this(feature, feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for ChatLog."))
+                .getPlayerRepository());
+    }
+
+    ChatLogService(ChatLog feature, PlayerRepository playerRepository) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(
-                feature.getPlugin().getDataRegistry()
-                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for ChatLog."))
-        );
+        this.playerResolver = new PlayerEntityResolver(playerRepository);
     }
 
     /**

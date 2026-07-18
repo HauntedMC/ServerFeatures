@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
@@ -16,11 +17,14 @@ public class VanishRepository {
     private final PlayerEntityResolver playerResolver;
 
     public VanishRepository(Vanish feature) {
+        this(feature, feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Vanish."))
+                .getPlayerRepository());
+    }
+
+    VanishRepository(Vanish feature, PlayerRepository playerRepository) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(
-                feature.getPlugin().getDataRegistry()
-                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Vanish."))
-        );
+        this.playerResolver = new PlayerEntityResolver(playerRepository);
     }
 
     public PlayerEntity findExistingPlayerEntity(Session session, String uuid, String username) {

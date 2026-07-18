@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.commandlogger.service;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
 import nl.hauntedmc.serverfeatures.features.commandlogger.entity.CommandExecutionEntity;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
@@ -16,11 +17,14 @@ public class CommandLogService {
     private final PlayerEntityResolver playerResolver;
 
     public CommandLogService(CommandLogger feature) {
+        this(feature, feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for CommandLogger."))
+                .getPlayerRepository());
+    }
+
+    CommandLogService(CommandLogger feature, PlayerRepository playerRepository) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(
-                feature.getPlugin().getDataRegistry()
-                        .orElseThrow(() -> new IllegalStateException("DataRegistry is required for CommandLogger."))
-        );
+        this.playerResolver = new PlayerEntityResolver(playerRepository);
     }
 
     /**
