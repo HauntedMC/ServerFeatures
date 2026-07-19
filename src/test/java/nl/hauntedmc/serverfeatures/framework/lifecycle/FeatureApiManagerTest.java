@@ -51,6 +51,15 @@ class FeatureApiManagerTest {
     }
 
     @Test
+    void nullDataRegistrySupplierResultSkipsCatalogPublication() {
+        FeatureApiManager manager = new FeatureApiManager("Example", () -> null);
+
+        manager.registerService(String.class, "value");
+
+        assertEquals(1, manager.getRegisteredServiceCount());
+    }
+
+    @Test
     void differentOwnersCannotPublishSameApiType() {
         DataRegistry dataRegistry = mock(DataRegistry.class);
         FeatureServiceDirectory directory = new DefaultFeatureServiceDirectory();

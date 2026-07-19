@@ -86,7 +86,7 @@ public class FeatureApiManager {
     }
 
     private <T> FeatureServiceHandle registerWithDataRegistry(Class<T> type, T instance) {
-        return dataRegistrySupplier.get()
+        return currentDataRegistry()
                 .map(dataRegistry -> dataRegistry.featureServices().register(
                         "ServerFeatures",
                         ownerFeature,
@@ -94,6 +94,11 @@ public class FeatureApiManager {
                         instance
                 ))
                 .orElse(null);
+    }
+
+    private Optional<DataRegistry> currentDataRegistry() {
+        Optional<DataRegistry> dataRegistry = dataRegistrySupplier.get();
+        return dataRegistry == null ? Optional.empty() : dataRegistry;
     }
 
     private static String requireText(String value, String fieldName) {
