@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.service.FeatureServiceHandle;
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -32,23 +31,22 @@ public class FeatureApiManager {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(instance, "instance");
 
-        Object previous = registeredServices.put(type, instance);
-        if (previous != null) {
-            if (previous != instance) {
-                APIRegistry.unregister(type, previous);
-            }
-            closeDataRegistryHandle(type);
+        Object previous = registeredServices.get(type);
+        FeatureServiceHandle previousHandle = dataRegistryServices.get(type);
+        if (previous == instance && previousHandle != null) {
+            return;
         }
 
-        APIRegistry.register(type, instance);
-        dataRegistrySupplier.get().ifPresent(dataRegistry ->
-                dataRegistryServices.put(type, dataRegistry.featureServices().register(
-                        "ServerFeatures",
-                        ownerFeature,
-                        type,
-                        instance
-                ))
-        );
+        FeatureServiceHandle handle = registerWithDataRegistry(type, instance);
+        registeredServices.put(type, instance);
+
+        dataRegistryServices.remove(type);
+        if (handle != null) {
+            dataRegistryServices.put(type, handle);
+        }
+        if (previousHandle != null) {
+            previousHandle.close();
+        }
     }
 
     /**
@@ -57,10 +55,7 @@ public class FeatureApiManager {
     public synchronized void unregisterService(Class<?> type) {
         Objects.requireNonNull(type, "type");
 
-        Object instance = registeredServices.remove(type);
-        if (instance != null) {
-            APIRegistry.unregister(type, instance);
-        }
+        registeredServices.remove(type);
         closeDataRegistryHandle(type);
     }
 
@@ -69,7 +64,6 @@ public class FeatureApiManager {
      */
     public synchronized void unregisterAllServices() {
         for (var entry : new LinkedHashMap<>(registeredServices).entrySet()) {
-            APIRegistry.unregister(entry.getKey(), entry.getValue());
             closeDataRegistryHandle(entry.getKey());
         }
         registeredServices.clear();
@@ -89,6 +83,17 @@ public class FeatureApiManager {
         if (handle != null) {
             handle.close();
         }
+    }
+
+    private <T> FeatureServiceHandle registerWithDataRegistry(Class<T> type, T instance) {
+        return dataRegistrySupplier.get()
+                .map(dataRegistry -> dataRegistry.featureServices().register(
+                        "ServerFeatures",
+                        ownerFeature,
+                        type,
+                        instance
+                ))
+                .orElse(null);
     }
 
     private static String requireText(String value, String fieldName) {

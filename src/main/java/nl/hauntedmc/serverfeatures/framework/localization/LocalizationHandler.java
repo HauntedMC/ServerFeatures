@@ -8,10 +8,10 @@ import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
-import nl.hauntedmc.serverfeatures.api.player.PlayerRegistryAPI;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
+import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -200,7 +200,9 @@ public class LocalizationHandler {
      * Falls back to the default message if no localized version is found.
      */
     private @NotNull String getTranslateMessage(String key, Player player) {
-        Language language = PlayerRegistryAPI.getPlayerLanguage(player);
+        Language language = FeatureServices.find(plugin, nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI.class)
+                .map(api -> api.get(player.getUniqueId()))
+                .orElse(Language.NL);
 
         // Try language-specific file first
         if (language != null) {

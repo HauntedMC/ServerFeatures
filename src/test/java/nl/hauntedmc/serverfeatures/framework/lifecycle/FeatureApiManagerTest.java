@@ -3,26 +3,21 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.service.FeatureServiceDirectory;
 import nl.hauntedmc.dataregistry.backend.service.DefaultFeatureServiceDirectory;
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class FeatureApiManagerTest {
 
-    @AfterEach
-    void cleanup() {
-        APIRegistry.clear();
-    }
-
     @Test
-    void registerAndCleanupManageLocalAndDataRegistryServices() {
+    void registerAndCleanupManageDataRegistryServices() {
         DataRegistry dataRegistry = mock(DataRegistry.class);
         FeatureServiceDirectory directory = new DefaultFeatureServiceDirectory();
         when(dataRegistry.featureServices()).thenReturn(directory);
@@ -30,13 +25,11 @@ class FeatureApiManagerTest {
 
         manager.registerService(String.class, "value");
 
-        assertEquals("value", APIRegistry.get(String.class).orElseThrow());
         assertEquals("value", directory.find(String.class).orElseThrow());
         assertEquals("ServerFeatures", directory.describe(String.class).orElseThrow().ownerPlugin());
 
         manager.unregisterAllServices();
 
-        assertTrue(APIRegistry.get(String.class).isEmpty());
         assertTrue(directory.find(String.class).isEmpty());
     }
 
@@ -55,5 +48,42 @@ class FeatureApiManagerTest {
         manager.unregisterService(String.class);
 
         assertTrue(directory.find(String.class).isEmpty());
+    }
+
+    @Test
+    void differentOwnersCannotPublishSameApiType() {
+        DataRegistry dataRegistry = mock(DataRegistry.class);
+        FeatureServiceDirectory directory = new DefaultFeatureServiceDirectory();
+        when(dataRegistry.featureServices()).thenReturn(directory);
+        FeatureApiManager first = new FeatureApiManager("First", () -> Optional.of(dataRegistry));
+        FeatureApiManager second = new FeatureApiManager("Second", () -> Optional.of(dataRegistry));
+
+        first.registerService(String.class, "first");
+
+        assertThrows(IllegalStateException.class, () -> second.registerService(String.class, "second"));
+        assertEquals(0, second.getRegisteredServiceCount());
+        assertEquals("first", directory.find(String.class).orElseThrow());
+
+        first.unregisterAllServices();
+        assertTrue(directory.find(String.class).isEmpty());
+    }
+
+    @Test
+    void registeringSameInstanceIsIdempotent() {
+        DataRegistry dataRegistry = mock(DataRegistry.class);
+        FeatureServiceDirectory directory = new DefaultFeatureServiceDirectory();
+        when(dataRegistry.featureServices()).thenReturn(directory);
+        FeatureApiManager manager = new FeatureApiManager("Example", () -> Optional.of(dataRegistry));
+        Object service = new Object();
+
+        manager.registerService(Object.class, service);
+        manager.registerService(Object.class, service);
+
+        assertSame(service, directory.find(Object.class).orElseThrow());
+        assertEquals(1, manager.getRegisteredServiceCount());
+
+        manager.unregisterService(Object.class);
+
+        assertTrue(directory.find(Object.class).isEmpty());
     }
 }
