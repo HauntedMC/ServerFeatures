@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.entities.PlayerLanguageEntity;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerLanguageRepository;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
@@ -20,25 +20,25 @@ public final class LanguageService implements LanguageAPI {
     private static final Language FALLBACK = Language.EN;
 
     private final PlayerLanguage feature;
-    private final PlayerRepository playerRepository;
+    private final PlayerDirectory playerDirectory;
     private final PlayerLanguageRepository playerLanguageRepository;
     private final ConcurrentMap<UUID, Language> languageCache = new ConcurrentHashMap<>();
 
     public LanguageService(PlayerLanguage feature, DataRegistry dataRegistry) {
         this.feature = Objects.requireNonNull(feature, "feature");
         Objects.requireNonNull(dataRegistry, "dataRegistry");
-        this.playerRepository = dataRegistry.getPlayerRepository();
+        this.playerDirectory = dataRegistry.getPlayerDirectory();
         this.playerLanguageRepository = dataRegistry.getPlayerLanguageRepository();
     }
 
-    public void warm(UUID playerUuid, String usernameHint) {
-        PlayerEntity player = resolvePlayer(playerUuid);
-        if (player == null || player.getId() == null) {
+    public void warm(UUID playerUuid) {
+        Long playerId = resolvePlayerId(playerUuid);
+        if (playerId == null) {
             languageCache.remove(playerUuid);
             return;
         }
 
-        PlayerLanguageEntity entity = playerLanguageRepository.findByPlayerId(player.getId()).orElse(null);
+        PlayerLanguageEntity entity = playerLanguageRepository.findByPlayerId(playerId).orElse(null);
         if (entity == null) {
             languageCache.remove(playerUuid);
             return;
@@ -69,19 +69,19 @@ public final class LanguageService implements LanguageAPI {
     public void set(UUID playerUuid, Language language) {
         Objects.requireNonNull(language, "language");
 
-        PlayerEntity player = resolvePlayer(playerUuid);
-        if (player == null || player.getId() == null) {
+        Long playerId = resolvePlayerId(playerUuid);
+        if (playerId == null) {
             return;
         }
 
-        playerLanguageRepository.saveOrUpdate(player.getId(), language.name(), language.name());
+        playerLanguageRepository.saveOrUpdate(playerId, language.name(), language.name());
         languageCache.put(playerUuid, language);
     }
 
-    private PlayerEntity resolvePlayer(UUID playerUuid) {
-        String uuid = playerUuid.toString();
-        return playerRepository.getActivePlayer(uuid)
-                .or(() -> playerRepository.findByUUID(uuid))
+    private Long resolvePlayerId(UUID playerUuid) {
+        return playerDirectory.getActiveIdentity(playerUuid)
+                .or(() -> playerDirectory.findByUuid(playerUuid))
+                .map(PlayerIdentity::playerId)
                 .orElse(null);
     }
 

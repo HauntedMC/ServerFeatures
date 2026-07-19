@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlog.internal.services;
 
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
@@ -18,8 +19,12 @@ public class ChatLogService {
 
     public ChatLogService(ChatLog feature) {
         this(feature, feature.getPlugin().getDataRegistry()
-                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for ChatLog."))
-                .getPlayerRepository());
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for ChatLog.")));
+    }
+
+    ChatLogService(ChatLog feature, DataRegistry dataRegistry) {
+        this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
     ChatLogService(ChatLog feature, PlayerRepository playerRepository) {
@@ -33,10 +38,14 @@ public class ChatLogService {
     public void addMessage(Player player, String rawMessage) {
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
         long timestamp = System.currentTimeMillis();
-
-        feature.getOrmContext().runInTransaction(session -> {
-            addMessage(session, serverName, timestamp, player, rawMessage);
-            return null;
+        java.util.UUID playerUuid = player.getUniqueId();
+        String playerName = player.getName();
+        playerResolver.whenReady(playerUuid).whenComplete((identity, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("DataRegistry identity unavailable for chat log: " + throwable.getMessage());
+                return;
+            }
+            schedulePersist(serverName, timestamp, playerUuid, playerName, rawMessage);
         });
     }
 
@@ -54,6 +63,40 @@ public class ChatLogService {
         message.setTimestamp(timestamp);
         session.persist(message);
         return true;
+    }
+
+    private void schedulePersist(
+            String serverName,
+            long timestamp,
+            java.util.UUID playerUuid,
+            String playerName,
+            String rawMessage
+    ) {
+        if (!feature.getPlugin().isEnabled()) {
+            return;
+        }
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
+                if (!feature.getPlugin().isEnabled()) {
+                    return;
+                }
+                feature.getOrmContext().runInTransaction(session -> {
+                        PlayerEntity playerEntity = playerResolver.resolveManaged(session, playerUuid, playerName);
+                        if (playerEntity == null) {
+                            return null;
+                        }
+                        ChatMessageEntity message = new ChatMessageEntity();
+                        message.setServer(serverName);
+                        message.setPlayer(playerEntity);
+                        message.setMessage(rawMessage);
+                        message.setTimestamp(timestamp);
+                        session.persist(message);
+                        return null;
+                });
+            });
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning("Could not schedule chat log write: " + exception.getMessage());
+        }
     }
 
     /**

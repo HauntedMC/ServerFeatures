@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.glow.service;
 
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
@@ -23,8 +24,12 @@ public class GlowStateService {
 
     public GlowStateService(Glow feature) {
         this(feature, feature.getPlugin().getDataRegistry()
-                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Glow."))
-                .getPlayerRepository());
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Glow.")));
+    }
+
+    GlowStateService(Glow feature, DataRegistry dataRegistry) {
+        this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
     GlowStateService(Glow feature, PlayerRepository playerRepository) {

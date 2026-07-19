@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.commandlogger.service;
 
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
@@ -18,8 +19,12 @@ public class CommandLogService {
 
     public CommandLogService(CommandLogger feature) {
         this(feature, feature.getPlugin().getDataRegistry()
-                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for CommandLogger."))
-                .getPlayerRepository());
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for CommandLogger.")));
+    }
+
+    CommandLogService(CommandLogger feature, DataRegistry dataRegistry) {
+        this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
     CommandLogService(CommandLogger feature, PlayerRepository playerRepository) {
@@ -37,21 +42,43 @@ public class CommandLogService {
     public void logServerCommand(CommandSender source, String fullCommand) {
         final long timestamp = System.currentTimeMillis();
         final String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
+        final String sourceLabel = source.getClass().getSimpleName().toLowerCase(Locale.ROOT);
 
-        feature.getOrmContext().runInTransaction(session -> {
-            logServerCommand(session, serverName, timestamp, source, fullCommand);
-            return null;
-        });
+        if (source instanceof Player player) {
+            final java.util.UUID playerUuid = player.getUniqueId();
+            final String playerName = player.getName();
+            playerResolver.whenReady(playerUuid).whenComplete((identity, throwable) -> {
+                if (throwable != null) {
+                    feature.getLogger().warning("DataRegistry identity unavailable for command log: "
+                            + throwable.getMessage());
+                }
+                schedulePersist(serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+            });
+            return;
+        }
+
+        schedulePersist(serverName, timestamp, null, null, sourceLabel, fullCommand);
     }
 
     void logServerCommand(Session session, String serverName, long timestamp, CommandSender source, String fullCommand) {
-        PlayerEntity playerEntity = null;
-
-        if (source instanceof Player player) {
-            playerEntity = resolveExistingPlayerEntity(session, player.getUniqueId().toString(), player.getName());
-        }
-
+        java.util.UUID playerUuid = source instanceof Player player ? player.getUniqueId() : null;
+        String playerName = source instanceof Player player ? player.getName() : null;
         String sourceLabel = source.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        logServerCommand(session, serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+    }
+
+    void logServerCommand(
+            Session session,
+            String serverName,
+            long timestamp,
+            java.util.UUID playerUuid,
+            String playerName,
+            String sourceLabel,
+            String fullCommand
+    ) {
+        PlayerEntity playerEntity = playerUuid == null
+                ? null
+                : resolveExistingPlayerEntity(session, playerUuid, playerName);
 
         CommandExecutionEntity entry = new CommandExecutionEntity();
         entry.setServer(serverName);
@@ -63,7 +90,33 @@ public class CommandLogService {
         session.persist(entry);
     }
 
-    private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid, String username) {
-        return playerResolver.resolveManaged(session, java.util.UUID.fromString(uuid), username);
+    private void schedulePersist(
+            String serverName,
+            long timestamp,
+            java.util.UUID playerUuid,
+            String playerName,
+            String sourceLabel,
+            String fullCommand
+    ) {
+        if (!feature.getPlugin().isEnabled()) {
+            return;
+        }
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
+                if (!feature.getPlugin().isEnabled()) {
+                    return;
+                }
+                feature.getOrmContext().runInTransaction(session -> {
+                        logServerCommand(session, serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+                        return null;
+                });
+            });
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning("Could not schedule command log write: " + exception.getMessage());
+        }
+    }
+
+    private PlayerEntity resolveExistingPlayerEntity(Session session, java.util.UUID uuid, String username) {
+        return playerResolver.resolveManaged(session, uuid, username);
     }
 }

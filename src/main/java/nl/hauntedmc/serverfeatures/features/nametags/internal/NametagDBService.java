@@ -28,7 +28,7 @@ public class NametagDBService {
     public Optional<Boolean> getSelfView(String playerUuid) {
         try {
             Optional<Long> playerIdOpt = playerResolver.findIdentityByUuid(playerUuid)
-                    .map(nl.hauntedmc.dataregistry.api.repository.PlayerRepository.PlayerIdentity::id);
+                    .map(nl.hauntedmc.dataregistry.api.player.PlayerIdentity::playerId);
 
             if (playerIdOpt.isEmpty()) {
                 return Optional.empty();
@@ -53,7 +53,7 @@ public class NametagDBService {
     public void upsertSelfView(String playerUuid, String playerName, boolean selfView) {
         try {
             Long playerId = playerResolver.findIdentityByUuid(playerUuid)
-                    .map(nl.hauntedmc.dataregistry.api.repository.PlayerRepository.PlayerIdentity::id)
+                    .map(nl.hauntedmc.dataregistry.api.player.PlayerIdentity::playerId)
                     .orElse(null);
             if (playerId == null || playerId <= 0) {
                 return;

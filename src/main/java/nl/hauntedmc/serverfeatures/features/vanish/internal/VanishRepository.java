@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
+import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
@@ -19,7 +20,12 @@ public class VanishRepository {
     public VanishRepository(Vanish feature) {
         this(feature, feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Vanish."))
-                .getPlayerRepository());
+        );
+    }
+
+    VanishRepository(Vanish feature, DataRegistry dataRegistry) {
+        this.feature = feature;
+        this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
     VanishRepository(Vanish feature, PlayerRepository playerRepository) {

@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
+import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -17,8 +18,6 @@ import org.jetbrains.annotations.NotNull;
 
 public class NametagListener implements Listener {
 
-    private static final BukkitTime DATA_REGISTRY_WARMUP_DELAY = BukkitTime.ticks(6L);
-
     private final Nametags feature;
 
     public NametagListener(Nametags feature) {
@@ -28,14 +27,11 @@ public class NametagListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(@NotNull PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                () -> {
-                    if (!player.isOnline()) {
-                        return;
-                    }
-                    feature.getNametagManager().preloadSelfView(player);
-                },
-                DATA_REGISTRY_WARMUP_DELAY
+        DataRegistryIdentityGate.runWhenReady(
+                feature,
+                player,
+                readyPlayer -> feature.getNametagManager().preloadSelfView(readyPlayer),
+                "nametag self-view preload"
         );
         // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
         this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
