@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.glow.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;
@@ -32,9 +32,9 @@ public class GlowStateService {
         this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
-    GlowStateService(Glow feature, PlayerRepository playerRepository) {
+    GlowStateService(Glow feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerRepository);
+        this.playerResolver = new PlayerEntityResolver(playerDirectory);
     }
 
     /**

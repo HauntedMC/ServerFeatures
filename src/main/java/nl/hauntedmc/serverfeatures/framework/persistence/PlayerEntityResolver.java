@@ -4,7 +4,6 @@ import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
 import org.hibernate.Session;
 
 import java.util.Objects;
@@ -13,7 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Compatibility bridge from DataRegistry read-side identities to managed ORM references.
+ * Resolves DataRegistry identity snapshots to managed ORM references for feature-owned transactions.
  */
 public final class PlayerEntityResolver {
 
@@ -21,10 +20,6 @@ public final class PlayerEntityResolver {
 
     public PlayerEntityResolver(DataRegistry dataRegistry) {
         this(Objects.requireNonNull(dataRegistry, "dataRegistry").getPlayerDirectory());
-    }
-
-    public PlayerEntityResolver(PlayerRepository playerRepository) {
-        this(new PlayerDirectory(Objects.requireNonNull(playerRepository, "playerRepository")));
     }
 
     public PlayerEntityResolver(PlayerDirectory playerDirectory) {
@@ -48,7 +43,7 @@ public final class PlayerEntityResolver {
     /**
      * Resolves a persisted player identity snapshot by UUID without exposing DataRegistry ORM state.
      */
-    public Optional<PlayerIdentity> findIdentityByUuid(String uuid) {
+    public Optional<PlayerIdentity> identityForUuid(String uuid) {
         return playerDirectory.findByUuid(toUuid(uuid));
     }
 

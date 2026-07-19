@@ -49,11 +49,4 @@ public final class RecipeConfigHandler extends ConfigView {
         file.reload();
     }
 
-    /**
-     * No-op: all write operations via put/batch/compute auto-save.
-     * Kept for backwards compatibility with the previous API.
-     */
-    public void save() {
-        // intentionally empty
-    }
 }

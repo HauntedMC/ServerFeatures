@@ -1,7 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.chatlog.internal.services;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
 import org.bukkit.entity.Player;
@@ -28,7 +29,7 @@ class ChatLogServiceTest {
 
     @Test
     void addMessageSkipsPersistenceWhenPlayerRowIsMissing() {
-        ChatLogService service = new ChatLogService(null, missingPlayerRepository("22222222-2222-2222-2222-222222222222"));
+        ChatLogService service = new ChatLogService(null, missingPlayerDirectory("22222222-2222-2222-2222-222222222222"));
         Player player = player("22222222-2222-2222-2222-222222222222", "Remy");
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
@@ -44,14 +45,15 @@ class ChatLogServiceTest {
     @Test
     void addMessageUsesExistingPlayerRowWithoutRefreshingUsername() {
         Player player = player("33333333-3333-3333-3333-333333333333", "NewName");
-        PlayerRepository playerRepository = mock(PlayerRepository.class);
-        when(playerRepository.getActiveIdentity("33333333-3333-3333-3333-333333333333"))
-                .thenReturn(Optional.of(new PlayerRepository.PlayerIdentity(
+        PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
+        when(playerDirectory.getActiveIdentity(uuid))
+                .thenReturn(Optional.of(new PlayerIdentity(
                         33L,
-                        "33333333-3333-3333-3333-333333333333",
+                        uuid,
                         "OldName"
                 )));
-        ChatLogService service = new ChatLogService(null, playerRepository);
+        ChatLogService service = new ChatLogService(null, playerDirectory);
         PlayerEntity playerEntity = new PlayerEntity();
         playerEntity.setId(33L);
         playerEntity.setUsername("OldName");
@@ -72,11 +74,12 @@ class ChatLogServiceTest {
         assertEquals("OldName", playerEntity.getUsername());
     }
 
-    private static PlayerRepository missingPlayerRepository(String uuid) {
-        PlayerRepository playerRepository = mock(PlayerRepository.class);
-        when(playerRepository.getActiveIdentity(uuid)).thenReturn(Optional.empty());
-        when(playerRepository.findIdentityByUUID(uuid)).thenReturn(Optional.empty());
-        return playerRepository;
+    private static PlayerDirectory missingPlayerDirectory(String uuid) {
+        PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
+        UUID playerUuid = UUID.fromString(uuid);
+        when(playerDirectory.getActiveIdentity(playerUuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findByUuid(playerUuid)).thenReturn(Optional.empty());
+        return playerDirectory;
     }
 
     private static Player player(String uuid, String name) {

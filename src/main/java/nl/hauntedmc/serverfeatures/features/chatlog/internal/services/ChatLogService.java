@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.chatlog.internal.services;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.serverfeatures.features.chatlog.ChatLog;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ChatMessageEntity;
 import nl.hauntedmc.serverfeatures.features.chatlog.entities.ReportedChatMessageEntity;
@@ -27,9 +27,9 @@ public class ChatLogService {
         this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
-    ChatLogService(ChatLog feature, PlayerRepository playerRepository) {
+    ChatLogService(ChatLog feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerRepository);
+        this.playerResolver = new PlayerEntityResolver(playerDirectory);
     }
 
     /**

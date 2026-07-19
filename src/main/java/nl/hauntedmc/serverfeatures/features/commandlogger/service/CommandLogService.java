@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.commandlogger.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
 import nl.hauntedmc.serverfeatures.features.commandlogger.entity.CommandExecutionEntity;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
@@ -27,9 +27,9 @@ public class CommandLogService {
         this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
-    CommandLogService(CommandLogger feature, PlayerRepository playerRepository) {
+    CommandLogService(CommandLogger feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerRepository);
+        this.playerResolver = new PlayerEntityResolver(playerDirectory);
     }
 
     /**

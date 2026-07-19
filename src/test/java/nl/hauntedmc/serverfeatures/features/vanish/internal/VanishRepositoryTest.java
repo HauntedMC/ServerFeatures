@@ -1,7 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
 import org.hibernate.Session;
 import org.hibernate.query.Query;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -24,8 +26,8 @@ class VanishRepositoryTest {
 
     @Test
     void findExistingPlayerEntityDoesNotCreateMissingPlayerRows() {
-        PlayerRepository playerRepository = mockPlayerRepositoryMissing("66666666-6666-6666-6666-666666666666");
-        VanishRepository repository = new VanishRepository(null, playerRepository);
+        PlayerDirectory playerDirectory = mockPlayerDirectoryMissing("66666666-6666-6666-6666-666666666666");
+        VanishRepository repository = new VanishRepository(null, playerDirectory);
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
         Session session = session(queryReturning(null), persisted, merged);
@@ -43,8 +45,8 @@ class VanishRepositoryTest {
 
     @Test
     void upsertVanishSkipsPersistenceWhenPlayerRowIsMissing() {
-        PlayerRepository playerRepository = mockPlayerRepositoryMissing("77777777-7777-7777-7777-777777777777");
-        VanishRepository repository = new VanishRepository(null, playerRepository);
+        PlayerDirectory playerDirectory = mockPlayerDirectoryMissing("77777777-7777-7777-7777-777777777777");
+        VanishRepository repository = new VanishRepository(null, playerDirectory);
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
         Session session = session(queryReturning(null), persisted, merged);
@@ -57,14 +59,15 @@ class VanishRepositoryTest {
 
     @Test
     void findExistingPlayerEntityUsesDataRegistryIdentityWithoutUpdatingUsername() {
-        PlayerRepository playerRepository = mock(PlayerRepository.class);
-        when(playerRepository.getActiveIdentity("88888888-8888-8888-8888-888888888888"))
-                .thenReturn(Optional.of(new PlayerRepository.PlayerIdentity(
+        PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
+        when(playerDirectory.getActiveIdentity(uuid))
+                .thenReturn(Optional.of(new PlayerIdentity(
                         88L,
-                        "88888888-8888-8888-8888-888888888888",
+                        uuid,
                         "OldName"
                 )));
-        VanishRepository repository = new VanishRepository(null, playerRepository);
+        VanishRepository repository = new VanishRepository(null, playerDirectory);
         PlayerEntity playerEntity = new PlayerEntity();
         playerEntity.setId(88L);
         playerEntity.setUsername("OldName");
@@ -85,11 +88,12 @@ class VanishRepositoryTest {
         assertEquals("OldName", playerEntity.getUsername());
     }
 
-    private static PlayerRepository mockPlayerRepositoryMissing(String uuid) {
-        PlayerRepository playerRepository = mock(PlayerRepository.class);
-        when(playerRepository.getActiveIdentity(uuid)).thenReturn(Optional.empty());
-        when(playerRepository.findIdentityByUUID(uuid)).thenReturn(Optional.empty());
-        return playerRepository;
+    private static PlayerDirectory mockPlayerDirectoryMissing(String uuid) {
+        PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
+        UUID playerUuid = UUID.fromString(uuid);
+        when(playerDirectory.getActiveIdentity(playerUuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findByUuid(playerUuid)).thenReturn(Optional.empty());
+        return playerDirectory;
     }
 
     private static Query<PlayerEntity> queryReturning(PlayerEntity playerEntity) {

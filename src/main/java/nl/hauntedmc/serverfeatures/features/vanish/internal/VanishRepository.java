@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
@@ -28,9 +28,9 @@ public class VanishRepository {
         this.playerResolver = new PlayerEntityResolver(dataRegistry);
     }
 
-    VanishRepository(Vanish feature, PlayerRepository playerRepository) {
+    VanishRepository(Vanish feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerRepository);
+        this.playerResolver = new PlayerEntityResolver(playerDirectory);
     }
 
     public PlayerEntity findExistingPlayerEntity(Session session, String uuid, String username) {
