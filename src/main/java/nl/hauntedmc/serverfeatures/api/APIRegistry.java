@@ -30,6 +30,13 @@ public final class APIRegistry {
         SERVICES.remove(type);
     }
 
+    public static void unregister(Class<?> type, Object instance) {
+        if (type == null || instance == null) {
+            throw new IllegalArgumentException("ApiRegistry.unregister: type and instance must be non-null");
+        }
+        SERVICES.remove(type, instance);
+    }
+
     public static void clear() {
         SERVICES.clear();
     }

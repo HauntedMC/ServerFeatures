@@ -33,6 +33,18 @@ class APIRegistryTest {
     void registerRejectsNullArguments() {
         assertThrows(IllegalArgumentException.class, () -> APIRegistry.register(null, "x"));
         assertThrows(IllegalArgumentException.class, () -> APIRegistry.register(String.class, null));
+        assertThrows(IllegalArgumentException.class, () -> APIRegistry.unregister(null, "x"));
+        assertThrows(IllegalArgumentException.class, () -> APIRegistry.unregister(String.class, null));
+    }
+
+    @Test
+    void exactUnregisterDoesNotRemoveReplacement() {
+        APIRegistry.register(String.class, "first");
+        APIRegistry.register(String.class, "second");
+
+        APIRegistry.unregister(String.class, "first");
+
+        assertEquals("second", APIRegistry.get(String.class).orElseThrow());
     }
 
     @Test

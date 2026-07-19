@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
+import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -29,12 +29,14 @@ public class NotificationHandler {
     }
 
     /**
-     * Checks if a player is vanished using PremiumVanish API.
+     * Checks if a player is vanished using the enabled Vanish feature API.
      *
      * @param player The player to check.
      * @return True if the player is vanished, false otherwise.
      */
     private boolean isPlayerVanished(Player player) {
-        return APIRegistry.get(VanishAPI.class).map(api -> api.isVanished(player.getUniqueId())).orElse(false);
+        return FeatureServices.find(feature, VanishAPI.class)
+                .map(api -> api.isVanished(player.getUniqueId()))
+                .orElse(false);
     }
 }

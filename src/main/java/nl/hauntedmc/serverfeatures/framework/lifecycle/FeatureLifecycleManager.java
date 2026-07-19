@@ -11,8 +11,9 @@ public class FeatureLifecycleManager {
     private final FeatureDataManager dataManager;
     private final FeatureCacheManager cacheManager;
     private final FeatureGUIManager guiManager;
+    private final FeatureApiManager apiManager;
 
-    public FeatureLifecycleManager(ServerFeatures plugin) {
+    public FeatureLifecycleManager(ServerFeatures plugin, String featureName) {
         this.taskManager = new FeatureTaskManager(plugin);
         this.commandManager = new FeatureCommandManager(plugin);
         this.listenerManager = new FeatureListenerManager(plugin);
@@ -21,6 +22,7 @@ public class FeatureLifecycleManager {
                 : null;
         this.cacheManager = new FeatureCacheManager(plugin);
         this.guiManager = new FeatureGUIManager(plugin, taskManager);
+        this.apiManager = new FeatureApiManager(featureName, plugin::getDataRegistry);
         this.listenerManager.registerListener(guiManager);
     }
 
@@ -70,6 +72,13 @@ public class FeatureLifecycleManager {
     }
 
     /**
+     * Provides access to the feature-scoped API/service registry.
+     */
+    public FeatureApiManager getApiManager() {
+        return apiManager;
+    }
+
+    /**
      * Cleans up all registered listeners, tasks, and commands.
      */
     public void cleanup() {
@@ -78,6 +87,7 @@ public class FeatureLifecycleManager {
         taskManager.cancelAllTasks();
         commandManager.unregisterAllFeatureCommands();
         commandManager.unregisterAllBrigadierCommands();
+        apiManager.unregisterAllServices();
         if (dataManager != null) {
             dataManager.closeAllConnections();
         }

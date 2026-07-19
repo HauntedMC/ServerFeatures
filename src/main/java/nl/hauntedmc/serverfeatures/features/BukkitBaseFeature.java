@@ -24,7 +24,7 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
         this.plugin = plugin;
         this.meta = meta;
         this.configHandler = new FeatureConfigHandler(plugin, getFeatureName());
-        this.lifecycleManager = new FeatureLifecycleManager(plugin);
+        this.lifecycleManager = new FeatureLifecycleManager(plugin, getFeatureName());
         this.logger = new FeatureLogger(plugin.getLogger(), getFeatureName());
     }
 

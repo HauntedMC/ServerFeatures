@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.afk;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -72,7 +71,7 @@ public class AFK extends BukkitBaseFeature<Meta> {
         this.service.bootstrapOnlinePlayers();
 
         this.api = new AfkAPI(this);
-        APIRegistry.register(AfkAPI.class, this.api);
+        getLifecycleManager().getApiManager().registerService(AfkAPI.class, this.api);
 
         getLifecycleManager().getCommandManager().registerFeatureCommand(new AfkCommand(this));
         getLifecycleManager().getListenerManager().registerListener(new ActivityListener(this));
@@ -97,6 +96,5 @@ public class AFK extends BukkitBaseFeature<Meta> {
     @Override
     public void disable() {
         if (service != null) service.cleanupOnDisable();
-        APIRegistry.unregister(AfkAPI.class);
     }
 }

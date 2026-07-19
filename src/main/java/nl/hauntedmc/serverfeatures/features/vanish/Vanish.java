@@ -5,7 +5,6 @@ import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -107,8 +106,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         this.service = new VanishService(this);
 
         this.api = new VanishAPI(this);
-        APIRegistry.register(VanishAPI.class, this.api);
-
+        getLifecycleManager().getApiManager().registerService(VanishAPI.class, this.api);
 
         // Commands
         getLifecycleManager().getCommandManager().registerFeatureCommand(new VanishCommand(this));
@@ -161,8 +159,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         if (service != null) {
             service.cleanupOnDisable();
         }
-
-        APIRegistry.unregister(VanishAPI.class);
     }
 
     public VanishAPI getApi() {

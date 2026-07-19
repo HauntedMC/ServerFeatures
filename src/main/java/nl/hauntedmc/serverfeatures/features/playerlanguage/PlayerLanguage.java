@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage;
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
-import nl.hauntedmc.serverfeatures.api.APIRegistry;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -43,12 +42,11 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
 
         getLifecycleManager().getListenerManager().registerListener(new LanguageListener(this));
 
-        APIRegistry.register(LanguageAPI.class, service);
+        getLifecycleManager().getApiManager().registerService(LanguageAPI.class, service);
     }
 
     @Override
     public void disable() {
-        APIRegistry.unregister(LanguageAPI.class);
     }
 
     public LanguageService getService() {
