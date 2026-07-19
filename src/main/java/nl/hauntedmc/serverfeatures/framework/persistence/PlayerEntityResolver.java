@@ -30,21 +30,14 @@ public final class PlayerEntityResolver {
      * Resolves a persisted player identity by UUID without creating or updating a DataRegistry row.
      */
     public Optional<PlayerEntity> findByUuid(String uuid) {
-        return playerDirectory.findByUuid(toUuid(uuid))
-                .map(identity -> {
-                    PlayerEntity player = new PlayerEntity();
-                    player.setId(identity.playerId());
-                    player.setUuid(identity.uuid().toString());
-                    player.setUsername(identity.username());
-                    return player;
-                });
+        return playerDirectory.findByUuid(uuid).map(PlayerEntityResolver::toEntity);
     }
 
     /**
      * Resolves a persisted player identity snapshot by UUID without exposing DataRegistry ORM state.
      */
     public Optional<PlayerIdentity> identityForUuid(String uuid) {
-        return playerDirectory.findByUuid(toUuid(uuid));
+        return playerDirectory.findByUuid(uuid);
     }
 
     /**
@@ -57,8 +50,23 @@ public final class PlayerEntityResolver {
     /**
      * Resolves an existing player as a managed Hibernate reference in the supplied feature transaction.
      */
-    public PlayerEntity resolveManaged(Session session, UUID uuid, String usernameHint) {
+    public PlayerEntity resolveManaged(Session session, UUID uuid) {
         if (session == null || uuid == null) {
+            return null;
+        }
+        return playerDirectory.getActiveIdentity(uuid)
+                .or(() -> playerDirectory.findByUuid(uuid))
+                .map(PlayerIdentity::playerId)
+                .filter(playerId -> playerId != null && playerId > 0)
+                .map(playerId -> session.getReference(PlayerEntity.class, playerId))
+                .orElse(null);
+    }
+
+    /**
+     * Resolves an existing player UUID string as a managed Hibernate reference in the supplied feature transaction.
+     */
+    public PlayerEntity resolveManaged(Session session, String uuid) {
+        if (session == null || uuid == null || uuid.isBlank()) {
             return null;
         }
         return playerDirectory.getActiveIdentity(uuid)
@@ -79,14 +87,11 @@ public final class PlayerEntityResolver {
         return session.getReference(PlayerEntity.class, playerId);
     }
 
-    private static UUID toUuid(String uuid) {
-        if (uuid == null || uuid.isBlank()) {
-            return null;
-        }
-        try {
-            return UUID.fromString(uuid.trim());
-        } catch (IllegalArgumentException exception) {
-            return null;
-        }
+    private static PlayerEntity toEntity(PlayerIdentity identity) {
+        PlayerEntity player = new PlayerEntity();
+        player.setId(identity.playerId());
+        player.setUuid(identity.uuid().toString());
+        player.setUsername(identity.username());
+        return player;
     }
 }

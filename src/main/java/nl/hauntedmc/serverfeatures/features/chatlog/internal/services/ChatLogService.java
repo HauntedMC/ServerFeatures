@@ -50,7 +50,7 @@ public class ChatLogService {
     }
 
     boolean addMessage(Session session, String serverName, long timestamp, Player player, String rawMessage) {
-        PlayerEntity playerEntity = playerResolver.resolveManaged(session, player.getUniqueId(), player.getName());
+        PlayerEntity playerEntity = playerResolver.resolveManaged(session, player.getUniqueId());
 
         if (playerEntity == null) {
             return false;
@@ -81,7 +81,7 @@ public class ChatLogService {
                     return;
                 }
                 feature.getOrmContext().runInTransaction(session -> {
-                        PlayerEntity playerEntity = playerResolver.resolveManaged(session, playerUuid, playerName);
+                        PlayerEntity playerEntity = playerResolver.resolveManaged(session, playerUuid);
                         if (playerEntity == null) {
                             return null;
                         }

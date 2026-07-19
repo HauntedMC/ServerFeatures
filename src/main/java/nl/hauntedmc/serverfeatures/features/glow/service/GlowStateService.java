@@ -61,8 +61,7 @@ public class GlowStateService {
     void saveGlowState(Session session, Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
         PlayerEntity playerEntity = resolveExistingPlayerEntity(
                 session,
-                bukkitPlayer.getUniqueId().toString(),
-                bukkitPlayer.getName()
+                bukkitPlayer.getUniqueId().toString()
         );
 
         if (playerEntity == null) {
@@ -100,8 +99,7 @@ public class GlowStateService {
     void restoreGlowFor(Session session, Player bukkitPlayer) {
         PlayerEntity playerEntity = resolveExistingPlayerEntity(
                 session,
-                bukkitPlayer.getUniqueId().toString(),
-                bukkitPlayer.getName()
+                bukkitPlayer.getUniqueId().toString()
         );
 
         if (playerEntity == null) {
@@ -127,7 +125,7 @@ public class GlowStateService {
         );
     }
 
-    private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid, String username) {
-        return playerResolver.resolveManaged(session, java.util.UUID.fromString(uuid), username);
+    private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid) {
+        return playerResolver.resolveManaged(session, uuid);
     }
 }

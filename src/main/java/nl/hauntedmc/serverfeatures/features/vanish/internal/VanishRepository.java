@@ -33,8 +33,8 @@ public class VanishRepository {
         this.playerResolver = new PlayerEntityResolver(playerDirectory);
     }
 
-    public PlayerEntity findExistingPlayerEntity(Session session, String uuid, String username) {
-        return playerResolver.resolveManaged(session, java.util.UUID.fromString(uuid), username);
+    public PlayerEntity findExistingPlayerEntity(Session session, String uuid) {
+        return playerResolver.resolveManaged(session, uuid);
     }
 
     /**
@@ -58,7 +58,7 @@ public class VanishRepository {
     }
 
     void upsertVanish(Session session, String uuid, String username, boolean vanished) {
-        PlayerEntity player = findExistingPlayerEntity(session, uuid, username);
+        PlayerEntity player = findExistingPlayerEntity(session, uuid);
         if (player == null) {
             return;
         }

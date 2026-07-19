@@ -78,7 +78,7 @@ public class CommandLogService {
     ) {
         PlayerEntity playerEntity = playerUuid == null
                 ? null
-                : resolveExistingPlayerEntity(session, playerUuid, playerName);
+                : resolveExistingPlayerEntity(session, playerUuid);
 
         CommandExecutionEntity entry = new CommandExecutionEntity();
         entry.setServer(serverName);
@@ -116,7 +116,7 @@ public class CommandLogService {
         }
     }
 
-    private PlayerEntity resolveExistingPlayerEntity(Session session, java.util.UUID uuid, String username) {
-        return playerResolver.resolveManaged(session, uuid, username);
+    private PlayerEntity resolveExistingPlayerEntity(Session session, java.util.UUID uuid) {
+        return playerResolver.resolveManaged(session, uuid);
     }
 }

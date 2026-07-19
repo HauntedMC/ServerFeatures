@@ -29,7 +29,7 @@ class PlayerEntityResolverTest {
         when(directory.getActiveIdentity(uuid)).thenReturn(Optional.of(identity));
         when(session.getReference(PlayerEntity.class, 12L)).thenReturn(managed);
 
-        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid, "ChangedName");
+        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
         assertSame(managed, result);
         verify(directory, never()).findByUuid(uuid);
@@ -47,7 +47,7 @@ class PlayerEntityResolverTest {
         when(directory.findByUuid(uuid)).thenReturn(Optional.of(identity));
         when(session.getReference(PlayerEntity.class, 21L)).thenReturn(managed);
 
-        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid, "ChangedName");
+        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
         assertSame(managed, result);
     }
@@ -61,7 +61,7 @@ class PlayerEntityResolverTest {
         when(directory.getActiveIdentity(uuid)).thenReturn(Optional.empty());
         when(directory.findByUuid(uuid)).thenReturn(Optional.empty());
 
-        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid, "Alice");
+        PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
         assertNull(result);
         verify(session, never()).getReference(PlayerEntity.class, 0L);

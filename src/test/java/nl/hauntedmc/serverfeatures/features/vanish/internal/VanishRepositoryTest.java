@@ -34,8 +34,7 @@ class VanishRepositoryTest {
 
         PlayerEntity playerEntity = repository.findExistingPlayerEntity(
                 session,
-                "66666666-6666-6666-6666-666666666666",
-                "Remy"
+                "66666666-6666-6666-6666-666666666666"
         );
 
         assertNull(playerEntity);
@@ -61,7 +60,7 @@ class VanishRepositoryTest {
     void findExistingPlayerEntityUsesDataRegistryIdentityWithoutUpdatingUsername() {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
         UUID uuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
-        when(playerDirectory.getActiveIdentity(uuid))
+        when(playerDirectory.getActiveIdentity(uuid.toString()))
                 .thenReturn(Optional.of(new PlayerIdentity(
                         88L,
                         uuid,
@@ -78,8 +77,7 @@ class VanishRepositoryTest {
 
         PlayerEntity resolved = repository.findExistingPlayerEntity(
                 session,
-                "88888888-8888-8888-8888-888888888888",
-                "NewName"
+                "88888888-8888-8888-8888-888888888888"
         );
 
         assertSame(playerEntity, resolved);
@@ -90,9 +88,8 @@ class VanishRepositoryTest {
 
     private static PlayerDirectory mockPlayerDirectoryMissing(String uuid) {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
-        UUID playerUuid = UUID.fromString(uuid);
-        when(playerDirectory.getActiveIdentity(playerUuid)).thenReturn(Optional.empty());
-        when(playerDirectory.findByUuid(playerUuid)).thenReturn(Optional.empty());
+        when(playerDirectory.getActiveIdentity(uuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findByUuid(uuid)).thenReturn(Optional.empty());
         return playerDirectory;
     }
 
