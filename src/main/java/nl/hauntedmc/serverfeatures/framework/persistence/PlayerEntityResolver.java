@@ -36,7 +36,7 @@ public final class PlayerEntityResolver {
     /**
      * Resolves a persisted player identity snapshot by UUID without exposing DataRegistry ORM state.
      */
-    public Optional<PlayerIdentity> identityForUuid(String uuid) {
+    public Optional<PlayerIdentity> findIdentityByUuid(String uuid) {
         return playerDirectory.findByUuid(uuid);
     }
 
