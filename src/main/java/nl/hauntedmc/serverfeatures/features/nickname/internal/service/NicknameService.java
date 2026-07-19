@@ -7,6 +7,9 @@ import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.OfflinePlayer;
 
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 public class NicknameService {
     private final PlayerData players;
@@ -20,14 +23,21 @@ public class NicknameService {
     /**
      * Resolves an existing DataRegistry identity without creating or updating a player row.
      */
-    public Optional<PlayerIdentity> getPlayerIdentity(OfflinePlayer player) {
-        return players.activeIdentity(player.getUniqueId())
-                .or(() -> players.findIdentity(player.getUniqueId()));
+    public Optional<PlayerIdentity> getCachedPlayerIdentity(OfflinePlayer player) {
+        return players.findActiveIdentityCached(player.getUniqueId());
     }
 
-    public Optional<String> getNickname(PlayerIdentity playerIdentity) {
+    public CompletionStage<Optional<PlayerIdentity>> findPlayerIdentity(UUID playerUuid) {
+        Optional<PlayerIdentity> cached = players.findActiveIdentityCached(playerUuid);
+        if (cached.isPresent()) {
+            return CompletableFuture.completedFuture(cached);
+        }
+        return players.findIdentity(playerUuid);
+    }
+
+    public CompletionStage<Optional<String>> findNickname(PlayerIdentity playerIdentity) {
         if (playerIdentity == null) {
-            return Optional.empty();
+            return CompletableFuture.completedFuture(Optional.empty());
         }
         return players.findNickname(playerIdentity.playerId());
     }

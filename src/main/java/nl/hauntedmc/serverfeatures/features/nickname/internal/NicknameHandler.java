@@ -42,29 +42,22 @@ public class NicknameHandler {
 
     public Optional<String> getNickname(OfflinePlayer player) {
         UUID playerId = player.getUniqueId();
-
-        String cachedNickname = nicknameCache.get(playerId);
-        if (cachedNickname != null) {
-            return Optional.of(cachedNickname);
-        }
-
-        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
-        if (playerIdentityOpt.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Optional<String> databaseNickname = nicknameService.getNickname(playerIdentityOpt.get());
-        databaseNickname.ifPresent(nick -> nicknameCache.put(playerId, nick));
-        return databaseNickname;
+        return Optional.ofNullable(nicknameCache.get(playerId));
     }
 
     public void loadNicknameIntoCache(Player player) {
-        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
-        playerIdentityOpt.ifPresent(playerIdentity -> nicknameService.getNickname(playerIdentity)
-                .ifPresentOrElse(
-                        nick -> nicknameCache.put(player.getUniqueId(), nick),
-                        () -> nicknameCache.remove(player.getUniqueId())
-                ));
+        UUID playerId = player.getUniqueId();
+        nicknameService.findPlayerIdentity(playerId)
+                .thenCompose(identity -> identity
+                        .map(nicknameService::findNickname)
+                        .orElseGet(() -> java.util.concurrent.CompletableFuture.completedFuture(Optional.empty())))
+                .whenComplete((nickname, throwable) -> {
+                    if (throwable != null || nickname == null || nickname.isEmpty()) {
+                        nicknameCache.remove(playerId);
+                        return;
+                    }
+                    nicknameCache.put(playerId, nickname.get());
+                });
     }
 
     public boolean setNickname(Player player, String unformattedNickname) {
@@ -88,7 +81,7 @@ public class NicknameHandler {
             return false;
         }
 
-        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getCachedPlayerIdentity(player);
         if (playerIdentityOpt.isEmpty()) {
             player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.data_unavailable").forAudience(player).build());
             return false;
@@ -114,7 +107,7 @@ public class NicknameHandler {
     }
 
     public boolean removeNickname(Player player) {
-        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getCachedPlayerIdentity(player);
         if (playerIdentityOpt.isEmpty()) {
             player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.data_unavailable").forAudience(player).build());
             return false;

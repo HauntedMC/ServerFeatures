@@ -26,7 +26,7 @@ class PlayerEntityResolverTest {
         UUID uuid = UUID.randomUUID();
         PlayerIdentity identity = new PlayerIdentity(12L, uuid, "Alice");
 
-        when(directory.getActiveIdentity(uuid)).thenReturn(Optional.of(identity));
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.of(identity));
         when(session.getReference(PlayerEntity.class, 12L)).thenReturn(managed);
 
         PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
@@ -36,20 +36,17 @@ class PlayerEntityResolverTest {
     }
 
     @Test
-    void resolveManagedFallsBackToPersistentIdentityWithoutCreatingPlayer() {
+    void resolveManagedDoesNotQueryPersistenceInsideFeatureTransaction() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         Session session = mock(Session.class);
-        PlayerEntity managed = new PlayerEntity();
         UUID uuid = UUID.randomUUID();
-        PlayerIdentity identity = new PlayerIdentity(21L, uuid, "Alice");
 
-        when(directory.getActiveIdentity(uuid)).thenReturn(Optional.empty());
-        when(directory.findByUuid(uuid)).thenReturn(Optional.of(identity));
-        when(session.getReference(PlayerEntity.class, 21L)).thenReturn(managed);
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
 
         PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
-        assertSame(managed, result);
+        assertNull(result);
+        verify(directory, never()).findByUuid(uuid);
     }
 
     @Test
@@ -58,8 +55,7 @@ class PlayerEntityResolverTest {
         Session session = mock(Session.class);
         UUID uuid = UUID.randomUUID();
 
-        when(directory.getActiveIdentity(uuid)).thenReturn(Optional.empty());
-        when(directory.findByUuid(uuid)).thenReturn(Optional.empty());
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
 
         PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 

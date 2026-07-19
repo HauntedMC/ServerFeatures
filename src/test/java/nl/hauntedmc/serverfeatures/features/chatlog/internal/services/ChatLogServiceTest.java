@@ -47,7 +47,7 @@ class ChatLogServiceTest {
         Player player = player("33333333-3333-3333-3333-333333333333", "NewName");
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
         UUID uuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        when(playerDirectory.getActiveIdentity(uuid))
+        when(playerDirectory.findActiveIdentityCached(uuid))
                 .thenReturn(Optional.of(new PlayerIdentity(
                         33L,
                         uuid,
@@ -77,8 +77,7 @@ class ChatLogServiceTest {
     private static PlayerDirectory missingPlayerDirectory(String uuid) {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
         UUID playerUuid = UUID.fromString(uuid);
-        when(playerDirectory.getActiveIdentity(playerUuid)).thenReturn(Optional.empty());
-        when(playerDirectory.findByUuid(playerUuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findActiveIdentityCached(playerUuid)).thenReturn(Optional.empty());
         return playerDirectory;
     }
 

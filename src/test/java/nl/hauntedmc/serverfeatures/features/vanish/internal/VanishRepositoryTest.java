@@ -60,7 +60,7 @@ class VanishRepositoryTest {
     void findExistingPlayerEntityUsesDataRegistryIdentityWithoutUpdatingUsername() {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
         UUID uuid = UUID.fromString("88888888-8888-8888-8888-888888888888");
-        when(playerDirectory.getActiveIdentity(uuid.toString()))
+        when(playerDirectory.findActiveIdentityCached(uuid.toString()))
                 .thenReturn(Optional.of(new PlayerIdentity(
                         88L,
                         uuid,
@@ -88,8 +88,7 @@ class VanishRepositoryTest {
 
     private static PlayerDirectory mockPlayerDirectoryMissing(String uuid) {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
-        when(playerDirectory.getActiveIdentity(uuid)).thenReturn(Optional.empty());
-        when(playerDirectory.findByUuid(uuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
         return playerDirectory;
     }
 

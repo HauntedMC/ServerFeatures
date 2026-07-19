@@ -54,8 +54,7 @@ class CommandLogServiceTest {
     private static PlayerDirectory missingPlayerDirectory(String uuid) {
         PlayerDirectory playerDirectory = mock(PlayerDirectory.class);
         UUID playerUuid = UUID.fromString(uuid);
-        when(playerDirectory.getActiveIdentity(playerUuid)).thenReturn(Optional.empty());
-        when(playerDirectory.findByUuid(playerUuid)).thenReturn(Optional.empty());
+        when(playerDirectory.findActiveIdentityCached(playerUuid)).thenReturn(Optional.empty());
         return playerDirectory;
     }
 

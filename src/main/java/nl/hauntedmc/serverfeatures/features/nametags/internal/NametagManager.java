@@ -69,12 +69,16 @@ public class NametagManager {
         selfViewPreference.put(playerId, enabled);
         Player p = Bukkit.getPlayer(playerId);
         if (p != null && p.isOnline()) {
+            String playerName = p.getName();
             updateNametag(p, new UpdateProperties.Builder().build());
-            try {
-                feature.getRepository().upsertSelfView(p.getUniqueId().toString(), p.getName(), enabled);
-            } catch (Exception ex) {
-                feature.getLogger().warning("Kon selfview status niet opslaan voor " + p.getName() + ": " + ex.getMessage());
-            }
+            feature.getRepository()
+                    .upsertSelfView(p.getUniqueId().toString(), playerName, enabled)
+                    .exceptionally(ex -> {
+                        feature.getLogger().warning(
+                                "Kon selfview status niet opslaan voor " + playerName + ": " + ex.getMessage()
+                        );
+                        return null;
+                    });
         }
     }
 
@@ -100,14 +104,19 @@ public class NametagManager {
     public void preloadSelfView(Player player) {
         if (player == null) return;
         UUID id = player.getUniqueId();
-        try {
-            Optional<Boolean> persisted = feature.getRepository().getSelfView(player.getUniqueId().toString());
-            boolean effective = persisted.orElse(true);
-            selfViewPreference.put(id, effective);
-        } catch (Exception ex) {
-            feature.getLogger().warning("Kon selfview voorkeur niet laden voor " + player.getName() + ": " + ex.getMessage());
-            selfViewPreference.put(id, true);
-        }
+        String playerName = player.getName();
+        feature.getRepository()
+                .findSelfView(player.getUniqueId().toString())
+                .whenComplete((persisted, ex) -> {
+                    if (ex != null) {
+                        feature.getLogger().warning(
+                                "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
+                        );
+                        selfViewPreference.put(id, true);
+                        return;
+                    }
+                    selfViewPreference.put(id, persisted == null ? true : persisted.orElse(true));
+                });
     }
 
     private void scheduleRepeatingUpdate() {

@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Resolves DataRegistry identity snapshots to managed ORM references for feature-owned transactions.
@@ -26,60 +27,45 @@ public final class PlayerEntityResolver {
         this.playerDirectory = Objects.requireNonNull(playerDirectory, "playerDirectory");
     }
 
-    /**
-     * Resolves a persisted player identity by UUID without creating or updating a DataRegistry row.
-     */
-    public Optional<PlayerEntity> findByUuid(String uuid) {
-        return playerDirectory.findByUuid(uuid).map(PlayerEntityResolver::toEntity);
+    public CompletionStage<Optional<PlayerEntity>> findByUuid(String uuid) {
+        return playerDirectory.findByUuid(uuid)
+                .thenApply(identity -> identity.map(PlayerEntityResolver::toEntity));
     }
 
-    /**
-     * Resolves a persisted player identity snapshot by UUID without exposing DataRegistry ORM state.
-     */
-    public Optional<PlayerIdentity> findIdentityByUuid(String uuid) {
+    public CompletionStage<Optional<PlayerIdentity>> findIdentityByUuid(String uuid) {
         return playerDirectory.findByUuid(uuid);
     }
 
-    /**
-     * Returns the lifecycle initialization future for the player's canonical DataRegistry identity.
-     */
     public CompletableFuture<Optional<PlayerIdentity>> whenReady(UUID uuid) {
         return playerDirectory.whenReady(uuid);
     }
 
     /**
-     * Resolves an existing player as a managed Hibernate reference in the supplied feature transaction.
+     * Resolves only the active DataRegistry cache into a managed Hibernate reference.
+     * Persistent lookup must happen before entering the feature transaction.
      */
     public PlayerEntity resolveManaged(Session session, UUID uuid) {
         if (session == null || uuid == null) {
             return null;
         }
-        return playerDirectory.getActiveIdentity(uuid)
-                .or(() -> playerDirectory.findByUuid(uuid))
+        return playerDirectory.findActiveIdentityCached(uuid)
                 .map(PlayerIdentity::playerId)
                 .filter(playerId -> playerId != null && playerId > 0)
                 .map(playerId -> session.getReference(PlayerEntity.class, playerId))
                 .orElse(null);
     }
 
-    /**
-     * Resolves an existing player UUID string as a managed Hibernate reference in the supplied feature transaction.
-     */
     public PlayerEntity resolveManaged(Session session, String uuid) {
         if (session == null || uuid == null || uuid.isBlank()) {
             return null;
         }
-        return playerDirectory.getActiveIdentity(uuid)
-                .or(() -> playerDirectory.findByUuid(uuid))
+        return playerDirectory.findActiveIdentityCached(uuid)
                 .map(PlayerIdentity::playerId)
                 .filter(playerId -> playerId != null && playerId > 0)
                 .map(playerId -> session.getReference(PlayerEntity.class, playerId))
                 .orElse(null);
     }
 
-    /**
-     * Returns a managed Hibernate reference by scalar player id for feature-owned entities.
-     */
     public PlayerEntity resolveManagedById(Session session, Long playerId) {
         if (session == null || playerId == null || playerId <= 0) {
             return null;

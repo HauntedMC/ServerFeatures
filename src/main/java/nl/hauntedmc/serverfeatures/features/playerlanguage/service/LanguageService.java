@@ -10,6 +10,7 @@ import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,28 +29,25 @@ public final class LanguageService implements LanguageAPI {
     }
 
     public void warm(UUID playerUuid) {
-        Long playerId = resolvePlayerId(playerUuid);
-        if (playerId == null) {
-            languageCache.remove(playerUuid);
-            return;
-        }
-
-        PlayerLanguageSettings settings = players.findLanguage(playerId).orElse(null);
-        if (settings == null) {
-            languageCache.remove(playerUuid);
-            return;
-        }
-
-        Language effective = fromStoredCode(settings.effectiveLanguage());
-        if (effective == null) {
-            effective = fromStoredCode(settings.language());
-        }
-
-        if (effective != null) {
-            languageCache.put(playerUuid, effective);
-        } else {
-            languageCache.remove(playerUuid);
-        }
+        resolvePlayerId(playerUuid)
+                .thenCompose(playerId -> playerId
+                        .map(players::findLanguage)
+                        .orElseGet(() -> java.util.concurrent.CompletableFuture.completedFuture(Optional.empty())))
+                .whenComplete((settings, throwable) -> {
+                    if (throwable != null || settings == null || settings.isEmpty()) {
+                        languageCache.remove(playerUuid);
+                        return;
+                    }
+                    Language effective = fromStoredCode(settings.get().effectiveLanguage());
+                    if (effective == null) {
+                        effective = fromStoredCode(settings.get().language());
+                    }
+                    if (effective != null) {
+                        languageCache.put(playerUuid, effective);
+                    } else {
+                        languageCache.remove(playerUuid);
+                    }
+                });
     }
 
     public void forget(UUID playerUuid) {
@@ -65,20 +63,18 @@ public final class LanguageService implements LanguageAPI {
     public void set(UUID playerUuid, Language language) {
         Objects.requireNonNull(language, "language");
 
-        Long playerId = resolvePlayerId(playerUuid);
-        if (playerId == null) {
-            return;
-        }
-
-        players.saveLanguage(playerId, language.name(), language.name());
+        resolvePlayerId(playerUuid).thenAccept(playerId -> playerId.ifPresent(
+                value -> players.saveLanguage(value, language.name(), language.name())
+        ));
         languageCache.put(playerUuid, language);
     }
 
-    private Long resolvePlayerId(UUID playerUuid) {
-        return players.activeIdentity(playerUuid)
-                .or(() -> players.findIdentity(playerUuid))
-                .map(PlayerIdentity::playerId)
-                .orElse(null);
+    private java.util.concurrent.CompletionStage<Optional<Long>> resolvePlayerId(UUID playerUuid) {
+        Optional<PlayerIdentity> cached = players.findActiveIdentityCached(playerUuid);
+        if (cached.isPresent()) {
+            return java.util.concurrent.CompletableFuture.completedFuture(cached.map(PlayerIdentity::playerId));
+        }
+        return players.findIdentity(playerUuid).thenApply(identity -> identity.map(PlayerIdentity::playerId));
     }
 
     private static Language fromStoredCode(String code) {
