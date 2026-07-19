@@ -17,7 +17,7 @@ public final class DataRegistryIdentityGate {
     }
 
     /**
-     * Waits for DataRegistry identity readiness, then schedules the action on the Bukkit main thread.
+     * Waits for DataRegistry identity initialization, then schedules the action on the Bukkit main thread.
      *
      * @param feature       owning feature, used for task tracking and logging.
      * @param player        player whose identity is required.

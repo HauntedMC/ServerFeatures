@@ -41,7 +41,7 @@ public final class PlayerEntityResolver {
     }
 
     /**
-     * Returns the lifecycle readiness future for the player's canonical DataRegistry identity.
+     * Returns the lifecycle initialization future for the player's canonical DataRegistry identity.
      */
     public CompletableFuture<Optional<PlayerIdentity>> whenReady(UUID uuid) {
         return playerDirectory.whenReady(uuid);
