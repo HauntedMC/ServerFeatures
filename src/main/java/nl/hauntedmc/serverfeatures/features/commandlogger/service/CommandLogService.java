@@ -51,6 +51,10 @@ public class CommandLogService {
                 if (throwable != null) {
                     feature.getLogger().warning("DataRegistry identity unavailable for command log: "
                             + throwable.getMessage());
+                    return;
+                }
+                if (identity == null || identity.isEmpty()) {
+                    return;
                 }
                 schedulePersist(serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
             });
