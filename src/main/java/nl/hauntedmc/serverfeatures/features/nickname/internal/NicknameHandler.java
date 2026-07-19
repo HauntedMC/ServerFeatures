@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal;
 
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
@@ -48,19 +48,19 @@ public class NicknameHandler {
             return Optional.of(cachedNickname);
         }
 
-        Optional<PlayerEntity> playerEntityOpt = nicknameService.getPlayerEntity(player);
-        if (playerEntityOpt.isEmpty()) {
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        if (playerIdentityOpt.isEmpty()) {
             return Optional.empty();
         }
 
-        Optional<String> databaseNickname = nicknameService.getNickname(playerEntityOpt.get());
+        Optional<String> databaseNickname = nicknameService.getNickname(playerIdentityOpt.get());
         databaseNickname.ifPresent(nick -> nicknameCache.put(playerId, nick));
         return databaseNickname;
     }
 
     public void loadNicknameIntoCache(Player player) {
-        Optional<PlayerEntity> playerEntityOpt = nicknameService.getPlayerEntity(player);
-        playerEntityOpt.ifPresent(playerEntity -> nicknameService.getNickname(playerEntity)
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        playerIdentityOpt.ifPresent(playerIdentity -> nicknameService.getNickname(playerIdentity)
                 .ifPresentOrElse(
                         nick -> nicknameCache.put(player.getUniqueId(), nick),
                         () -> nicknameCache.remove(player.getUniqueId())
@@ -88,14 +88,13 @@ public class NicknameHandler {
             return false;
         }
 
-        Optional<PlayerEntity> playerEntityOpt = nicknameService.getPlayerEntity(player);
-        if (playerEntityOpt.isEmpty()) {
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        if (playerIdentityOpt.isEmpty()) {
             player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.data_unavailable").forAudience(player).build());
             return false;
         }
 
-        PlayerEntity playerEntity = playerEntityOpt.get();
-        nicknameService.setNickname(playerEntity, nickname);
+        nicknameService.setNickname(playerIdentityOpt.get(), nickname);
         nicknameCache.put(player.getUniqueId(), nickname);
         return true;
     }
@@ -115,14 +114,13 @@ public class NicknameHandler {
     }
 
     public boolean removeNickname(Player player) {
-        Optional<PlayerEntity> playerEntityOpt = nicknameService.getPlayerEntity(player);
-        if (playerEntityOpt.isEmpty()) {
+        Optional<PlayerIdentity> playerIdentityOpt = nicknameService.getPlayerIdentity(player);
+        if (playerIdentityOpt.isEmpty()) {
             player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.data_unavailable").forAudience(player).build());
             return false;
         }
 
-        PlayerEntity playerEntity = playerEntityOpt.get();
-        nicknameService.removeNickname(playerEntity);
+        nicknameService.removeNickname(playerIdentityOpt.get());
         nicknameCache.remove(player.getUniqueId());
         return true;
     }

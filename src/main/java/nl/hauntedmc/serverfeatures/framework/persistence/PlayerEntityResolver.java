@@ -19,7 +19,7 @@ public final class PlayerEntityResolver {
     private final PlayerDirectory playerDirectory;
 
     public PlayerEntityResolver(DataRegistry dataRegistry) {
-        this(Objects.requireNonNull(dataRegistry, "dataRegistry").getPlayerDirectory());
+        this(Objects.requireNonNull(dataRegistry, "dataRegistry").players().identities());
     }
 
     public PlayerEntityResolver(PlayerDirectory playerDirectory) {

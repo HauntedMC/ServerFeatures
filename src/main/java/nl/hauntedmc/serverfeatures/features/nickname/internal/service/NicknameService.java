@@ -1,61 +1,48 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
-import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerNicknameRepository;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
 import org.bukkit.OfflinePlayer;
 
 import java.util.Optional;
 
 public class NicknameService {
-    private final PlayerDirectory playerDirectory;
-    private final PlayerNicknameRepository playerNicknameRepository;
+    private final PlayerData players;
 
     public NicknameService(Nickname feature) {
         DataRegistry dataRegistry = feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nickname."));
-        this.playerDirectory = dataRegistry.getPlayerDirectory();
-        this.playerNicknameRepository = dataRegistry.getPlayerNicknameRepository();
+        this.players = dataRegistry.players();
     }
 
     /**
-     * Resolves an existing player identity as a detached entity for legacy nickname call sites.
+     * Resolves an existing DataRegistry identity without creating or updating a player row.
      */
-    public Optional<PlayerEntity> getPlayerEntity(OfflinePlayer player) {
-        return playerDirectory.getActiveIdentity(player.getUniqueId())
-                .or(() -> playerDirectory.findByUuid(player.getUniqueId()))
-                .map(NicknameService::toEntity);
+    public Optional<PlayerIdentity> getPlayerIdentity(OfflinePlayer player) {
+        return players.activeIdentity(player.getUniqueId())
+                .or(() -> players.findIdentity(player.getUniqueId()));
     }
 
-    public Optional<String> getNickname(PlayerEntity playerEntity) {
-        if (playerEntity == null || playerEntity.getId() == null) {
+    public Optional<String> getNickname(PlayerIdentity playerIdentity) {
+        if (playerIdentity == null) {
             return Optional.empty();
         }
-        return playerNicknameRepository.findNicknameByPlayerId(playerEntity.getId());
+        return players.findNickname(playerIdentity.playerId());
     }
 
-    public void setNickname(PlayerEntity playerEntity, String nickname) {
-        if (playerEntity == null || playerEntity.getId() == null) {
+    public void setNickname(PlayerIdentity playerIdentity, String nickname) {
+        if (playerIdentity == null) {
             return;
         }
-        playerNicknameRepository.saveOrUpdate(playerEntity.getId(), nickname);
+        players.saveNickname(playerIdentity.playerId(), nickname);
     }
 
-    public void removeNickname(PlayerEntity playerEntity) {
-        if (playerEntity == null || playerEntity.getId() == null) {
+    public void removeNickname(PlayerIdentity playerIdentity) {
+        if (playerIdentity == null) {
             return;
         }
-        playerNicknameRepository.deleteByPlayerId(playerEntity.getId());
-    }
-
-    private static PlayerEntity toEntity(PlayerIdentity identity) {
-        PlayerEntity entity = new PlayerEntity();
-        entity.setId(identity.playerId());
-        entity.setUuid(identity.uuid().toString());
-        entity.setUsername(identity.username());
-        return entity;
+        players.clearNickname(playerIdentity.playerId());
     }
 }

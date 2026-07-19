@@ -1,10 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistry;
-import nl.hauntedmc.dataregistry.api.entities.PlayerLanguageEntity;
-import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.dataregistry.api.repository.PlayerLanguageRepository;
+import nl.hauntedmc.dataregistry.api.player.PlayerLanguageSettings;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
@@ -20,15 +19,12 @@ public final class LanguageService implements LanguageAPI {
     private static final Language FALLBACK = Language.EN;
 
     private final PlayerLanguage feature;
-    private final PlayerDirectory playerDirectory;
-    private final PlayerLanguageRepository playerLanguageRepository;
+    private final PlayerData players;
     private final ConcurrentMap<UUID, Language> languageCache = new ConcurrentHashMap<>();
 
     public LanguageService(PlayerLanguage feature, DataRegistry dataRegistry) {
         this.feature = Objects.requireNonNull(feature, "feature");
-        Objects.requireNonNull(dataRegistry, "dataRegistry");
-        this.playerDirectory = dataRegistry.getPlayerDirectory();
-        this.playerLanguageRepository = dataRegistry.getPlayerLanguageRepository();
+        this.players = Objects.requireNonNull(dataRegistry, "dataRegistry").players();
     }
 
     public void warm(UUID playerUuid) {
@@ -38,15 +34,15 @@ public final class LanguageService implements LanguageAPI {
             return;
         }
 
-        PlayerLanguageEntity entity = playerLanguageRepository.findByPlayerId(playerId).orElse(null);
-        if (entity == null) {
+        PlayerLanguageSettings settings = players.findLanguage(playerId).orElse(null);
+        if (settings == null) {
             languageCache.remove(playerUuid);
             return;
         }
 
-        Language effective = fromStoredCode(entity.getEffectiveLanguage());
+        Language effective = fromStoredCode(settings.effectiveLanguage());
         if (effective == null) {
-            effective = fromStoredCode(entity.getLanguage());
+            effective = fromStoredCode(settings.language());
         }
 
         if (effective != null) {
@@ -74,13 +70,13 @@ public final class LanguageService implements LanguageAPI {
             return;
         }
 
-        playerLanguageRepository.saveOrUpdate(playerId, language.name(), language.name());
+        players.saveLanguage(playerId, language.name(), language.name());
         languageCache.put(playerUuid, language);
     }
 
     private Long resolvePlayerId(UUID playerUuid) {
-        return playerDirectory.getActiveIdentity(playerUuid)
-                .or(() -> playerDirectory.findByUuid(playerUuid))
+        return players.activeIdentity(playerUuid)
+                .or(() -> players.findIdentity(playerUuid))
                 .map(PlayerIdentity::playerId)
                 .orElse(null);
     }
