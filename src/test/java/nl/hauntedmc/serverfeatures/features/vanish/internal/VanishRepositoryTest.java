@@ -97,8 +97,8 @@ class VanishRepositoryTest {
                 Query.class.getClassLoader(),
                 new Class<?>[]{Query.class},
                 (proxy, method, args) -> switch (method.getName()) {
-                    case "setParameter" -> proxy;
-                    case "uniqueResult" -> playerEntity;
+                    case "setParameter", "setMaxResults" -> proxy;
+                    case "uniqueResultOptional" -> Optional.ofNullable(playerEntity);
                     default -> null;
                 }
         );

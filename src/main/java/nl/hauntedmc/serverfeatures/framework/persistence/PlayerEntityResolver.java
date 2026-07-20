@@ -14,6 +14,11 @@ import java.util.concurrent.CompletionStage;
 
 /**
  * Resolves DataRegistry identity snapshots to managed ORM references for feature-owned transactions.
+ * <p>
+ * The active identity cache is the fast path. A feature can, however, run after DataRegistry has committed a
+ * player row but before its cache entry is visible (or after cache eviction on disconnect). In that case this
+ * resolver reads the canonical row in the caller-owned transaction instead of treating a persisted player as
+ * unknown.
  */
 public final class PlayerEntityResolver {
 
@@ -41,8 +46,7 @@ public final class PlayerEntityResolver {
     }
 
     /**
-     * Resolves only the active DataRegistry cache into a managed Hibernate reference.
-     * Persistent lookup must happen before entering the feature transaction.
+     * Resolves an active identity cache entry, falling back to the canonical persisted player row when needed.
      */
     public PlayerEntity resolveManaged(Session session, UUID uuid) {
         if (session == null || uuid == null) {
@@ -52,7 +56,7 @@ public final class PlayerEntityResolver {
                 .map(PlayerIdentity::playerId)
                 .filter(playerId -> playerId != null && playerId > 0)
                 .map(playerId -> session.getReference(PlayerEntity.class, playerId))
-                .orElse(null);
+                .orElseGet(() -> findPersistedManaged(session, uuid.toString()));
     }
 
     public PlayerEntity resolveManaged(Session session, String uuid) {
@@ -63,7 +67,7 @@ public final class PlayerEntityResolver {
                 .map(PlayerIdentity::playerId)
                 .filter(playerId -> playerId != null && playerId > 0)
                 .map(playerId -> session.getReference(PlayerEntity.class, playerId))
-                .orElse(null);
+                .orElseGet(() -> findPersistedManaged(session, uuid));
     }
 
     public PlayerEntity resolveManagedById(Session session, Long playerId) {
@@ -71,6 +75,32 @@ public final class PlayerEntityResolver {
             return null;
         }
         return session.getReference(PlayerEntity.class, playerId);
+    }
+
+    private static PlayerEntity findPersistedManaged(Session session, String uuid) {
+        String normalizedUuid = normalizeUuid(uuid);
+        if (normalizedUuid == null) {
+            return null;
+        }
+        return session.createQuery(
+                        "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid",
+                        PlayerEntity.class
+                )
+                .setParameter("uuid", normalizedUuid)
+                .setMaxResults(1)
+                .uniqueResultOptional()
+                .orElse(null);
+    }
+
+    private static String normalizeUuid(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            return null;
+        }
+        try {
+            return UUID.fromString(uuid.trim()).toString();
+        } catch (IllegalArgumentException exception) {
+            return null;
+        }
     }
 
     private static PlayerEntity toEntity(PlayerIdentity identity) {

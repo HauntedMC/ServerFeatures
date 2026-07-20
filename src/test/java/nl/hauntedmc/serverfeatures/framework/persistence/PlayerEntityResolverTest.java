@@ -4,6 +4,7 @@ import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import org.hibernate.Session;
+import org.hibernate.query.Query;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -33,29 +34,46 @@ class PlayerEntityResolverTest {
 
         assertSame(managed, result);
         verify(directory, never()).findByUuid(uuid);
+        verify(session, never()).createQuery(
+                "SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid",
+                PlayerEntity.class
+        );
     }
 
     @Test
-    void resolveManagedDoesNotQueryPersistenceInsideFeatureTransaction() {
+    void resolveManagedFallsBackToPersistedPlayerWhenActiveCacheIsNotReady() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         Session session = mock(Session.class);
         UUID uuid = UUID.randomUUID();
+        PlayerEntity persisted = new PlayerEntity();
+        Query<PlayerEntity> query = mock(Query.class);
 
         when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
+        when(session.createQuery("SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class))
+                .thenReturn(query);
+        when(query.setParameter("uuid", uuid.toString())).thenReturn(query);
+        when(query.setMaxResults(1)).thenReturn(query);
+        when(query.uniqueResultOptional()).thenReturn(Optional.of(persisted));
 
         PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
-        assertNull(result);
+        assertSame(persisted, result);
         verify(directory, never()).findByUuid(uuid);
     }
 
     @Test
-    void resolveManagedReturnsNullWhenDataRegistryDoesNotKnowPlayer() {
+    void resolveManagedReturnsNullWhenDataRegistryDoesNotKnowPersistedPlayer() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         Session session = mock(Session.class);
         UUID uuid = UUID.randomUUID();
+        Query<PlayerEntity> query = mock(Query.class);
 
         when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
+        when(session.createQuery("SELECT p FROM PlayerEntity p WHERE p.uuid = :uuid", PlayerEntity.class))
+                .thenReturn(query);
+        when(query.setParameter("uuid", uuid.toString())).thenReturn(query);
+        when(query.setMaxResults(1)).thenReturn(query);
+        when(query.uniqueResultOptional()).thenReturn(Optional.empty());
 
         PlayerEntity result = new PlayerEntityResolver(directory).resolveManaged(session, uuid);
 
