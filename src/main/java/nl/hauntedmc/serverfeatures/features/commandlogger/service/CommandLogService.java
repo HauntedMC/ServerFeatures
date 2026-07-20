@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.commandlogger.service;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.commandlogger.CommandLogger;
 import nl.hauntedmc.serverfeatures.features.commandlogger.entity.CommandExecutionEntity;
-import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.hibernate.Session;
@@ -15,21 +15,21 @@ import java.util.Locale;
 public class CommandLogService {
 
     private final CommandLogger feature;
-    private final PlayerEntityResolver playerResolver;
+    private final PlayerIdentityResolver playerResolver;
 
     public CommandLogService(CommandLogger feature) {
         this(feature, feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for CommandLogger.")));
     }
 
-    CommandLogService(CommandLogger feature, DataRegistry dataRegistry) {
+    CommandLogService(CommandLogger feature, DataRegistryApi dataRegistry) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(dataRegistry);
+        this.playerResolver = new PlayerIdentityResolver(dataRegistry);
     }
 
     CommandLogService(CommandLogger feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerDirectory);
+        this.playerResolver = new PlayerIdentityResolver(playerDirectory);
     }
 
     /**
@@ -46,7 +46,6 @@ public class CommandLogService {
 
         if (source instanceof Player player) {
             final java.util.UUID playerUuid = player.getUniqueId();
-            final String playerName = player.getName();
             playerResolver.whenReady(playerUuid).whenComplete((identity, throwable) -> {
                 if (throwable != null) {
                     feature.getLogger().warning("DataRegistry identity unavailable for command log: "
@@ -56,19 +55,18 @@ public class CommandLogService {
                 if (identity == null || identity.isEmpty()) {
                     return;
                 }
-                schedulePersist(serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+                schedulePersist(serverName, timestamp, playerUuid, sourceLabel, fullCommand);
             });
             return;
         }
 
-        schedulePersist(serverName, timestamp, null, null, sourceLabel, fullCommand);
+        schedulePersist(serverName, timestamp, null, sourceLabel, fullCommand);
     }
 
     void logServerCommand(Session session, String serverName, long timestamp, CommandSender source, String fullCommand) {
         java.util.UUID playerUuid = source instanceof Player player ? player.getUniqueId() : null;
-        String playerName = source instanceof Player player ? player.getName() : null;
         String sourceLabel = source.getClass().getSimpleName().toLowerCase(Locale.ROOT);
-        logServerCommand(session, serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+        logServerCommand(session, serverName, timestamp, playerUuid, sourceLabel, fullCommand);
     }
 
     void logServerCommand(
@@ -76,17 +74,16 @@ public class CommandLogService {
             String serverName,
             long timestamp,
             java.util.UUID playerUuid,
-            String playerName,
             String sourceLabel,
             String fullCommand
     ) {
-        PlayerEntity playerEntity = playerUuid == null
+        PlayerIdentity playerIdentity = playerUuid == null
                 ? null
-                : resolveExistingPlayerEntity(session, playerUuid);
+                : playerResolver.findActiveByUuid(playerUuid).orElse(null);
 
         CommandExecutionEntity entry = new CommandExecutionEntity();
         entry.setServer(serverName);
-        entry.setPlayer(playerEntity);
+        entry.setPlayerId(playerIdentity == null ? null : playerIdentity.playerId());
         entry.setSource(sourceLabel);
         entry.setCommand(fullCommand);
         entry.setTimestamp(timestamp);
@@ -98,7 +95,6 @@ public class CommandLogService {
             String serverName,
             long timestamp,
             java.util.UUID playerUuid,
-            String playerName,
             String sourceLabel,
             String fullCommand
     ) {
@@ -111,7 +107,7 @@ public class CommandLogService {
                     return;
                 }
                 feature.getOrmContext().runInTransaction(session -> {
-                        logServerCommand(session, serverName, timestamp, playerUuid, playerName, sourceLabel, fullCommand);
+                        logServerCommand(session, serverName, timestamp, playerUuid, sourceLabel, fullCommand);
                         return null;
                 });
             });
@@ -120,7 +116,4 @@ public class CommandLogService {
         }
     }
 
-    private PlayerEntity resolveExistingPlayerEntity(Session session, java.util.UUID uuid) {
-        return playerResolver.resolveManaged(session, uuid);
-    }
 }

@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.sanctions.Sanctions;
 import nl.hauntedmc.serverfeatures.features.sanctions.service.SanctionsDataService;
 import nl.hauntedmc.serverfeatures.features.sanctions.state.MuteRegistry;
 import nl.hauntedmc.serverfeatures.features.sanctions.state.MuteRegistry.MuteState;
+import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,7 +32,12 @@ public class MuteListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
         Player p = e.getPlayer();
-        registry.trackIfMuted(p.getUniqueId());
+        DataRegistryIdentityGate.runWhenReady(
+                feature,
+                p,
+                readyPlayer -> registry.trackIfMuted(readyPlayer.getUniqueId()),
+                "mute restoration"
+        );
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

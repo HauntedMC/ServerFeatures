@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -33,9 +33,9 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        DataRegistry dataRegistry = getPlugin().getDataRegistry()
+        DataRegistryApi dataRegistry = getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for PlayerLanguage."));
-        if (!dataRegistry.isFeatureEnabled(DataRegistryFeature.LANGUAGE)) {
+        if (!dataRegistry.supports(DataRegistryFeature.LANGUAGE)) {
             throw new IllegalStateException("DataRegistry feature 'language' must be enabled for PlayerLanguage.");
         }
         this.service = new LanguageService(this, dataRegistry);

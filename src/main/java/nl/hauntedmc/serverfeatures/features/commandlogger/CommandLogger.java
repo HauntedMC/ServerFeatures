@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.commandlogger;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -42,7 +41,6 @@ public class CommandLogger extends BukkitBaseFeature<Meta> {
 
         ormContext = getLifecycleManager().getDataManager().createORMContext(
                 "ormConnection",
-                PlayerEntity.class,
                 CommandExecutionEntity.class
         ).orElseThrow();
 

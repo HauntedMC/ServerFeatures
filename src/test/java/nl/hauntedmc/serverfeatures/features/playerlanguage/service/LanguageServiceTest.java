@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerLanguageSettings;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
@@ -44,7 +44,7 @@ class LanguageServiceTest {
     }
 
     private static LanguageService createService(PlayerData players) {
-        DataRegistry registry = mock(DataRegistry.class);
+        DataRegistryApi registry = mock(DataRegistryApi.class);
         when(registry.players()).thenReturn(players);
         return new LanguageService(mock(PlayerLanguage.class), registry);
     }

@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.glow.service;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import nl.hauntedmc.serverfeatures.features.glow.entity.PlayerGlowStateEntity;
-import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.entity.Player;
 import org.hibernate.Session;
 
@@ -15,26 +15,26 @@ import java.util.Optional;
 
 /**
  * Handles ORM persistence for player glow state.
- * Uses player_id as the primary key via shared PK with PlayerEntity.
+ * Uses player_id as a scalar primary key.
  */
 public class GlowStateService {
 
     private final Glow feature;
-    private final PlayerEntityResolver playerResolver;
+    private final PlayerIdentityResolver playerResolver;
 
     public GlowStateService(Glow feature) {
         this(feature, feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Glow.")));
     }
 
-    GlowStateService(Glow feature, DataRegistry dataRegistry) {
+    GlowStateService(Glow feature, DataRegistryApi dataRegistry) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(dataRegistry);
+        this.playerResolver = new PlayerIdentityResolver(dataRegistry);
     }
 
     GlowStateService(Glow feature, PlayerDirectory playerDirectory) {
         this.feature = feature;
-        this.playerResolver = new PlayerEntityResolver(playerDirectory);
+        this.playerResolver = new PlayerIdentityResolver(playerDirectory);
     }
 
     /**
@@ -59,24 +59,21 @@ public class GlowStateService {
     }
 
     void saveGlowState(Session session, Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
-        PlayerEntity playerEntity = resolveExistingPlayerEntity(
-                session,
-                bukkitPlayer.getUniqueId().toString()
-        );
+        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
 
-        if (playerEntity == null) {
+        if (playerIdentity == null) {
             return;
         }
 
         PlayerGlowStateEntity state = session.createQuery(
-                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
-                .setParameter("player", playerEntity)
+                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.playerId = :playerId", PlayerGlowStateEntity.class)
+                .setParameter("playerId", playerIdentity.playerId())
                 .uniqueResult();
 
         boolean isNew = false;
         if (state == null) {
             state = new PlayerGlowStateEntity();
-            state.setPlayer(playerEntity);
+            state.setPlayerId(playerIdentity.playerId());
             isNew = true;
         }
 
@@ -91,24 +88,19 @@ public class GlowStateService {
 
         if (isNew) {
             session.persist(state);
-        } else {
-            session.merge(state);
         }
     }
 
     void restoreGlowFor(Session session, Player bukkitPlayer) {
-        PlayerEntity playerEntity = resolveExistingPlayerEntity(
-                session,
-                bukkitPlayer.getUniqueId().toString()
-        );
+        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
 
-        if (playerEntity == null) {
+        if (playerIdentity == null) {
             return;
         }
 
         PlayerGlowStateEntity state = session.createQuery(
-                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.player = :player", PlayerGlowStateEntity.class)
-                .setParameter("player", playerEntity)
+                        "SELECT s FROM PlayerGlowStateEntity s WHERE s.playerId = :playerId", PlayerGlowStateEntity.class)
+                .setParameter("playerId", playerIdentity.playerId())
                 .uniqueResult();
 
         if (state == null || !state.isEnabled()) {
@@ -125,7 +117,4 @@ public class GlowStateService {
         );
     }
 
-    private PlayerEntity resolveExistingPlayerEntity(Session session, String uuid) {
-        return playerResolver.resolveManaged(session, uuid);
-    }
 }

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -67,9 +67,9 @@ public class Nickname extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        DataRegistry dataRegistry = getPlugin().getDataRegistry()
+        DataRegistryApi dataRegistry = getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nickname."));
-        if (!dataRegistry.isFeatureEnabled(DataRegistryFeature.NICKNAMES)) {
+        if (!dataRegistry.supports(DataRegistryFeature.NICKNAMES)) {
             throw new IllegalStateException("DataRegistry feature 'nicknames' must be enabled for Nickname.");
         }
         nicknameHandler = new NicknameHandler(this);

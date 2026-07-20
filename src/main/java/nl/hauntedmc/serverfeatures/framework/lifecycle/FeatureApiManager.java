@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.service.FeatureServiceHandle;
 
 import java.util.LinkedHashMap;
@@ -17,9 +17,9 @@ public class FeatureApiManager {
     private final Map<Class<?>, Object> registeredServices = new LinkedHashMap<>();
     private final Map<Class<?>, FeatureServiceHandle> dataRegistryServices = new LinkedHashMap<>();
     private final String ownerFeature;
-    private final Supplier<Optional<DataRegistry>> dataRegistrySupplier;
+    private final Supplier<Optional<DataRegistryApi>> dataRegistrySupplier;
 
-    public FeatureApiManager(String ownerFeature, Supplier<Optional<DataRegistry>> dataRegistrySupplier) {
+    public FeatureApiManager(String ownerFeature, Supplier<Optional<DataRegistryApi>> dataRegistrySupplier) {
         this.ownerFeature = requireText(ownerFeature, "ownerFeature");
         this.dataRegistrySupplier = Objects.requireNonNull(dataRegistrySupplier, "dataRegistrySupplier");
     }
@@ -96,8 +96,8 @@ public class FeatureApiManager {
                 .orElse(null);
     }
 
-    private Optional<DataRegistry> currentDataRegistry() {
-        Optional<DataRegistry> dataRegistry = dataRegistrySupplier.get();
+    private Optional<DataRegistryApi> currentDataRegistry() {
+        Optional<DataRegistryApi> dataRegistry = dataRegistrySupplier.get();
         return dataRegistry == null ? Optional.empty() : dataRegistry;
     }
 

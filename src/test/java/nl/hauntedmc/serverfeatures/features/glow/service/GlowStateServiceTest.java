@@ -1,15 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.glow.service;
 
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
 import nl.hauntedmc.serverfeatures.features.glow.effect.GlowEffect;
 import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
 import org.bukkit.entity.Player;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +28,7 @@ class GlowStateServiceTest {
         ));
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
-        Session session = session(queryReturning(null), persisted, merged);
+        Session session = session(persisted, merged);
 
         service.saveGlowState(session, player, Optional.of(effect));
 
@@ -45,7 +42,7 @@ class GlowStateServiceTest {
         Player player = player("55555555-5555-5555-5555-555555555555", "Remy");
         List<Object> persisted = new ArrayList<>();
         List<Object> merged = new ArrayList<>();
-        Session session = session(queryReturning(null), persisted, merged);
+        Session session = session(persisted, merged);
 
         service.restoreGlowFor(session, player);
 
@@ -67,21 +64,8 @@ class GlowStateServiceTest {
         ));
     }
 
-    private static Query<PlayerEntity> queryReturning(PlayerEntity playerEntity) {
-        return (Query<PlayerEntity>) Proxy.newProxyInstance(
-                Query.class.getClassLoader(),
-                new Class<?>[]{Query.class},
-                (proxy, method, args) -> switch (method.getName()) {
-                    case "setParameter", "setMaxResults" -> proxy;
-                    case "uniqueResultOptional" -> Optional.ofNullable(playerEntity);
-                    default -> null;
-                }
-        );
-    }
-
-    private static Session session(Query<PlayerEntity> playerQuery, List<Object> persisted, List<Object> merged) {
+    private static Session session(List<Object> persisted, List<Object> merged) {
         return InterfaceProxy.of(Session.class, Map.of(
-                "createQuery", args -> playerQuery,
                 "persist", args -> {
                     persisted.add(args[0]);
                     return null;

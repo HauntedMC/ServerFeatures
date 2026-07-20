@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlog.entities;
 
 import jakarta.persistence.*;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 
 @Entity
 @Table(name = "player_reported_chat_messages")
@@ -14,9 +13,8 @@ public class ReportedChatMessageEntity {
     @Column(name = "server", length = 100, nullable = false)
     private String server;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id", nullable = false)
-    private PlayerEntity player;
+    @Column(name = "player_id", nullable = false)
+    private Long playerId;
 
     @Column(name = "message", length = 400, nullable = false)
     private String message;
@@ -42,12 +40,12 @@ public class ReportedChatMessageEntity {
         this.server = server;
     }
 
-    public PlayerEntity getPlayer() {
-        return player;
+    public Long getPlayerId() {
+        return playerId;
     }
 
-    public void setPlayer(PlayerEntity player) {
-        this.player = player;
+    public void setPlayerId(Long playerId) {
+        this.playerId = playerId;
     }
 
     public String getMessage() {

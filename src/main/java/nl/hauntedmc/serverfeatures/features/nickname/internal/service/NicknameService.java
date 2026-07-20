@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nickname.internal.service;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.nickname.Nickname;
@@ -15,7 +15,7 @@ public class NicknameService {
     private final PlayerData players;
 
     public NicknameService(Nickname feature) {
-        DataRegistry dataRegistry = feature.getPlugin().getDataRegistry()
+        DataRegistryApi dataRegistry = feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nickname."));
         this.players = dataRegistry.players();
     }

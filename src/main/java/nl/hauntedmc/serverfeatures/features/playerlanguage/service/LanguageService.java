@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
-import nl.hauntedmc.dataregistry.api.DataRegistry;
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
@@ -22,7 +22,7 @@ public final class LanguageService implements LanguageAPI {
     private final PlayerData players;
     private final ConcurrentMap<UUID, Language> languageCache = new ConcurrentHashMap<>();
 
-    public LanguageService(PlayerLanguage feature, DataRegistry dataRegistry) {
+    public LanguageService(PlayerLanguage feature, DataRegistryApi dataRegistry) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.players = Objects.requireNonNull(dataRegistry, "dataRegistry").players();
     }

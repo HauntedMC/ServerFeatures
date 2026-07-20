@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.commandlogger.entity;
 
 import jakarta.persistence.*;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 
 @Entity
 @Table(name = "player_command_executions")
@@ -21,9 +20,8 @@ public class CommandExecutionEntity {
     /**
      * Optioneel: speler die het commando uitvoerde (null bij console e.d.).
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "player_id")
-    private PlayerEntity player;
+    @Column(name = "player_id")
+    private Long playerId;
 
     /**
      * Alleen zetten voor niet-speler bronnen (console e.d.). Anders null.
@@ -55,12 +53,12 @@ public class CommandExecutionEntity {
         this.server = server;
     }
 
-    public PlayerEntity getPlayer() {
-        return player;
+    public Long getPlayerId() {
+        return playerId;
     }
 
-    public void setPlayer(PlayerEntity player) {
-        this.player = player;
+    public void setPlayerId(Long playerId) {
+        this.playerId = playerId;
     }
 
     public String getSource() {

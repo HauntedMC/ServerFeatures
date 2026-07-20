@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.nametags;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -66,7 +65,7 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         this.ormContext = getLifecycleManager().getDataManager()
-                .createORMContext("ormConnection", PlayerEntity.class, PlayerNametagEntity.class)
+                .createORMContext("ormConnection", PlayerNametagEntity.class)
                 .orElseThrow();
         this.repository = new NametagDBService(this);
 

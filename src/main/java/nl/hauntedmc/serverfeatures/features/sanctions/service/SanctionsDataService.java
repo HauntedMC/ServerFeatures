@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.sanctions.service;
 
 import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionType;
+import nl.hauntedmc.dataregistry.api.player.PlayerDirectory;
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.sanctions.Sanctions;
 
 import java.time.Instant;
@@ -10,23 +12,35 @@ import java.util.Optional;
 public class SanctionsDataService {
 
     private final Sanctions feature;
+    private final PlayerDirectory playerDirectory;
 
     public SanctionsDataService(Sanctions feature) {
         this.feature = feature;
+        this.playerDirectory = feature == null ? null : feature.getPlugin().getDataRegistry()
+                .map(api -> api.players().identities())
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Sanctions."));
     }
 
     /**
      * Query the DB for an active MUTE for a given UUID. Returns the newest active mute if present.
      */
     public Optional<SanctionEntity> findActiveMuteByUuid(String uuid) {
+        if (feature == null || playerDirectory == null) {
+            throw new IllegalStateException("SanctionsDataService requires a Sanctions feature to query mute data.");
+        }
+        Long playerId = playerDirectory.findActiveIdentityCached(uuid)
+                .map(PlayerIdentity::playerId)
+                .orElse(null);
+        if (playerId == null) {
+            return Optional.empty();
+        }
         return feature.getOrm().runInTransaction(session ->
                 session.createQuery(
                                 "select s from SanctionEntity s " +
-                                        "join s.targetPlayer p " +
-                                        "where s.active = true and s.type = :t and p.uuid = :uuid " +
+                                        "where s.active = true and s.type = :t and s.targetPlayerId = :playerId " +
                                         "order by s.createdAt desc", SanctionEntity.class)
                         .setParameter("t", SanctionType.MUTE)
-                        .setParameter("uuid", uuid)
+                        .setParameter("playerId", playerId)
                         .setMaxResults(1)
                         .uniqueResultOptional()
         ).map(s -> {

@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.sanctions;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -51,7 +50,6 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
                 "orm", DatabaseType.MYSQL, "player_data_rw");
         orm = getLifecycleManager().getDataManager()
                 .createORMContext("orm",
-                        PlayerEntity.class,
                         SanctionEntity.class)
                 .orElseThrow();
 

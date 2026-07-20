@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.framework.persistence.PlayerEntityResolver;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 
 import java.util.Optional;
 import java.util.concurrent.CompletionStage;
@@ -11,12 +11,12 @@ public class NametagDBService {
 
     private final Nametags feature;
     private final ORMContext orm;
-    private final PlayerEntityResolver playerResolver;
+    private final PlayerIdentityResolver playerResolver;
 
     public NametagDBService(Nametags feature) {
         this.feature = feature;
         this.orm = feature.getOrmContext();
-        this.playerResolver = new PlayerEntityResolver(
+        this.playerResolver = new PlayerIdentityResolver(
                 feature.getPlugin().getDataRegistry()
                         .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Nametags."))
         );
@@ -27,7 +27,7 @@ public class NametagDBService {
      * Returns Optional.empty() when not set or player not found.
      */
     public CompletionStage<Optional<Boolean>> findSelfView(String playerUuid) {
-        return playerResolver.findIdentityByUuid(playerUuid)
+        return playerResolver.findPersistedByUuid(playerUuid)
                 .thenApply(identity -> identity.map(nl.hauntedmc.dataregistry.api.player.PlayerIdentity::playerId))
                 .thenApply(playerId -> playerId.flatMap(this::findSelfViewByPlayerId))
                 .exceptionally(exception -> {
@@ -40,7 +40,7 @@ public class NametagDBService {
      * Upsert the self-view preference using a native ON DUPLICATE KEY UPDATE into player_nametags.
      */
     public CompletionStage<Void> upsertSelfView(String playerUuid, String playerName, boolean selfView) {
-        return playerResolver.findIdentityByUuid(playerUuid)
+        return playerResolver.findPersistedByUuid(playerUuid)
                 .thenAccept(identity -> identity
                         .map(nl.hauntedmc.dataregistry.api.player.PlayerIdentity::playerId)
                         .filter(playerId -> playerId > 0L)

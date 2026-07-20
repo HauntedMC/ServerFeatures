@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.vanish;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.dataregistry.api.entities.PlayerEntity;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -96,7 +95,6 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         ormContext = getLifecycleManager().getDataManager().createORMContext(
                 "ormConnection",
-                PlayerEntity.class,
                 PlayerVanishEntity.class
         ).orElseThrow();
 

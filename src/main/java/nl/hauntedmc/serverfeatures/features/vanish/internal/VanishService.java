@@ -77,7 +77,6 @@ public class VanishService {
         try {
             feature.getRepository().upsertVanish(
                     target.getUniqueId().toString(),
-                    target.getName(),
                     value
             );
         } catch (Exception ex) {
