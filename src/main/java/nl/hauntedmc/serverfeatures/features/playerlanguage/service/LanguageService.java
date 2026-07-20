@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 import nl.hauntedmc.dataregistry.api.DataRegistry;
 import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.dataregistry.api.player.PlayerLanguageSettings;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
@@ -28,26 +27,31 @@ public final class LanguageService implements LanguageAPI {
         this.players = Objects.requireNonNull(dataRegistry, "dataRegistry").players();
     }
 
-    public void warm(UUID playerUuid) {
-        resolvePlayerId(playerUuid)
-                .thenCompose(playerId -> playerId
-                        .map(players::findLanguage)
-                        .orElseGet(() -> java.util.concurrent.CompletableFuture.completedFuture(Optional.empty())))
-                .whenComplete((settings, throwable) -> {
-                    if (throwable != null || settings == null || settings.isEmpty()) {
-                        languageCache.remove(playerUuid);
-                        return;
-                    }
-                    Language effective = fromStoredCode(settings.get().effectiveLanguage());
-                    if (effective == null) {
-                        effective = fromStoredCode(settings.get().language());
-                    }
-                    if (effective != null) {
-                        languageCache.put(playerUuid, effective);
-                    } else {
-                        languageCache.remove(playerUuid);
-                    }
-                });
+    /**
+     * Resolves and caches a player's effective language.
+     *
+     * <p>The returned stage completes only after the cache has been updated. This allows
+     * callers in the asynchronous pre-login phase to ensure localized join UI never uses
+     * the fallback language first.</p>
+     */
+    public java.util.concurrent.CompletionStage<Language> warm(UUID playerUuid) {
+        return players.findLanguage(playerUuid).handle((settings, throwable) -> {
+            Language effective = null;
+            if (throwable == null && settings != null && settings.isPresent()) {
+                effective = fromStoredCode(settings.get().effectiveLanguage());
+                if (effective == null) {
+                    effective = fromStoredCode(settings.get().language());
+                }
+            }
+
+            if (effective == null) {
+                languageCache.remove(playerUuid);
+                return FALLBACK;
+            }
+
+            languageCache.put(playerUuid, effective);
+            return effective;
+        });
     }
 
     public void forget(UUID playerUuid) {
