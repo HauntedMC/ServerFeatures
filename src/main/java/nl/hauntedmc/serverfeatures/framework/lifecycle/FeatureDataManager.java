@@ -5,13 +5,14 @@ import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DataAccess;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataprovider.logging.LogLevel;
 import nl.hauntedmc.dataprovider.logging.LoggerAdapter;
-import nl.hauntedmc.dataprovider.logging.adapters.JulLoggerAdapter;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 import javax.sql.DataSource;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -46,7 +47,7 @@ public class FeatureDataManager {
     private FeatureDataManager(ServerFeatures plugin, Supplier<DataProviderAPI> dataProviderApiSupplier) {
         this.plugin = plugin;
         this.dataProviderApiSupplier = dataProviderApiSupplier;
-        this.ormLogger = new JulLoggerAdapter(plugin.getLogger());
+        this.ormLogger = new ServerLoggerAdapter(plugin);
         this.connectionsByIdentifier = new ConcurrentHashMap<>();
     }
 
@@ -255,7 +256,9 @@ public class FeatureDataManager {
     }
 
     ORMContext newOrmContext(String ownerName, DataSource dataSource, Class<?>... entityClasses) {
-        return new ORMContext(ownerName, dataSource, ormLogger, resolveOrmSchemaMode(), entityClasses);
+        return getDataProviderApi()
+                .orElseThrow(() -> new IllegalStateException("DataProviderAPI is not available."))
+                .createOrmContext(ownerName, dataSource, ormLogger, resolveOrmSchemaMode(), entityClasses);
     }
 
     private String resolveOrmSchemaMode() {
@@ -341,5 +344,27 @@ public class FeatureDataManager {
             String connectionName,
             DatabaseProvider provider
     ) {
+    }
+
+    private static final class ServerLoggerAdapter implements LoggerAdapter {
+        private final java.util.logging.Logger logger;
+
+        private ServerLoggerAdapter(ServerFeatures plugin) {
+            this.logger = Objects.requireNonNull(plugin, "plugin").getLogger();
+        }
+
+        @Override
+        public void log(LogLevel level, String message, Throwable throwable) {
+            java.util.logging.Level julLevel = switch (Objects.requireNonNull(level, "level")) {
+                case INFO -> java.util.logging.Level.INFO;
+                case WARN -> java.util.logging.Level.WARNING;
+                case ERROR -> java.util.logging.Level.SEVERE;
+            };
+            if (throwable == null) {
+                logger.log(julLevel, message);
+            } else {
+                logger.log(julLevel, message, throwable);
+            }
+        }
     }
 }
