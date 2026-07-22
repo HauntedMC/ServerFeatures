@@ -10,8 +10,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Centralized scheduler for feature-scoped tasks.
@@ -91,6 +93,44 @@ public class FeatureTaskManager {
     public BukkitTask scheduleAsyncTask(Runnable task) {
         Objects.requireNonNull(task, "task");
         return scheduleOnce(r -> Bukkit.getScheduler().runTaskAsynchronously(plugin, r), task);
+    }
+
+    /**
+     * Runs an asynchronous one-time task and exposes its completion without using the common pool.
+     */
+    public CompletableFuture<Void> runAsync(Runnable task) {
+        Objects.requireNonNull(task, "task");
+        return supplyAsync(() -> {
+            task.run();
+            return null;
+        });
+    }
+
+    /**
+     * Runs an asynchronous one-time supplier and exposes its result as a future.
+     *
+     * <p>The task remains feature-scoped and is cancelled with the feature lifecycle. This method is
+     * intended for blocking persistence work that must not execute on the Bukkit main thread or on a
+     * DataRegistry completion thread.</p>
+     */
+    public <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
+        Objects.requireNonNull(supplier, "supplier");
+        CompletableFuture<T> result = new CompletableFuture<>();
+        try {
+            scheduleAsyncTask(() -> {
+                if (result.isCancelled()) {
+                    return;
+                }
+                try {
+                    result.complete(supplier.get());
+                } catch (Throwable throwable) {
+                    result.completeExceptionally(throwable);
+                }
+            });
+        } catch (RuntimeException exception) {
+            result.completeExceptionally(exception);
+        }
+        return result;
     }
 
     /**
