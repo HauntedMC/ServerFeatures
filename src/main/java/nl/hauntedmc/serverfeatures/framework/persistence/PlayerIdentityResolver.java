@@ -12,6 +12,9 @@ import java.util.concurrent.CompletionStage;
 
 /**
  * Resolves immutable DataRegistry identities for scalar player-id feature mappings.
+ *
+ * <p>Cache-only methods are explicitly named. All methods that may consult persistence are
+ * asynchronous and use the active cache as a fast path.</p>
  */
 public final class PlayerIdentityResolver {
 
@@ -25,24 +28,73 @@ public final class PlayerIdentityResolver {
         this.playerDirectory = Objects.requireNonNull(playerDirectory, "playerDirectory");
     }
 
+    public CompletionStage<Optional<PlayerIdentity>> findByUuid(UUID uuid) {
+        if (uuid == null) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        Optional<PlayerIdentity> cached = findActiveByUuid(uuid);
+        return cached.isPresent()
+                ? CompletableFuture.completedFuture(cached)
+                : playerDirectory.findByUuid(uuid);
+    }
+
+    public CompletionStage<Optional<PlayerIdentity>> findByUuid(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        Optional<PlayerIdentity> cached = findActiveByUuid(uuid);
+        return cached.isPresent()
+                ? CompletableFuture.completedFuture(cached)
+                : playerDirectory.findByUuid(uuid);
+    }
+
+    public CompletionStage<Optional<PlayerIdentity>> findByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        Optional<PlayerIdentity> cached = findActiveByUsername(username);
+        return cached.isPresent()
+                ? CompletableFuture.completedFuture(cached)
+                : playerDirectory.findByUsernameIgnoreCase(username.trim());
+    }
+
+    public CompletionStage<Optional<PlayerIdentity>> findByIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        String normalized = identifier.trim();
+        try {
+            return findByUuid(UUID.fromString(normalized));
+        } catch (IllegalArgumentException ignored) {
+            Optional<PlayerIdentity> cached = findActiveByUsername(normalized);
+            return cached.isPresent()
+                    ? CompletableFuture.completedFuture(cached)
+                    : playerDirectory.findByIdentifier(normalized);
+        }
+    }
+
+    /**
+     * Performs a persistence lookup even when no active identity is cached.
+     */
     public CompletionStage<Optional<PlayerIdentity>> findPersistedByUuid(String uuid) {
+        if (uuid == null || uuid.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
         return playerDirectory.findByUuid(uuid);
     }
 
     public Optional<PlayerIdentity> findActiveByUuid(UUID uuid) {
-        return playerDirectory.findActiveIdentityCached(uuid);
+        return uuid == null ? Optional.empty() : playerDirectory.findActiveIdentityCached(uuid);
     }
 
     public Optional<PlayerIdentity> findActiveByUuid(String uuid) {
-        return playerDirectory.findActiveIdentityCached(uuid);
+        return uuid == null || uuid.isBlank()
+                ? Optional.empty()
+                : playerDirectory.findActiveIdentityCached(uuid);
     }
 
     /**
      * Looks up an active identity by its current username without performing I/O.
-     *
-     * <p>This is appropriate for operations initiated for an online player. Callers
-     * that need to address offline players must use the asynchronous directory API
-     * instead.</p>
      */
     public Optional<PlayerIdentity> findActiveByUsername(String username) {
         if (username == null || username.isBlank()) {
@@ -54,6 +106,9 @@ public final class PlayerIdentityResolver {
     }
 
     public CompletableFuture<Optional<PlayerIdentity>> whenReady(UUID uuid) {
+        if (uuid == null) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
         return playerDirectory.whenReady(uuid);
     }
 }
