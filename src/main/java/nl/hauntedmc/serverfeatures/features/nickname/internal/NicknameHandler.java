@@ -122,6 +122,10 @@ public class NicknameHandler {
         });
     }
 
+    /**
+     * Compatibility entry point for live-player callers. New command code should use the asynchronous
+     * identity-based overload so success is reported only after persistence completes.
+     */
     public boolean setNickname(Player player, String unformattedNickname) {
         NicknameMutationResult validation = validateNickname(unformattedNickname);
         if (!validation.success()) {
@@ -138,14 +142,16 @@ public class NicknameHandler {
             return false;
         }
 
+        PlayerIdentity identity = playerIdentity.get();
+        UUID playerUuid = player.getUniqueId();
         String nickname = validation.nickname();
-        nicknameService.setNickname(playerIdentity.get(), nickname).whenComplete((ignored, throwable) -> {
+        nicknameService.setNickname(identity, nickname).whenComplete((ignored, throwable) -> {
             if (throwable != null) {
-                feature.getLogger().warning("Could not save nickname for " + playerIdentity.get().uuid() + ": "
+                feature.getLogger().warning("Could not save nickname for " + identity.uuid() + ": "
                         + rootMessage(throwable));
                 return;
             }
-            nicknameCache.put(player.getUniqueId(), nickname);
+            nicknameCache.put(playerUuid, nickname);
         });
         return true;
     }
@@ -194,6 +200,9 @@ public class NicknameHandler {
         return true;
     }
 
+    /**
+     * Compatibility entry point for live-player callers.
+     */
     public boolean removeNickname(Player player) {
         Optional<PlayerIdentity> playerIdentity = nicknameService.getCachedPlayerIdentity(player);
         if (playerIdentity.isEmpty()) {
@@ -204,13 +213,15 @@ public class NicknameHandler {
             return false;
         }
 
-        nicknameService.removeNickname(playerIdentity.get()).whenComplete((ignored, throwable) -> {
+        PlayerIdentity identity = playerIdentity.get();
+        UUID playerUuid = player.getUniqueId();
+        nicknameService.removeNickname(identity).whenComplete((ignored, throwable) -> {
             if (throwable != null) {
-                feature.getLogger().warning("Could not remove nickname for " + playerIdentity.get().uuid() + ": "
+                feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
                         + rootMessage(throwable));
                 return;
             }
-            nicknameCache.remove(player.getUniqueId());
+            nicknameCache.remove(playerUuid);
         });
         return true;
     }
