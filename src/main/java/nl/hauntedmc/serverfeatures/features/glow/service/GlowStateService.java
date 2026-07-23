@@ -38,14 +38,11 @@ public class GlowStateService {
     }
 
     public void saveGlowState(Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
-        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
-        if (identity == null) {
-            return;
-        }
-        saveGlowState(bukkitPlayer, identity, effectOpt);
+        playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId())
+                .ifPresent(identity -> saveGlowState(identity, effectOpt));
     }
 
-    public void saveGlowState(Player bukkitPlayer, PlayerIdentity identity, Optional<GlowEffect> effectOpt) {
+    public void saveGlowState(PlayerIdentity identity, Optional<GlowEffect> effectOpt) {
         feature.getOrmContext().runInTransaction(session -> {
             saveGlowState(session, identity, effectOpt);
             return null;
@@ -53,11 +50,8 @@ public class GlowStateService {
     }
 
     public void restoreGlowFor(Player bukkitPlayer) {
-        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
-        if (identity == null) {
-            return;
-        }
-        restoreGlowFor(bukkitPlayer, identity);
+        playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId())
+                .ifPresent(identity -> restoreGlowFor(bukkitPlayer, identity));
     }
 
     public void restoreGlowFor(Player bukkitPlayer, PlayerIdentity identity) {
@@ -68,10 +62,8 @@ public class GlowStateService {
     }
 
     void saveGlowState(Session session, Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
-        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
-        if (identity != null) {
-            saveGlowState(session, identity, effectOpt);
-        }
+        playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId())
+                .ifPresent(identity -> saveGlowState(session, identity, effectOpt));
     }
 
     void saveGlowState(Session session, PlayerIdentity identity, Optional<GlowEffect> effectOpt) {
@@ -106,10 +98,8 @@ public class GlowStateService {
     }
 
     void restoreGlowFor(Session session, Player bukkitPlayer) {
-        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
-        if (identity != null) {
-            restoreGlowFor(session, bukkitPlayer, identity);
-        }
+        playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId())
+                .ifPresent(identity -> restoreGlowFor(session, bukkitPlayer, identity));
     }
 
     void restoreGlowFor(Session session, Player bukkitPlayer, PlayerIdentity identity) {
