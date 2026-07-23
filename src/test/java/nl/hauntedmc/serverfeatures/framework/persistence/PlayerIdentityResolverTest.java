@@ -7,38 +7,77 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class PlayerIdentityResolverTest {
 
     @Test
-    void returnsTheCachedPublicIdentity() {
+    void returnsTheCachedPublicIdentityWithoutQueryingPersistence() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         UUID uuid = UUID.randomUUID();
         PlayerIdentity identity = new PlayerIdentity(12L, uuid, "Alice");
         when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.of(identity));
 
-        assertEquals(identity, new PlayerIdentityResolver(directory).findActiveByUuid(uuid).orElseThrow());
+        PlayerIdentity result = new PlayerIdentityResolver(directory).findByUuid(uuid)
+                .toCompletableFuture()
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory, never()).findByUuid(uuid);
     }
 
     @Test
-    void returnsEmptyWhenNoCachedIdentityExists() {
+    void resolvesPersistedIdentityByUuidWhenPlayerIsOffline() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
-        when(directory.findActiveIdentityCached("not-a-uuid")).thenReturn(Optional.empty());
+        UUID uuid = UUID.randomUUID();
+        PlayerIdentity identity = new PlayerIdentity(13L, uuid, "OfflineAlice");
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
+        when(directory.findByUuid(uuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
 
-        assertTrue(new PlayerIdentityResolver(directory).findActiveByUuid("not-a-uuid").isEmpty());
+        PlayerIdentity result = new PlayerIdentityResolver(directory).findByUuid(uuid)
+                .toCompletableFuture()
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory).findByUuid(uuid);
     }
 
     @Test
-    void findsActiveIdentitiesByUsernameIgnoringCase() {
+    void resolvesPersistedUsernameIgnoringCaseWhenPlayerIsOffline() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         PlayerIdentity identity = new PlayerIdentity(43L, UUID.randomUUID(), "Alice");
-        when(directory.snapshotActiveIdentities()).thenReturn(Map.of("alice", identity));
+        when(directory.snapshotActiveIdentities()).thenReturn(Map.of());
+        when(directory.findByUsernameIgnoreCase("aLiCe"))
+                .thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
 
-        assertEquals(identity, new PlayerIdentityResolver(directory).findActiveByUsername("aLiCe").orElseThrow());
+        PlayerIdentity result = new PlayerIdentityResolver(directory).findByUsername("aLiCe")
+                .toCompletableFuture()
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory).findByUsernameIgnoreCase("aLiCe");
+    }
+
+    @Test
+    void returnsEmptyWhenPersistedIdentityDoesNotExist() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.randomUUID();
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
+        when(directory.findByUuid(uuid)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+
+        assertTrue(new PlayerIdentityResolver(directory).findByUuid(uuid)
+                .toCompletableFuture()
+                .join()
+                .isEmpty());
     }
 }
