@@ -19,10 +19,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class VoteHandler {
 
@@ -32,6 +34,7 @@ public class VoteHandler {
     private final PlayerData playerData;
     private final PlayerIdentityResolver playerResolver;
     private final CacheDirectory playerCacheDirectory;
+    private final Map<UUID, UUID> replayGenerations = new ConcurrentHashMap<>();
     private final int msgDelay;
     private final int startDelay;
     private final int interval;
@@ -151,6 +154,8 @@ public class VoteHandler {
     public void processOfflineVotesOnJoin(Player player) {
         UUID playerUuid = player.getUniqueId();
         String currentName = player.getName();
+        UUID replayGeneration = UUID.randomUUID();
+        replayGenerations.put(playerUuid, replayGeneration);
 
         resolveLegacyCacheNames(playerUuid, currentName)
                 .thenCompose(legacyNames -> feature.getLifecycleManager().getTaskManager().supplyAsync(
@@ -158,33 +163,44 @@ public class VoteHandler {
                 ))
                 .whenComplete((pendingVotes, throwable) -> {
                     if (throwable != null) {
+                        replayGenerations.remove(playerUuid, replayGeneration);
                         feature.getLogger().warning("Could not load offline votes for " + playerUuid + ": "
                                 + rootMessage(throwable));
                         return;
                     }
                     if (pendingVotes == null || pendingVotes.isEmpty()) {
+                        replayGenerations.remove(playerUuid, replayGeneration);
                         return;
                     }
-                    scheduleMain(() -> deliverPendingVotes(playerUuid, pendingVotes));
+                    scheduleMain(() -> deliverPendingVotes(playerUuid, replayGeneration, pendingVotes));
                 });
     }
 
     private CompletionStage<List<String>> resolveLegacyCacheNames(UUID playerUuid, String currentName) {
-        return playerResolver.whenReady(playerUuid).thenCompose(identity -> {
-            if (identity == null || identity.isEmpty()) {
-                return CompletableFuture.completedFuture(List.of(normalizeName(currentName)));
-            }
-            return playerData.findNameHistory(identity.get().playerId(), LEGACY_NAME_HISTORY_LIMIT)
-                    .thenApply(history -> collectLegacyNames(currentName, history));
-        });
+        List<String> fallback = normalizedNames(currentName, List.of());
+        return playerResolver.whenReady(playerUuid)
+                .thenCompose(identity -> {
+                    if (identity == null || identity.isEmpty()) {
+                        return CompletableFuture.completedFuture(fallback);
+                    }
+                    return playerData.findNameHistory(identity.get().playerId(), LEGACY_NAME_HISTORY_LIMIT)
+                            .thenApply(history -> normalizedNames(currentName, history));
+                })
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning("Could not resolve legacy vote cache names for " + playerUuid + ": "
+                            + rootMessage(throwable));
+                    return fallback;
+                });
     }
 
-    private List<String> collectLegacyNames(String currentName, List<PlayerNameHistoryEntry> history) {
+    private List<String> normalizedNames(String currentName, List<PlayerNameHistoryEntry> history) {
         Set<String> names = new LinkedHashSet<>();
         names.add(normalizeName(currentName));
-        for (PlayerNameHistoryEntry entry : history) {
-            if (entry != null && entry.username() != null && !entry.username().isBlank()) {
-                names.add(normalizeName(entry.username()));
+        if (history != null) {
+            for (PlayerNameHistoryEntry entry : history) {
+                if (entry != null && entry.username() != null && !entry.username().isBlank()) {
+                    names.add(normalizeName(entry.username()));
+                }
             }
         }
         names.remove("");
@@ -212,14 +228,21 @@ public class VoteHandler {
         });
     }
 
-    private void deliverPendingVotes(UUID playerUuid, List<PendingVote> pendingVotes) {
+    private void deliverPendingVotes(UUID playerUuid, UUID replayGeneration, List<PendingVote> pendingVotes) {
+        if (!isCurrentReplay(playerUuid, replayGeneration)) {
+            return;
+        }
         Player player = Bukkit.getPlayer(playerUuid);
         if (player == null || !player.isOnline()) {
+            replayGenerations.remove(playerUuid, replayGeneration);
             return;
         }
 
         int count = pendingVotes.size();
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (!isCurrentReplay(playerUuid, replayGeneration)) {
+                return;
+            }
             Player current = Bukkit.getPlayer(playerUuid);
             if (current != null && current.isOnline()) {
                 current.sendMessage(feature.getLocalizationHandler()
@@ -233,19 +256,47 @@ public class VoteHandler {
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             for (int index = 0; index < pendingVotes.size(); index++) {
                 PendingVote pendingVote = pendingVotes.get(index);
+                boolean finalVote = index == pendingVotes.size() - 1;
                 int delay = index * interval;
-                feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-                    Player current = Bukkit.getPlayer(playerUuid);
-                    if (current == null || !current.isOnline()) {
-                        return;
-                    }
-                    processVote(current);
-                    feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(
-                            () -> pendingVote.store().remove(pendingVote.key())
-                    );
-                }, BukkitTime.ticks(delay));
+                feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() ->
+                        deliverPendingVote(playerUuid, replayGeneration, pendingVote, finalVote),
+                        BukkitTime.ticks(delay));
             }
         }, BukkitTime.ticks(msgDelay + startDelay));
+    }
+
+    private void deliverPendingVote(
+            UUID playerUuid,
+            UUID replayGeneration,
+            PendingVote pendingVote,
+            boolean finalVote
+    ) {
+        try {
+            if (!isCurrentReplay(playerUuid, replayGeneration)) {
+                return;
+            }
+            Player current = Bukkit.getPlayer(playerUuid);
+            if (current == null || !current.isOnline()) {
+                return;
+            }
+            processVote(current);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
+                try {
+                    pendingVote.store().remove(pendingVote.key());
+                } catch (RuntimeException exception) {
+                    feature.getLogger().warning("Could not remove delivered offline vote " + pendingVote.key() + ": "
+                            + rootMessage(exception));
+                }
+            });
+        } finally {
+            if (finalVote) {
+                replayGenerations.remove(playerUuid, replayGeneration);
+            }
+        }
+    }
+
+    private boolean isCurrentReplay(UUID playerUuid, UUID replayGeneration) {
+        return replayGeneration.equals(replayGenerations.get(playerUuid));
     }
 
     private FileCacheStore cacheStore(String key) {
