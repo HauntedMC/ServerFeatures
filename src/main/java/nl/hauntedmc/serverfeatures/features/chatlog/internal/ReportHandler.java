@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.chatlog.internal.services.DiscordSer
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 
 public class ReportHandler {
 
@@ -27,20 +28,33 @@ public class ReportHandler {
     }
 
     /**
-     * Checks how many messages a given player (by UUID) has sent between two timestamps.
+     * Checks how many messages a given player has sent between two timestamps.
      */
-    public int checkMessage(String server, String playerName, Long start, Long end) {
+    public CompletionStage<Integer> checkMessage(String server, String playerName, Long start, Long end) {
         return chatLogService.countMessages(server, playerName, start, end);
     }
 
     /**
      * Creates a report by collecting messages from a list of players.
      */
-    public void createReport(String server, List<String> players, Long start, Long end, String reportId) {
-        chatLogService.createReport(server, players, start, end, reportId);
+    public CompletionStage<Void> createReport(
+            String server,
+            List<String> players,
+            Long start,
+            Long end,
+            String reportId
+    ) {
+        return chatLogService.createReport(server, players, start, end, reportId);
     }
 
-    public void sendDiscordNotifaction(String creator, List<String> reportedPlayers, String serverName, String chatlogLink) {
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> discordService.sendNotification(creator, reportedPlayers, serverName, chatlogLink));
+    public void sendDiscordNotifaction(
+            String creator,
+            List<String> reportedPlayers,
+            String serverName,
+            String chatlogLink
+    ) {
+        feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(
+                () -> discordService.sendNotification(creator, reportedPlayers, serverName, chatlogLink)
+        );
     }
 }
