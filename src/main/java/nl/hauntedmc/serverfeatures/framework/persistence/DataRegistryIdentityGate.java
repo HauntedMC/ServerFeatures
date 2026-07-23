@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.framework.persistence;
 
-import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import org.bukkit.entity.Player;
@@ -51,11 +50,10 @@ public final class DataRegistryIdentityGate {
         Objects.requireNonNull(operationName, "operationName must not be null");
 
         UUID playerUuid = player.getUniqueId();
-        PlayerData players = feature.getPlugin().getDataRegistry()
-                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for " + operationName + "."))
-                .players();
+        PlayerIdentityResolver resolver = new PlayerIdentityResolver(feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for " + operationName + ".")));
 
-        players.whenReady(playerUuid).whenComplete((identity, throwable) -> {
+        resolver.whenReady(playerUuid).whenComplete((identity, throwable) -> {
             if (throwable != null) {
                 feature.getLogger().warning(
                         "DataRegistry identity was unavailable for " + operationName + ": " + rootMessage(throwable)
