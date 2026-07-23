@@ -28,7 +28,11 @@ public final class DataRegistryIdentityGate {
             String operationName
     ) {
         Objects.requireNonNull(action, "action must not be null");
-        runWhenReady(feature, player, (readyPlayer, _) -> action.accept(readyPlayer), operationName);
+        runWhenReady(feature, player, (readyPlayer, identity) -> {
+            if (identity.playerId() > 0L) {
+                action.accept(readyPlayer);
+            }
+        }, operationName);
     }
 
     /**
@@ -58,7 +62,7 @@ public final class DataRegistryIdentityGate {
                 );
                 return;
             }
-            if (identity == null || identity.isEmpty() || !feature.getPlugin().isEnabled()) {
+            if (identity == null || identity.isEmpty()) {
                 return;
             }
 
