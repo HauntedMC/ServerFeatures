@@ -52,6 +52,37 @@ class PlayerIdentityResolverTest {
     }
 
     @Test
+    void readinessFallsBackToPersistedIdentityWhenLifecycleCacheIsEmpty() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.randomUUID();
+        PlayerIdentity identity = new PlayerIdentity(14L, uuid, "KnownOfflineAlice");
+        when(directory.whenReady(uuid)).thenReturn(CompletableFuture.completedFuture(Optional.empty()));
+        when(directory.findByUuid(uuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
+
+        PlayerIdentity result = new PlayerIdentityResolver(directory).whenReady(uuid)
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory).findByUuid(uuid);
+    }
+
+    @Test
+    void readinessDoesNotQueryPersistenceWhenIdentityIsPrepared() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.randomUUID();
+        PlayerIdentity identity = new PlayerIdentity(15L, uuid, "OnlineAlice");
+        when(directory.whenReady(uuid)).thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
+
+        PlayerIdentity result = new PlayerIdentityResolver(directory).whenReady(uuid)
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory, never()).findByUuid(uuid);
+    }
+
+    @Test
     void resolvesPersistedUsernameIgnoringCaseWhenPlayerIsOffline() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         PlayerIdentity identity = new PlayerIdentity(43L, UUID.randomUUID(), "Alice");
