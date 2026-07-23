@@ -39,30 +39,32 @@ public final class PlayerIdentityResolver {
     }
 
     public CompletionStage<Optional<PlayerIdentity>> findByUuid(String uuid) {
-        if (uuid == null || uuid.isBlank()) {
+        String normalized = normalize(uuid);
+        if (normalized == null) {
             return CompletableFuture.completedFuture(Optional.empty());
         }
-        Optional<PlayerIdentity> cached = findActiveByUuid(uuid);
+        Optional<PlayerIdentity> cached = findActiveByUuid(normalized);
         return cached.isPresent()
                 ? CompletableFuture.completedFuture(cached)
-                : playerDirectory.findByUuid(uuid);
+                : playerDirectory.findByUuid(normalized);
     }
 
     public CompletionStage<Optional<PlayerIdentity>> findByUsername(String username) {
-        if (username == null || username.isBlank()) {
+        String normalized = normalize(username);
+        if (normalized == null) {
             return CompletableFuture.completedFuture(Optional.empty());
         }
-        Optional<PlayerIdentity> cached = findActiveByUsername(username);
+        Optional<PlayerIdentity> cached = findActiveByUsername(normalized);
         return cached.isPresent()
                 ? CompletableFuture.completedFuture(cached)
-                : playerDirectory.findByUsernameIgnoreCase(username.trim());
+                : playerDirectory.findByUsernameIgnoreCase(normalized);
     }
 
     public CompletionStage<Optional<PlayerIdentity>> findByIdentifier(String identifier) {
-        if (identifier == null || identifier.isBlank()) {
+        String normalized = normalize(identifier);
+        if (normalized == null) {
             return CompletableFuture.completedFuture(Optional.empty());
         }
-        String normalized = identifier.trim();
         try {
             return findByUuid(UUID.fromString(normalized));
         } catch (IllegalArgumentException ignored) {
@@ -77,10 +79,10 @@ public final class PlayerIdentityResolver {
      * Performs a persistence lookup even when no active identity is cached.
      */
     public CompletionStage<Optional<PlayerIdentity>> findPersistedByUuid(String uuid) {
-        if (uuid == null || uuid.isBlank()) {
-            return CompletableFuture.completedFuture(Optional.empty());
-        }
-        return playerDirectory.findByUuid(uuid);
+        String normalized = normalize(uuid);
+        return normalized == null
+                ? CompletableFuture.completedFuture(Optional.empty())
+                : playerDirectory.findByUuid(normalized);
     }
 
     public Optional<PlayerIdentity> findActiveByUuid(UUID uuid) {
@@ -88,27 +90,35 @@ public final class PlayerIdentityResolver {
     }
 
     public Optional<PlayerIdentity> findActiveByUuid(String uuid) {
-        return uuid == null || uuid.isBlank()
+        String normalized = normalize(uuid);
+        return normalized == null
                 ? Optional.empty()
-                : playerDirectory.findActiveIdentityCached(uuid);
+                : playerDirectory.findActiveIdentityCached(normalized);
     }
 
     /**
      * Looks up an active identity by its current username without performing I/O.
      */
     public Optional<PlayerIdentity> findActiveByUsername(String username) {
-        if (username == null || username.isBlank()) {
+        String normalized = normalize(username);
+        if (normalized == null) {
             return Optional.empty();
         }
         return playerDirectory.snapshotActiveIdentities().values().stream()
-                .filter(identity -> username.equalsIgnoreCase(identity.username()))
+                .filter(identity -> normalized.equalsIgnoreCase(identity.username()))
                 .findFirst();
     }
 
     public CompletableFuture<Optional<PlayerIdentity>> whenReady(UUID uuid) {
-        if (uuid == null) {
-            return CompletableFuture.completedFuture(Optional.empty());
+        return uuid == null
+                ? CompletableFuture.completedFuture(Optional.empty())
+                : playerDirectory.whenReady(uuid);
+    }
+
+    private static String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
-        return playerDirectory.whenReady(uuid);
+        return value.trim();
     }
 }
