@@ -73,22 +73,67 @@ public class NickCommand extends FeatureCommand {
     }
 
     private void handleSelf(Player player, String value) {
-        if (value.equalsIgnoreCase("remove")) {
-            if (feature.getNicknameHandler().removeNickname(player)) {
-                player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
-                        .forAudience(player)
-                        .build());
+        String playerIdentifier = player.getUniqueId().toString();
+        feature.getNicknameHandler().findPlayerIdentity(playerIdentifier).whenComplete((identity, lookupThrowable) -> {
+            if (lookupThrowable != null) {
+                feature.getLogger().warning("Could not resolve nickname identity for " + playerIdentifier + ": "
+                        + rootMessage(lookupThrowable));
+                scheduleMain(() -> sendDataUnavailable(player));
+                return;
             }
-            return;
-        }
+            if (identity == null || identity.isEmpty()) {
+                scheduleMain(() -> sendDataUnavailable(player));
+                return;
+            }
 
-        boolean success = feature.getNicknameHandler().setNickname(player, value);
-        if (success) {
-            player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
-                    .forAudience(player)
-                    .with("nickname", value)
-                    .build());
-        }
+            if (value.equalsIgnoreCase("remove")) {
+                removeSelf(player, identity.get());
+            } else {
+                setSelf(player, identity.get(), value);
+            }
+        });
+    }
+
+    private void setSelf(Player player, PlayerIdentity identity, String value) {
+        feature.getNicknameHandler().setNickname(identity, value).whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("Could not save nickname for " + identity.uuid() + ": "
+                        + rootMessage(throwable));
+                scheduleMain(() -> sendDataUnavailable(player));
+                return;
+            }
+            scheduleMain(() -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                if (!result.success()) {
+                    feature.getNicknameHandler().sendValidationFailure(player, result.failure());
+                    return;
+                }
+                player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.set")
+                        .forAudience(player)
+                        .with("nickname", result.nickname())
+                        .build());
+            });
+        });
+    }
+
+    private void removeSelf(Player player, PlayerIdentity identity) {
+        feature.getNicknameHandler().removeNickname(identity).whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
+                        + rootMessage(throwable));
+                scheduleMain(() -> sendDataUnavailable(player));
+                return;
+            }
+            scheduleMain(() -> {
+                if (player.isOnline()) {
+                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
+                            .forAudience(player)
+                            .build());
+                }
+            });
+        });
     }
 
     private void handleOther(Player actor, String identifier, String value) {
