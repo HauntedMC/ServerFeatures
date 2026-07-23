@@ -22,20 +22,17 @@ public class GlowListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player p = event.getPlayer();
-        // Load persisted state and, if enabled & valid, restore the glow.
+        Player player = event.getPlayer();
         DataRegistryIdentityGate.runWhenReady(
                 feature,
-                p,
-                readyPlayer -> feature.getGlowStateService().restoreGlowFor(readyPlayer),
+                player,
+                (readyPlayer, identity) -> feature.getGlowStateService().restoreGlowFor(readyPlayer, identity),
                 "glow restore"
         );
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        // Remove from scoreboard / memory only; DO NOT persist disable on quit.
-        feature.getGlowHandler().removeGlowTransient(player);
+        feature.getGlowHandler().removeGlowTransient(event.getPlayer());
     }
 }
