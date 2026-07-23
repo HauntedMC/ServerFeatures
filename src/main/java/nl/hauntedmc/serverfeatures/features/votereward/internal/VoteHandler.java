@@ -1,6 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
+import nl.hauntedmc.dataregistry.api.DataRegistryApi;
+import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
+import nl.hauntedmc.dataregistry.api.player.PlayerNameHistoryEntry;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
@@ -13,13 +16,20 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 public class VoteHandler {
 
+    private static final int LEGACY_NAME_HISTORY_LIMIT = 100;
+
     private final VoteReward feature;
+    private final PlayerData playerData;
     private final PlayerIdentityResolver playerResolver;
     private final CacheDirectory playerCacheDirectory;
     private final int msgDelay;
@@ -31,8 +41,10 @@ public class VoteHandler {
 
     public VoteHandler(VoteReward feature) {
         this.feature = feature;
-        this.playerResolver = new PlayerIdentityResolver(feature.getPlugin().getDataRegistry()
-                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for VoteReward.")));
+        DataRegistryApi dataRegistry = feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for VoteReward."));
+        this.playerData = dataRegistry.players();
+        this.playerResolver = new PlayerIdentityResolver(dataRegistry);
         this.playerCacheDirectory = feature.getPlayerCacheDir();
         this.msgDelay = (int) feature.getConfigHandler().get("join_message_delay");
         this.startDelay = (int) feature.getConfigHandler().get("rewards_start_delay");
@@ -82,18 +94,27 @@ public class VoteHandler {
                         + "; no player_entity identity exists.");
                 return;
             }
+            scheduleMain(() -> processResolvedVote(identity.get(), service));
+        });
+    }
 
-            PlayerIdentity resolved = identity.get();
-            feature.getLifecycleManager().getTaskManager().runAsync(() ->
-                    queueOfflineVote(resolved.uuid().toString(), service)
-            ).whenComplete((ignored, queueThrowable) -> {
-                if (queueThrowable != null) {
-                    feature.getLogger().warning("Could not queue offline vote for " + resolved.username() + ": "
-                            + rootMessage(queueThrowable));
-                    return;
-                }
-                scheduleMain(() -> broadcastVote(resolved.username()));
-            });
+    private void processResolvedVote(PlayerIdentity identity, String service) {
+        Player current = Bukkit.getPlayer(identity.uuid());
+        if (current != null && current.isOnline()) {
+            broadcastVote(current.getName());
+            processVote(current);
+            return;
+        }
+
+        feature.getLifecycleManager().getTaskManager().runAsync(() ->
+                queueOfflineVote(identity.uuid().toString(), service)
+        ).whenComplete((ignored, queueThrowable) -> {
+            if (queueThrowable != null) {
+                feature.getLogger().warning("Could not queue offline vote for " + identity.username() + ": "
+                        + rootMessage(queueThrowable));
+                return;
+            }
+            scheduleMain(() -> broadcastVote(identity.username()));
         });
     }
 
@@ -129,28 +150,54 @@ public class VoteHandler {
 
     public void processOfflineVotesOnJoin(Player player) {
         UUID playerUuid = player.getUniqueId();
-        String legacyName = player.getName().toLowerCase(Locale.ROOT);
+        String currentName = player.getName();
 
-        feature.getLifecycleManager().getTaskManager().supplyAsync(
-                () -> loadPendingVotes(playerUuid.toString(), legacyName)
-        ).whenComplete((pendingVotes, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Could not load offline votes for " + playerUuid + ": "
-                        + rootMessage(throwable));
-                return;
+        resolveLegacyCacheNames(playerUuid, currentName)
+                .thenCompose(legacyNames -> feature.getLifecycleManager().getTaskManager().supplyAsync(
+                        () -> loadPendingVotes(playerUuid.toString(), legacyNames)
+                ))
+                .whenComplete((pendingVotes, throwable) -> {
+                    if (throwable != null) {
+                        feature.getLogger().warning("Could not load offline votes for " + playerUuid + ": "
+                                + rootMessage(throwable));
+                        return;
+                    }
+                    if (pendingVotes == null || pendingVotes.isEmpty()) {
+                        return;
+                    }
+                    scheduleMain(() -> deliverPendingVotes(playerUuid, pendingVotes));
+                });
+    }
+
+    private CompletionStage<List<String>> resolveLegacyCacheNames(UUID playerUuid, String currentName) {
+        return playerResolver.whenReady(playerUuid).thenCompose(identity -> {
+            if (identity == null || identity.isEmpty()) {
+                return CompletableFuture.completedFuture(List.of(normalizeName(currentName)));
             }
-            if (pendingVotes == null || pendingVotes.isEmpty()) {
-                return;
-            }
-            scheduleMain(() -> deliverPendingVotes(playerUuid, pendingVotes));
+            return playerData.findNameHistory(identity.get().playerId(), LEGACY_NAME_HISTORY_LIMIT)
+                    .thenApply(history -> collectLegacyNames(currentName, history));
         });
     }
 
-    private List<PendingVote> loadPendingVotes(String stableKey, String legacyName) {
+    private List<String> collectLegacyNames(String currentName, List<PlayerNameHistoryEntry> history) {
+        Set<String> names = new LinkedHashSet<>();
+        names.add(normalizeName(currentName));
+        for (PlayerNameHistoryEntry entry : history) {
+            if (entry != null && entry.username() != null && !entry.username().isBlank()) {
+                names.add(normalizeName(entry.username()));
+            }
+        }
+        names.remove("");
+        return List.copyOf(names);
+    }
+
+    private List<PendingVote> loadPendingVotes(String stableKey, List<String> legacyNames) {
         List<PendingVote> pending = new ArrayList<>();
         collectPendingVotes(cacheStore(stableKey), pending);
-        if (!stableKey.equalsIgnoreCase(legacyName)) {
-            collectPendingVotes(cacheStore(legacyName), pending);
+        for (String legacyName : legacyNames) {
+            if (!stableKey.equalsIgnoreCase(legacyName)) {
+                collectPendingVotes(cacheStore(legacyName), pending);
+            }
         }
         return pending;
     }
@@ -211,6 +258,10 @@ public class VoteHandler {
         } catch (RuntimeException exception) {
             feature.getLogger().warning("Could not schedule vote completion: " + rootMessage(exception));
         }
+    }
+
+    private static String normalizeName(String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private static String rootMessage(Throwable throwable) {
