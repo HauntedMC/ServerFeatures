@@ -79,15 +79,12 @@ public class ChatLogService {
 
     private void schedulePersist(String serverName, long timestamp, long playerId, String rawMessage) {
         try {
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
-                if (!feature.getPlugin().isEnabled()) {
-                    return;
-                }
-                feature.getOrmContext().runInTransaction(session -> {
-                    addMessage(session, serverName, timestamp, playerId, rawMessage);
-                    return null;
-                });
-            });
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->
+                    feature.getOrmContext().runInTransaction(session -> {
+                        addMessage(session, serverName, timestamp, playerId, rawMessage);
+                        return null;
+                    })
+            );
         } catch (RuntimeException exception) {
             feature.getLogger().warning("Could not schedule chat log write: " + rootMessage(exception));
         }
