@@ -22,19 +22,41 @@ import static org.mockito.Mockito.when;
 class CommandLogServiceTest {
 
     @Test
-    void logServerCommandKeepsTheScalarPlayerIdNullWhenIdentityIsUnavailable() {
-        String uuid = "11111111-1111-1111-1111-111111111111";
+    void compatibilityPathKeepsPlayerIdNullWhenActiveIdentityIsUnavailable() {
+        UUID uuid = UUID.fromString("11111111-1111-1111-1111-111111111111");
         PlayerDirectory directory = mock(PlayerDirectory.class);
-        when(directory.findActiveIdentityCached(UUID.fromString(uuid))).thenReturn(Optional.empty());
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
         CommandLogService service = new CommandLogService(null, directory);
-        Player player = InterfaceProxy.of(Player.class, Map.of("getUniqueId", args -> UUID.fromString(uuid), "getName", args -> "Remy"));
+        Player player = InterfaceProxy.of(Player.class, Map.of(
+                "getUniqueId", args -> uuid,
+                "getName", args -> "Remy"
+        ));
         List<Object> persisted = new ArrayList<>();
-        Session session = InterfaceProxy.of(Session.class, Map.of("persist", args -> { persisted.add(args[0]); return null; }));
 
-        service.logServerCommand(session, "survival", 123L, player, "spawn");
+        service.logServerCommand(session(persisted), "survival", 123L, player, "spawn");
 
         CommandExecutionEntity entry = assertInstanceOf(CommandExecutionEntity.class, persisted.getFirst());
         assertNull(entry.getPlayerId());
         assertEquals("survival", entry.getServer());
+    }
+
+    @Test
+    void resolvedPlayerIdRemainsAttachedAfterDisconnect() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        CommandLogService service = new CommandLogService(null, directory);
+        List<Object> persisted = new ArrayList<>();
+
+        service.logServerCommand(session(persisted), "survival", 456L, 77L, "player", "home");
+
+        CommandExecutionEntity entry = assertInstanceOf(CommandExecutionEntity.class, persisted.getFirst());
+        assertEquals(77L, entry.getPlayerId());
+        assertEquals("home", entry.getCommand());
+    }
+
+    private static Session session(List<Object> persisted) {
+        return InterfaceProxy.of(Session.class, Map.of("persist", args -> {
+            persisted.add(args[0]);
+            return null;
+        }));
     }
 }

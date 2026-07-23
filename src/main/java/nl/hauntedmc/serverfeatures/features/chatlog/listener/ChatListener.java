@@ -16,12 +16,14 @@ public class ChatListener implements Listener {
         this.feature = feature;
     }
 
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerChat(AsyncChatEvent event) {
-        String rawMessage = ComponentFormatter.serialize(event.message()).format(ComponentFormatter.Serializer.Format.PLAIN).build();
+        String rawMessage = ComponentFormatter.serialize(event.message())
+                .format(ComponentFormatter.Serializer.Format.PLAIN)
+                .build();
         Player player = event.getPlayer();
-        feature.getReportHandler().logMessage(player, rawMessage);
+        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(
+                () -> feature.getReportHandler().logMessage(player, rawMessage)
+        );
     }
-
 }

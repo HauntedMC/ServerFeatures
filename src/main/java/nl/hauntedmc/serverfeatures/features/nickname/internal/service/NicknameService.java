@@ -28,11 +28,21 @@ public class NicknameService {
     }
 
     public CompletionStage<Optional<PlayerIdentity>> findPlayerIdentity(UUID playerUuid) {
+        if (playerUuid == null) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
         Optional<PlayerIdentity> cached = players.findActiveIdentityCached(playerUuid);
         if (cached.isPresent()) {
             return CompletableFuture.completedFuture(cached);
         }
         return players.findIdentity(playerUuid);
+    }
+
+    public CompletionStage<Optional<PlayerIdentity>> findPlayerIdentity(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return players.findIdentityByIdentifier(identifier.trim());
     }
 
     public CompletionStage<Optional<String>> findNickname(PlayerIdentity playerIdentity) {
@@ -42,17 +52,17 @@ public class NicknameService {
         return players.findNickname(playerIdentity.playerId());
     }
 
-    public void setNickname(PlayerIdentity playerIdentity, String nickname) {
-        if (playerIdentity == null) {
-            return;
+    public CompletionStage<Void> setNickname(PlayerIdentity playerIdentity, String nickname) {
+        if (playerIdentity == null || playerIdentity.playerId() <= 0L) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("A persisted player identity is required."));
         }
-        players.saveNickname(playerIdentity.playerId(), nickname);
+        return players.saveNickname(playerIdentity.playerId(), nickname);
     }
 
-    public void removeNickname(PlayerIdentity playerIdentity) {
-        if (playerIdentity == null) {
-            return;
+    public CompletionStage<Void> removeNickname(PlayerIdentity playerIdentity) {
+        if (playerIdentity == null || playerIdentity.playerId() <= 0L) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("A persisted player identity is required."));
         }
-        players.clearNickname(playerIdentity.playerId());
+        return players.clearNickname(playerIdentity.playerId());
     }
 }

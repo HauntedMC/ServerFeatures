@@ -22,7 +22,8 @@ public class PlayerJoinListener implements Listener {
         DataRegistryIdentityGate.runWhenReady(
                 feature,
                 player,
-                readyPlayer -> feature.getNicknameHandler().loadNicknameIntoCache(readyPlayer),
+                (readyPlayer, identity) -> feature.getNicknameHandler()
+                        .loadNicknameIntoCache(readyPlayer, identity),
                 "nickname cache load"
         );
     }

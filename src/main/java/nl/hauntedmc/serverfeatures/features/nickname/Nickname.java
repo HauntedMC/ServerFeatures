@@ -59,7 +59,7 @@ public class Nickname extends BukkitBaseFeature<Meta> {
         messages.add("nickname.max_length_exceeded", "&cDeze nickname is te lang, kies een kortere nickname.");
         messages.add("nickname.invalid_characters", "&cDeze nickname bevat characters die niet zijn toegestaan.");
         messages.add("nickname.set_other", "&eDe nickname van {player} is veranderd naar {nickname}.");
-        messages.add("nickname.player_not_found", "&cDeze speler is niet online.");
+        messages.add("nickname.player_not_found", "&cDeze speler is niet bekend.");
         messages.add("nickname.other_removed", "&eDe nickname van {player} is verwijderd.");
         messages.add("nickname.data_unavailable", "&cJe spelerdata is momenteel niet beschikbaar. Probeer het opnieuw.");
         return messages;

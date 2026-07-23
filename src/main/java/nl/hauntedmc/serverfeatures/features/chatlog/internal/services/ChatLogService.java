@@ -12,7 +12,10 @@ import org.hibernate.Session;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
 public class ChatLogService {
 
@@ -43,79 +46,110 @@ public class ChatLogService {
         java.util.UUID playerUuid = player.getUniqueId();
         playerResolver.whenReady(playerUuid).whenComplete((identity, throwable) -> {
             if (throwable != null) {
-                feature.getLogger().warning("DataRegistry identity unavailable for chat log: " + throwable.getMessage());
+                feature.getLogger().warning("DataRegistry identity unavailable for chat log: "
+                        + rootMessage(throwable));
                 return;
             }
             if (identity == null || identity.isEmpty()) {
                 return;
             }
-            schedulePersist(serverName, timestamp, playerUuid, rawMessage);
+            schedulePersist(serverName, timestamp, identity.get().playerId(), rawMessage);
         });
     }
 
     boolean addMessage(Session session, String serverName, long timestamp, Player player, String rawMessage) {
-        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(player.getUniqueId()).orElse(null);
+        return playerResolver.findActiveByUuid(player.getUniqueId())
+                .map(identity -> addMessage(session, serverName, timestamp, identity.playerId(), rawMessage))
+                .orElse(false);
+    }
 
-        if (playerIdentity == null) {
+    boolean addMessage(Session session, String serverName, long timestamp, long playerId, String rawMessage) {
+        if (playerId <= 0L) {
             return false;
         }
 
         ChatMessageEntity message = new ChatMessageEntity();
         message.setServer(serverName);
-        message.setPlayerId(playerIdentity.playerId());
+        message.setPlayerId(playerId);
         message.setMessage(rawMessage);
         message.setTimestamp(timestamp);
         session.persist(message);
         return true;
     }
 
-    private void schedulePersist(
-            String serverName,
-            long timestamp,
-            java.util.UUID playerUuid,
-            String rawMessage
-    ) {
-        if (!feature.getPlugin().isEnabled()) {
-            return;
-        }
+    private void schedulePersist(String serverName, long timestamp, long playerId, String rawMessage) {
         try {
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
-                if (!feature.getPlugin().isEnabled()) {
-                    return;
-                }
-                feature.getOrmContext().runInTransaction(session -> {
-                        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(playerUuid).orElse(null);
-                        if (playerIdentity == null) {
-                            return null;
-                        }
-                        ChatMessageEntity message = new ChatMessageEntity();
-                        message.setServer(serverName);
-                        message.setPlayerId(playerIdentity.playerId());
-                        message.setMessage(rawMessage);
-                        message.setTimestamp(timestamp);
-                        session.persist(message);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->
+                    feature.getOrmContext().runInTransaction(session -> {
+                        addMessage(session, serverName, timestamp, playerId, rawMessage);
                         return null;
-                });
-            });
+                    })
+            );
         } catch (RuntimeException exception) {
-            feature.getLogger().warning("Could not schedule chat log write: " + exception.getMessage());
+            feature.getLogger().warning("Could not schedule chat log write: " + rootMessage(exception));
         }
     }
 
     /**
-     * Counts messages for an active player, identified by their current username.
+     * Counts messages for a known player, resolving persisted identities when the player is offline.
      */
-    public int countMessages(String server, String playerName, Long start, Long end) {
-        Long playerId = playerResolver.findActiveByUsername(playerName)
-                .map(PlayerIdentity::playerId)
-                .orElse(null);
-        if (playerId == null) {
-            return 0;
+    public CompletionStage<Integer> countMessages(String server, String playerName, Long start, Long end) {
+        return playerResolver.findByUsername(playerName)
+                .thenCompose(identity -> identity
+                        .map(value -> feature.getLifecycleManager().getTaskManager().supplyAsync(
+                                () -> countMessagesByPlayerId(server, value.playerId(), start, end)
+                        ))
+                        .orElseGet(() -> CompletableFuture.completedFuture(0)));
+    }
+
+    /**
+     * Creates a report for known players, including identities that are not active on this backend.
+     */
+    public CompletionStage<Void> createReport(
+            String server,
+            List<String> players,
+            Long start,
+            Long end,
+            String reportId
+    ) {
+        return resolvePlayerIds(players).thenCompose(playerIds -> {
+            if (playerIds.isEmpty()) {
+                return CompletableFuture.failedFuture(
+                        new IllegalArgumentException("No known player identities were resolved for the report.")
+                );
+            }
+            return feature.getLifecycleManager().getTaskManager().runAsync(
+                    () -> createReportByPlayerIds(server, playerIds, start, end, reportId)
+            );
+        });
+    }
+
+    private CompletionStage<Set<Long>> resolvePlayerIds(List<String> players) {
+        List<CompletableFuture<Optional<Long>>> lookups = players.stream()
+                .filter(player -> player != null && !player.isBlank())
+                .map(String::trim)
+                .distinct()
+                .map(playerResolver::findByUsername)
+                .map(stage -> stage.thenApply(identity -> identity.map(PlayerIdentity::playerId)).toCompletableFuture())
+                .toList();
+
+        if (lookups.isEmpty()) {
+            return CompletableFuture.completedFuture(Set.of());
         }
+
+        return CompletableFuture.allOf(lookups.toArray(CompletableFuture[]::new))
+                .thenApply(ignored -> lookups.stream()
+                        .map(CompletableFuture::join)
+                        .flatMap(Optional::stream)
+                        .filter(playerId -> playerId > 0L)
+                        .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new)));
+    }
+
+    private int countMessagesByPlayerId(String server, long playerId, Long start, Long end) {
         return feature.getOrmContext().runInTransaction(session -> {
             Long count = session.createQuery(
-                    "SELECT COUNT(c) FROM ChatMessageEntity c WHERE c.server = :server "
-                            + "AND c.playerId = :playerId AND c.timestamp BETWEEN :start AND :end",
+                            "SELECT COUNT(c) FROM ChatMessageEntity c WHERE c.server = :server "
+                                    + "AND c.playerId = :playerId AND c.timestamp BETWEEN :start AND :end",
                             Long.class)
                     .setParameter("server", server)
                     .setParameter("playerId", playerId)
@@ -126,18 +160,13 @@ public class ChatLogService {
         });
     }
 
-    /**
-     * Creates a report by copying messages for active players into the reported-chat table.
-     */
-    public void createReport(String server, List<String> players, Long start, Long end, String reportId) {
-        Set<Long> playerIds = players.stream()
-                .map(playerResolver::findActiveByUsername)
-                .flatMap(java.util.Optional::stream)
-                .map(PlayerIdentity::playerId)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        if (playerIds.isEmpty()) {
-            return;
-        }
+    private void createReportByPlayerIds(
+            String server,
+            Set<Long> playerIds,
+            Long start,
+            Long end,
+            String reportId
+    ) {
         feature.getOrmContext().runInTransaction(session -> {
             List<ChatMessageEntity> messages = session.createQuery(
                             "SELECT c FROM ChatMessageEntity c WHERE c.server = :server "
@@ -149,16 +178,25 @@ public class ChatLogService {
                     .setParameter("end", end)
                     .getResultList();
 
-            for (ChatMessageEntity msg : messages) {
+            for (ChatMessageEntity message : messages) {
                 ReportedChatMessageEntity reported = new ReportedChatMessageEntity();
-                reported.setServer(msg.getServer());
-                reported.setPlayerId(msg.getPlayerId());
-                reported.setMessage(msg.getMessage());
-                reported.setTimestamp(msg.getTimestamp());
+                reported.setServer(message.getServer());
+                reported.setPlayerId(message.getPlayerId());
+                reported.setMessage(message.getMessage());
+                reported.setTimestamp(message.getTimestamp());
                 reported.setReportId(reportId);
                 session.persist(reported);
             }
             return null;
         });
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }

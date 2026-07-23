@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class NicknamePlaceholder extends PlaceholderExpansion {
 
@@ -38,15 +39,25 @@ public class NicknamePlaceholder extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
-        if (params.equalsIgnoreCase("nickname")) {
-            if (player == null) {
-                return "";
-            }
-
-            Optional<String> nickname = feature.getNicknameHandler().getNickname(player);
-            return nickname.orElse(player.getName());
+        if (!params.equalsIgnoreCase("nickname")) {
+            return null;
+        }
+        if (player == null) {
+            return "";
         }
 
-        return null;
+        Optional<String> nickname = feature.getNicknameHandler().getNickname(player);
+        if (nickname.isPresent()) {
+            return nickname.get();
+        }
+
+        UUID playerUuid = player.getUniqueId();
+        String fallbackName = player.getName();
+        feature.getNicknameHandler().warmNicknameIntoCache(player).exceptionally(exception -> {
+            feature.getLogger().warning("Could not warm nickname placeholder for " + playerUuid + ": "
+                    + exception.getMessage());
+            return Optional.empty();
+        });
+        return fallbackName == null ? "" : fallbackName;
     }
 }

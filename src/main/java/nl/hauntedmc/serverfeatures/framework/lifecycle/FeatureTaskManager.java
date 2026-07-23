@@ -9,28 +9,27 @@ import org.bukkit.scheduler.BukkitTask;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Centralized scheduler for feature-scoped tasks.
- * Goals:
- * - Track every scheduled task so we can cancel all on feature shutdown.
- * - For one-shot tasks, automatically remove the finished task from tracking.
- * - Be safe when tasks complete on async threads (thread-safe tracking list).
+ *
+ * <p>Every submitted task is tracked so feature shutdown can cancel outstanding work. One-shot tasks
+ * remove themselves after completion, including tasks that complete before the scheduler returns their
+ * handle.</p>
  */
 public class FeatureTaskManager {
 
     private final Plugin plugin;
-
-    /**
-     * Thread-safe list because:
-     * - One-shot async tasks complete on a non-main thread and remove themselves from this collection.
-     * - We may iterate/cancel all on the main thread at shutdown.
-     */
-    private final List<BukkitTask> scheduledTasks =
-            Collections.synchronizedList(new ArrayList<>());
+    private final List<BukkitTask> scheduledTasks = Collections.synchronizedList(new ArrayList<>());
+    private final Map<BukkitTask, CompletableFuture<?>> taskFutures = new ConcurrentHashMap<>();
 
     public FeatureTaskManager(ServerFeatures plugin) {
         this((Plugin) plugin);
@@ -40,179 +39,195 @@ public class FeatureTaskManager {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
     }
 
-    /* ----------------------------------------------------------------------
-     * Public API — thin wrappers over generic helpers
-     * ---------------------------------------------------------------------- */
-
-    /**
-     * Runs a one-time synchronous task immediately.
-     */
     public BukkitTask scheduleOneTimeTask(Runnable task) {
         Objects.requireNonNull(task, "task");
-        return scheduleOnce(r -> Bukkit.getScheduler().runTask(plugin, r), task);
+        return scheduleOnce(runnable -> Bukkit.getScheduler().runTask(plugin, runnable), task);
     }
 
-    /**
-     * Runs a one-time synchronous task with a delay (using Time).
-     */
     public BukkitTask scheduleDelayedTask(Runnable task, BukkitTime delay) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
-        final long d = clampDelay(delay);
-        return scheduleOnce(r -> Bukkit.getScheduler().runTaskLater(plugin, r, d), task);
+        long delayTicks = clampDelay(delay);
+        return scheduleOnce(
+                runnable -> Bukkit.getScheduler().runTaskLater(plugin, runnable, delayTicks),
+                task
+        );
     }
 
-
-    /**
-     * Runs a repeating synchronous task with no initial delay (using Time for period).
-     */
     public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime period) {
-        Objects.requireNonNull(task, "task");
-        Objects.requireNonNull(period, "period");
-        final long d = 0L;
-        final long p = clampPeriod(period);
-        return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimer(plugin, r, d, p), task);
+        return scheduleRepeatingTask(task, BukkitTime.ticks(0L), period);
     }
 
-    /**
-     * Runs a repeating synchronous task with no initial delay (using Time for period).
-     */
     public BukkitTask scheduleRepeatingTask(Runnable task, BukkitTime delay, BukkitTime period) {
         Objects.requireNonNull(task, "task");
+        Objects.requireNonNull(delay, "delay");
         Objects.requireNonNull(period, "period");
-        final long d = clampDelay(delay);
-        final long p = clampPeriod(period);
-        return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimer(plugin, r, d, p), task);
+        long delayTicks = clampDelay(delay);
+        long periodTicks = clampPeriod(period);
+        return scheduleRepeating(
+                runnable -> Bukkit.getScheduler().runTaskTimer(plugin, runnable, delayTicks, periodTicks),
+                task
+        );
     }
 
-    /**
-     * Runs an asynchronous one-time task.
-     */
     public BukkitTask scheduleAsyncTask(Runnable task) {
         Objects.requireNonNull(task, "task");
-        return scheduleOnce(r -> Bukkit.getScheduler().runTaskAsynchronously(plugin, r), task);
+        return scheduleOnce(
+                runnable -> Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable),
+                task
+        );
     }
 
     /**
-     * Runs an asynchronous one-time task with a delay (using Time).
+     * Runs feature-scoped asynchronous work and returns a future that is cancelled with the feature.
      */
+    public CompletableFuture<Void> runAsync(Runnable task) {
+        Objects.requireNonNull(task, "task");
+        return supplyAsync(() -> {
+            task.run();
+            return null;
+        });
+    }
+
+    /**
+     * Runs a blocking or computational supplier on Bukkit's asynchronous scheduler.
+     *
+     * <p>This deliberately avoids both the Bukkit main thread and the JVM common pool. The returned
+     * future is cancelled when its tracked Bukkit task is cancelled.</p>
+     */
+    public <T> CompletableFuture<T> supplyAsync(Supplier<T> supplier) {
+        Objects.requireNonNull(supplier, "supplier");
+        CompletableFuture<T> result = new CompletableFuture<>();
+
+        try {
+            BukkitTask task = scheduleAsyncTask(() -> {
+                if (result.isCancelled()) {
+                    return;
+                }
+                try {
+                    result.complete(supplier.get());
+                } catch (Throwable throwable) {
+                    result.completeExceptionally(throwable);
+                }
+            });
+
+            taskFutures.put(task, result);
+            result.whenComplete((ignored, throwable) -> taskFutures.remove(task, result));
+        } catch (RuntimeException exception) {
+            result.completeExceptionally(exception);
+        }
+
+        return result;
+    }
+
     public BukkitTask scheduleAsyncDelayedTask(Runnable task, BukkitTime delay) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
-        final long d = clampDelay(delay);
-        return scheduleOnce(r -> Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, r, d), task);
+        long delayTicks = clampDelay(delay);
+        return scheduleOnce(
+                runnable -> Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, runnable, delayTicks),
+                task
+        );
     }
 
-    /**
-     * Runs an asynchronous repeating task (using Time).
-     */
     public BukkitTask scheduleAsyncRepeatingTask(Runnable task, BukkitTime delay, BukkitTime period) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(delay, "delay");
         Objects.requireNonNull(period, "period");
-        final long d = clampDelay(delay);
-        final long p = clampPeriod(period);
-        return scheduleRepeating(r -> Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, r, d, p), task);
+        long delayTicks = clampDelay(delay);
+        long periodTicks = clampPeriod(period);
+        return scheduleRepeating(
+                runnable -> Bukkit.getScheduler().runTaskTimerAsynchronously(
+                        plugin,
+                        runnable,
+                        delayTicks,
+                        periodTicks
+                ),
+                task
+        );
     }
 
-    /* ----------------------------------------------------------------------
-     * Management
-     * ---------------------------------------------------------------------- */
-
-    /**
-     * Cancels a task and removes it from tracking.
-     */
     public void cancelTask(BukkitTask task) {
-        if (task != null) {
-            task.cancel();
-            scheduledTasks.remove(task);
+        if (task == null) {
+            return;
         }
+
+        CompletableFuture<?> future = taskFutures.remove(task);
+        if (future != null) {
+            future.cancel(false);
+        }
+        task.cancel();
+        scheduledTasks.remove(task);
     }
 
-    /**
-     * Returns true if the task is queued (per Bukkit scheduler).
-     */
-    public boolean isTaskQueued(int taskID) {
-        return Bukkit.getScheduler().isQueued(taskID);
+    public boolean isTaskQueued(int taskId) {
+        return Bukkit.getScheduler().isQueued(taskId);
     }
 
-    /**
-     * Returns true if the task is currently running (per Bukkit scheduler).
-     */
-    public boolean isTaskRunning(int taskID) {
-        return Bukkit.getScheduler().isCurrentlyRunning(taskID);
+    public boolean isTaskRunning(int taskId) {
+        return Bukkit.getScheduler().isCurrentlyRunning(taskId);
     }
 
-    /**
-     * Cancels all scheduled tasks for this feature and clears tracking.
-     * Must synchronize while iterating a synchronizedList.
-     */
     public void cancelAllTasks() {
         synchronized (scheduledTasks) {
             for (BukkitTask task : scheduledTasks) {
+                CompletableFuture<?> future = taskFutures.remove(task);
+                if (future != null) {
+                    future.cancel(false);
+                }
                 task.cancel();
             }
             scheduledTasks.clear();
         }
+        taskFutures.clear();
     }
 
-    /**
-     * Number of tasks currently tracked.
-     */
     public int getActiveTaskCount() {
         synchronized (scheduledTasks) {
             return scheduledTasks.size();
         }
     }
 
-    /* ----------------------------------------------------------------------
-     * Internals — generic helpers to maximize reuse
-     * ---------------------------------------------------------------------- */
-
-    /**
-     * One-shot scheduler wrapper that:
-     * - wraps the runnable to auto-remove when it completes,
-     * - tracks the BukkitTask handle,
-     * - works for sync/async, now/later (provided by the submitter lambda).
-     */
     private BukkitTask scheduleOnce(Function<Runnable, BukkitTask> submitter, Runnable task) {
-        AtomicReference<BukkitTask> ref = new AtomicReference<>();
+        AtomicReference<BukkitTask> taskReference = new AtomicReference<>();
+        AtomicBoolean completed = new AtomicBoolean(false);
+
         Runnable wrapped = () -> {
             try {
                 task.run();
             } finally {
-                scheduledTasks.remove(ref.get());
+                completed.set(true);
+                BukkitTask handle = taskReference.get();
+                if (handle != null) {
+                    scheduledTasks.remove(handle);
+                    taskFutures.remove(handle);
+                }
             }
         };
+
         BukkitTask bukkitTask = submitter.apply(wrapped);
-        ref.set(bukkitTask);
+        taskReference.set(bukkitTask);
         scheduledTasks.add(bukkitTask);
+
+        if (completed.get()) {
+            scheduledTasks.remove(bukkitTask);
+            taskFutures.remove(bukkitTask);
+        }
+
         return bukkitTask;
     }
 
-    /**
-     * Repeating scheduler wrapper that:
-     * - does NOT auto-remove (removal happens via cancelTask/cancelAllTasks),
-     * - tracks the BukkitTask handle,
-     * - works for sync/async, any delay/period (captured by the submitter lambda).
-     */
     private BukkitTask scheduleRepeating(Function<Runnable, BukkitTask> submitter, Runnable task) {
         BukkitTask bukkitTask = submitter.apply(task);
         scheduledTasks.add(bukkitTask);
         return bukkitTask;
     }
 
-    /**
-     * Clamp delay to >= 0 ticks.
-     */
-    static long clampDelay(BukkitTime t) {
-        return Math.max(0L, t.toTicks());
+    static long clampDelay(BukkitTime time) {
+        return Math.max(0L, time.toTicks());
     }
 
-    /**
-     * Clamp period to at least 1 tick (Bukkit requirement).
-     */
-    static long clampPeriod(BukkitTime t) {
-        return Math.max(1L, t.toTicks());
+    static long clampPeriod(BukkitTime time) {
+        return Math.max(1L, time.toTicks());
     }
 }
