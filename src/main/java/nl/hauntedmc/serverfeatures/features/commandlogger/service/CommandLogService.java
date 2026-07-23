@@ -90,19 +90,13 @@ public class CommandLogService {
             String sourceLabel,
             String fullCommand
     ) {
-        if (!feature.getPlugin().isEnabled()) {
-            return;
-        }
         try {
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
-                if (!feature.getPlugin().isEnabled()) {
-                    return;
-                }
-                feature.getOrmContext().runInTransaction(session -> {
-                    logServerCommand(session, serverName, timestamp, playerId, sourceLabel, fullCommand);
-                    return null;
-                });
-            });
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() ->
+                    feature.getOrmContext().runInTransaction(session -> {
+                        logServerCommand(session, serverName, timestamp, playerId, sourceLabel, fullCommand);
+                        return null;
+                    })
+            );
         } catch (RuntimeException exception) {
             feature.getLogger().warning("Could not schedule command log write: " + rootMessage(exception));
         }
