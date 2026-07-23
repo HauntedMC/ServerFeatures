@@ -37,43 +37,57 @@ public class GlowStateService {
         this.playerResolver = new PlayerIdentityResolver(playerDirectory);
     }
 
-    /**
-     * Save (upsert) the player's glow state. If effect is empty -> disabled.
-     */
     public void saveGlowState(Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
+        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        if (identity == null) {
+            return;
+        }
+        saveGlowState(bukkitPlayer, identity, effectOpt);
+    }
+
+    public void saveGlowState(Player bukkitPlayer, PlayerIdentity identity, Optional<GlowEffect> effectOpt) {
         feature.getOrmContext().runInTransaction(session -> {
-            saveGlowState(session, bukkitPlayer, effectOpt);
+            saveGlowState(session, identity, effectOpt);
             return null;
         });
     }
 
-    /**
-     * On join: restore glow if DB says enabled and effect is known & permitted.
-     * Silently skips if effect no longer exists or permissions are missing.
-     */
     public void restoreGlowFor(Player bukkitPlayer) {
+        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        if (identity == null) {
+            return;
+        }
+        restoreGlowFor(bukkitPlayer, identity);
+    }
+
+    public void restoreGlowFor(Player bukkitPlayer, PlayerIdentity identity) {
         feature.getOrmContext().runInTransaction(session -> {
-            restoreGlowFor(session, bukkitPlayer);
+            restoreGlowFor(session, bukkitPlayer, identity);
             return null;
         });
     }
 
     void saveGlowState(Session session, Player bukkitPlayer, Optional<GlowEffect> effectOpt) {
-        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        if (identity != null) {
+            saveGlowState(session, identity, effectOpt);
+        }
+    }
 
-        if (playerIdentity == null) {
+    void saveGlowState(Session session, PlayerIdentity identity, Optional<GlowEffect> effectOpt) {
+        if (identity == null || identity.playerId() <= 0L) {
             return;
         }
 
         PlayerGlowStateEntity state = session.createQuery(
                         "SELECT s FROM PlayerGlowStateEntity s WHERE s.playerId = :playerId", PlayerGlowStateEntity.class)
-                .setParameter("playerId", playerIdentity.playerId())
+                .setParameter("playerId", identity.playerId())
                 .uniqueResult();
 
         boolean isNew = false;
         if (state == null) {
             state = new PlayerGlowStateEntity();
-            state.setPlayerId(playerIdentity.playerId());
+            state.setPlayerId(identity.playerId());
             isNew = true;
         }
 
@@ -92,15 +106,20 @@ public class GlowStateService {
     }
 
     void restoreGlowFor(Session session, Player bukkitPlayer) {
-        PlayerIdentity playerIdentity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        PlayerIdentity identity = playerResolver.findActiveByUuid(bukkitPlayer.getUniqueId()).orElse(null);
+        if (identity != null) {
+            restoreGlowFor(session, bukkitPlayer, identity);
+        }
+    }
 
-        if (playerIdentity == null) {
+    void restoreGlowFor(Session session, Player bukkitPlayer, PlayerIdentity identity) {
+        if (identity == null || identity.playerId() <= 0L) {
             return;
         }
 
         PlayerGlowStateEntity state = session.createQuery(
                         "SELECT s FROM PlayerGlowStateEntity s WHERE s.playerId = :playerId", PlayerGlowStateEntity.class)
-                .setParameter("playerId", playerIdentity.playerId())
+                .setParameter("playerId", identity.playerId())
                 .uniqueResult();
 
         if (state == null || !state.isEnabled()) {
@@ -116,5 +135,4 @@ public class GlowStateService {
                 feature.getGlowHandler().restoreGlow(bukkitPlayer, effect)
         );
     }
-
 }
