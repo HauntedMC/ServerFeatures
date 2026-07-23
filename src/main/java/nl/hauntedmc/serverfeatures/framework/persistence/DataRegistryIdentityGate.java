@@ -28,7 +28,7 @@ public final class DataRegistryIdentityGate {
             String operationName
     ) {
         Objects.requireNonNull(action, "action must not be null");
-        runWhenReady(feature, player, (readyPlayer, identity) -> action.accept(readyPlayer), operationName);
+        runWhenReady(feature, player, (readyPlayer, _) -> action.accept(readyPlayer), operationName);
     }
 
     /**
