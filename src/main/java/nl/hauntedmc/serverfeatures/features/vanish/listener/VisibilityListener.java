@@ -20,43 +20,44 @@ public class VisibilityListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onJoin(PlayerJoinEvent e) {
-        Player player = e.getPlayer();
+    public void onJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
         DataRegistryIdentityGate.runWhenReady(
                 feature,
                 player,
-                readyPlayer -> feature.getService().handleJoin(readyPlayer),
+                (readyPlayer, identity) -> feature.getService().handleJoin(readyPlayer, identity),
                 "vanish join"
         );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onLeave(PlayerQuitEvent e) {
-        feature.getService().handleLeave(e);
+    public void onLeave(PlayerQuitEvent event) {
+        feature.getService().handleLeave(event);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onWorldChange(PlayerChangedWorldEvent e) {
-        // Maintain visibility consistency across worlds
-        feature.getService().applyToNewViewer(e.getPlayer());
+    public void onWorldChange(PlayerChangedWorldEvent event) {
+        feature.getService().applyToNewViewer(event.getPlayer());
         feature.getService().allVanished().forEach(id -> {
-            if (!e.getPlayer().getUniqueId().equals(id)) {
-                var v = e.getPlayer().getServer().getPlayer(id);
-                if (v != null) feature.getService().updatePairVisibility(e.getPlayer(), v);
+            if (!event.getPlayer().getUniqueId().equals(id)) {
+                Player vanished = event.getPlayer().getServer().getPlayer(id);
+                if (vanished != null) {
+                    feature.getService().updatePairVisibility(event.getPlayer(), vanished);
+                }
             }
         });
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onRespawn(PlayerRespawnEvent e) {
-        // Reapply hide/show pairwise after respawn
+    public void onRespawn(PlayerRespawnEvent event) {
         feature.getService().allVanished().forEach(id -> {
-            var v = e.getPlayer().getServer().getPlayer(id);
-            if (v != null) feature.getService().updatePairVisibility(e.getPlayer(), v);
+            Player vanished = event.getPlayer().getServer().getPlayer(id);
+            if (vanished != null) {
+                feature.getService().updatePairVisibility(event.getPlayer(), vanished);
+            }
         });
-        if (feature.getService().isPlayerVanished(e.getPlayer())) {
-            // Ensure own flags reapplied
-            feature.getService().setVanished(e.getPlayer(), true);
+        if (feature.getService().isPlayerVanished(event.getPlayer())) {
+            feature.getService().setVanished(event.getPlayer(), true);
         }
     }
 }
