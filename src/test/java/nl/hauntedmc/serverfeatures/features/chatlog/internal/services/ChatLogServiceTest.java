@@ -24,26 +24,61 @@ import static org.mockito.Mockito.when;
 class ChatLogServiceTest {
 
     @Test
-    void addMessageSkipsUnknownIdentities() {
+    void addMessageSkipsUnknownActiveIdentitiesInCompatibilityPath() {
         UUID uuid = UUID.fromString("22222222-2222-2222-2222-222222222222");
         PlayerDirectory directory = mock(PlayerDirectory.class);
         when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
-        assertFalse(new ChatLogService(null, directory).addMessage(session(new ArrayList<>()), "survival", 456L, player(uuid), "hello"));
+
+        assertFalse(new ChatLogService(null, directory).addMessage(
+                session(new ArrayList<>()),
+                "survival",
+                456L,
+                player(uuid),
+                "hello"
+        ));
     }
 
     @Test
     void addMessagePersistsTheDataRegistryPlayerId() {
         UUID uuid = UUID.fromString("33333333-3333-3333-3333-333333333333");
         PlayerDirectory directory = mock(PlayerDirectory.class);
-        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.of(new PlayerIdentity(33L, uuid, "OldName")));
+        when(directory.findActiveIdentityCached(uuid))
+                .thenReturn(Optional.of(new PlayerIdentity(33L, uuid, "OldName")));
         List<Object> persisted = new ArrayList<>();
 
-        assertTrue(new ChatLogService(null, directory).addMessage(session(persisted), "survival", 789L, player(uuid), "message"));
+        assertTrue(new ChatLogService(null, directory).addMessage(
+                session(persisted),
+                "survival",
+                789L,
+                player(uuid),
+                "message"
+        ));
         ChatMessageEntity message = assertInstanceOf(ChatMessageEntity.class, persisted.getFirst());
         assertEquals(33L, message.getPlayerId());
         assertEquals("message", message.getMessage());
     }
 
-    private static Player player(UUID uuid) { return InterfaceProxy.of(Player.class, Map.of("getUniqueId", args -> uuid)); }
-    private static Session session(List<Object> persisted) { return InterfaceProxy.of(Session.class, Map.of("persist", args -> { persisted.add(args[0]); return null; })); }
+    @Test
+    void resolvedPlayerIdRemainsUsableAfterActiveIdentityDisappears() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        List<Object> persisted = new ArrayList<>();
+        ChatLogService service = new ChatLogService(null, directory);
+
+        assertTrue(service.addMessage(session(persisted), "survival", 999L, 44L, "disconnect race"));
+
+        ChatMessageEntity message = assertInstanceOf(ChatMessageEntity.class, persisted.getFirst());
+        assertEquals(44L, message.getPlayerId());
+        assertEquals("disconnect race", message.getMessage());
+    }
+
+    private static Player player(UUID uuid) {
+        return InterfaceProxy.of(Player.class, Map.of("getUniqueId", args -> uuid));
+    }
+
+    private static Session session(List<Object> persisted) {
+        return InterfaceProxy.of(Session.class, Map.of("persist", args -> {
+            persisted.add(args[0]);
+            return null;
+        }));
+    }
 }
