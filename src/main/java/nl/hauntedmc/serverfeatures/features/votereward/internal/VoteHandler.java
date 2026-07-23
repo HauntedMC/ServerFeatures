@@ -13,10 +13,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.UUID;
 
 public class VoteHandler {
@@ -45,13 +43,18 @@ public class VoteHandler {
     }
 
     /**
-     * Entry point from either listener. Bukkit event callers invoke this on the main thread.
+     * Entry point from either listener. All Bukkit work is normalized onto the main thread.
      */
     public void handleVote(IncomingVote vote) {
+        if (!Bukkit.isPrimaryThread()) {
+            scheduleMain(() -> handleVote(vote));
+            return;
+        }
+
         String service = vote.serviceName();
         String suppliedUsername = vote.username() == null ? "" : vote.username().trim();
 
-        if (!whitelist.contains(service)) {
+        if (service == null || !whitelist.contains(service)) {
             feature.getLogger().warning("Rejected vote from unwhitelisted service: " + service);
             return;
         }
@@ -143,18 +146,18 @@ public class VoteHandler {
     }
 
     private List<PendingVote> loadPendingVotes(String stableKey, String legacyName) {
-        Map<String, PendingVote> pending = new LinkedHashMap<>();
+        List<PendingVote> pending = new ArrayList<>();
         collectPendingVotes(cacheStore(stableKey), pending);
         if (!stableKey.equalsIgnoreCase(legacyName)) {
             collectPendingVotes(cacheStore(legacyName), pending);
         }
-        return new ArrayList<>(pending.values());
+        return pending;
     }
 
-    private void collectPendingVotes(FileCacheStore store, Map<String, PendingVote> pending) {
+    private void collectPendingVotes(FileCacheStore store, List<PendingVote> pending) {
         store.listAll().forEach((key, value) -> {
             if (value != null && !value.isExpired()) {
-                pending.putIfAbsent(store.hashCode() + ":" + key, new PendingVote(store, key));
+                pending.add(new PendingVote(store, key));
             } else if (value != null) {
                 store.remove(key);
             }
