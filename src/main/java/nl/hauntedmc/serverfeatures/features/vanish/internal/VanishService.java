@@ -52,13 +52,7 @@ public class VanishService {
             return;
         }
         if (!Bukkit.isPrimaryThread()) {
-            UUID playerUuid = target.getUniqueId();
-            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
-                Player current = Bukkit.getPlayer(playerUuid);
-                if (current != null) {
-                    setVanished(current, value);
-                }
-            });
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> setVanished(target, value));
             return;
         }
         if (!target.isOnline()) {
