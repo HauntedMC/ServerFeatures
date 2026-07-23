@@ -38,15 +38,23 @@ public class NicknamePlaceholder extends PlaceholderExpansion {
 
     @Override
     public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
-        if (params.equalsIgnoreCase("nickname")) {
-            if (player == null) {
-                return "";
-            }
-
-            Optional<String> nickname = feature.getNicknameHandler().getNickname(player);
-            return nickname.orElse(player.getName());
+        if (!params.equalsIgnoreCase("nickname")) {
+            return null;
+        }
+        if (player == null) {
+            return "";
         }
 
-        return null;
+        Optional<String> nickname = feature.getNicknameHandler().getNickname(player);
+        if (nickname.isPresent()) {
+            return nickname.get();
+        }
+
+        feature.getNicknameHandler().warmNicknameIntoCache(player).exceptionally(exception -> {
+            feature.getLogger().warning("Could not warm nickname placeholder for " + player.getUniqueId() + ": "
+                    + exception.getMessage());
+            return Optional.empty();
+        });
+        return player.getName();
     }
 }
