@@ -109,10 +109,20 @@ public final class PlayerIdentityResolver {
                 .findFirst();
     }
 
+    /**
+     * Waits for platform identity preparation and then performs a persisted lookup when readiness
+     * completes empty. DataRegistry readiness is intentionally cache/lifecycle-only, so the fallback
+     * is required to distinguish a known offline player from a genuinely unknown identity.
+     */
     public CompletableFuture<Optional<PlayerIdentity>> whenReady(UUID uuid) {
-        return uuid == null
-                ? CompletableFuture.completedFuture(Optional.empty())
-                : playerDirectory.whenReady(uuid);
+        if (uuid == null) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+        return playerDirectory.whenReady(uuid)
+                .thenCompose(identity -> identity != null && identity.isPresent()
+                        ? CompletableFuture.completedFuture(identity)
+                        : playerDirectory.findByUuid(uuid))
+                .toCompletableFuture();
     }
 
     private static String normalize(String value) {
