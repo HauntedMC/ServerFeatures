@@ -13,6 +13,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +25,7 @@ public class VanishService {
 
     private final Vanish feature;
     private final Set<UUID> vanished = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, Long> playerIds = new ConcurrentHashMap<>();
 
     public VanishService(Vanish feature) {
         this.feature = feature;
@@ -46,31 +48,58 @@ public class VanishService {
     }
 
     public void setVanished(Player target, boolean value) {
-        if (target == null || !target.isOnline()) {
+        if (target == null) {
             return;
         }
         if (!Bukkit.isPrimaryThread()) {
-            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> setVanished(target, value));
+            UUID playerUuid = target.getUniqueId();
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                Player current = Bukkit.getPlayer(playerUuid);
+                if (current != null) {
+                    setVanished(current, value);
+                }
+            });
+            return;
+        }
+        if (!target.isOnline()) {
             return;
         }
 
-        boolean current = vanished.contains(target.getUniqueId());
+        setVanishedInternal(target, value, true);
+    }
+
+    private void setVanishedInternal(Player target, boolean value, boolean persist) {
+        UUID playerUuid = target.getUniqueId();
+        boolean current = vanished.contains(playerUuid);
         if (current == value) {
             return;
         }
 
         if (value) {
-            vanished.add(target.getUniqueId());
+            vanished.add(playerUuid);
             applyVanish(target);
         } else {
-            vanished.remove(target.getUniqueId());
+            vanished.remove(playerUuid);
             removeVanish(target);
         }
 
-        try {
-            feature.getRepository().upsertVanish(target.getUniqueId().toString(), value);
-        } catch (Exception exception) {
-            feature.getLogger().warning("Kon vanish state niet opslaan: " + exception.getMessage());
+        if (persist) {
+            Long playerId = playerIds.get(playerUuid);
+            if (playerId == null) {
+                playerId = feature.getRepository().findExistingPlayerId(playerUuid.toString());
+                if (playerId != null) {
+                    playerIds.put(playerUuid, playerId);
+                }
+            }
+            if (playerId != null) {
+                long stablePlayerId = playerId;
+                feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(
+                        () -> feature.getRepository().upsertVanish(stablePlayerId, value)
+                );
+            } else {
+                feature.getLogger().warning("Kon vanish state niet opslaan: DataRegistry identity ontbreekt voor "
+                        + playerUuid);
+            }
         }
         publishVanishState(target, value);
     }
@@ -85,7 +114,7 @@ public class VanishService {
         }
         Long playerId = feature.getRepository().findExistingPlayerId(player.getUniqueId().toString());
         if (playerId == null) {
-            applyJoinState(player, false);
+            applyJoinState(player.getUniqueId(), false);
             return;
         }
         handleJoin(player, new PlayerIdentity(playerId, player.getUniqueId(), player.getName()));
@@ -96,22 +125,34 @@ public class VanishService {
             return;
         }
 
-        boolean persistedVanished = false;
-        try {
-            persistedVanished = feature.getRepository().isPersistedVanished(identity.playerId());
-        } catch (Exception exception) {
-            feature.getLogger().warning("Kon vanish persistentie niet lezen: " + exception.getMessage());
-        }
-        applyJoinState(player, persistedVanished);
+        UUID playerUuid = player.getUniqueId();
+        playerIds.put(playerUuid, identity.playerId());
+        feature.getLifecycleManager().getTaskManager().supplyAsync(
+                () -> feature.getRepository().isPersistedVanished(identity.playerId())
+        ).whenComplete((persistedVanished, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("Kon vanish persistentie niet lezen: " + rootMessage(throwable));
+                return;
+            }
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(
+                    () -> applyJoinState(playerUuid, Boolean.TRUE.equals(persistedVanished))
+            );
+        });
     }
 
-    private void applyJoinState(Player player, boolean persistedVanished) {
+    private void applyJoinState(UUID playerUuid, boolean persistedVanished) {
+        Player player = Bukkit.getPlayer(playerUuid);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
         if (persistedVanished) {
-            setVanished(player, true);
+            setVanishedInternal(player, true, false);
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-                if (player.isOnline() && isPlayerVanished(player)) {
+                Player current = Bukkit.getPlayer(playerUuid);
+                if (current != null && current.isOnline() && isPlayerVanished(current)) {
                     try {
-                        player.setGameMode(GameMode.SPECTATOR);
+                        current.setGameMode(GameMode.SPECTATOR);
                     } catch (Throwable ignored) {
                     }
                 }
@@ -121,9 +162,10 @@ public class VanishService {
                     feature.getLocalizationHandler().getMessage("vanish.staff_joined_vanished")
                             .with("name", player.getName())
                             .build(),
-                    player.getUniqueId()
+                    playerUuid
             );
         } else {
+            vanished.remove(playerUuid);
             removeVanish(player);
         }
         applyToNewViewer(player);
@@ -239,6 +281,7 @@ public class VanishService {
             }
         }
         vanished.clear();
+        playerIds.clear();
     }
 
     private void publishVanishState(Player target, boolean value) {
@@ -255,8 +298,17 @@ public class VanishService {
     }
 
     public void handleLeave(PlayerQuitEvent event) {
-        if (event.getPlayer().hasPermission(PERM_TOGGLE_SELF)) {
-            vanished.remove(event.getPlayer().getUniqueId());
+        UUID playerUuid = event.getPlayer().getUniqueId();
+        vanished.remove(playerUuid);
+        playerIds.remove(playerUuid);
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
         }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }
