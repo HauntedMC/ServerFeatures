@@ -89,6 +89,29 @@ public class NicknameHandler {
                 });
     }
 
+    public CompletionStage<Optional<PlayerIdentity>> findPlayerIdentity(String identifier) {
+        return nicknameService.findPlayerIdentity(identifier);
+    }
+
+    public CompletionStage<NicknameMutationResult> setNickname(PlayerIdentity identity, String unformattedNickname) {
+        NicknameMutationResult validation = validateNickname(unformattedNickname);
+        if (!validation.success()) {
+            return CompletableFuture.completedFuture(validation);
+        }
+
+        String nickname = validation.nickname();
+        return nicknameService.setNickname(identity, nickname)
+                .thenApply(ignored -> {
+                    nicknameCache.put(identity.uuid(), nickname);
+                    return validation;
+                });
+    }
+
+    public CompletionStage<Void> removeNickname(PlayerIdentity identity) {
+        return nicknameService.removeNickname(identity)
+                .thenRun(() -> nicknameCache.remove(identity.uuid()));
+    }
+
     private void loadNicknameIntoCache(UUID playerId, PlayerIdentity identity) {
         nicknameService.findNickname(identity).whenComplete((nickname, throwable) -> {
             if (throwable != null || nickname == null || nickname.isEmpty()) {
@@ -100,31 +123,9 @@ public class NicknameHandler {
     }
 
     public boolean setNickname(Player player, String unformattedNickname) {
-        for (String disallowed : disallowedFormatting) {
-            if (unformattedNickname.contains(disallowed)) {
-                player.sendMessage(feature.getLocalizationHandler()
-                        .getMessage("nickname.disallowed_formatting")
-                        .forAudience(player)
-                        .build());
-                return false;
-            }
-        }
-        String nickname = translateColours(unformattedNickname);
-        String plainTextNickname = TextFormatter.toPlain(nickname);
-
-        if (!hasValidNicknameLength(plainTextNickname)) {
-            player.sendMessage(feature.getLocalizationHandler()
-                    .getMessage("nickname.max_length_exceeded")
-                    .forAudience(player)
-                    .build());
-            return false;
-        }
-
-        if (!hasValidNicknameCharacters(plainTextNickname)) {
-            player.sendMessage(feature.getLocalizationHandler()
-                    .getMessage("nickname.invalid_characters")
-                    .forAudience(player)
-                    .build());
+        NicknameMutationResult validation = validateNickname(unformattedNickname);
+        if (!validation.success()) {
+            sendValidationFailure(player, validation.failure());
             return false;
         }
 
@@ -137,9 +138,46 @@ public class NicknameHandler {
             return false;
         }
 
-        nicknameService.setNickname(playerIdentity.get(), nickname);
-        nicknameCache.put(player.getUniqueId(), nickname);
+        String nickname = validation.nickname();
+        nicknameService.setNickname(playerIdentity.get(), nickname).whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("Could not save nickname for " + playerIdentity.get().uuid() + ": "
+                        + rootMessage(throwable));
+                return;
+            }
+            nicknameCache.put(player.getUniqueId(), nickname);
+        });
         return true;
+    }
+
+    private NicknameMutationResult validateNickname(String unformattedNickname) {
+        if (unformattedNickname == null || unformattedNickname.isBlank()) {
+            return NicknameMutationResult.failure(NicknameFailure.INVALID_LENGTH);
+        }
+        for (String disallowed : disallowedFormatting) {
+            if (unformattedNickname.contains(disallowed)) {
+                return NicknameMutationResult.failure(NicknameFailure.DISALLOWED_FORMATTING);
+            }
+        }
+
+        String nickname = translateColours(unformattedNickname);
+        String plainTextNickname = TextFormatter.toPlain(nickname);
+        if (!hasValidNicknameLength(plainTextNickname)) {
+            return NicknameMutationResult.failure(NicknameFailure.INVALID_LENGTH);
+        }
+        if (!hasValidNicknameCharacters(plainTextNickname)) {
+            return NicknameMutationResult.failure(NicknameFailure.INVALID_CHARACTERS);
+        }
+        return NicknameMutationResult.success(nickname);
+    }
+
+    public void sendValidationFailure(Player player, NicknameFailure failure) {
+        String key = switch (failure) {
+            case DISALLOWED_FORMATTING -> "nickname.disallowed_formatting";
+            case INVALID_LENGTH -> "nickname.max_length_exceeded";
+            case INVALID_CHARACTERS -> "nickname.invalid_characters";
+        };
+        player.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(player).build());
     }
 
     private boolean hasValidNicknameLength(String plainTextNickname) {
@@ -166,8 +204,39 @@ public class NicknameHandler {
             return false;
         }
 
-        nicknameService.removeNickname(playerIdentity.get());
-        nicknameCache.remove(player.getUniqueId());
+        nicknameService.removeNickname(playerIdentity.get()).whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning("Could not remove nickname for " + playerIdentity.get().uuid() + ": "
+                        + rootMessage(throwable));
+                return;
+            }
+            nicknameCache.remove(player.getUniqueId());
+        });
         return true;
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
+    }
+
+    public enum NicknameFailure {
+        DISALLOWED_FORMATTING,
+        INVALID_LENGTH,
+        INVALID_CHARACTERS
+    }
+
+    public record NicknameMutationResult(boolean success, String nickname, NicknameFailure failure) {
+        public static NicknameMutationResult success(String nickname) {
+            return new NicknameMutationResult(true, nickname, null);
+        }
+
+        public static NicknameMutationResult failure(NicknameFailure failure) {
+            return new NicknameMutationResult(false, null, failure);
+        }
     }
 }
