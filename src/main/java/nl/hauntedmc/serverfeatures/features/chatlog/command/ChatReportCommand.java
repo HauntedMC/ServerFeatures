@@ -11,10 +11,10 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -54,7 +54,7 @@ public class ChatReportCommand extends FeatureCommand {
         int timeframeMinutes = (int) feature.getConfigHandler().get("reportTimeFrameMinutes");
         long reportStart = currentTime - timeframeMinutes * 60 * 1000L;
         String serverName = (String) feature.getConfigHandler().getGlobalSetting("server_name");
-        Set<String> requestedPlayers = new LinkedHashSet<>(List.of(args));
+        List<String> requestedPlayers = uniqueCaseInsensitive(args);
 
         List<CompletableFuture<PlayerMessageCount>> lookups = requestedPlayers.stream()
                 .map(playerName -> feature.getReportHandler()
@@ -65,10 +65,7 @@ public class ChatReportCommand extends FeatureCommand {
 
         CompletableFuture.allOf(lookups.toArray(CompletableFuture[]::new)).whenComplete((ignored, throwable) -> {
             if (throwable != null) {
-                scheduleMain(() -> player.sendMessage(feature.getLocalizationHandler()
-                        .getMessage("chatlog.errorNotSaved")
-                        .forAudience(player)
-                        .build()));
+                scheduleMain(() -> sendFailure(player));
                 return;
             }
 
@@ -82,35 +79,34 @@ public class ChatReportCommand extends FeatureCommand {
                     .map(PlayerMessageCount::playerName)
                     .toList();
 
-            scheduleMain(() -> missingPlayers.forEach(playerName -> player.sendMessage(
-                    feature.getLocalizationHandler().getMessage("chatlog.error")
-                            .forAudience(player)
-                            .with("name", playerName)
-                            .build()
-            )));
+            scheduleMain(() -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                missingPlayers.forEach(playerName -> player.sendMessage(
+                        feature.getLocalizationHandler().getMessage("chatlog.error")
+                                .forAudience(player)
+                                .with("name", playerName)
+                                .build()
+                ));
+            });
 
             if (reportedPlayers.isEmpty()) {
-                scheduleMain(() -> player.sendMessage(feature.getLocalizationHandler()
-                        .getMessage("chatlog.errorNotSaved")
-                        .forAudience(player)
-                        .build()));
+                scheduleMain(() -> sendFailure(player));
                 return;
             }
 
             String reportId = UUID.randomUUID().toString().replace("-", "");
+            String baseUrl = (String) feature.getConfigHandler().get("URL");
+            String fullUrl = baseUrl + reportId;
             feature.getReportHandler()
                     .createReport(serverName, reportedPlayers, reportStart, currentTime, reportId)
                     .whenComplete((created, createThrowable) -> {
                         if (createThrowable != null) {
-                            scheduleMain(() -> player.sendMessage(feature.getLocalizationHandler()
-                                    .getMessage("chatlog.errorNotSaved")
-                                    .forAudience(player)
-                                    .build()));
+                            scheduleMain(() -> sendFailure(player));
                             return;
                         }
 
-                        String baseUrl = (String) feature.getConfigHandler().get("URL");
-                        String fullUrl = baseUrl + reportId;
                         scheduleMain(() -> {
                             if (!player.isOnline()) {
                                 return;
@@ -151,15 +147,37 @@ public class ChatReportCommand extends FeatureCommand {
         return completions;
     }
 
-    private void scheduleMain(Runnable task) {
-        if (!feature.getPlugin().isEnabled()) {
+    private List<String> uniqueCaseInsensitive(String[] args) {
+        Map<String, String> names = new LinkedHashMap<>();
+        for (String argument : args) {
+            if (argument != null && !argument.isBlank()) {
+                String normalized = argument.trim();
+                names.putIfAbsent(normalized.toLowerCase(Locale.ROOT), normalized);
+            }
+        }
+        return List.copyOf(names.values());
+    }
+
+    private void sendFailure(Player player) {
+        if (!player.isOnline()) {
             return;
         }
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
-            if (feature.getPlugin().isEnabled()) {
-                task.run();
-            }
-        });
+        player.sendMessage(feature.getLocalizationHandler()
+                .getMessage("chatlog.errorNotSaved")
+                .forAudience(player)
+                .build());
+    }
+
+    private void scheduleMain(Runnable task) {
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                if (feature.getPlugin().isEnabled()) {
+                    task.run();
+                }
+            });
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning("Could not schedule chat report completion: " + exception.getMessage());
+        }
     }
 
     private record PlayerMessageCount(String playerName, int count) {
