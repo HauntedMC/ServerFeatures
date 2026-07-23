@@ -123,7 +123,8 @@ public class VoteHandler {
     private void queueOfflineVote(String cacheKey, String service) {
         FileCacheStore cache = cacheStore(cacheKey);
         CacheValue value = CacheValue.builder(cacheTtlMillis).with("service", service).build();
-        cache.put("vote_" + System.currentTimeMillis(), value);
+        String voteKey = "vote_" + System.currentTimeMillis() + "_" + UUID.randomUUID();
+        cache.put(voteKey, value);
     }
 
     public void processOfflineVotesOnJoin(Player player) {
