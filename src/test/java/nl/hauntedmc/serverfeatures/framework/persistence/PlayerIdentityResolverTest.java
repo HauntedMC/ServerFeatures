@@ -69,6 +69,23 @@ class PlayerIdentityResolverTest {
     }
 
     @Test
+    void normalizesPersistedUsernameInput() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        PlayerIdentity identity = new PlayerIdentity(44L, UUID.randomUUID(), "Alice");
+        when(directory.snapshotActiveIdentities()).thenReturn(Map.of());
+        when(directory.findByUsernameIgnoreCase("Alice"))
+                .thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
+
+        PlayerIdentity result = new PlayerIdentityResolver(directory).findByUsername("  Alice  ")
+                .toCompletableFuture()
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory).findByUsernameIgnoreCase("Alice");
+    }
+
+    @Test
     void returnsEmptyWhenPersistedIdentityDoesNotExist() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         UUID uuid = UUID.randomUUID();
