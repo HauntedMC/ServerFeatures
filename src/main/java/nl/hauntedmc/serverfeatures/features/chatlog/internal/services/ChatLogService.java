@@ -78,9 +78,6 @@ public class ChatLogService {
     }
 
     private void schedulePersist(String serverName, long timestamp, long playerId, String rawMessage) {
-        if (!feature.getPlugin().isEnabled()) {
-            return;
-        }
         try {
             feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
                 if (!feature.getPlugin().isEnabled()) {
@@ -105,12 +102,7 @@ public class ChatLogService {
                         .map(value -> feature.getLifecycleManager().getTaskManager().supplyAsync(
                                 () -> countMessagesByPlayerId(server, value.playerId(), start, end)
                         ))
-                        .orElseGet(() -> CompletableFuture.completedFuture(0)))
-                .exceptionally(exception -> {
-                    feature.getLogger().warning("Could not count chat messages for " + playerName + ": "
-                            + rootMessage(exception));
-                    return 0;
-                });
+                        .orElseGet(() -> CompletableFuture.completedFuture(0)));
     }
 
     /**
@@ -125,20 +117,20 @@ public class ChatLogService {
     ) {
         return resolvePlayerIds(players).thenCompose(playerIds -> {
             if (playerIds.isEmpty()) {
-                return CompletableFuture.completedFuture(null);
+                return CompletableFuture.failedFuture(
+                        new IllegalArgumentException("No known player identities were resolved for the report.")
+                );
             }
             return feature.getLifecycleManager().getTaskManager().runAsync(
                     () -> createReportByPlayerIds(server, playerIds, start, end, reportId)
             );
-        }).exceptionally(exception -> {
-            feature.getLogger().warning("Could not create chat report: " + rootMessage(exception));
-            return null;
         });
     }
 
     private CompletionStage<Set<Long>> resolvePlayerIds(List<String> players) {
         List<CompletableFuture<Optional<Long>>> lookups = players.stream()
                 .filter(player -> player != null && !player.isBlank())
+                .map(String::trim)
                 .distinct()
                 .map(playerResolver::findByUsername)
                 .map(stage -> stage.thenApply(identity -> identity.map(PlayerIdentity::playerId)).toCompletableFuture())
