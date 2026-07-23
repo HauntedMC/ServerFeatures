@@ -101,10 +101,8 @@ public class NicknameHandler {
 
         String nickname = validation.nickname();
         return nicknameService.setNickname(identity, nickname)
-                .thenApply(ignored -> {
-                    nicknameCache.put(identity.uuid(), nickname);
-                    return validation;
-                });
+                .thenRun(() -> nicknameCache.put(identity.uuid(), nickname))
+                .thenApply(completed -> validation);
     }
 
     public CompletionStage<Void> removeNickname(PlayerIdentity identity) {
@@ -145,14 +143,13 @@ public class NicknameHandler {
         PlayerIdentity identity = playerIdentity.get();
         UUID playerUuid = player.getUniqueId();
         String nickname = validation.nickname();
-        nicknameService.setNickname(identity, nickname).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Could not save nickname for " + identity.uuid() + ": "
-                        + rootMessage(throwable));
-                return;
-            }
-            nicknameCache.put(playerUuid, nickname);
-        });
+        nicknameService.setNickname(identity, nickname)
+                .thenRun(() -> nicknameCache.put(playerUuid, nickname))
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning("Could not save nickname for " + identity.uuid() + ": "
+                            + rootMessage(throwable));
+                    return null;
+                });
         return true;
     }
 
@@ -215,14 +212,13 @@ public class NicknameHandler {
 
         PlayerIdentity identity = playerIdentity.get();
         UUID playerUuid = player.getUniqueId();
-        nicknameService.removeNickname(identity).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
-                        + rootMessage(throwable));
-                return;
-            }
-            nicknameCache.remove(playerUuid);
-        });
+        nicknameService.removeNickname(identity)
+                .thenRun(() -> nicknameCache.remove(playerUuid))
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
+                            + rootMessage(throwable));
+                    return null;
+                });
         return true;
     }
 
