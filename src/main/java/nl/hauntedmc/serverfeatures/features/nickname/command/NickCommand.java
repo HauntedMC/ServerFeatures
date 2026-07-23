@@ -119,21 +119,20 @@ public class NickCommand extends FeatureCommand {
     }
 
     private void removeSelf(Player player, PlayerIdentity identity) {
-        feature.getNicknameHandler().removeNickname(identity).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
-                        + rootMessage(throwable));
-                scheduleMain(() -> sendDataUnavailable(player));
-                return;
-            }
-            scheduleMain(() -> {
-                if (player.isOnline()) {
-                    player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
-                            .forAudience(player)
-                            .build());
-                }
-            });
-        });
+        feature.getNicknameHandler().removeNickname(identity)
+                .thenRun(() -> scheduleMain(() -> {
+                    if (player.isOnline()) {
+                        player.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
+                                .forAudience(player)
+                                .build());
+                    }
+                }))
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning("Could not remove nickname for " + identity.uuid() + ": "
+                            + rootMessage(throwable));
+                    scheduleMain(() -> sendDataUnavailable(player));
+                    return null;
+                });
     }
 
     private void handleOther(Player actor, String identifier, String value) {
@@ -201,30 +200,28 @@ public class NickCommand extends FeatureCommand {
     }
 
     private void removeOther(Player actor, PlayerIdentity targetIdentity) {
-        feature.getNicknameHandler().removeNickname(targetIdentity).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Could not remove nickname for " + targetIdentity.uuid() + ": "
-                        + rootMessage(throwable));
-                scheduleMain(() -> sendDataUnavailable(actor));
-                return;
-            }
-
-            scheduleMain(() -> {
-                if (!actor.isOnline()) {
-                    return;
-                }
-                Player onlineTarget = Bukkit.getPlayer(targetIdentity.uuid());
-                if (onlineTarget != null && onlineTarget.isOnline()) {
-                    onlineTarget.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
-                            .forAudience(onlineTarget)
+        feature.getNicknameHandler().removeNickname(targetIdentity)
+                .thenRun(() -> scheduleMain(() -> {
+                    if (!actor.isOnline()) {
+                        return;
+                    }
+                    Player onlineTarget = Bukkit.getPlayer(targetIdentity.uuid());
+                    if (onlineTarget != null && onlineTarget.isOnline()) {
+                        onlineTarget.sendMessage(feature.getLocalizationHandler().getMessage("nickname.removed")
+                                .forAudience(onlineTarget)
+                                .build());
+                    }
+                    actor.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed")
+                            .forAudience(actor)
+                            .with("player", targetIdentity.username())
                             .build());
-                }
-                actor.sendMessage(feature.getLocalizationHandler().getMessage("nickname.other_removed")
-                        .forAudience(actor)
-                        .with("player", targetIdentity.username())
-                        .build());
-            });
-        });
+                }))
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning("Could not remove nickname for " + targetIdentity.uuid() + ": "
+                            + rootMessage(throwable));
+                    scheduleMain(() -> sendDataUnavailable(actor));
+                    return null;
+                });
     }
 
     private void sendDataUnavailable(Player player) {
