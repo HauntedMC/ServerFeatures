@@ -97,9 +97,13 @@
                                 <bannedDependencies>
                                     <searchTransitive>true</searchTransitive>
                                     <excludes>
-                                        <exclude>net.kyori:adventure-*:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-api:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-key:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-nbt:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-resource-pack:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-*:[0,5.0.0)</exclude>
                                     </excludes>
-                                    <message>Adventure 4.x is not supported. Keep all Adventure dependencies on 5.x.</message>
+                                    <message>Adventure 4.x core modules are not supported. Keep the Adventure core dependency graph on 5.x.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
