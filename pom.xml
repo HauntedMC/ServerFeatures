@@ -17,7 +17,7 @@
         <!-- Platform and HauntedMC module APIs. -->
         <adventure.version>5.2.0</adventure.version>
         <gson.version>2.14.0</gson.version>
-        <paper.version>26.1.2.build.74-stable</paper.version>
+        <paper.version>26.2.build.65-beta</paper.version>
         <dataregistry.version>1.11.5</dataregistry.version>
         <dataprovider.version>3.0.5</dataprovider.version>
         <proxyfeatures.version>2.11.4</proxyfeatures.version>
