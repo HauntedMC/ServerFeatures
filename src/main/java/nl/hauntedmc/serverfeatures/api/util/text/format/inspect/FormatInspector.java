@@ -125,7 +125,7 @@ public final class FormatInspector {
         if (aspects.contains(ComponentAspect.TRANSLATABLE) && (c instanceof TranslatableComponent)) return true;
         if (aspects.contains(ComponentAspect.SCORE) && (c instanceof ScoreComponent)) return true;
         if (aspects.contains(ComponentAspect.SELECTOR) && (c instanceof SelectorComponent)) return true;
-        if (aspects.contains(ComponentAspect.NBT) && (c instanceof NBTComponent<?, ?>)) return true;
+        if (aspects.contains(ComponentAspect.NBT) && (c instanceof NBTComponent<?>)) return true;
 
         // Children
         for (Component child : c.children()) {
