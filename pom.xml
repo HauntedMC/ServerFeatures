@@ -13,10 +13,40 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Platform and HauntedMC module APIs. -->
         <adventure.version>4.26.1</adventure.version>
         <gson.version>2.14.0</gson.version>
         <paper.version>26.1.2.build.74-stable</paper.version>
+        <dataregistry.version>1.11.5</dataregistry.version>
+        <dataprovider.version>3.0.5</dataprovider.version>
+        <proxyfeatures.version>2.11.4</proxyfeatures.version>
+
+        <!-- External plugin APIs and bundled libraries. -->
+        <viaversion.version>[5.0.0,6.0.0)</viaversion.version>
+        <placeholderapi.version>2.12.3</placeholderapi.version>
+        <commons.text.version>1.15.0</commons.text.version>
+        <classgraph.version>4.8.184</classgraph.version>
+        <json.simple.version>1.1.1</json.simple.version>
+        <packetevents.version>2.13.0</packetevents.version>
+        <citizens.version>2.0.37-SNAPSHOT</citizens.version>
+        <vault.version>1.7.1</vault.version>
+        <luckperms.version>5.5</luckperms.version>
+        <libsdisguises.version>11.0.18</libsdisguises.version>
+        <worldguard.version>7.0.17</worldguard.version>
+        <fawe.version>2.15.3</fawe.version>
+        <griefprevention.version>18.0.0</griefprevention.version>
+        <essentialsx.version>2.21.2</essentialsx.version>
+        <junit.version>6.1.2</junit.version>
+        <nuvotifier.version>2.7.2</nuvotifier.version>
+        <commons.lang3.version>3.20.0</commons.lang3.version>
+        <javax.annotation.version>1.3.2</javax.annotation.version>
+        <jsr305.version>3.0.2</jsr305.version>
+        <snakeyaml.version>2.6</snakeyaml.version>
+
+        <!-- Build and test tooling. -->
         <mockito.version>5.23.0</mockito.version>
+        <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
     </properties>
 
     <distributionManagement>
@@ -45,6 +75,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
                 <configuration>
                     <source>25</source>
                     <target>25</target>
@@ -149,6 +180,10 @@
     </dependencyManagement>
     <repositories>
         <repository>
+            <id>central</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
@@ -246,25 +281,25 @@
         <dependency>
             <groupId>com.viaversion</groupId>
             <artifactId>viaversion-api</artifactId>
-            <version>[5.0.0,6.0.0)</version>
+            <version>${viaversion.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.dataregistry</groupId>
             <artifactId>dataregistry-api</artifactId>
-            <version>1.11.5</version>
+            <version>${dataregistry.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.dataprovider</groupId>
             <artifactId>dataprovider-api</artifactId>
-            <version>3.0.1</version>
+            <version>${dataprovider.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>nl.hauntedmc.proxyfeatures</groupId>
             <artifactId>proxyfeatures</artifactId>
-            <version>2.11.3</version>
+            <version>${proxyfeatures.version}</version>
             <scope>compile</scope>
             <exclusions>
                 <!-- ServerFeatures supplies DataProvider exclusively through its public 3.x API. -->
@@ -277,18 +312,18 @@
         <dependency>
             <groupId>me.clip</groupId>
             <artifactId>placeholderapi</artifactId>
-            <version>2.12.3</version>
+            <version>${placeholderapi.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
-            <version>1.15.0</version>
+            <version>${commons.text.version}</version>
         </dependency>
         <dependency>
             <groupId>io.github.classgraph</groupId>
             <artifactId>classgraph</artifactId>
-            <version>4.8.184</version>
+            <version>${classgraph.version}</version>
         </dependency>
         <dependency>
             <groupId>io.papermc.paper</groupId>
@@ -299,52 +334,54 @@
         <dependency>
             <groupId>com.googlecode.json-simple</groupId>
             <artifactId>json-simple</artifactId>
-            <version>LATEST</version>
+            <version>${json.simple.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.retrooper</groupId>
             <artifactId>packetevents-spigot</artifactId>
-            <version>2.13.0</version>
+            <version>${packetevents.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.citizensnpcs</groupId>
             <artifactId>citizens-main</artifactId>
-            <version>2.0.37-SNAPSHOT</version>
+            <version>${citizens.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.MilkBowl</groupId>
             <artifactId>VaultAPI</artifactId>
-            <version>1.7.1</version>
+            <version>${vault.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.luckperms</groupId>
             <artifactId>api</artifactId>
-            <version>5.5</version>
+            <version>${luckperms.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>me.libraryaddict.disguises</groupId>
             <artifactId>libsdisguises</artifactId>
-            <version>11.0.18</version>
+            <version>${libsdisguises.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.sk89q.worldguard</groupId>
             <artifactId>worldguard-bukkit</artifactId>
-            <version>7.0.17</version>
+            <version>${worldguard.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fastasyncworldedit</groupId>
             <artifactId>FastAsyncWorldEdit-Core</artifactId>
+            <version>${fawe.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.fastasyncworldedit</groupId>
             <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+            <version>${fawe.version}</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -356,19 +393,19 @@
         <dependency>
             <groupId>com.github.TechFortress</groupId>
             <artifactId>GriefPrevention</artifactId>
-            <version>16.18.1</version>
+            <version>${griefprevention.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.essentialsx</groupId>
             <artifactId>EssentialsX</artifactId>
-            <version>2.21.2</version>
+            <version>${essentialsx.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>6.1.2</version>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -380,28 +417,28 @@
         <dependency>
             <groupId>com.github.NuVotifier</groupId>
             <artifactId>NuVotifier</artifactId>
-            <version>2.7.2</version>
+            <version>${nuvotifier.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-            <version>LATEST</version>
+            <version>${commons.lang3.version}</version>
         </dependency>
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-            <version>1.3.2</version>
+            <version>${javax.annotation.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
-            <version>3.0.2</version>
+            <version>${jsr305.version}</version>
         </dependency>
         <dependency>
             <groupId>org.yaml</groupId>
             <artifactId>snakeyaml</artifactId>
-            <version>2.6</version>
+            <version>${snakeyaml.version}</version>
         </dependency>
     </dependencies>
 </project>
