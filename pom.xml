@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>nl.hauntedmc.serverfeatures</groupId>
@@ -15,7 +15,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Platform and HauntedMC module APIs. -->
-        <adventure.version>4.26.1</adventure.version>
+        <adventure.version>5.2.0</adventure.version>
         <gson.version>2.14.0</gson.version>
         <paper.version>26.1.2.build.74-stable</paper.version>
         <dataregistry.version>1.11.5</dataregistry.version>
@@ -47,6 +47,7 @@
         <!-- Build and test tooling. -->
         <mockito.version>5.23.0</mockito.version>
         <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
+        <maven.enforcer.plugin.version>3.6.2</maven.enforcer.plugin.version>
     </properties>
 
     <distributionManagement>
@@ -83,6 +84,30 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven.enforcer.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-adventure-5</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>net.kyori:*:[0,5.0.0)</exclude>
+                                    </excludes>
+                                    <message>Adventure 4.x is not supported. Keep all net.kyori dependencies on Adventure 5.x.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.6.0</version>
                 <configuration>
@@ -109,7 +134,6 @@
                     <argLine>-Dnet.bytebuddy.experimental=true -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar</argLine>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -122,18 +146,14 @@
                         </goals>
                         <configuration>
                             <relocations>
-                                <!-- Relocate ClassGraph -->
                                 <relocation>
                                     <pattern>io.github.classgraph</pattern>
                                     <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>
                                 </relocation>
-
-                                <!-- Relocate Apache Commons Text -->
                                 <relocation>
                                     <pattern>org.apache.commons.text</pattern>
                                     <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_text</shadedPattern>
                                 </relocation>
-
                                 <relocation>
                                     <pattern>nonapi.io.github.classgraph</pattern>
                                     <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nonapi.classgraph</shadedPattern>
@@ -167,8 +187,16 @@
             </resource>
         </resources>
     </build>
+
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-bom</artifactId>
+                <version>${adventure.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.intellectualsites.bom</groupId>
                 <artifactId>bom-newest</artifactId>
@@ -178,70 +206,26 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
     <repositories>
-        <repository>
-            <id>central</id>
-            <url>https://repo.maven.apache.org/maven2</url>
-        </repository>
-        <repository>
-            <id>papermc</id>
-            <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <repository>
-            <id>essentials-releases</id>
-            <url>https://repo.essentialsx.net/releases/</url>
-        </repository>
-        <repository>
-            <id>enginehub</id>
-            <url>https://maven.enginehub.org/repo/</url>
-        </repository>
-        <repository>
-            <id>spigot-repo</id>
-            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-        </repository>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-        <repository>
-            <id>placeholderapi</id>
-            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
-        </repository>
-        <repository>
-            <id>codemc-releases</id>
-            <url>https://repo.codemc.io/repository/maven-releases/</url>
-        </repository>
-        <repository>
-            <id>codemc-snapshots</id>
-            <url>https://repo.codemc.io/repository/maven-snapshots/</url>
-        </repository>
-        <repository>
-            <id>md_5-public</id>
-            <url>https://repo.md-5.net/content/groups/public/</url>
-        </repository>
-        <repository>
-            <id>md_5-releases</id>
-            <url>https://repo.md-5.net/content/repositories/releases/</url>
-        </repository>
-        <repository>
-            <id>citizens-repo</id>
-            <url>https://maven.citizensnpcs.co/repo</url>
-        </repository>
-        <repository>
-            <id>libsdisguises-public</id>
-            <url>https://mvn.lib.co.nz/public/</url>
-        </repository>
-        <repository>
-            <id>viaversion-repo</id>
-            <url>https://repo.viaversion.com</url>
-        </repository>
-        <repository>
-            <id>github</id>
-            <url>https://maven.pkg.github.com/HauntedMC/*</url>
-        </repository>
+        <repository><id>central</id><url>https://repo.maven.apache.org/maven2</url></repository>
+        <repository><id>papermc</id><url>https://repo.papermc.io/repository/maven-public/</url></repository>
+        <repository><id>essentials-releases</id><url>https://repo.essentialsx.net/releases/</url></repository>
+        <repository><id>enginehub</id><url>https://maven.enginehub.org/repo/</url></repository>
+        <repository><id>spigot-repo</id><url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url></repository>
+        <repository><id>jitpack.io</id><url>https://jitpack.io</url></repository>
+        <repository><id>placeholderapi</id><url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url></repository>
+        <repository><id>codemc-releases</id><url>https://repo.codemc.io/repository/maven-releases/</url></repository>
+        <repository><id>codemc-snapshots</id><url>https://repo.codemc.io/repository/maven-snapshots/</url></repository>
+        <repository><id>md_5-public</id><url>https://repo.md-5.net/content/groups/public/</url></repository>
+        <repository><id>md_5-releases</id><url>https://repo.md-5.net/content/repositories/releases/</url></repository>
+        <repository><id>citizens-repo</id><url>https://maven.citizensnpcs.co/repo</url></repository>
+        <repository><id>libsdisguises-public</id><url>https://mvn.lib.co.nz/public/</url></repository>
+        <repository><id>viaversion-repo</id><url>https://repo.viaversion.com</url></repository>
+        <repository><id>github</id><url>https://maven.pkg.github.com/HauntedMC/*</url></repository>
     </repositories>
+
     <dependencies>
-        <!-- Paper provides Gson at runtime; declare it directly for compilation. -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
@@ -251,31 +235,26 @@
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
-            <version>${adventure.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-minimessage</artifactId>
-            <version>${adventure.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-gson</artifactId>
-            <version>${adventure.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>${adventure.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>${adventure.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -302,7 +281,6 @@
             <version>${proxyfeatures.version}</version>
             <scope>compile</scope>
             <exclusions>
-                <!-- ServerFeatures supplies DataProvider exclusively through its public 3.x API. -->
                 <exclusion>
                     <groupId>nl.hauntedmc.dataprovider</groupId>
                     <artifactId>dataprovider</artifactId>
