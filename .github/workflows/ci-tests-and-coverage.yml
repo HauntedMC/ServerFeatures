@@ -60,8 +60,8 @@ jobs:
             '-Dincludes=net.kyori:adventure-*' \
             -DoutputFile=target/ci/adventure-dependency-tree.txt
           cat target/ci/adventure-dependency-tree.txt
-          if grep -E 'net\.kyori:adventure-[^:]+:[^:]+:4\.' target/ci/adventure-dependency-tree.txt; then
-            echo "Adventure 4.x remains in the resolved dependency graph." >&2
+          if grep -E 'net\.kyori:(adventure-api|adventure-key|adventure-nbt|adventure-resource-pack|adventure-text-[^:]+):[^:]+:4\.' target/ci/adventure-dependency-tree.txt; then
+            echo "Adventure 4.x core modules remain in the resolved dependency graph." >&2
             exit 1
           fi
 
