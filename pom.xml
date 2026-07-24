@@ -97,9 +97,9 @@
                                 <bannedDependencies>
                                     <searchTransitive>true</searchTransitive>
                                     <excludes>
-                                        <exclude>net.kyori:*:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-*:[0,5.0.0)</exclude>
                                     </excludes>
-                                    <message>Adventure 4.x is not supported. Keep all net.kyori dependencies on Adventure 5.x.</message>
+                                    <message>Adventure 4.x is not supported. Keep all Adventure dependencies on 5.x.</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
