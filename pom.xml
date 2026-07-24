@@ -101,7 +101,17 @@
                                         <exclude>net.kyori:adventure-key:[0,5.0.0)</exclude>
                                         <exclude>net.kyori:adventure-nbt:[0,5.0.0)</exclude>
                                         <exclude>net.kyori:adventure-resource-pack:[0,5.0.0)</exclude>
-                                        <exclude>net.kyori:adventure-text-*:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-serializer-configurate4:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-logger-slf4j:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-minimessage:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-ansi:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-commons:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-gson:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-gson-legacy-impl:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-json:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-json-legacy-impl:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-legacy:[0,5.0.0)</exclude>
+                                        <exclude>net.kyori:adventure-text-serializer-plain:[0,5.0.0)</exclude>
                                     </excludes>
                                     <message>Adventure 4.x core modules are not supported. Keep the Adventure core dependency graph on 5.x.</message>
                                 </bannedDependencies>
@@ -383,6 +393,13 @@
             <artifactId>EssentialsX</artifactId>
             <version>${essentialsx.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <!-- Paper provides the Adventure runtime; the EssentialsX platform bridge carries obsolete 4.x core serializers. -->
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-platform-bukkit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
