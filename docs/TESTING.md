@@ -17,25 +17,25 @@ Shared helpers live under `src/test/java/nl/hauntedmc/serverfeatures/util`.
 Run tests:
 
 ```bash
-mvn -q test
+./mvnw -q test
 ```
 
 Run the full quality gate:
 
 ```bash
-mvn -B verify
+./mvnw -B -ntp verify
 ```
 
 Run lint checks:
 
 ```bash
-mvn -B -DskipTests checkstyle:check
+./mvnw -B -ntp -DskipTests checkstyle:check
 ```
 
 Generate a local coverage report:
 
 ```bash
-mvn -q test jacoco:report
+./mvnw -q test jacoco:report
 ```
 
 ## What to Test
@@ -61,7 +61,7 @@ Use these rules during authoring and review:
 
 Use this when doing a full feature/class/method scan:
 
-1. Run `mvn -q test jacoco:report`.
+1. Run `./mvnw -q test jacoco:report`.
 2. Review `target/site/jacoco/index.html` and sort by missed lines/branches.
 3. Use `target/site/jacoco/jacoco.csv` to find high-risk classes with high missed lines and branches.
 4. Add tests for behavior-heavy methods first.
@@ -74,5 +74,6 @@ CI runs:
 
 - Checkstyle (`ci-lint.yml`)
 - Tests and coverage (`ci-tests-and-coverage.yml`)
+- Bundled Paper acceptance with DataProvider 3.1.0, DataRegistry 1.12.0, and MySQL
 
 Tag pushes (`v*`) trigger release packaging and publication (`release-package.yml`).

@@ -47,4 +47,6 @@ jobs:
           server-password: PACKAGES_TOKEN
 
       - name: Run Checkstyle
-        run: mvn -U -B -ntp -DskipTests checkstyle:check
+        run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
+      - name: Lint platform acceptance runner
+        run: shellcheck serverfeatures-platform-acceptance/run-platform-acceptance.sh

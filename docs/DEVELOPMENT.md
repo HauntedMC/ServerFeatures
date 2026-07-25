@@ -5,16 +5,16 @@ This page is for contributors who want a fast, reliable local workflow.
 ## Local Setup
 
 ```bash
-mvn -q -DskipTests compile
+./mvnw -q -DskipTests compile
 ```
 
 Useful commands during development:
 
 ```bash
-mvn -q test
-mvn -B verify
-mvn -B -DskipTests checkstyle:check
-mvn -B package
+./mvnw -q test
+./mvnw -B verify
+./mvnw -B -DskipTests checkstyle:check
+./mvnw -B package
 ```
 
 ## Recommended Workflow

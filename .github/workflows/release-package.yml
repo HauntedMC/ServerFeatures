@@ -44,11 +44,11 @@ jobs:
           server-username: PACKAGES_USER
           server-password: PACKAGES_TOKEN
 
-      - name: Build with Maven
-        run: mvn -U -B -ntp package
+      - name: Build and validate release artifact
+        run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
 
       - name: Resolve artifact name
-        run: echo "TARGET_NAME=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.build.finalName)" >> "$GITHUB_ENV"
+        run: echo "TARGET_NAME=$(./mvnw -q -ntp -DforceStdout help:evaluate -Dexpression=project.build.finalName | tail -n 1)" >> "$GITHUB_ENV"
 
       - name: Upload distributable
         uses: actions/upload-artifact@v7
@@ -57,7 +57,7 @@ jobs:
           path: target/${{ env.TARGET_NAME }}.jar
 
       - name: Publish to GitHub Packages (Maven)
-        run: mvn -U -B -ntp deploy
+        run: ./mvnw -U -B -ntp -Pplatform-acceptance deploy
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3

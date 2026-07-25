@@ -8,8 +8,8 @@ Why is this needed?
 
 ## Validation
 
-- [ ] `mvn -q -DskipTests compile`
-- [ ] `mvn -q test` (or explain why skipped)
+- [ ] `./mvnw -q -DskipTests compile`
+- [ ] `./mvnw -q test` (or explain why skipped)
 - [ ] Manual testing done (if applicable)
 
 ## Related Issues

@@ -19,10 +19,10 @@ One modular feature framework for your Paper server.
 ## Requirements
 
 - Java 25
-- Paper `26.1.2+` (resolved via `paper-api` range)
+- Paper `26.2.build.65-beta`
 - Feature-dependent optional plugins:
-  - `DataRegistry`
-  - `DataProvider`
+  - `DataRegistry` `1.12.0`
+  - `DataProvider` `3.1.0`
   - `packetevents`
   - `PlaceholderAPI`
   - other integrations (for example Vault, LuckPerms, WorldGuard) only when using related features
@@ -46,10 +46,19 @@ Add GitHub Packages credentials for Maven server id `github` in `~/.m2/settings.
 Use a token with `read:packages` (and `repo` if package source repositories are private), then run:
 
 ```bash
-mvn -B package
+./mvnw -B -ntp verify
 ```
 
 Output jar: `target/ServerFeatures.jar`
+
+Run the real Paper acceptance gate (Docker required) with:
+
+```bash
+./mvnw -B -ntp -Pplatform-acceptance verify
+```
+
+It boots the packaged ServerFeatures jar with DataProvider and DataRegistry, verifies their public runtime integration,
+and requires a clean shutdown. Set `PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY=true` to retain logs.
 
 ## Learn More
 

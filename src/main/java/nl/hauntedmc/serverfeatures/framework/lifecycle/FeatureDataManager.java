@@ -26,6 +26,7 @@ public class FeatureDataManager {
     private final LoggerAdapter ormLogger;
     private final ConcurrentHashMap<String, ConnectionRegistration> connectionsByIdentifier;
 
+    private volatile DataProviderAPI boundDataProviderApi;
     private ORMContext ormContext;
     private String featureName;
     private boolean initialized;
@@ -42,6 +43,8 @@ public class FeatureDataManager {
 
     FeatureDataManager(ServerFeatures plugin, DataProviderAPI dataProviderAPI) {
         this(plugin, () -> dataProviderAPI);
+        // Package-private construction is used by tests that supply an already bound facade.
+        this.boundDataProviderApi = dataProviderAPI;
     }
 
     private FeatureDataManager(ServerFeatures plugin, Supplier<DataProviderAPI> dataProviderApiSupplier) {
@@ -102,14 +105,14 @@ public class FeatureDataManager {
             connectionsByIdentifier.remove(identifier, existing);
         }
 
-        Optional<DatabaseProvider> registered;
+        DatabaseProvider registered;
         try {
             Optional<DataProviderAPI> dataProviderApi = getDataProviderApi();
             if (dataProviderApi.isEmpty()) {
                 plugin.getLogger().severe("DataProviderAPI is not available for feature '" + featureName + "'.");
                 return Optional.empty();
             }
-            registered = dataProviderApi.get().registerDatabaseOptional(databaseType, connectionName);
+            registered = dataProviderApi.get().registerDatabaseOrThrow(databaseType, connectionName);
         } catch (Exception ex) {
             plugin.getLogger().severe(
                     "Failed to register database '" + identifier + "' (type=" + databaseType
@@ -118,7 +121,7 @@ public class FeatureDataManager {
             return Optional.empty();
         }
 
-        if (registered.isEmpty() || !isProviderConnected(registered.get())) {
+        if (!isProviderConnected(registered)) {
             plugin.getLogger().severe(
                     "Database provider '" + identifier + "' is null or not connected (type=" + databaseType
                             + ", connection='" + connectionName + "')."
@@ -126,7 +129,7 @@ public class FeatureDataManager {
             return Optional.empty();
         }
 
-        DatabaseProvider provider = registered.get();
+        DatabaseProvider provider = registered;
         ConnectionRegistration newRegistration = new ConnectionRegistration(databaseType, connectionName, provider);
         ConnectionRegistration replaced = connectionsByIdentifier.put(identifier, newRegistration);
         if (replaced != null && replaced != newRegistration) {
@@ -159,7 +162,7 @@ public class FeatureDataManager {
     ) {
         return registerConnection(identifier, databaseType, connectionName)
                 .flatMap(provider -> {
-                    Optional<T> dataAccess = provider.getDataAccessOptional(expectedDataAccessType);
+                    Optional<T> dataAccess = getTypedDataAccess(provider, expectedDataAccessType);
                     if (dataAccess.isEmpty()) {
                         plugin.getLogger().severe(
                                 "Connection '" + identifier + "' is not compatible with expected data access type "
@@ -171,7 +174,7 @@ public class FeatureDataManager {
     }
 
     public <T extends DataAccess> Optional<T> getDataAccess(String identifier, Class<T> expectedDataAccessType) {
-        return getDataProvider(identifier).flatMap(provider -> provider.getDataAccessOptional(expectedDataAccessType));
+        return getDataProvider(identifier).flatMap(provider -> getTypedDataAccess(provider, expectedDataAccessType));
     }
 
 
@@ -191,19 +194,15 @@ public class FeatureDataManager {
         }
         DatabaseProvider provider = providerOptional.get();
 
-        Optional<DataSource> dataSource = provider.getDataSourceOptional();
-        if (dataSource.isEmpty()) {
-            plugin.getLogger().severe(
-                    "Database '" + identifier + "' does not expose a DataSource. ORMContext requires a relational provider."
-            );
-            return Optional.empty();
-        }
-
         try {
-            String ownerName = (featureName == null || featureName.isBlank())
-                    ? plugin.getClass().getSimpleName()
-                    : featureName;
-            this.ormContext = newOrmContext(ownerName, dataSource.get(), entityClasses);
+            DataSource dataSource = provider.getDataSource();
+            if (dataSource == null) {
+                plugin.getLogger().severe(
+                        "Database '" + identifier + "' does not expose a DataSource. ORMContext requires a relational provider."
+                );
+                return Optional.empty();
+            }
+            this.ormContext = newOrmContext(dataSource, entityClasses);
             plugin.getLogger().info("Created ORMContext for identifier '" + identifier + "'");
             return Optional.of(ormContext);
         } catch (Exception ex) {
@@ -255,10 +254,10 @@ public class FeatureDataManager {
         return initialized;
     }
 
-    ORMContext newOrmContext(String ownerName, DataSource dataSource, Class<?>... entityClasses) {
+    ORMContext newOrmContext(DataSource dataSource, Class<?>... entityClasses) {
         return getDataProviderApi()
                 .orElseThrow(() -> new IllegalStateException("DataProviderAPI is not available."))
-                .createOrmContext(ownerName, dataSource, ormLogger, resolveOrmSchemaMode(), entityClasses);
+                .createOrmContext(dataSource, ormLogger, resolveOrmSchemaMode(), entityClasses);
     }
 
     private String resolveOrmSchemaMode() {
@@ -312,6 +311,21 @@ public class FeatureDataManager {
         }
     }
 
+    private <T extends DataAccess> Optional<T> getTypedDataAccess(
+            DatabaseProvider provider,
+            Class<T> expectedDataAccessType
+    ) {
+        try {
+            DataAccess dataAccess = provider.getDataAccess();
+            return expectedDataAccessType.isInstance(dataAccess)
+                    ? Optional.of(expectedDataAccessType.cast(dataAccess))
+                    : Optional.empty();
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Failed to access database provider data access: " + ex.getMessage());
+            return Optional.empty();
+        }
+    }
+
     private void releaseConnection(ConnectionRegistration registration, String identifier) {
         if (registration == null) {
             return;
@@ -331,8 +345,20 @@ public class FeatureDataManager {
     }
 
     private Optional<DataProviderAPI> getDataProviderApi() {
+        DataProviderAPI existing = boundDataProviderApi;
+        if (existing != null) {
+            return Optional.of(existing);
+        }
         try {
-            return Optional.ofNullable(dataProviderApiSupplier.get());
+            DataProviderAPI rawApi = dataProviderApiSupplier.get();
+            if (rawApi == null) {
+                return Optional.empty();
+            }
+            DataProviderAPI boundApi = rawApi.forPlugin(plugin);
+            if (boundApi != null) {
+                boundDataProviderApi = boundApi;
+            }
+            return Optional.ofNullable(boundApi);
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("DataProviderAPI unavailable: " + ex.getMessage());
             return Optional.empty();

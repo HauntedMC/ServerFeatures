@@ -51,7 +51,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p target/ci
-          mvn -U -B -ntp verify 2>&1 | tee target/ci/maven-verify.log
+          ./mvnw -U -B -ntp verify 2>&1 | tee target/ci/maven-verify.log
 
       - name: Upload CI diagnostics
         if: always()
@@ -66,3 +66,35 @@ jobs:
         with:
           name: jacoco-report
           path: target/site/jacoco
+
+  platform-acceptance:
+    name: Paper Platform Acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    env:
+      PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
+      PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
+      PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
+      PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          server-id: github
+          server-username: PACKAGES_USER
+          server-password: PACKAGES_TOKEN
+      - name: Run bundled Paper acceptance
+        run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
+      - name: Upload platform acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: serverfeatures-platform-acceptance-logs
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/serverfeatures-platform-acceptance

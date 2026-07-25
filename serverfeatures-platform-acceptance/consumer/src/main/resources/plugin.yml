@@ -1,0 +1,5 @@
+name: ServerFeaturesAcceptance
+main: nl.hauntedmc.serverfeatures.acceptance.ServerFeaturesAcceptanceConsumer
+version: ${project.version}
+api-version: '1.21'
+depend: [DataProvider, DataRegistry, ServerFeatures]
