@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.acceptance;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
+import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.MenuNavigator;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -18,6 +19,9 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
                 awaitReady(provider);
                 if (Bukkit.getPluginManager().getPlugin("ServerFeatures") == null) {
                     throw new IllegalStateException("ServerFeatures did not remain enabled.");
+                }
+                if (MenuNavigator.class.getName().isBlank()) {
+                    throw new IllegalStateException("ServerFeatures public API is unavailable.");
                 }
                 getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
             } catch (Exception exception) {

@@ -1,6 +1,29 @@
 # Architecture Overview
 
-ServerFeatures is built as a modular system for Paper. Functionality is split into independent feature modules that can be enabled, disabled, and reloaded through configuration and commands.
+ServerFeatures has two kinds of modularity: Maven modules enforce compile-time ownership, while runtime feature
+classes can be enabled, disabled, and reloaded independently.
+
+## Build Modules
+
+```text
+serverfeatures-testkit ──(test only)──▶ api / paper
+serverfeatures-api ───────────────────▶ paper plugin
+proxyfeatures-contracts ──────────────▶ paper plugin
+paper plugin ─────────────────────────▶ packaged ServerFeatures.jar
+```
+
+- `serverfeatures-api` owns public feature, command, configuration, UI, and utility contracts. It may depend on Paper
+  and supported integration APIs, but never on plugin framework or feature implementation packages.
+- `serverfeatures-testkit` owns shared filesystem/proxy test helpers and is never a production dependency.
+- `serverfeatures-platform-paper` owns the plugin bootstrap, lifecycle implementation, integrations, and concrete
+  server features.
+- The narrow `proxyfeatures-contracts` dependency shares sanction persistence types and cross-platform Redis message
+  schemas without coupling ServerFeatures to the full ProxyFeatures plugin.
+- `serverfeatures-platform-acceptance` is activated by a Maven profile. Its API-only consumer validates packaging,
+  and its final module boots a pinned Paper runtime.
+
+Dependencies point toward public contracts. Reusable API UI components use `MenuNavigator` and `MenuRuntime`
+capabilities rather than importing `FeatureGUIManager`.
 
 ## Design Goals
 

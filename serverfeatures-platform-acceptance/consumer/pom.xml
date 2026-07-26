@@ -1,11 +1,40 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
-    <parent><groupId>nl.hauntedmc.serverfeatures</groupId><artifactId>serverfeatures-platform-acceptance</artifactId><version>2.5.2</version></parent>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>nl.hauntedmc.serverfeatures</groupId>
+        <artifactId>serverfeatures-platform-acceptance</artifactId>
+        <version>${revision}</version>
+    </parent>
     <artifactId>serverfeatures-acceptance-consumer</artifactId>
-    <dependencies><dependency><groupId>nl.hauntedmc.dataregistry</groupId><artifactId>dataregistry-api</artifactId><version>${dataregistry.version}</version><scope>provided</scope></dependency><dependency><groupId>io.papermc.paper</groupId><artifactId>paper-api</artifactId><version>${paper.version}</version><scope>provided</scope></dependency></dependencies>
+    <name>ServerFeatures Acceptance Consumer</name>
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>serverfeatures-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.dataregistry</groupId>
+            <artifactId>dataregistry-api</artifactId>
+            <version>${dataregistry.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
     <build>
         <finalName>serverfeatures-acceptance-consumer</finalName>
-        <resources><resource><directory>src/main/resources</directory><filtering>true</filtering></resource></resources>
-        <plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.15.0</version><configuration><release>${java.version}</release></configuration></plugin></plugins>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
     </build>
 </project>

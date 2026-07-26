@@ -46,23 +46,27 @@ mkdir -p "$work_directory/paper/plugins/DataProvider/databases" "$work_directory
 
 dataregistry_version="$(property dataregistry.version)"
 dataprovider_version="$(property dataprovider.version)"
-repository="${MAVEN_REPO_LOCAL:-$HOME/.m2/repository}"
+paper_version="$(property paper.runtime.version)"
+paper_build="$(property paper.runtime.build)"
+paper_sha256="$(property paper.runtime.sha256)"
+repository="${MAVEN_REPO_LOCAL:?MAVEN_REPO_LOCAL must identify the Maven local repository}"
 provider_bundle="$repository/nl/hauntedmc/dataprovider/dataprovider-platform-paper/$dataprovider_version/dataprovider-platform-paper-$dataprovider_version-bundled.jar"
 registry_bundle="$repository/nl/hauntedmc/dataregistry/dataregistry-platform-paper/$dataregistry_version/dataregistry-platform-paper-$dataregistry_version-bundled.jar"
 consumer="$acceptance_directory/consumer/target/serverfeatures-acceptance-consumer.jar"
-for artifact in "$root_directory/target/ServerFeatures.jar" "$provider_bundle" "$registry_bundle" "$consumer"; do [[ -f "$artifact" ]] || fail "Missing acceptance artifact $artifact"; done
+plugin="$root_directory/serverfeatures-platform-paper/target/ServerFeatures.jar"
+for artifact in "$plugin" "$provider_bundle" "$registry_bundle" "$consumer"; do [[ -f "$artifact" ]] || fail "Missing acceptance artifact $artifact"; done
 
-metadata="$(curl --fail --silent --show-error --location 'https://fill.papermc.io/v3/projects/paper/versions/26.2/builds')"
-runtime_url="$(jq --raw-output --argjson build 65 '.[] | select(.id == $build) | .downloads["server:default"].url' <<<"$metadata")"
+metadata="$(curl --fail --silent --show-error --location "https://fill.papermc.io/v3/projects/paper/versions/$paper_version/builds")"
+runtime_url="$(jq --raw-output --argjson build "$paper_build" '.[] | select(.id == $build) | .downloads["server:default"].url' <<<"$metadata")"
 [[ "$runtime_url" != "null" ]] || fail "Paper runtime build is unavailable."
 curl --fail --silent --show-error --location --output "$work_directory/paper.jar" "$runtime_url"
-[[ "$(sha256sum "$work_directory/paper.jar" | awk '{print $1}')" == "d290ee2a3ae92fea10afb0c74f797023d74cfd72cbcee44314e0c50d5551f2c6" ]] || fail "Paper runtime checksum mismatch."
+[[ "$(sha256sum "$work_directory/paper.jar" | awk '{print $1}')" == "$paper_sha256" ]] || fail "Paper runtime checksum mismatch."
 
 cp "$provider_bundle" "$work_directory/paper/plugins/DataProvider.jar"
 printf 'Multi-Release: true\n\n' >"$work_directory/data-provider-multi-release.mf"
 jar --update --file "$work_directory/paper/plugins/DataProvider.jar" --manifest "$work_directory/data-provider-multi-release.mf" >/dev/null
 cp "$registry_bundle" "$work_directory/paper/plugins/DataRegistry.jar"
-cp "$root_directory/target/ServerFeatures.jar" "$work_directory/paper/plugins/ServerFeatures.jar"
+cp "$plugin" "$work_directory/paper/plugins/ServerFeatures.jar"
 cp "$consumer" "$work_directory/paper/plugins/ServerFeaturesAcceptance.jar"
 printf '%s\n' 'orm:' '  schema_mode: update' 'databases:' '  mysql: { enabled: true }' '  mongodb: { enabled: false }' '  redis: { enabled: false }' '  redis_messaging: { enabled: false }' >"$work_directory/paper/plugins/DataProvider/config.yml"
 

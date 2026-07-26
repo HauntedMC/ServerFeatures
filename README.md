@@ -6,7 +6,7 @@
 [![Java 25](https://img.shields.io/badge/Java-25-007396?logo=openjdk&logoColor=white)](https://adoptium.net/)
 [![License](https://img.shields.io/github/license/HauntedMC/ServerFeatures)](LICENSE)
 
-One modular feature framework for your Paper server.
+A modular feature framework and reusable API for your Paper server.
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ Use a token with `read:packages` (and `repo` if package source repositories are 
 ./mvnw -B -ntp verify
 ```
 
-Output jar: `target/ServerFeatures.jar`
+Output jar: `serverfeatures-platform-paper/target/ServerFeatures.jar`
 
 Run the real Paper acceptance gate (Docker required) with:
 
@@ -60,6 +60,31 @@ Run the real Paper acceptance gate (Docker required) with:
 It boots the packaged ServerFeatures jar with DataProvider and DataRegistry, verifies their public runtime integration,
 and requires a clean shutdown. Set `PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY=true` to retain logs.
 
+## Published Modules
+
+- `serverfeatures-api`: reusable feature, command, configuration, UI, and utility contracts.
+- `proxyfeatures-contracts`: shared persistence and Redis wire schemas consumed with `provided` scope.
+- `serverfeatures`: the installable Paper plugin; its jar keeps the historical `ServerFeatures.jar` name.
+
+The testkit is reactor-internal and is not part of the supported production API. Maven consumers should use the API
+artifact with `provided` scope when ServerFeatures supplies it at runtime.
+
+```xml
+<dependency>
+  <groupId>nl.hauntedmc.serverfeatures</groupId>
+  <artifactId>serverfeatures-api</artifactId>
+  <version>3.0.0</version>
+  <scope>provided</scope>
+</dependency>
+```
+
+## Repository Layout
+
+- `serverfeatures-api`: public contracts and reusable Paper-facing components.
+- `serverfeatures-testkit`: common test infrastructure.
+- `serverfeatures-platform-paper`: lifecycle framework, concrete features, and distributable jar.
+- `serverfeatures-platform-acceptance`: API-only consumer and real Paper boot gate.
+
 ## Learn More
 
 - [Configuration Guide](docs/CONFIGURATION.md)
@@ -67,6 +92,8 @@ and requires a clean shutdown. Set `PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY=true
 - [Architecture](docs/ARCHITECTURE.md)
 - [Development Notes](docs/DEVELOPMENT.md)
 - [Testing and Quality](docs/TESTING.md)
+- [Release Process](docs/RELEASE.md)
+- [Migrating to 3.0](docs/MIGRATING-3.0.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Community

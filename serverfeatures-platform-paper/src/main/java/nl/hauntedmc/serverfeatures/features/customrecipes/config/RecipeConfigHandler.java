@@ -1,0 +1,56 @@
+package nl.hauntedmc.serverfeatures.features.customrecipes.config;
+
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
+import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
+import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
+import nl.hauntedmc.serverfeatures.features.customrecipes.internal.recipe.RecipeFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Recipes config backed by the unified config system.
+ * File: local/recipes.yml
+ */
+public final class RecipeConfigHandler extends ConfigView {
+
+    private final CustomRecipes feature;
+
+    public RecipeConfigHandler(CustomRecipes feature) {
+        super(new ConfigService(feature.getPlugin()).open("local/recipes.yml", /* copyDefaultsIfPresent */ true), "");
+        this.feature = feature;
+    }
+
+    /**
+     * Loads recipes from the 'recipes' list in local/recipes.yml.
+     */
+    public List<RecipeData> loadRecipes() {
+        List<RecipeData> out = new ArrayList<>();
+
+        List<Object> defs = getList("recipes", Object.class, List.of());
+        if (defs.isEmpty()) {
+            feature.getLogger().severe("recipes.yml does not contain a non-empty 'recipes' list!");
+            return out;
+        }
+
+        int index = 0;
+        for (Object entry : defs) {
+            if (!(entry instanceof Map<?, ?> def)) {
+                feature.getLogger().warning("Ignoring non-map recipe entry at index " + index);
+                index++;
+                continue;
+            }
+            RecipeData rd = RecipeFactory.createRecipe(feature, def, index++);
+            if (rd != null) out.add(rd);
+        }
+        return out;
+    }
+
+    /** Reloads the YAML from disk. */
+    public void reload() {
+        file.reload();
+    }
+
+}

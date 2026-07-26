@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"><modelVersion>4.0.0</modelVersion>
-    <groupId>nl.hauntedmc.serverfeatures</groupId><artifactId>serverfeatures-platform-acceptance</artifactId><version>2.5.2</version><packaging>pom</packaging>
-    <properties><java.version>25</java.version><paper.version>26.2.build.65-beta</paper.version><dataregistry.version>1.12.0</dataregistry.version><exec.maven.plugin.version>3.6.2</exec.maven.plugin.version></properties>
-    <repositories><repository><id>central</id><url>https://repo.maven.apache.org/maven2</url></repository><repository><id>papermc</id><url>https://repo.papermc.io/repository/maven-public/</url></repository><repository><id>github</id><url>https://maven.pkg.github.com/HauntedMC/*</url></repository></repositories>
-    <modules><module>consumer</module><module>runtime</module></modules>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>nl.hauntedmc.serverfeatures</groupId>
+        <artifactId>serverfeatures-parent</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>serverfeatures-platform-acceptance</artifactId>
+    <packaging>pom</packaging>
+    <name>ServerFeatures Platform Acceptance Fixtures</name>
+    <modules>
+        <module>consumer</module>
+        <!-- Must remain last: it boots artifacts packaged by every preceding reactor module. -->
+        <module>runtime</module>
+    </modules>
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-deploy-plugin</artifactId>
+                <configuration><skip>true</skip></configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

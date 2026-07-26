@@ -1,0 +1,438 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>nl.hauntedmc.serverfeatures</groupId>
+        <artifactId>serverfeatures-parent</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>serverfeatures</artifactId>
+    <name>ServerFeatures Paper Plugin</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>serverfeatures-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.proxyfeatures</groupId>
+            <artifactId>proxyfeatures-contracts</artifactId>
+            <version>${proxyfeatures.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+            <version>${jakarta.persistence.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>${hibernate.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.papermc.paper</groupId>
+            <artifactId>paper-api</artifactId>
+            <version>${paper.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.dataregistry</groupId>
+            <artifactId>dataregistry-api</artifactId>
+            <version>${dataregistry.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.dataprovider</groupId>
+            <artifactId>dataprovider-api</artifactId>
+            <version>${dataprovider.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.viaversion</groupId>
+            <artifactId>viaversion-api</artifactId>
+            <version>${viaversion.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-key</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.joml</groupId>
+            <artifactId>joml</artifactId>
+            <version>${joml.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mojang</groupId>
+            <artifactId>brigadier</artifactId>
+            <version>${brigadier.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>${placeholderapi.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>${commons.text.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.classgraph</groupId>
+            <artifactId>classgraph</artifactId>
+            <version>${classgraph.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.retrooper</groupId>
+            <artifactId>packetevents-spigot</artifactId>
+            <version>${packetevents.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.retrooper</groupId>
+            <artifactId>packetevents-api</artifactId>
+            <version>${packetevents.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.citizensnpcs</groupId>
+            <artifactId>citizens-main</artifactId>
+            <version>${citizens.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.MilkBowl</groupId>
+            <artifactId>VaultAPI</artifactId>
+            <version>${vault.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.luckperms</groupId>
+            <artifactId>api</artifactId>
+            <version>${luckperms.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.libraryaddict.disguises</groupId>
+            <artifactId>libsdisguises</artifactId>
+            <version>${libsdisguises.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-bukkit</artifactId>
+            <version>${worldguard.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sk89q.worldguard</groupId>
+            <artifactId>worldguard-core</artifactId>
+            <version>${worldguard.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sk89q.worldedit</groupId>
+            <artifactId>worldedit-core</artifactId>
+            <version>${worldedit.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.sk89q.worldedit</groupId>
+            <artifactId>worldedit-bukkit</artifactId>
+            <version>${worldedit.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fastasyncworldedit</groupId>
+            <artifactId>FastAsyncWorldEdit-Core</artifactId>
+            <version>${fawe.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fastasyncworldedit</groupId>
+            <artifactId>FastAsyncWorldEdit-Bukkit</artifactId>
+            <version>${fawe.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>FastAsyncWorldEdit-Core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.TechFortress</groupId>
+            <artifactId>GriefPrevention</artifactId>
+            <version>${griefprevention.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.essentialsx</groupId>
+            <artifactId>EssentialsX</artifactId>
+            <version>${essentialsx.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>net.kyori</groupId>
+                    <artifactId>adventure-platform-bukkit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.github.NuVotifier.NuVotifier</groupId>
+            <artifactId>nuvotifier-api</artifactId>
+            <version>${nuvotifier.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.NuVotifier.NuVotifier</groupId>
+            <artifactId>nuvotifier-bukkit</artifactId>
+            <version>${nuvotifier.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.checkerframework</groupId>
+            <artifactId>checker-qual</artifactId>
+            <version>${checker.qual.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${guava.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>serverfeatures-testkit</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>ServerFeatures</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Optional Bukkit plugins publish fat API jars; validate the shipped runtime graph only. -->
+                    <checkCompileClasspath>false</checkCompileClasspath>
+                    <checkRuntimeClasspath>true</checkRuntimeClasspath>
+                    <checkTestClasspath>false</checkTestClasspath>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <createDependencyReducedPom>false</createDependencyReducedPom>
+                    <relocations>
+                        <relocation>
+                            <pattern>io.github.classgraph</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>nonapi.io.github.classgraph</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nonapi.classgraph</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.apache.commons.text</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_text</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.apache.commons.lang3</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_lang3</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>org.yaml.snakeyaml</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.snakeyaml</shadedPattern>
+                        </relocation>
+                    </relocations>
+                    <transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.IncludeResourceTransformer">
+                            <resource>META-INF/LICENSE-ServerFeatures.txt</resource>
+                            <file>${maven.multiModuleProjectDirectory}/LICENSE</file>
+                        </transformer>
+                    </transformers>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                                <exclude>META-INF/DEPENDENCIES</exclude>
+                                <exclude>META-INF/LICENSE*</exclude>
+                                <exclude>META-INF/NOTICE*</exclude>
+                                <exclude>META-INF/MANIFEST.MF</exclude>
+                                <exclude>META-INF/versions/**/module-info.class</exclude>
+                                <exclude>module-info.class</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>audit-distribution-contents</id>
+                        <phase>verify</phase>
+                        <goals><goal>run</goal></goals>
+                        <configuration>
+                            <target>
+                                <property name="distribution.audit"
+                                          value="${project.build.directory}/distribution-audit"/>
+                                <delete dir="${distribution.audit}"/>
+                                <mkdir dir="${distribution.audit}"/>
+                                <unzip src="${project.build.directory}/${project.build.finalName}.jar"
+                                       dest="${distribution.audit}"/>
+
+                                <available file="${distribution.audit}/plugin.yml"
+                                           property="distribution.has.metadata"/>
+                                <available file="${distribution.audit}/META-INF/LICENSE-ServerFeatures.txt"
+                                           property="distribution.has.license"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/ServerFeatures.class"
+                                           property="distribution.has.bootstrap"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/api/ui/inventory/menu/MenuNavigator.class"
+                                           property="distribution.has.api"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/proxyfeatures/features/sanctions/entity/SanctionEntity.class"
+                                           property="distribution.has.contracts"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/commons_text/similarity/LevenshteinDistance.class"
+                                           property="distribution.has.commons.text"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/commons_lang3/StringUtils.class"
+                                           property="distribution.has.commons.lang"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/classgraph/ClassGraph.class"
+                                           property="distribution.has.classgraph"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/snakeyaml/Yaml.class"
+                                           property="distribution.has.snakeyaml"/>
+                                <fail unless="distribution.has.metadata"
+                                      message="ServerFeatures.jar is missing Paper metadata."/>
+                                <fail unless="distribution.has.license"
+                                      message="ServerFeatures.jar is missing its license."/>
+                                <fail unless="distribution.has.bootstrap"
+                                      message="ServerFeatures.jar is missing the plugin bootstrap."/>
+                                <fail unless="distribution.has.api"
+                                      message="ServerFeatures.jar is missing its public API."/>
+                                <fail unless="distribution.has.contracts"
+                                      message="ServerFeatures.jar is missing shared contracts."/>
+                                <fail unless="distribution.has.commons.text"
+                                      message="ServerFeatures.jar is missing relocated Commons Text classes."/>
+                                <fail unless="distribution.has.commons.lang"
+                                      message="ServerFeatures.jar is missing relocated Commons Lang classes."/>
+                                <fail unless="distribution.has.classgraph"
+                                      message="ServerFeatures.jar is missing relocated ClassGraph classes."/>
+                                <fail unless="distribution.has.snakeyaml"
+                                      message="ServerFeatures.jar is missing relocated SnakeYAML classes."/>
+
+                                <available file="${distribution.audit}/org/apache/commons/text/similarity/LevenshteinDistance.class"
+                                           property="distribution.leaks.commons.text"/>
+                                <available file="${distribution.audit}/org/apache/commons/lang3/StringUtils.class"
+                                           property="distribution.leaks.commons.lang"/>
+                                <available file="${distribution.audit}/io/github/classgraph/ClassGraph.class"
+                                           property="distribution.leaks.classgraph"/>
+                                <available file="${distribution.audit}/org/yaml/snakeyaml/Yaml.class"
+                                           property="distribution.leaks.snakeyaml"/>
+                                <available file="${distribution.audit}/jakarta/persistence/Entity.class"
+                                           property="distribution.leaks.persistence"/>
+                                <available file="${distribution.audit}/org/hibernate/Session.class"
+                                           property="distribution.leaks.hibernate"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/dataregistry/api/DataRegistryApi.class"
+                                           property="distribution.leaks.dataregistry"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/dataprovider/api/DataProviderAPI.class"
+                                           property="distribution.leaks.dataprovider"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/proxyfeatures/ProxyFeatures.class"
+                                           property="distribution.leaks.proxyfeatures"/>
+                                <available file="${distribution.audit}/org/bukkit/Bukkit.class"
+                                           property="distribution.leaks.paper"/>
+                                <fail if="distribution.leaks.commons.text"
+                                      message="ServerFeatures.jar contains unrelocated Commons Text classes."/>
+                                <fail if="distribution.leaks.commons.lang"
+                                      message="ServerFeatures.jar contains unrelocated Commons Lang classes."/>
+                                <fail if="distribution.leaks.classgraph"
+                                      message="ServerFeatures.jar contains unrelocated ClassGraph classes."/>
+                                <fail if="distribution.leaks.snakeyaml"
+                                      message="ServerFeatures.jar contains unrelocated SnakeYAML classes."/>
+                                <fail if="distribution.leaks.persistence"
+                                      message="ServerFeatures.jar must use DataProvider's Jakarta Persistence API."/>
+                                <fail if="distribution.leaks.hibernate"
+                                      message="ServerFeatures.jar must not embed Hibernate."/>
+                                <fail if="distribution.leaks.dataregistry"
+                                      message="ServerFeatures.jar must not embed DataRegistry."/>
+                                <fail if="distribution.leaks.dataprovider"
+                                      message="ServerFeatures.jar must not embed DataProvider."/>
+                                <fail if="distribution.leaks.proxyfeatures"
+                                      message="ServerFeatures.jar must not embed the ProxyFeatures runtime."/>
+                                <fail if="distribution.leaks.paper"
+                                      message="ServerFeatures.jar must not embed Paper."/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -13,7 +13,7 @@ on:
 jobs:
   tests:
     name: Tests and Coverage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: read
@@ -23,7 +23,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Validate package token
         run: |
@@ -37,7 +39,7 @@ jobs:
           fi
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "25"
@@ -47,29 +49,38 @@ jobs:
           server-password: PACKAGES_TOKEN
 
       - name: Run Maven Verify
+        id: tests
+        run: ./mvnw -U -B -ntp verify
+
+      - name: Print failing test reports
+        if: failure() && steps.tests.outcome == 'failure'
         shell: bash
         run: |
-          set -o pipefail
-          mkdir -p target/ci
-          ./mvnw -U -B -ntp verify 2>&1 | tee target/ci/maven-verify.log
-
-      - name: Upload CI diagnostics
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ci-diagnostics
-          path: target/ci
+          find . -type f \( -path '*/target/surefire-reports/*.txt' -o -path '*/target/failsafe-reports/*.txt' \) -print0 \
+            | sort -z \
+            | xargs -0 -r -n1 sh -c 'echo "::group::$0"; cat "$0"; echo "::endgroup::"'
 
       - name: Upload JaCoCo Report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jacoco-report
-          path: target/site/jacoco
+          if-no-files-found: warn
+          path: "**/target/site/jacoco"
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports
+          if-no-files-found: warn
+          path: |
+            **/target/surefire-reports
+            **/target/failsafe-reports
 
   platform-acceptance:
     name: Paper Platform Acceptance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -80,8 +91,12 @@ jobs:
       PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
       PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up JDK 25
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "25"
@@ -89,11 +104,15 @@ jobs:
           server-id: github
           server-username: PACKAGES_USER
           server-password: PACKAGES_TOKEN
+      - name: Validate package token
+        run: |
+          test -n "$PACKAGES_USER" || { echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2; exit 1; }
+          test -n "$PACKAGES_TOKEN" || { echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN." >&2; exit 1; }
       - name: Run bundled Paper acceptance
         run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
       - name: Upload platform acceptance logs
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: serverfeatures-platform-acceptance-logs
           if-no-files-found: warn

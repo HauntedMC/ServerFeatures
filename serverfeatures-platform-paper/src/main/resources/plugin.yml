@@ -1,0 +1,15 @@
+name: ServerFeatures
+version: ${project.version}
+main: nl.hauntedmc.serverfeatures.ServerFeatures
+description: HauntedMC Feature Framework (Platform=Paper)
+author: HauntedMC
+website: https://hauntedmc.nl
+api-version: 1.21
+softdepend: [ DataRegistry, DataProvider, packetevents, PlaceholderAPI ]
+
+commands:
+  serverfeatures:
+    description: Manage server features
+    usage: /serverfeatures <subcommand>
+    permission: serverfeatures.use
+    permission-message: You do not have permission to use this command.

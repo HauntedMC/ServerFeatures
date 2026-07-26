@@ -17,6 +17,13 @@ Useful commands during development:
 ./mvnw -B package
 ```
 
+Target one module and its reactor dependencies during a tight feedback loop:
+
+```bash
+./mvnw -B -ntp -pl serverfeatures-api -am test
+./mvnw -B -ntp -pl serverfeatures-platform-paper -am test
+```
+
 ## Recommended Workflow
 
 1. Create a branch for one focused change.
@@ -32,6 +39,10 @@ Useful commands during development:
 - Make external calls fail-safe and time-bounded.
 - Ensure disable/reload paths release resources cleanly.
 - Keep logic testable; avoid burying behavior in hard-to-reach static paths.
+- Keep public code in `serverfeatures-api` and Bukkit implementation/feature details in
+  `serverfeatures-platform-paper`.
+- Do not make the API depend on the plugin module. Introduce a narrow capability interface when reusable components
+  require runtime services.
 
 ## Feature Authoring Checklist
 
@@ -49,3 +60,5 @@ When adding a new feature module:
 - Relevant tests pass.
 - New behavior is covered by tests.
 - Operationally important failures are logged clearly.
+- `./mvnw -B -ntp verify` passes from a clean checkout.
+- Public API changes include compatibility and migration notes.

@@ -13,7 +13,7 @@ on:
 jobs:
   lint:
     name: Checkstyle
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: read
@@ -23,7 +23,9 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Validate package token
         run: |
@@ -37,7 +39,7 @@ jobs:
           fi
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "25"
@@ -48,5 +50,5 @@ jobs:
 
       - name: Run Checkstyle
         run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
-      - name: Lint platform acceptance runner
-        run: shellcheck serverfeatures-platform-acceptance/run-platform-acceptance.sh
+      - name: Lint release and acceptance scripts
+        run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh

@@ -1,0 +1,63 @@
+package nl.hauntedmc.serverfeatures.api.command;
+
+import nl.hauntedmc.serverfeatures.api.command.meta.CommandMeta;
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandMap;
+import org.bukkit.command.CommandSender;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+
+public abstract class FeatureCommand extends Command {
+
+    @SuppressWarnings("this-escape") // Bukkit exposes permission initialization only through Command#setPermission.
+    protected FeatureCommand(@NotNull CommandMeta spec) {
+        super(
+                spec.name(),
+                spec.description() == null ? "" : spec.description(),
+                spec.usage() == null ? "" : spec.usage(),
+                sanitizeAliases(spec.name(), spec.aliases() == null ? Collections.emptyList() : spec.aliases())
+        );
+        if (spec.permission() != null) super.setPermission(spec.permission());
+    }
+
+    public abstract boolean execute(@NotNull CommandSender sender, @NotNull String label, String @NotNull [] args);
+
+
+    @Override
+    public final boolean register(@NotNull CommandMap commandMap) {
+        return super.register(commandMap);
+    }
+
+
+    /**
+     * Bukkit will not be used for completions; global listener handles everything.
+     */
+    @Override
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
+        return Collections.emptyList();
+    }
+
+    private static @NotNull List<String> sanitizeAliases(@NotNull String name, @Nullable List<String> raw) {
+        if (raw == null || raw.isEmpty()) return List.of();
+        String primary = name.toLowerCase(Locale.ROOT);
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (String alias : raw) {
+            if (alias == null) continue;
+            String t = alias.trim().toLowerCase(Locale.ROOT);
+            if (t.isEmpty()) continue;
+            if (t.equals(primary)) continue;
+            if (t.contains(" ")) throw new IllegalArgumentException("Alias must not contain spaces: '" + alias + "'");
+            if (!TextPatterns.BUKKIT_ALIAS_FORMAT.matcher(t).matches()) {
+                throw new IllegalArgumentException("Alias contains invalid characters (allowed: a-z, 0-9, '_', '-'): '" + alias + "'");
+            }
+            out.add(t);
+        }
+        return List.copyOf(out);
+    }
+}

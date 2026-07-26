@@ -37,6 +37,7 @@ comments.txt
 /dependency-reduced-pom.xml.versionsBackup
 /settings.xml
 /pom.xml.versionsBackup
+**/.flattened-pom.xml
 
 # Python scripts
 *.py

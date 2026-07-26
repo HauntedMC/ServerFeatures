@@ -4,13 +4,14 @@ Testing in this project is designed to catch regressions early while keeping con
 
 ## Test Structure
 
-Tests are organized under `src/test/java` and mirror production package boundaries:
+Tests live in each Maven module under `src/test/java` and mirror production package boundaries:
 
 - API tests for public contracts and utility behavior
 - framework tests for lifecycle, config, command, and loader logic
 - feature tests for feature-specific logic and edge cases
 
-Shared helpers live under `src/test/java/nl/hauntedmc/serverfeatures/util`.
+Shared filesystem and proxy helpers live in `serverfeatures-testkit`; module-specific helpers remain next to their
+tests.
 
 ## Local Commands
 
@@ -26,16 +27,14 @@ Run the full quality gate:
 ./mvnw -B -ntp verify
 ```
 
+The full gate treats actionable compiler warnings (including deprecations) as errors, rejects undeclared/unused
+dependencies, and inspects the final shaded jar for required runtimes, relocation leaks, and accidentally bundled
+platform plugins.
+
 Run lint checks:
 
 ```bash
 ./mvnw -B -ntp -DskipTests checkstyle:check
-```
-
-Generate a local coverage report:
-
-```bash
-./mvnw -q test jacoco:report
 ```
 
 ## What to Test
@@ -61,12 +60,15 @@ Use these rules during authoring and review:
 
 Use this when doing a full feature/class/method scan:
 
-1. Run `./mvnw -q test jacoco:report`.
-2. Review `target/site/jacoco/index.html` and sort by missed lines/branches.
-3. Use `target/site/jacoco/jacoco.csv` to find high-risk classes with high missed lines and branches.
+1. Run `./mvnw -B -ntp verify`.
+2. Review each module's `target/site/jacoco/index.html` and sort by missed lines/branches.
+3. Use module-level `jacoco.csv` files to find high-risk classes with high missed lines and branches.
 4. Add tests for behavior-heavy methods first.
 
 Prioritize methods with both high line miss and high branch count.
+
+Coverage gates are enforced per module so API regressions cannot hide inside the much larger Paper bundle. The
+current floors are explicit Maven properties and should only move upward as coverage improves.
 
 ## CI
 

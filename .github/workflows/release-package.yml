@@ -5,37 +5,38 @@ on:
     tags:
       - "v*"
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
-    name: Build and Publish
-    runs-on: ubuntu-latest
+    name: Verify, Publish, and Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: write
       packages: write
     env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
+      PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
+      PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Validate package token
         run: |
-          if [ -z "$PACKAGES_USER" ]; then
-            echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2
-            exit 1
-          fi
-          if [ -z "$PACKAGES_TOKEN" ]; then
-            echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN (requires read:packages and write:packages)." >&2
-            exit 1
-          fi
+          test -n "$PACKAGES_USER" || { echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2; exit 1; }
+          test -n "$PACKAGES_TOKEN" || { echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN (read/write packages required)." >&2; exit 1; }
 
       - name: Set up JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:
           distribution: temurin
           java-version: "25"
@@ -44,26 +45,58 @@ jobs:
           server-username: PACKAGES_USER
           server-password: PACKAGES_TOKEN
 
-      - name: Build and validate release artifact
-        run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
+      - name: Validate release version
+        id: release-version
+        shell: bash
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "Release tag must be vMAJOR.MINOR.PATCH." >&2; exit 1; }
+          PROJECT_VERSION="$(./mvnw -q -ntp -DforceStdout help:evaluate -Dexpression=project.version | tail -n 1)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          test "$PROJECT_VERSION" = "$TAG_VERSION" \
+            || { echo "Tag $GITHUB_REF_NAME does not match Maven version $PROJECT_VERSION." >&2; exit 1; }
+          echo "value=$PROJECT_VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve artifact name
-        run: echo "TARGET_NAME=$(./mvnw -q -ntp -DforceStdout help:evaluate -Dexpression=project.build.finalName | tail -n 1)" >> "$GITHUB_ENV"
+      - name: Verify and publish the exact release reactor
+        # deployAtEnd makes publication atomic with respect to every quality and runtime gate.
+        run: ./mvnw -U -B -ntp -Prelease,platform-acceptance deploy
+
+      - name: Create distributable checksum
+        run: |
+          cd serverfeatures-platform-paper/target
+          sha256sum ServerFeatures.jar > ServerFeatures.jar.sha256
+          cd ../../target
+          sha256sum "ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json" \
+            > "ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json.sha256"
 
       - name: Upload distributable
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: dist
-          path: target/${{ env.TARGET_NAME }}.jar
+          name: serverfeatures-${{ steps.release-version.outputs.value }}
+          if-no-files-found: error
+          path: |
+            serverfeatures-platform-paper/target/ServerFeatures.jar
+            serverfeatures-platform-paper/target/ServerFeatures.jar.sha256
+            target/ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json
+            target/ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json.sha256
 
-      - name: Publish to GitHub Packages (Maven)
-        run: ./mvnw -U -B -ntp -Pplatform-acceptance deploy
+      - name: Upload failing platform acceptance logs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: serverfeatures-platform-acceptance-logs
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/serverfeatures-platform-acceptance
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           name: ServerFeatures ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
-          files: target/${{ env.TARGET_NAME }}.jar
+          files: |
+            serverfeatures-platform-paper/target/ServerFeatures.jar
+            serverfeatures-platform-paper/target/ServerFeatures.jar.sha256
+            target/ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json
+            target/ServerFeatures-${{ steps.release-version.outputs.value }}.cdx.json.sha256
