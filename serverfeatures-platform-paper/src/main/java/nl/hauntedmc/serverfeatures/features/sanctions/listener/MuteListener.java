@@ -16,6 +16,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 
 public class MuteListener implements Listener {
 
@@ -31,11 +32,26 @@ public class MuteListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
-        Player p = e.getPlayer();
+        restoreMuteState(e.getPlayer());
+    }
+
+    public void restoreMuteState(Player player) {
         DataRegistryIdentityGate.runWhenReady(
                 feature,
-                p,
-                readyPlayer -> registry.trackIfMuted(readyPlayer.getUniqueId()),
+                player,
+                (readyPlayer, identity) -> feature.getLifecycleManager()
+                        .getTaskManager()
+                        .runAsync(() -> registry.trackIfMuted(
+                                readyPlayer.getUniqueId(),
+                                identity.playerId()
+                        ))
+                        .exceptionally(throwable -> {
+                            feature.getLogger().warning(
+                                    "Could not restore mute state for " + readyPlayer.getName()
+                                            + ": " + rootMessage(throwable)
+                            );
+                            return null;
+                        }),
                 "mute restoration"
         );
     }
@@ -80,5 +96,16 @@ public class MuteListener implements Listener {
                     .build();
             player.sendMessage(msg);
         }
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while ((current instanceof CompletionException || current.getCause() != null)
+                && current.getCause() != null
+                && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }

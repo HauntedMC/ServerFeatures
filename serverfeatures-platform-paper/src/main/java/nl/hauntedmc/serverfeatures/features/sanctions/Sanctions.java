@@ -56,30 +56,27 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
         this.service = new SanctionsDataService(this);
         this.muteRegistry = new MuteRegistry(service);
 
-        getLifecycleManager().getListenerManager().registerListener(new MuteListener(this, muteRegistry, service));
+        MuteListener muteListener = new MuteListener(this, muteRegistry, service);
+        getLifecycleManager().getListenerManager().registerListener(muteListener);
 
-        // Warm-up: check all currently online players for active mutes (run async)
-        getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
-            int checked = 0;
-            for (Player p : getPlugin().getServer().getOnlinePlayers()) {
-                try {
-                    // Populate/refresh this player's mute status immediately
-                    muteRegistry.trackIfMuted(p.getUniqueId());
-                    checked++;
-                } catch (Throwable t) {
-                    getLogger().warning("Warm-up failed for " + p.getName() + ": " + t.getMessage());
-                }
-            }
-            if (checked > 0) {
-                getLogger().info("Warmed up mute state for " + checked + " online player(s).");
-            }
-        });
+        // Warm up through the same DataRegistry readiness gate as ordinary joins.
+        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+            muteListener.restoreMuteState(player);
+        }
 
         // Global periodic refresh of active mutes (once per configured interval)
         int seconds = ((Number) getConfigHandler().get("muteRefreshSeconds")).intValue();
         seconds = Math.max(10, seconds); // guardrails
-        getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                () -> muteRegistry.refreshAll(),
+        getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
+                () -> {
+                    try {
+                        muteRegistry.refreshAll();
+                    } catch (Throwable throwable) {
+                        getLogger().warning(
+                                "Could not refresh online mute state: " + throwable.getMessage()
+                        );
+                    }
+                },
                 BukkitTime.seconds(0),
                 BukkitTime.ticks(seconds * 20L)
         );

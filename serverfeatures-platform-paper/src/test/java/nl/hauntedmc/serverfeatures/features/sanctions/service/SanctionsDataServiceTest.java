@@ -34,5 +34,12 @@ class SanctionsDataServiceTest {
         assertEquals(512, out.length());
         assertTrue(out.chars().allMatch(ch -> ch == 'a'));
     }
-}
 
+    @Test
+    void invalidCanonicalPlayerIdDoesNotRequirePersistence() {
+        SanctionsDataService service = new SanctionsDataService(null);
+
+        assertTrue(service.findActiveMuteByPlayerId(0L).isEmpty());
+        assertTrue(service.findActiveMuteByPlayerId(-1L).isEmpty());
+    }
+}

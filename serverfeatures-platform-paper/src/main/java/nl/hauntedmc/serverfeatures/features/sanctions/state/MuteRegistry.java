@@ -32,7 +32,9 @@ public class MuteRegistry {
 
     private final SanctionsDataService service;
 
-    // Active muted players on this server
+    // Every online player whose canonical DataRegistry id is available.
+    private final Map<UUID, Long> trackedPlayerIds = new ConcurrentHashMap<>();
+    // Active muted players on this server.
     private final Map<UUID, MuteState> muted = new ConcurrentHashMap<>();
     // Small cooldown to avoid spam if needed (per-player chat notify throttle)
     private final Map<UUID, Long> lastNotify = new ConcurrentHashMap<>();
@@ -41,8 +43,16 @@ public class MuteRegistry {
         this.service = service;
     }
 
-    public void trackIfMuted(UUID uuid) {
-        service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> muted.put(uuid, toState(s)), () -> muted.remove(uuid));
+    /**
+     * Tracks an online player by the canonical identity DataRegistry already resolved.
+     */
+    public void trackIfMuted(UUID uuid, long playerId) {
+        if (uuid == null || playerId <= 0L) {
+            return;
+        }
+        trackedPlayerIds.put(uuid, playerId);
+        Optional<SanctionEntity> sanction = service.findActiveMuteByPlayerId(playerId);
+        applyResolvedState(uuid, playerId, sanction);
     }
 
     public boolean isMuted(UUID uuid) {
@@ -60,21 +70,27 @@ public class MuteRegistry {
     }
 
     /**
-     * Refresh all tracked mutes from DB (called by the global sweeper).
+     * Refresh all online tracked players from DB (called by the global sweeper).
+     *
+     * <p>Tracking unmuted players is intentional: a mute applied while a player is online must be
+     * discovered on the next sweep.</p>
      */
     public void refreshAll() {
-        if (muted.isEmpty()) return;
-        for (UUID uuid : new ArrayList<>(muted.keySet())) {
-            service.findActiveMuteByUuid(uuid.toString()).ifPresentOrElse(s -> muted.put(uuid, toState(s)), () -> muted.remove(uuid));
+        if (trackedPlayerIds.isEmpty()) return;
+        for (Map.Entry<UUID, Long> entry : new ArrayList<>(trackedPlayerIds.entrySet())) {
+            Optional<SanctionEntity> sanction = service.findActiveMuteByPlayerId(entry.getValue());
+            applyResolvedState(entry.getKey(), entry.getValue(), sanction);
         }
     }
 
     public void clear() {
+        trackedPlayerIds.clear();
         muted.clear();
         lastNotify.clear();
     }
 
     public void remove(UUID uuid) {
+        trackedPlayerIds.remove(uuid);
         muted.remove(uuid);
         lastNotify.remove(uuid);
     }
@@ -87,6 +103,23 @@ public class MuteRegistry {
             return true;
         }
         return false;
+    }
+
+    private void applyResolvedState(
+            UUID uuid,
+            long playerId,
+            Optional<SanctionEntity> sanction
+    ) {
+        trackedPlayerIds.computeIfPresent(uuid, (ignored, trackedPlayerId) -> {
+            if (trackedPlayerId != playerId) {
+                return trackedPlayerId;
+            }
+            sanction.ifPresentOrElse(
+                    activeSanction -> muted.put(uuid, toState(activeSanction)),
+                    () -> muted.remove(uuid)
+            );
+            return trackedPlayerId;
+        });
     }
 
     private MuteState toState(SanctionEntity s) {
