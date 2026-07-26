@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nametags;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -21,8 +21,8 @@ public class Nametags extends BukkitBaseFeature<Meta> {
     private NametagDBService repository;
     private ORMContext ormContext;
 
-    public Nametags(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Nametags(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

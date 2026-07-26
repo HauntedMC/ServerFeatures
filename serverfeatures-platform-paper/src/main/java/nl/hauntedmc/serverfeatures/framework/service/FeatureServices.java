@@ -7,7 +7,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Resolves APIs exported by enabled features through DataRegistry's shared service catalog.
+ * Resolves APIs exported by enabled features through DataRegistry or the in-process service catalog.
  */
 public final class FeatureServices {
 
@@ -20,14 +20,19 @@ public final class FeatureServices {
     public static <T> Optional<T> find(ServerFeatures plugin, Class<T> apiType) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(apiType, "apiType");
-        return plugin.getDataRegistry()
+        Optional<T> shared = plugin.getDataRegistry()
                 .flatMap(dataRegistry -> dataRegistry.featureServices().find(apiType));
+        if (shared.isPresent()) {
+            return shared;
+        }
+        var lifecycleFactory = plugin.getFeatureLifecycleFactory();
+        return lifecycleFactory == null ? Optional.empty() : lifecycleFactory.findService(apiType);
     }
 
     /**
      * Resolves a required enabled feature service by API type.
      *
-     * @throws IllegalStateException when DataRegistry is unavailable or the owning feature did not publish the API.
+     * @throws IllegalStateException when the owning feature did not publish the API.
      */
     public static <T> T require(ServerFeatures plugin, Class<T> apiType) {
         return find(plugin, apiType).orElseThrow(() -> missing(apiType));
@@ -44,7 +49,7 @@ public final class FeatureServices {
     /**
      * Resolves a required enabled feature service by API type.
      *
-     * @throws IllegalStateException when DataRegistry is unavailable or the owning feature did not publish the API.
+     * @throws IllegalStateException when the owning feature did not publish the API.
      */
     public static <T> T require(BukkitBaseFeature<?> feature, Class<T> apiType) {
         Objects.requireNonNull(feature, "feature");

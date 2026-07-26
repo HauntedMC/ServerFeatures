@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.silkspawners;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -15,8 +15,8 @@ public class SilkSpawners extends BukkitBaseFeature<Meta> {
 
     private SilkSpawnersHandler handler;
 
-    public SilkSpawners(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public SilkSpawners(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

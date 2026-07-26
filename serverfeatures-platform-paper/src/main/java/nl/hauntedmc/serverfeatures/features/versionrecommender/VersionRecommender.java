@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.versionrecommender;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.hook.ViaVersionHook;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -16,8 +16,8 @@ import nl.hauntedmc.serverfeatures.features.versionrecommender.meta.Meta;
  */
 public class VersionRecommender extends BukkitBaseFeature<Meta> {
 
-    public VersionRecommender(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public VersionRecommender(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

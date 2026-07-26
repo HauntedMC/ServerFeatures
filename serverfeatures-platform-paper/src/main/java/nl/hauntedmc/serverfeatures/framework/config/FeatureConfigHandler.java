@@ -1,28 +1,86 @@
 package nl.hauntedmc.serverfeatures.framework.config;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 
+import java.util.Objects;
+import java.util.logging.Logger;
+
+/**
+ * Feature-level config handler backed by {@code features/<Feature>/config.yml}.
+ */
 public class FeatureConfigHandler extends ConfigView {
 
     private final String featureName;
+    private final Logger logger;
+    private final ConfigView globalView;
 
-    /** Convenience if you don't hold a MainConfigHandler instance. */
-    public FeatureConfigHandler(ServerFeatures plugin, String featureName) {
-        super(new ConfigService(plugin).open("config.yml", true), "features." + featureName);
-        this.featureName = featureName;
+    FeatureConfigHandler(ConfigService service, ConfigView globalView, String featureName, Logger logger) {
+        super(service.open(FeatureStoragePaths.configPath(featureName), false), "");
+        this.featureName = FeatureStoragePaths.normalizeFeatureName(featureName);
+        this.logger = Objects.requireNonNull(logger, "logger");
+        this.globalView = Objects.requireNonNull(globalView, "globalView");
     }
 
-    public void reloadConfig() { file.reload(); }
+    public void reloadConfig() {
+        file.reload();
+    }
 
-    public String featureName() { return featureName; }
+    public String featureName() {
+        return featureName;
+    }
 
-    // ---- Global access (no need to depend on MainConfigHandler) ----
-    public ConfigView globals() { return super.globals(); }
-    public Object getGlobalSetting(String key) { return globals().get(key); }
-    public <T> T getGlobalSetting(String key, Class<T> type) { return globals().get(key, type); }
-    public <T> T getGlobalSetting(String key, Class<T> type, T def) { return globals().get(key, type, def); }
-    public ConfigNode globalNode(String key) { return globals().node(key); }
+    public void injectDefaults(ConfigMap defaults) {
+        if (defaults == null) {
+            return;
+        }
+        reconcileMismatchedKeyTypes(defaults);
+        ConfigMigrationMerger.mergeMissingPaths(this, defaults.toMap()).forEach(key ->
+                logger.info("[ServerFeatures] [Config] Added missing key '" + key
+                        + "' for feature '" + featureName + "'")
+        );
+    }
+
+    void mergeMissingRaw(Object raw) {
+        ConfigMigrationMerger.mergeMissing(this, raw);
+    }
+
+    @Override
+    public ConfigView globals() {
+        return globalView;
+    }
+
+    public Object getGlobalSetting(String key) {
+        return globals().get(key);
+    }
+
+    public <T> T getGlobalSetting(String key, Class<T> type) {
+        return globals().get(key, type);
+    }
+
+    public <T> T getGlobalSetting(String key, Class<T> type, T def) {
+        return globals().get(key, type, def);
+    }
+
+    public ConfigNode globalNode(String key) {
+        return globals().node(key);
+    }
+
+    private void reconcileMismatchedKeyTypes(ConfigMap defaults) {
+        ConfigNode section = node();
+        for (String topKey : section.keys()) {
+            FeatureConfigSchema.Kind expected = FeatureConfigSchema.expectedKindForTopKey(topKey, defaults);
+            if (expected == null) {
+                continue;
+            }
+            FeatureConfigSchema.Kind actual = FeatureConfigSchema.classify(node(topKey).raw());
+            if (actual != null && expected != actual) {
+                remove(topKey);
+                logger.info("[ServerFeatures] [Config] Removed key '" + topKey
+                        + "' from feature '" + featureName + "' due to schema change");
+            }
+        }
+    }
 }

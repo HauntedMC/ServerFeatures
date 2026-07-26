@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.token.TokenService;
@@ -23,8 +23,8 @@ public class ChatLayout extends BukkitBaseFeature<Meta> {
 
     private ChatHandler chatHandler;
 
-    public ChatLayout(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public ChatLayout(FeatureContext<Meta> context) {
+        super(context);
     }
 
     private TokenService<ItemStack> itemPreviewTokens;

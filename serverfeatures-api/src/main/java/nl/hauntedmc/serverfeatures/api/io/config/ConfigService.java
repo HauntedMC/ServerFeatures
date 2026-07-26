@@ -5,6 +5,7 @@ import org.bukkit.plugin.Plugin;
 import java.io.InputStream;
 import java.nio.file.*;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
@@ -32,8 +33,7 @@ public final class ConfigService {
      * the resource is copied; otherwise an empty file is created.
      */
     public YamlFile open(String relativePath, boolean copyDefaultsIfPresent) {
-        Objects.requireNonNull(relativePath, "relativePath");
-        Path abs = dataDir.resolve(relativePath).normalize();
+        Path abs = resolve(relativePath);
 
         return cache.computeIfAbsent(abs, p -> {
             try {
@@ -52,11 +52,48 @@ public final class ConfigService {
                         Files.createFile(p);
                     }
                 }
+                if (!Files.isRegularFile(p)) {
+                    throw new IllegalStateException("YAML path is not a regular file: " + p);
+                }
                 return new YamlFile(p, logger);
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to open YAML file: " + p, e);
             }
         });
+    }
+
+    /**
+     * Opens a YAML file only when it already exists.
+     */
+    public Optional<YamlFile> openExisting(String relativePath) {
+        Path abs = resolve(relativePath);
+        if (Files.notExists(abs)) {
+            return Optional.empty();
+        }
+        return Optional.of(open(relativePath, false));
+    }
+
+    public boolean exists(String relativePath) {
+        return Files.exists(resolve(relativePath));
+    }
+
+    /**
+     * Resolves a relative config path without allowing it to escape the plugin data directory.
+     */
+    public Path resolve(String relativePath) {
+        Objects.requireNonNull(relativePath, "relativePath");
+        if (relativePath.isBlank()) {
+            throw new IllegalArgumentException("Config path must not be blank.");
+        }
+        Path relative = Path.of(relativePath);
+        if (relative.isAbsolute()) {
+            throw new IllegalArgumentException("Config path must be relative: " + relativePath);
+        }
+        Path abs = dataDir.resolve(relative).normalize();
+        if (!abs.startsWith(dataDir)) {
+            throw new IllegalArgumentException("Config path escapes data directory: " + relativePath);
+        }
+        return abs;
     }
 
     /** Convenience: opens a root-scoped view on a YAML file. */

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.betterdoors;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public final class BetterDoors extends BukkitBaseFeature<Meta> {
 
     private BetterDoorsHandler handler;
 
-    public BetterDoors(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public BetterDoors(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

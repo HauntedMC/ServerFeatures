@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.parcour;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -15,8 +15,8 @@ public final class Parcour extends BukkitBaseFeature<Meta> {
     private ParcourRegistry registry;
     private ParcourHandler handler;
 
-    public Parcour(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Parcour(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

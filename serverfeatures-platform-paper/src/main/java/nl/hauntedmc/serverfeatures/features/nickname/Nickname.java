@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.nickname;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -11,6 +11,8 @@ import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknameHandler;
 import nl.hauntedmc.serverfeatures.features.nickname.internal.NicknamePlaceholder;
 import nl.hauntedmc.serverfeatures.features.nickname.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.nickname.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
+import org.bukkit.entity.Player;
 
 import java.util.List;
 
@@ -18,8 +20,8 @@ public class Nickname extends BukkitBaseFeature<Meta> {
 
     private NicknameHandler nicknameHandler;
 
-    public Nickname(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Nickname(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override
@@ -81,6 +83,10 @@ public class Nickname extends BukkitBaseFeature<Meta> {
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new NicknamePlaceholder(this).register();
         }
+
+        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+            initializePlayer(player);
+        }
     }
 
     @Override
@@ -89,5 +95,14 @@ public class Nickname extends BukkitBaseFeature<Meta> {
 
     public NicknameHandler getNicknameHandler() {
         return nicknameHandler;
+    }
+
+    public void initializePlayer(Player player) {
+        DataRegistryIdentityGate.runWhenReady(
+                this,
+                player,
+                (readyPlayer, identity) -> nicknameHandler.loadNicknameIntoCache(readyPlayer, identity),
+                "nickname cache load"
+        );
     }
 }

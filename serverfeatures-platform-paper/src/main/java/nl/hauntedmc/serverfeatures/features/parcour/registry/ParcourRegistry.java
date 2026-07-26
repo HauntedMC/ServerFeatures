@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.parcour.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.util.BukkitRegistry;
 import nl.hauntedmc.serverfeatures.features.parcour.Parcour;
@@ -33,7 +32,7 @@ public final class ParcourRegistry {
 
     public ParcourRegistry(Parcour feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/parcours.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/parcours.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {

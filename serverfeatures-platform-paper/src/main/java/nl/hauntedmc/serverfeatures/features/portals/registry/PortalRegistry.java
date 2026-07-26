@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.portals.registry;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.portals.Portals;
 import nl.hauntedmc.serverfeatures.features.portals.model.CommandExecutor;
@@ -26,7 +25,7 @@ public final class PortalRegistry {
 
     public PortalRegistry(Portals feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/portals.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/portals.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {

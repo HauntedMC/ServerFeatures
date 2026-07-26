@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -10,13 +10,14 @@ import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.listener.LanguageListener;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.service.LanguageService;
+import org.bukkit.entity.Player;
 
 public class PlayerLanguage extends BukkitBaseFeature<Meta> {
 
     private LanguageService service;
 
-    public PlayerLanguage(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public PlayerLanguage(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override
@@ -43,6 +44,10 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getListenerManager().registerListener(new LanguageListener(this));
 
         getLifecycleManager().getApiManager().registerService(LanguageAPI.class, service);
+
+        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+            initializePlayer(player);
+        }
     }
 
     @Override
@@ -51,5 +56,9 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
 
     public LanguageService getService() {
         return service;
+    }
+
+    public void initializePlayer(Player player) {
+        service.warm(player.getUniqueId());
     }
 }

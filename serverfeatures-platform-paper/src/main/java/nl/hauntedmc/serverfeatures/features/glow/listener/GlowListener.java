@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.glow.listener;
 
 import nl.hauntedmc.serverfeatures.features.glow.Glow;
-import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -22,13 +20,7 @@ public class GlowListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        DataRegistryIdentityGate.runWhenReady(
-                feature,
-                player,
-                (readyPlayer, identity) -> feature.getGlowStateService().restoreGlowFor(readyPlayer, identity),
-                "glow restore"
-        );
+        feature.initializePlayer(event.getPlayer());
     }
 
     @EventHandler

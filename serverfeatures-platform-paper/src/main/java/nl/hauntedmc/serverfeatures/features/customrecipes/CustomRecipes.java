@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public class CustomRecipes extends BukkitBaseFeature<Meta> {
 
     private RecipeService recipeService;
 
-    public CustomRecipes(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public CustomRecipes(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

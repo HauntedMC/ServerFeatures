@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public class NotifyLogin extends BukkitBaseFeature<Meta> {
 
     private NotificationHandler notificationHandler;
 
-    public NotifyLogin(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public NotifyLogin(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

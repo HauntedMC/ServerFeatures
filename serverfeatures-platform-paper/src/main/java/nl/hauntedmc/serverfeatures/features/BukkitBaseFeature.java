@@ -14,55 +14,50 @@ import java.util.List;
 
 public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
 
-    private final ServerFeatures plugin;
-    private final T meta;
-    private final FeatureConfigHandler configHandler;
-    private final FeatureLifecycleManager lifecycleManager;
-    private final FeatureLogger logger;
+    private final FeatureContext<T> context;
 
-    protected BukkitBaseFeature(ServerFeatures plugin, T meta) {
-        this.plugin = plugin;
-        this.meta = meta;
-        String featureName = meta.getFeatureName();
-        this.configHandler = new FeatureConfigHandler(plugin, featureName);
-        this.lifecycleManager = new FeatureLifecycleManager(plugin, featureName);
-        this.logger = new FeatureLogger(plugin.getLogger(), featureName);
+    protected BukkitBaseFeature(FeatureContext<T> context) {
+        this.context = java.util.Objects.requireNonNull(context, "context");
     }
 
     public String getFeatureName() {
-        return meta.getFeatureName();
+        return context.meta().getFeatureName();
     }
 
     public String getFeatureVersion() {
-        return meta.getFeatureVersion();
+        return context.meta().getFeatureVersion();
     }
 
     public List<String> getDependencies() {
-        return meta.getDependencies();
+        return context.meta().getDependencies();
     }
 
     public List<String> getPluginDependencies() {
-        return meta.getPluginDependencies();
+        return context.meta().getPluginDependencies();
+    }
+
+    public FeatureContext<T> getContext() {
+        return context;
     }
 
     public FeatureLogger getLogger() {
-        return logger;
+        return context.logger();
     }
 
     public ServerFeatures getPlugin() {
-        return plugin;
+        return context.plugin();
     }
 
     public FeatureConfigHandler getConfigHandler() {
-        return configHandler;
+        return context.configHandler();
     }
 
     public FeatureLifecycleManager getLifecycleManager() {
-        return lifecycleManager;
+        return context.lifecycleManager();
     }
 
     public LocalizationHandler getLocalizationHandler() {
-        return plugin.getLocalizationHandler();
+        return context.localizationHandler();
     }
 
     /**
@@ -90,8 +85,29 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
      * Properly unloads the feature using the lifecycle manager.
      */
     public void cleanup() {
-        plugin.getLogger().info("Disabling " + getFeatureName());
-        disable();
-        lifecycleManager.cleanup();
+        getPlugin().getLogger().info("Disabling " + getFeatureName());
+        Throwable failure = null;
+        try {
+            disable();
+        } catch (Throwable throwable) {
+            failure = throwable;
+        }
+        try {
+            getLifecycleManager().cleanup();
+        } catch (Throwable throwable) {
+            if (failure == null) {
+                failure = throwable;
+            } else {
+                failure.addSuppressed(throwable);
+            }
+        }
+        if (failure != null) {
+            throwUnchecked(failure);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void throwUnchecked(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 }

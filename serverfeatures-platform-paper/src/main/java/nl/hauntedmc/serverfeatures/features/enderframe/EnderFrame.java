@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.enderframe;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -14,8 +14,8 @@ public class EnderFrame extends BukkitBaseFeature<Meta> {
     private boolean griefPreventionEnabled;
     private boolean worldguardEnabled;
 
-    public EnderFrame(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public EnderFrame(FeatureContext<Meta> context) {
+        super(context);
     }
 
     /**

@@ -1,8 +1,10 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
-import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import java.util.Objects;
 
+/**
+ * Aggregates every runtime resource owned by one loaded feature.
+ */
 public class FeatureLifecycleManager {
 
     private final FeatureTaskManager taskManager;
@@ -13,43 +15,37 @@ public class FeatureLifecycleManager {
     private final FeatureGUIManager guiManager;
     private final FeatureApiManager apiManager;
 
-    public FeatureLifecycleManager(ServerFeatures plugin, String featureName) {
-        this.taskManager = new FeatureTaskManager(plugin);
-        this.commandManager = new FeatureCommandManager(plugin);
-        this.listenerManager = new FeatureListenerManager(plugin);
-        this.dataManager = plugin.getServer().getPluginManager().isPluginEnabled(BaseMeta.DATA_PROVIDER)
-                ? new FeatureDataManager(plugin)
-                : null;
-        this.cacheManager = new FeatureCacheManager(plugin);
-        this.guiManager = new FeatureGUIManager(plugin, taskManager);
-        this.apiManager = new FeatureApiManager(featureName, plugin::getDataRegistry);
+    public FeatureLifecycleManager(
+            FeatureTaskManager taskManager,
+            FeatureCommandManager commandManager,
+            FeatureListenerManager listenerManager,
+            FeatureDataManager dataManager,
+            FeatureCacheManager cacheManager,
+            FeatureGUIManager guiManager,
+            FeatureApiManager apiManager
+    ) {
+        this.taskManager = Objects.requireNonNull(taskManager, "taskManager");
+        this.commandManager = Objects.requireNonNull(commandManager, "commandManager");
+        this.listenerManager = Objects.requireNonNull(listenerManager, "listenerManager");
+        this.dataManager = dataManager;
+        this.cacheManager = Objects.requireNonNull(cacheManager, "cacheManager");
+        this.guiManager = Objects.requireNonNull(guiManager, "guiManager");
+        this.apiManager = Objects.requireNonNull(apiManager, "apiManager");
         this.listenerManager.registerListener(guiManager);
     }
 
-    /**
-     * Provides access to the task manager.
-     */
     public FeatureTaskManager getTaskManager() {
         return taskManager;
     }
 
-    /**
-     * Provides access to the command manager.
-     */
     public FeatureCommandManager getCommandManager() {
         return commandManager;
     }
 
-    /**
-     * Provides access to the listener manager.
-     */
     public FeatureListenerManager getListenerManager() {
         return listenerManager;
     }
 
-    /**
-     * Provides access to the data manager.
-     */
     public FeatureDataManager getDataManager() {
         if (dataManager == null) {
             throw new IllegalStateException("DataProvider is not enabled; data manager is unavailable.");
@@ -57,40 +53,53 @@ public class FeatureLifecycleManager {
         return dataManager;
     }
 
-    /**
-     * Access to the cache manager for this feature.
-     */
     public FeatureCacheManager getCacheManager() {
         return cacheManager;
     }
 
-    /**
-     * Per-feature GUI manager
-     */
     public FeatureGUIManager getGuiManager() {
         return guiManager;
     }
 
-    /**
-     * Provides access to the feature-scoped API/service registry.
-     */
     public FeatureApiManager getApiManager() {
         return apiManager;
     }
 
     /**
-     * Cleans up all registered listeners, tasks, and commands.
+     * Attempts every cleanup step and rethrows the first failure with later failures suppressed.
      */
     public void cleanup() {
-        guiManager.shutdown();
-        listenerManager.unregisterAllListeners();
-        taskManager.cancelAllTasks();
-        commandManager.unregisterAllFeatureCommands();
-        commandManager.unregisterAllBrigadierCommands();
-        apiManager.unregisterAllServices();
+        Throwable failure = null;
+        failure = runCleanupStep(failure, guiManager::shutdown);
+        failure = runCleanupStep(failure, listenerManager::unregisterAllListeners);
+        failure = runCleanupStep(failure, taskManager::cancelAllTasks);
+        failure = runCleanupStep(failure, commandManager::unregisterAllFeatureCommands);
+        failure = runCleanupStep(failure, commandManager::unregisterAllBrigadierCommands);
+        failure = runCleanupStep(failure, apiManager::unregisterAllServices);
         if (dataManager != null) {
-            dataManager.closeAllConnections();
+            failure = runCleanupStep(failure, dataManager::closeAllConnections);
         }
-        cacheManager.cleanupAll();
+        failure = runCleanupStep(failure, cacheManager::cleanupAll);
+        if (failure != null) {
+            throwUnchecked(failure);
+        }
+    }
+
+    private static Throwable runCleanupStep(Throwable failure, Runnable step) {
+        try {
+            step.run();
+            return failure;
+        } catch (Throwable throwable) {
+            if (failure == null) {
+                return throwable;
+            }
+            failure.addSuppressed(throwable);
+            return failure;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void throwUnchecked(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 }

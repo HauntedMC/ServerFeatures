@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.broadcast;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,8 +9,8 @@ import nl.hauntedmc.serverfeatures.features.broadcast.meta.Meta;
 
 public class Broadcast extends BukkitBaseFeature<Meta> {
 
-    public Broadcast(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Broadcast(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

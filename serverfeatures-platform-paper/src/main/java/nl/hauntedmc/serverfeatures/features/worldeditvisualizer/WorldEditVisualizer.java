@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.worldeditvisualizer;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -15,8 +15,8 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     private VisualizationService service;
 
-    public WorldEditVisualizer(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public WorldEditVisualizer(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

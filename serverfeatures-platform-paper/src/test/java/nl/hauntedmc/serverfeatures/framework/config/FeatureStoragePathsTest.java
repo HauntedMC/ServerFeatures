@@ -1,0 +1,27 @@
+package nl.hauntedmc.serverfeatures.framework.config;
+
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class FeatureStoragePathsTest {
+
+    @Test
+    void buildsFeatureOwnedConfigAndMessagePaths() {
+        assertEquals("features/Demo/config.yml", FeatureStoragePaths.configPath(" Demo "));
+        assertEquals("features/Demo/messages.yml", FeatureStoragePaths.messagesPath("Demo"));
+        assertEquals(
+                "features/Demo/" + Language.EN.getFileName(),
+                FeatureStoragePaths.messagesPath("Demo", Language.EN)
+        );
+    }
+
+    @Test
+    void rejectsUnsafeFeatureNames() {
+        assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath("../Demo"));
+        assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath("Demo/Child"));
+        assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath(" "));
+    }
+}

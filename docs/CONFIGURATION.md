@@ -4,16 +4,21 @@ This guide focuses on practical setup and safe operations. Keep changes small, t
 
 ## Configuration Layout
 
-- Main settings: `plugins/ServerFeatures/config.yml`
-- Feature-local files: `plugins/ServerFeatures/local/*.yml`
-- Localization files: `plugins/ServerFeatures/lang/*.yml`
+- Main settings: `plugins/ServerFeatures/config.yml` under `global.*`
+- Feature settings: `plugins/ServerFeatures/features/<FeatureName>/config.yml`
+- Framework messages: `plugins/ServerFeatures/lang/messages.yml` and optional language files
+- Feature messages: `plugins/ServerFeatures/features/<FeatureName>/messages.yml` and optional language files
+- Additional structured feature data: `plugins/ServerFeatures/local/*.yml`
 
-`config.yml` is generated at runtime and primarily controls feature enablement and feature-level settings.
+Each feature file contains its own `enabled` toggle and settings. `config.yml` is reserved for values shared by
+multiple features.
 
-Most features follow the same pattern:
+Feature reload behavior is file-scoped:
 
-- `enabled` toggle
-- feature-specific settings under that feature section
+- `/serverfeatures reload <feature>` replaces that feature's runtime and preserves supported snapshot state
+- `/serverfeatures softreload <feature>` refreshes only that feature's config and messages
+- `/serverfeatures reloadlocal` refreshes framework messages
+- `/serverfeatures reloadlocal <feature>` refreshes only that feature's messages
 
 ## Runtime Control Commands
 
@@ -26,6 +31,7 @@ Use these commands during operations:
 - `/serverfeatures reload <feature>`
 - `/serverfeatures softreload <feature>`
 - `/serverfeatures reloadlocal`
+- `/serverfeatures reloadlocal <feature>`
 
 ## Recommended Workflow
 
@@ -46,9 +52,25 @@ Treat production tokens, webhooks, and credentials as environment-specific value
 
 ## Localization
 
-You can override messages without copying all language keys.
+Framework and feature messages are split intentionally.
 
-Use partial language files with only the entries you want to customize. Missing keys fall back to defaults.
+- Put shared command/framework text in `lang/messages*.yml`.
+- Put feature-owned text in `features/<FeatureName>/messages*.yml`.
+- Use partial language files with only the entries you want to customize.
+- Missing feature translations fall back to that feature's `messages.yml`, then to framework messages.
+
+## Migration
+
+Legacy installs are migrated during feature discovery:
+
+- `config.yml -> features.<FeatureName>` moves to `features/<FeatureName>/config.yml`;
+- feature-owned message roots move from `lang/messages*.yml` to the matching feature directory;
+- `config.yml` keeps only global settings after migration.
+
+Existing target values win over legacy values and newly injected defaults, including when old and new branch types
+conflict. Missing children within an existing section are still filled. Legacy source data is removed only after the
+destination write succeeds, so an interrupted migration is safe to retry. Back up the plugin directory before the
+first 3.0 startup as you would for any configuration migration.
 
 ## Troubleshooting Tips
 

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.itemedit;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -14,8 +14,8 @@ public class ItemEdit extends BukkitBaseFeature<Meta> {
 
     private ItemHandler itemHandler;
 
-    public ItemEdit(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public ItemEdit(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

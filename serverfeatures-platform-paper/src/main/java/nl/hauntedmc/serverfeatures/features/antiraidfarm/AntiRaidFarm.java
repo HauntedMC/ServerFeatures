@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.antiraidfarm;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -13,8 +13,8 @@ public final class AntiRaidFarm extends BukkitBaseFeature<Meta> {
 
     private AntiRaidFarmHandler handler;
 
-    public AntiRaidFarm(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public AntiRaidFarm(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

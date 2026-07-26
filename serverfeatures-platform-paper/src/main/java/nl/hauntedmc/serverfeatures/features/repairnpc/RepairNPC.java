@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.repairnpc;
 
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.trait.TraitInfo;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -17,8 +17,8 @@ public class RepairNPC extends BukkitBaseFeature<Meta> {
     private static RepairNPC instance;
     private TraitInfo repairTrait;
 
-    public RepairNPC(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public RepairNPC(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

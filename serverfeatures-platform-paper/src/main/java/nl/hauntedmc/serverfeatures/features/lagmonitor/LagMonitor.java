@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.lagmonitor;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -11,8 +11,8 @@ public class LagMonitor extends BukkitBaseFeature<Meta> {
 
     private LagMonitorHandler lagMonitorHandler;
 
-    public LagMonitor(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public LagMonitor(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.instaskull;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,8 +9,8 @@ import nl.hauntedmc.serverfeatures.features.instaskull.meta.Meta;
 
 public class InstaSkull extends BukkitBaseFeature<Meta> {
 
-    public InstaSkull(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public InstaSkull(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

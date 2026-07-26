@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.framework.loader;
 
+import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashSet;
@@ -7,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -39,5 +41,76 @@ class FeatureDescriptorTest {
         FeatureDescriptor descriptor = new FeatureDescriptor("x", "x.C", "x", "1", Set.of("a"), Set.of("b"));
         assertThrows(UnsupportedOperationException.class, () -> descriptor.featureDependencies().add("c"));
         assertThrows(UnsupportedOperationException.class, () -> descriptor.pluginDependencies().add("d"));
+    }
+
+    @Test
+    void createsFreshMetadataForEveryFeatureContext() {
+        FeatureDescriptor descriptor = new FeatureDescriptor(
+                "Example",
+                "example.Example",
+                ExampleMeta.class,
+                "Example",
+                "2.0",
+                Set.of(),
+                Set.of()
+        );
+
+        BaseMeta first = descriptor.createMeta();
+        BaseMeta second = descriptor.createMeta();
+
+        assertTrue(first instanceof ExampleMeta);
+        assertTrue(second instanceof ExampleMeta);
+        assertNotSame(first, second);
+    }
+
+    @Test
+    void fallsBackToDescriptorSnapshotWhenMetadataCannotBeConstructed() {
+        FeatureDescriptor descriptor = new FeatureDescriptor(
+                "Fallback",
+                "example.Fallback",
+                BrokenMeta.class,
+                "Fallback",
+                "3.0",
+                Set.of("Dependency"),
+                Set.of("Plugin")
+        );
+
+        BaseMeta meta = descriptor.createMeta();
+
+        assertEquals("Fallback", meta.getFeatureName());
+        assertEquals("3.0", meta.getFeatureVersion());
+        assertEquals(List.of("Dependency"), meta.getDependencies());
+        assertEquals(List.of("Plugin"), meta.getPluginDependencies());
+    }
+
+    public static final class ExampleMeta implements BaseMeta {
+        public ExampleMeta() {
+        }
+
+        @Override
+        public String getFeatureName() {
+            return "Example";
+        }
+
+        @Override
+        public String getFeatureVersion() {
+            return "2.0";
+        }
+    }
+
+    public static final class BrokenMeta implements BaseMeta {
+        public BrokenMeta() {
+            throw new IllegalStateException("broken");
+        }
+
+        @Override
+        public String getFeatureName() {
+            return "Broken";
+        }
+
+        @Override
+        public String getFeatureVersion() {
+            return "0";
+        }
     }
 }

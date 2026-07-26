@@ -81,19 +81,20 @@ public final class ServerFeaturesCommand {
         // /serverfeatures reloadlocal
         root.then(Commands.literal("reloadlocal")
                 .requires(src -> src.getSender().hasPermission(P_RELOADLOC))
+                .then(Commands.argument("feature", StringArgumentType.word())
+                        .suggests((c, b) -> {
+                            suggestAnyFeature(b);
+                            return b.buildFuture();
+                        })
+                        .executes(ctx -> {
+                            handleReloadLocal(
+                                    ctx.getSource().getSender(),
+                                    StringArgumentType.getString(ctx, "feature")
+                            );
+                            return 1;
+                        }))
                 .executes(ctx -> {
-                    CommandSender s = ctx.getSource().getSender();
-                    try {
-                        plugin.getLocalizationHandler().reloadLocalization();
-                        s.sendMessage(plugin.getLocalizationHandler()
-                                .getMessage("command.reloadlocal.success")
-                                .forAudience(s).build());
-                    } catch (Throwable t) {
-                        plugin.getLogger().warning("Localization reload failed: " + t.getMessage());
-                        s.sendMessage(plugin.getLocalizationHandler()
-                                .getMessage("command.reloadlocal.fail")
-                                .forAudience(s).build());
-                    }
+                    handleReloadLocal(ctx.getSource().getSender(), null);
                     return 1;
                 }));
 
@@ -397,6 +398,47 @@ public final class ServerFeaturesCommand {
             default -> sender.sendMessage(plugin.getLocalizationHandler()
                     .getMessage("command.reload.failed").forAudience(sender)
                     .with("feature", feature).build());
+        }
+    }
+
+    private void handleReloadLocal(CommandSender sender, String feature) {
+        if (feature == null || feature.isBlank()) {
+            try {
+                plugin.getLocalizationHandler().reloadLocalization();
+                sender.sendMessage(plugin.getLocalizationHandler()
+                        .getMessage("command.reloadlocal.success")
+                        .forAudience(sender).build());
+            } catch (Throwable throwable) {
+                plugin.getLogger().warning("Framework localization reload failed: " + throwable.getMessage());
+                sender.sendMessage(plugin.getLocalizationHandler()
+                        .getMessage("command.reloadlocal.fail")
+                        .forAudience(sender).build());
+            }
+            return;
+        }
+
+        String featureKey = plugin.getFeatureLoadManager().resolveFeatureKey(feature);
+        if (featureKey == null) {
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.reloadlocal.not_found")
+                    .forAudience(sender)
+                    .with("feature", feature).build());
+            return;
+        }
+
+        try {
+            plugin.getFeatureScopeFactory().localization(featureKey).reloadLocalization();
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.reloadlocal.feature_success")
+                    .forAudience(sender)
+                    .with("feature", featureKey).build());
+        } catch (Throwable throwable) {
+            plugin.getLogger().warning("Localization reload failed for feature " + featureKey
+                    + ": " + throwable.getMessage());
+            sender.sendMessage(plugin.getLocalizationHandler()
+                    .getMessage("command.reloadlocal.feature_fail")
+                    .forAudience(sender)
+                    .with("feature", featureKey).build());
         }
     }
 

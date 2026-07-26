@@ -35,28 +35,52 @@ capabilities rather than importing `FeatureGUIManager`.
 
 At startup, the plugin:
 
-1. Initializes shared config and localization handlers.
+1. Initializes shared config/localization handlers and the feature scope factories.
 2. Discovers available feature classes through package scanning.
 3. Resolves metadata and dependency requirements.
-4. Prunes features with unresolved dependencies.
-5. Loads enabled features in dependency-safe order.
+4. Migrates legacy feature config/messages into feature-owned files.
+5. Prunes features with unresolved dependencies.
+6. Loads enabled features in dependency-safe order.
 
-During runtime, each feature extends `BukkitBaseFeature` and uses `FeatureLifecycleManager` services for:
+Each feature instance receives an immutable `FeatureContext`. The context bundles its metadata, scoped config,
+scoped localization, logger, and a fresh lifecycle manager. Config/localization/logger scopes remain stable across
+reloads, while listeners, tasks, commands, APIs, data connections, caches, and GUIs belong to exactly one loaded
+feature instance.
+
+During runtime, each feature extends `BukkitBaseFeature` and uses its `FeatureLifecycleManager` services for:
 
 - listener registration
 - scheduled tasks
 - command registration
+- feature API publication and cleanup
 - optional data access (`DataProvider`)
 - cache and GUI lifecycle
 
-On disable/reload, feature cleanup cancels tasks, unregisters listeners/commands, closes data connections, and clears cache/GUI state to avoid leaks.
+On disable/reload, cleanup attempts every lifecycle step even if an earlier step fails. Features implementing
+`StatefulFeature` can snapshot transient runtime state before teardown and restore it after the replacement instance
+initializes. Features with player-local runtime state also initialize players who are already online, so a feature
+reload behaves like a clean startup rather than waiting for the next join.
+
+Published feature APIs are registered in an in-process, ownership-aware catalog and, when available, DataRegistry's
+shared catalog. This keeps feature-to-feature APIs available without making DataRegistry mandatory and still permits
+cross-plugin discovery.
+
+A dependency reload is a cascade: all snapshots are captured before mutation, dependents are torn down before their
+dependencies, and replacements load in dependency order. A failed replacement never leaves a dependent registered
+against a missing dependency.
 
 ## Configuration and Data
 
-- `config.yml` is the primary control surface (`features.*` + global keys).
-- Feature defaults are injected and unknown keys can be reconciled/cleaned per schema.
+- `config.yml` stores shared/global settings only.
+- Each feature owns `features/<FeatureName>/config.yml`.
+- Framework messages live in `lang/messages*.yml`.
+- Each feature owns `features/<FeatureName>/messages*.yml`.
+- Feature defaults are injected into the feature's file and incompatible legacy value types are reconciled per
+  schema.
 - Feature-local config files live in `local/*.yml`.
-- Localization files live in `lang/*.yml`.
+- Legacy `config.yml -> features.*` sections and feature-owned roots in global message files migrate automatically.
+- YAML writes use same-directory atomic replacement where supported. Migration removes legacy source data only after
+  the feature-owned destination is durably written.
 
 ## Why This Matters
 

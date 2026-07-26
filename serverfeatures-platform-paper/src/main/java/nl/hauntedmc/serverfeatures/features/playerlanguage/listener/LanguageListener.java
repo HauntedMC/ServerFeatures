@@ -32,7 +32,7 @@ public class LanguageListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJoin(PlayerJoinEvent e) {
-        feature.getService().warm(e.getPlayer().getUniqueId());
+        feature.initializePlayer(e.getPlayer());
     }
 
     @EventHandler

@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.holograms.registry;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.holograms.Holograms;
 import nl.hauntedmc.serverfeatures.features.holograms.model.HologramDefinition;
@@ -28,7 +27,7 @@ public final class HologramRegistry {
 
     public HologramRegistry(Holograms feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/holograms.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/holograms.yml", /* copyDefaultsIfPresent */ true);
         reload();
     }
 

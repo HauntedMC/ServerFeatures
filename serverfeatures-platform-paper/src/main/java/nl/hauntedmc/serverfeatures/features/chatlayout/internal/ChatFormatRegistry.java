@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chatlayout.internal;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.chatlayout.ChatLayout;
 import org.bukkit.entity.Player;
@@ -22,7 +21,7 @@ public class ChatFormatRegistry {
 
     public ChatFormatRegistry(ChatLayout feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/chatformats.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/chatformats.yml", /* copyDefaultsIfPresent */ true);
         loadFormats();
     }
 

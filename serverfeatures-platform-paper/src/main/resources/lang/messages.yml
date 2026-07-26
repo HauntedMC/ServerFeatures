@@ -37,6 +37,9 @@ command:
   reloadlocal:
     success: '&7De localization is opnieuw geladen.'
     fail: '&cHerladen van localization is mislukt. Bekijk de console voor details.'
+    feature_success: '&7De localization voor feature &e{feature} &7is opnieuw geladen.'
+    feature_fail: '&cHerladen van localization voor feature &e{feature}&c is mislukt. Bekijk de console voor details.'
+    not_found: '&cDeze feature &e{feature}&c bestaat niet.'
   list:
     empty: '&7Er zijn momenteel geen ingeschakelde functies.'
     header: '&aIngeschakelde functies:'

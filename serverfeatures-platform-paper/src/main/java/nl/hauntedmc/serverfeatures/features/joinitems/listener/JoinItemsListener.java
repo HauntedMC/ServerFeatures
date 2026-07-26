@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.joinitems.listener;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.joinitems.JoinItems;
 import nl.hauntedmc.serverfeatures.features.joinitems.internal.JoinItemsHandler;
 import nl.hauntedmc.serverfeatures.features.joinitems.model.JoinItemDefinition;
@@ -32,18 +31,7 @@ public final class JoinItemsListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent e) {
-        final var player = e.getPlayer();
-        final int delay = handler.getJoinDelayTicks();
-
-        // Defer to allow world/chunks/other plugins to finish first.
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            if (!player.isOnline()) return;
-
-            if (handler.isRemoveOnJoin()) {
-                handler.purgeFor(player);
-            }
-            handler.giveAll(player);
-        }, BukkitTime.ticks(Math.max(0, delay)));
+        handler.initializePlayer(e.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.service.FeatureServiceHandle;
+import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -18,10 +19,20 @@ public class FeatureApiManager {
     private final Map<Class<?>, FeatureServiceHandle> dataRegistryServices = new LinkedHashMap<>();
     private final String ownerFeature;
     private final Supplier<Optional<DataRegistryApi>> dataRegistrySupplier;
+    private final FeatureServiceCatalog localCatalog;
 
     public FeatureApiManager(String ownerFeature, Supplier<Optional<DataRegistryApi>> dataRegistrySupplier) {
+        this(ownerFeature, dataRegistrySupplier, new FeatureServiceCatalog());
+    }
+
+    FeatureApiManager(
+            String ownerFeature,
+            Supplier<Optional<DataRegistryApi>> dataRegistrySupplier,
+            FeatureServiceCatalog localCatalog
+    ) {
         this.ownerFeature = requireText(ownerFeature, "ownerFeature");
         this.dataRegistrySupplier = Objects.requireNonNull(dataRegistrySupplier, "dataRegistrySupplier");
+        this.localCatalog = Objects.requireNonNull(localCatalog, "localCatalog");
     }
 
     /**
@@ -38,6 +49,14 @@ public class FeatureApiManager {
         }
 
         FeatureServiceHandle handle = registerWithDataRegistry(type, instance);
+        try {
+            localCatalog.register(ownerFeature, type, instance);
+        } catch (Throwable throwable) {
+            if (handle != null) {
+                handle.close();
+            }
+            throw throwable;
+        }
         registeredServices.put(type, instance);
 
         dataRegistryServices.remove(type);
@@ -55,7 +74,10 @@ public class FeatureApiManager {
     public synchronized void unregisterService(Class<?> type) {
         Objects.requireNonNull(type, "type");
 
-        registeredServices.remove(type);
+        Object service = registeredServices.remove(type);
+        if (service != null) {
+            localCatalog.unregister(ownerFeature, type, service);
+        }
         closeDataRegistryHandle(type);
     }
 
@@ -63,12 +85,27 @@ public class FeatureApiManager {
      * Unregisters all APIs owned by this feature.
      */
     public synchronized void unregisterAllServices() {
-        for (var entry : new LinkedHashMap<>(registeredServices).entrySet()) {
-            closeDataRegistryHandle(entry.getKey());
-        }
+        Map<Class<?>, Object> services = new LinkedHashMap<>(registeredServices);
+        Map<Class<?>, FeatureServiceHandle> handles = new LinkedHashMap<>(dataRegistryServices);
         registeredServices.clear();
-        dataRegistryServices.values().forEach(FeatureServiceHandle::close);
         dataRegistryServices.clear();
+
+        services.forEach((type, service) -> localCatalog.unregister(ownerFeature, type, service));
+        Throwable failure = null;
+        for (FeatureServiceHandle handle : handles.values()) {
+            try {
+                handle.close();
+            } catch (Throwable throwable) {
+                if (failure == null) {
+                    failure = throwable;
+                } else {
+                    failure.addSuppressed(throwable);
+                }
+            }
+        }
+        if (failure != null) {
+            throwUnchecked(failure);
+        }
     }
 
     /**
@@ -76,6 +113,10 @@ public class FeatureApiManager {
      */
     public synchronized int getRegisteredServiceCount() {
         return registeredServices.size();
+    }
+
+    public synchronized <T> Optional<T> findService(Class<T> type) {
+        return localCatalog.find(type);
     }
 
     private void closeDataRegistryHandle(Class<?> type) {
@@ -108,5 +149,10 @@ public class FeatureApiManager {
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return normalized;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void throwUnchecked(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 }

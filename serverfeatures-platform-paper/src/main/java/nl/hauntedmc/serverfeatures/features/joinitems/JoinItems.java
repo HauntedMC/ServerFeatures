@@ -1,12 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.joinitems;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.joinitems.internal.JoinItemsHandler;
 import nl.hauntedmc.serverfeatures.features.joinitems.listener.JoinItemsListener;
 import nl.hauntedmc.serverfeatures.features.joinitems.meta.Meta;
+import org.bukkit.entity.Player;
 
 /**
  * JoinItems feature:
@@ -18,8 +19,8 @@ public final class JoinItems extends BukkitBaseFeature<Meta> {
 
     private JoinItemsHandler handler;
 
-    public JoinItems(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public JoinItems(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override
@@ -43,6 +44,10 @@ public final class JoinItems extends BukkitBaseFeature<Meta> {
         this.handler = new JoinItemsHandler(this);
         this.handler.reloadFromConfig();
         getLifecycleManager().getListenerManager().registerListener(new JoinItemsListener(this, handler));
+
+        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+            handler.initializePlayer(player);
+        }
     }
 
     @Override

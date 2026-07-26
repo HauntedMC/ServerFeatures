@@ -12,7 +12,12 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class BrigadierDispatcher {
@@ -40,6 +45,14 @@ public class BrigadierDispatcher {
 
     public BrigadierDispatcher(ServerFeatures plugin) {
         this.plugin = plugin;
+    }
+
+    BrigadierDispatcher(
+            ServerFeatures plugin,
+            CommandDispatcher<CommandSourceStack> dispatcher
+    ) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.dispatcher = Objects.requireNonNull(dispatcher, "dispatcher");
     }
 
     /**
@@ -70,41 +83,84 @@ public class BrigadierDispatcher {
         return mGetDisp.invoke(cmds);
     }
 
-    public void attachBrigadierCommand(BrigadierCommand cmd) {
+    public boolean attachBrigadierCommand(BrigadierCommand cmd) {
+        return attachBrigadierCommand(cmd, cmd.name(), cmd.aliases());
+    }
+
+    public boolean attachBrigadierCommand(
+            BrigadierCommand cmd,
+            String primaryLabel,
+            Collection<String> aliases
+    ) {
+        Objects.requireNonNull(cmd, "cmd");
+        Objects.requireNonNull(primaryLabel, "primaryLabel");
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
         if (disp == null) {
-            plugin.getLogger().warning("[Brigadier] Dispatcher not available; cannot attach /" + cmd.name());
-            return;
+            plugin.getLogger().warning("[Brigadier] Dispatcher not available; cannot attach /" + primaryLabel);
+            return false;
+        }
+
+        LinkedHashSet<String> aliasLabels = new LinkedHashSet<>();
+        if (aliases != null) {
+            aliases.stream()
+                    .filter(Objects::nonNull)
+                    .filter(alias -> !alias.equals(primaryLabel))
+                    .forEach(aliasLabels::add);
         }
 
         writeLock.lock();
         try {
             RootCommandNode<CommandSourceStack> root = disp.getRoot();
 
-            if (root.getChild(cmd.name()) != null) {
-                removeRootLiteral(disp, cmd.name());
+            if (root.getChild(primaryLabel) != null) {
+                return false;
             }
-            for (String alias : cmd.aliases()) {
+            for (String alias : aliasLabels) {
                 if (root.getChild(alias) != null) {
-                    removeRootLiteral(disp, alias);
+                    return false;
                 }
             }
 
             var node = cmd.buildTree();
-            root.addChild(node);
-
-            for (String alias : cmd.aliases()) {
-                if (root.getChild(alias) == null) {
-                    root.addChild(Commands.literal(alias).redirect(node).build());
-                }
+            if (!primaryLabel.equals(node.getName())) {
+                plugin.getLogger().warning("[Brigadier] Built root literal '" + node.getName()
+                        + "' does not match registered label '" + primaryLabel + "'.");
+                return false;
             }
+
+            List<String> addedLabels = new ArrayList<>();
+            try {
+                root.addChild(node);
+                addedLabels.add(primaryLabel);
+                for (String alias : aliasLabels) {
+                    root.addChild(Commands.literal(alias).redirect(node).build());
+                    addedLabels.add(alias);
+                }
+            } catch (Throwable throwable) {
+                addedLabels.forEach(label -> removeRootLiteral(disp, label));
+                throw throwable;
+            }
+            return true;
         } finally {
             writeLock.unlock();
         }
     }
 
+    public boolean hasRootLiteral(String literal) {
+        resolveDispatcher();
+        CommandDispatcher<CommandSourceStack> current = dispatcher;
+        return current != null && current.getRoot().getChild(literal) != null;
+    }
+
     public void detachBrigadierCommand(BrigadierCommand cmd) {
+        List<String> labels = new ArrayList<>();
+        labels.add(cmd.name());
+        labels.addAll(cmd.aliases());
+        detachBrigadierCommand(cmd, labels);
+    }
+
+    public void detachBrigadierCommand(BrigadierCommand cmd, Collection<String> registeredLabels) {
         resolveDispatcher();
         final CommandDispatcher<CommandSourceStack> disp = this.dispatcher;
         if (disp == null) {
@@ -114,9 +170,9 @@ public class BrigadierDispatcher {
 
         writeLock.lock();
         try {
-            boolean changed = removeRootLiteral(disp, cmd.name());
-            for (String alias : cmd.aliases()) {
-                changed |= removeRootLiteral(disp, alias);
+            boolean changed = false;
+            for (String label : registeredLabels) {
+                changed |= removeRootLiteral(disp, label);
             }
             if (!changed) {
                 plugin.getLogger().info("[Brigadier] No dispatcher changes for /" + cmd.name() + " (already absent?)");

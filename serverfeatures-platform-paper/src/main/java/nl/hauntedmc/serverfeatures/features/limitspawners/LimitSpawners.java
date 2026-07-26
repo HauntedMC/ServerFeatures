@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -13,8 +13,8 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
 
     private LimitSpawnersHandler handler;
 
-    public LimitSpawners(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public LimitSpawners(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

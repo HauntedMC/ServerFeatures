@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.backup;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -14,8 +14,8 @@ public class Backup extends BukkitBaseFeature<Meta> {
 
     private BackupService service;
 
-    public Backup(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Backup(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

@@ -6,10 +6,14 @@ plugin and its runtime identity remain unchanged.
 ## Server operators
 
 - Replace the existing plugin with `ServerFeatures.jar`; its filename, plugin name, main class, and configuration
-  locations are unchanged.
+  identity are unchanged.
 - Use Java 25 and the pinned Paper version listed in the project README.
 - Back up configuration and data, then verify the features and optional integrations used by your server before
   rollout.
+- Feature sections under `config.yml -> features.*` migrate to
+  `features/<FeatureName>/config.yml`. Feature messages migrate from `lang/messages*.yml` into the same feature
+  directory. The root `config.yml` remains the home for `global.*` settings. Existing target values take precedence,
+  and legacy source sections are removed only after their destination files are written successfully.
 
 ## Maven consumers
 
@@ -37,6 +41,10 @@ that contracts artifact available before building or releasing ServerFeatures 3.
   a caller-supplied type string.
 - Repository source paths moved from the root `src/` tree into `serverfeatures-api` and
   `serverfeatures-platform-paper`.
+- Feature constructors now receive `FeatureContext<Meta>` instead of the plugin plus separately constructed
+  framework handlers.
+- Features can publish lifecycle-owned APIs through `FeatureApiManager` and retain transient reload state through
+  `StatefulFeature`.
 - Build output moved from `target/ServerFeatures.jar` to
   `serverfeatures-platform-paper/target/ServerFeatures.jar`.
 

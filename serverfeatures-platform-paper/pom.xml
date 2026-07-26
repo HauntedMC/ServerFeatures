@@ -271,6 +271,8 @@
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
+                    <!-- Shade post-processes this artifact, so always rebuild the thin input on repeated package runs. -->
+                    <forceCreation>true</forceCreation>
                     <archive>
                         <manifestEntries>
                             <paperweight-mappings-namespace>mojang</paperweight-mappings-namespace>

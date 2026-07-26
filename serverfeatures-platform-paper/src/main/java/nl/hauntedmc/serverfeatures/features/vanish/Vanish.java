@@ -3,7 +3,9 @@ package nl.hauntedmc.serverfeatures.features.vanish;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
+import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
+import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -21,8 +23,11 @@ import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
 
 import java.util.Optional;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
-public class Vanish extends BukkitBaseFeature<Meta> {
+public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<Vanish.ReloadSnapshot> {
 
     private VanishService service;
     private VanishRepository repository;
@@ -33,8 +38,8 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
     private VanishAPI api;
 
-    public Vanish(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Vanish(FeatureContext<Meta> context) {
+        super(context);
     }
 
     public VanishService getService() {
@@ -102,6 +107,7 @@ public class Vanish extends BukkitBaseFeature<Meta> {
 
         // Service (runtime logic)
         this.service = new VanishService(this);
+        this.service.bootstrapOnlinePlayers();
 
         this.api = new VanishAPI(this);
         getLifecycleManager().getApiManager().registerService(VanishAPI.class, this.api);
@@ -159,7 +165,35 @@ public class Vanish extends BukkitBaseFeature<Meta> {
         }
     }
 
+    @Override
+    public Optional<ReloadSnapshot> captureReloadState() {
+        if (service == null) {
+            return Optional.empty();
+        }
+        return ReloadSnapshot.capture(service.snapshotVanished(), service.snapshotPlayerIds());
+    }
+
+    @Override
+    public void restoreReloadState(ReloadSnapshot state) {
+        if (state != null && service != null) {
+            service.restoreReloadSnapshot(state.vanishedPlayers(), state.playerIds());
+        }
+    }
+
     public VanishAPI getApi() {
         return api;
+    }
+
+    public record ReloadSnapshot(Set<UUID> vanishedPlayers, Map<UUID, Long> playerIds)
+            implements SnapshotState {
+        static Optional<ReloadSnapshot> capture(Set<UUID> vanishedPlayers, Map<UUID, Long> playerIds) {
+            if (vanishedPlayers == null || vanishedPlayers.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new ReloadSnapshot(
+                    Set.copyOf(vanishedPlayers),
+                    playerIds == null ? Map.of() : Map.copyOf(playerIds)
+            ));
+        }
     }
 }

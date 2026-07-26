@@ -2,10 +2,14 @@ package nl.hauntedmc.serverfeatures.framework.loader;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
+import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
+import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.FeatureFactory;
 import nl.hauntedmc.serverfeatures.framework.command.sync.CommandSync;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.feature.FeatureScopeFactory;
 import nl.hauntedmc.serverfeatures.framework.loader.dependency.DependencyCheckResult;
 import nl.hauntedmc.serverfeatures.framework.loader.dependency.FeatureDependencyManager;
 import nl.hauntedmc.serverfeatures.framework.loader.disable.FeatureDisableResponse;
@@ -16,7 +20,6 @@ import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResponse
 import nl.hauntedmc.serverfeatures.framework.loader.reload.FeatureReloadResult;
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResponse;
 import nl.hauntedmc.serverfeatures.framework.loader.softreload.FeatureSoftReloadResult;
-import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 
 import java.util.*;
 import java.util.logging.Level;
@@ -26,21 +29,26 @@ public final class FeatureLoadManager {
     private final ServerFeatures plugin;
     private final MainConfigHandler mainConfigHandler;
     private final FeatureRegistry featureRegistry;
-    private FeatureDependencyManager dependencyManager;
-    private final LocalizationHandler localizationHandler;
+    private final FeatureDependencyManager dependencyManager;
+    private final FeatureScopeFactory featureScopeFactory;
 
     private FeatureLoadManager(ServerFeatures plugin) {
+        this(plugin, plugin.getFeatureScopeFactory(), true);
+    }
+
+    FeatureLoadManager(ServerFeatures plugin, FeatureScopeFactory featureScopeFactory, boolean discoverFeatures) {
         this.plugin = plugin;
         this.mainConfigHandler = plugin.getConfigHandler();
-        this.localizationHandler = plugin.getLocalizationHandler();
         this.featureRegistry = new FeatureRegistry();
+        this.featureScopeFactory = Objects.requireNonNull(featureScopeFactory, "featureScopeFactory");
+        this.dependencyManager = new FeatureDependencyManager(this, plugin);
+        if (discoverFeatures) {
+            discoverFeatures();
+        }
     }
 
     public static FeatureLoadManager create(ServerFeatures plugin) {
-        FeatureLoadManager manager = new FeatureLoadManager(plugin);
-        manager.dependencyManager = new FeatureDependencyManager(manager, plugin);
-        manager.discoverFeatures();
-        return manager;
+        return new FeatureLoadManager(plugin);
     }
 
     private void discoverFeatures() {
@@ -81,9 +89,10 @@ public final class FeatureLoadManager {
         }
 
         pruneFeaturesWithMissingDependencies();
+        prepareFeatureStorage();
 
         plugin.getLogger().info("Discovered features: " + featureRegistry.getAvailableFeatures().keySet());
-        mainConfigHandler.cleanupUnusedFeatures(featureRegistry.getAvailableFeatures().keySet());
+        mainConfigHandler.cleanupLegacyFeatureSections();
     }
 
     private Optional<FeatureDescriptor> buildDescriptor(String registryName, String featureClassName) {
@@ -135,6 +144,7 @@ public final class FeatureLoadManager {
         return Optional.of(new FeatureDescriptor(
                 featureKey,
                 featureClassName,
+                meta,
                 featureName,
                 featureVersion,
                 featureDependencies,
@@ -223,6 +233,50 @@ public final class FeatureLoadManager {
                 }
             }
         } while (changed);
+    }
+
+    private void prepareFeatureStorage() {
+        for (FeatureDescriptor descriptor : new ArrayList<>(featureRegistry.getAvailableFeatures().values())) {
+            FeatureContext<?> context = null;
+            try {
+                context = createFeatureContext(descriptor);
+                BukkitBaseFeature<?> template = FeatureFactory.createFeature(descriptor.featureClassName(), context);
+                if (template == null) {
+                    plugin.getLogger().warning(
+                            "Skipping storage preparation for feature '" + descriptor.registryName()
+                                    + "': unable to instantiate template."
+                    );
+                    continue;
+                }
+                mainConfigHandler.migrateLegacyFeatureConfig(descriptor.registryName());
+                template.getConfigHandler().injectDefaults(template.getDefaultConfig());
+                template.getLocalizationHandler().migrateLegacyFeatureMessages(template.getDefaultMessages());
+                template.getLocalizationHandler().registerDefaultMessages(template.getDefaultMessages());
+            } catch (Throwable throwable) {
+                plugin.getLogger().log(
+                        Level.SEVERE,
+                        "Failed preparing config/localization storage for feature '"
+                                + descriptor.registryName() + "'.",
+                        throwable
+                );
+            } finally {
+                if (context != null) {
+                    cleanupPreparationContext(context, descriptor.registryName());
+                }
+            }
+        }
+    }
+
+    private void cleanupPreparationContext(FeatureContext<?> context, String featureName) {
+        try {
+            context.lifecycleManager().cleanup();
+        } catch (Throwable throwable) {
+            plugin.getLogger().log(
+                    Level.WARNING,
+                    "Failed cleaning temporary framework scope for feature '" + featureName + "'.",
+                    throwable
+            );
+        }
     }
 
     public void initializeFeatures() {
@@ -347,23 +401,38 @@ public final class FeatureLoadManager {
         }
 
         Set<String> dependents = new LinkedHashSet<>(dependencyManager.getDependentFeatures(featureKey));
+        Throwable failure = null;
         for (String dep : dependents) {
             FeatureDisableResponse depResp = disableFeature(dep);
             if (!depResp.success()) {
                 plugin.getLogger().warning("Failed to disable dependent feature: " + dep);
+                failure = appendFailure(
+                        failure,
+                        new IllegalStateException("Failed to disable dependent feature '" + dep + "'.")
+                );
             }
         }
 
         try {
-            feature.cleanup();
-            mainConfigHandler.setFeatureEnabled(featureKey, false);
-            featureRegistry.deregisterLoadedFeature(featureKey);
+            Throwable cleanupFailure = cleanupAndDeregister(featureKey, feature);
+            failure = appendFailure(failure, cleanupFailure);
+            try {
+                mainConfigHandler.setFeatureEnabled(featureKey, false);
+            } catch (Throwable configFailure) {
+                failure = appendFailure(failure, configFailure);
+            }
+            if (failure != null) {
+                plugin.getLogger().log(Level.SEVERE, "Disable completed with failures: " + featureKey, failure);
+                return new FeatureDisableResponse(FeatureDisableResult.FAILED, featureKey, dependents);
+            }
+
             plugin.getLogger().info("Feature disabled: " + featureKey);
-            CommandSync.apply(plugin);
             return new FeatureDisableResponse(FeatureDisableResult.SUCCESS, featureKey, dependents);
         } catch (Throwable t) {
             plugin.getLogger().log(Level.SEVERE, "Disable failed: " + featureKey, t);
             return new FeatureDisableResponse(FeatureDisableResult.FAILED, featureKey, dependents);
+        } finally {
+            CommandSync.apply(plugin);
         }
     }
 
@@ -392,33 +461,87 @@ public final class FeatureLoadManager {
             return new FeatureReloadResponse(FeatureReloadResult.NOT_LOADED, featureName, Set.of());
         }
 
-        Set<String> reloadedDependents = new LinkedHashSet<>();
+        Set<String> cascade = collectLoadedDependentClosure(featureKey);
+        List<String> reloadOrder = resolveReloadOrder(cascade);
+        if (reloadOrder.size() != cascade.size()) {
+            plugin.getLogger().severe("Reload failed for '" + featureKey
+                    + "': unable to resolve a complete dependent load order.");
+            return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureKey, Set.of());
+        }
+
+        Map<String, Optional<SnapshotState>> reloadStates = new LinkedHashMap<>();
         try {
-            mainConfigHandler.reloadConfig();
-            localizationHandler.reloadLocalization();
+            for (String reloadKey : reloadOrder) {
+                BukkitBaseFeature<?> loaded = featureRegistry.getLoadedFeature(reloadKey);
+                if (loaded == null) {
+                    throw new IllegalStateException(
+                            "Feature '" + reloadKey + "' disappeared while preparing the reload."
+                    );
+                }
+                reloadStates.put(reloadKey, captureReloadState(reloadKey, loaded));
+            }
+        } catch (Throwable throwable) {
+            plugin.getLogger().log(Level.SEVERE, "Reload state capture failed for: " + featureKey, throwable);
+            return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureKey, Set.of());
+        }
 
-            BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureKey);
-            feature.cleanup();
-            featureRegistry.deregisterLoadedFeature(featureKey);
+        Throwable cleanupFailure = null;
+        ListIterator<String> teardown = reloadOrder.listIterator(reloadOrder.size());
+        while (teardown.hasPrevious()) {
+            String reloadKey = teardown.previous();
+            cleanupFailure = appendFailure(
+                    cleanupFailure,
+                    cleanupAndDeregister(reloadKey, featureRegistry.getLoadedFeature(reloadKey))
+            );
+        }
+        if (cleanupFailure != null) {
+            plugin.getLogger().log(
+                    Level.SEVERE,
+                    "Reload aborted after cleanup failures in the '" + featureKey + "' cascade.",
+                    cleanupFailure
+            );
+            CommandSync.apply(plugin);
+            return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureKey, Set.of());
+        }
 
-            boolean hasReloaded = loadFeature(featureKey);
-            if (!hasReloaded) {
-                plugin.getLogger().severe("Reload failed for: " + featureKey + " (feature did not load back)");
-                return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureKey, reloadedDependents);
+        Set<String> failed = new LinkedHashSet<>();
+        Set<String> reloadedDependents = new LinkedHashSet<>();
+        for (String reloadKey : reloadOrder) {
+            FeatureDescriptor descriptor = featureRegistry.getAvailableFeature(reloadKey);
+            boolean blockedByFailedDependency = descriptor != null
+                    && descriptor.featureDependencies().stream()
+                    .map(this::resolveFeatureKey)
+                    .anyMatch(failed::contains);
+            if (blockedByFailedDependency) {
+                failed.add(reloadKey);
+                plugin.getLogger().warning("Skipping reload of dependent feature '" + reloadKey
+                        + "' because one of its dependencies failed to reload.");
+                continue;
             }
 
-            plugin.getLogger().info("Feature " + featureKey + " reloaded.");
-
-            for (String dependent : dependencyManager.getDependentFeatures(featureKey)) {
-                plugin.getLogger().info("Reloading dependent feature: " + dependent);
-                FeatureReloadResponse depResp = reloadFeature(dependent);
-                if (depResp.success()) reloadedDependents.add(dependent);
+            Optional<SnapshotState> reloadState = reloadStates.getOrDefault(reloadKey, Optional.empty());
+            boolean loaded = reloadState.isPresent()
+                    ? loadFeature(reloadKey, reloadState.get())
+                    : loadFeature(reloadKey);
+            if (!loaded) {
+                failed.add(reloadKey);
+                plugin.getLogger().severe("Feature did not load back during cascade reload: " + reloadKey);
+                continue;
             }
-            return new FeatureReloadResponse(FeatureReloadResult.SUCCESS, featureKey, reloadedDependents);
-        } catch (Throwable t) {
-            plugin.getLogger().log(Level.SEVERE, "Reload failed for: " + featureKey, t);
+            if (!reloadKey.equals(featureKey)) {
+                reloadedDependents.add(reloadKey);
+            }
+        }
+
+        CommandSync.apply(plugin);
+        if (!failed.isEmpty()) {
+            plugin.getLogger().severe("Reload cascade for '" + featureKey
+                    + "' was incomplete. Failed features: " + String.join(", ", failed));
             return new FeatureReloadResponse(FeatureReloadResult.FAILED, featureKey, reloadedDependents);
         }
+        plugin.getLogger().info("Feature " + featureKey + " and " + reloadedDependents.size()
+                + " dependent feature(s) reloaded.");
+        return new FeatureReloadResponse(FeatureReloadResult.SUCCESS, featureKey, reloadedDependents);
     }
 
     public FeatureRegistry getFeatureRegistry() {
@@ -428,16 +551,13 @@ public final class FeatureLoadManager {
     public void unloadAllFeatures() {
         plugin.getLogger().info("Unloading all loaded features...");
         List<String> loadedFeatureNames = new ArrayList<>(featureRegistry.getLoadedFeatureNames());
-        for (String featureName : loadedFeatureNames) {
+        ListIterator<String> iterator = loadedFeatureNames.listIterator(loadedFeatureNames.size());
+        while (iterator.hasPrevious()) {
+            String featureName = iterator.previous();
             BukkitBaseFeature<?> feature = featureRegistry.getLoadedFeature(featureName);
-            try {
-                if (feature != null) {
-                    feature.cleanup();
-                }
-            } catch (Throwable t) {
-                plugin.getLogger().log(Level.SEVERE, "Failed to cleanup feature during unload: " + featureName, t);
-            } finally {
-                featureRegistry.deregisterLoadedFeature(featureName);
+            Throwable failure = cleanupAndDeregister(featureName, feature);
+            if (failure != null) {
+                plugin.getLogger().log(Level.SEVERE, "Failed to cleanup feature during unload: " + featureName, failure);
             }
         }
         CommandSync.apply(plugin);
@@ -465,6 +585,10 @@ public final class FeatureLoadManager {
     }
 
     public boolean loadFeature(String featureName) {
+        return loadFeature(featureName, null);
+    }
+
+    private boolean loadFeature(String featureName, SnapshotState reloadState) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null) {
             plugin.getLogger().warning("Feature not found: " + featureName);
@@ -482,54 +606,160 @@ public final class FeatureLoadManager {
             return false;
         }
 
-        mainConfigHandler.registerFeature(featureKey);
         boolean enabled = mainConfigHandler.isFeatureEnabled(featureKey);
-
-        Set<String> missingPlugins = getMissingPluginDependencies(featureKey);
-        if (!missingPlugins.isEmpty()) {
-            if (enabled) {
-                plugin.getLogger().warning("Feature " + featureKey + " cannot be enabled due to missing plugin dependency(s): " + String.join(", ", missingPlugins));
-            }
-            return false;
-        }
-
-        if (enabled && !dependencyManager.areDependenciesMet(featureKey)) {
-            plugin.getLogger().warning("Feature " + featureKey + " is missing dependencies and cannot be enabled.");
-            return false;
-        }
-
-        BukkitBaseFeature<?> feature = FeatureFactory.createFeature(descriptor.featureClassName(), plugin);
-        if (feature == null) {
-            return false;
-        }
-
-        mainConfigHandler.injectFeatureDefaults(featureKey, feature.getDefaultConfig());
-        localizationHandler.registerDefaultMessages(feature.getDefaultMessages());
-        feature.getConfigHandler().reloadConfig();
-
         if (!enabled) {
             return false;
         }
 
-        try {
-            feature.initialize();
-        } catch (Throwable t) {
-            plugin.getLogger().log(Level.SEVERE, "Feature '" + featureKey + "' failed to initialize.", t);
-            try {
-                feature.cleanup();
-            } catch (Throwable cleanupError) {
-                plugin.getLogger().log(Level.SEVERE, "Feature '" + featureKey + "' failed to cleanup after initialization failure.", cleanupError);
-            }
+        Set<String> missingPlugins = getMissingPluginDependencies(featureKey);
+        if (!missingPlugins.isEmpty()) {
+            plugin.getLogger().warning("Feature " + featureKey
+                    + " cannot be enabled due to missing plugin dependency(s): "
+                    + String.join(", ", missingPlugins));
             return false;
         }
 
-        featureRegistry.registerLoadedFeature(featureKey, feature);
-        plugin.getLogger().info("Feature loaded: " + featureKey);
-        return true;
+        if (!dependencyManager.areDependenciesMet(featureKey)) {
+            plugin.getLogger().warning("Feature " + featureKey + " is missing dependencies and cannot be enabled.");
+            return false;
+        }
+
+        FeatureContext<?> context = null;
+        BukkitBaseFeature<?> feature = null;
+        boolean initializationStarted = false;
+        try {
+            context = createFeatureContext(descriptor);
+            feature = FeatureFactory.createFeature(descriptor.featureClassName(), context);
+            if (feature == null) {
+                cleanupPreparationContext(context, featureKey);
+                return false;
+            }
+
+            feature.getConfigHandler().injectDefaults(feature.getDefaultConfig());
+            feature.getLocalizationHandler().registerDefaultMessages(feature.getDefaultMessages());
+            feature.getConfigHandler().reloadConfig();
+            feature.getLocalizationHandler().reloadLocalization();
+
+            initializationStarted = true;
+            feature.initialize();
+            if (reloadState != null) {
+                restoreReloadState(featureKey, feature, reloadState);
+            }
+
+            featureRegistry.registerLoadedFeature(featureKey, feature);
+            plugin.getLogger().info("Feature loaded: " + featureKey);
+            return true;
+        } catch (Throwable throwable) {
+            plugin.getLogger().log(Level.SEVERE, "Feature '" + featureKey + "' failed to load.", throwable);
+            if (feature != null && initializationStarted) {
+                try {
+                    feature.cleanup();
+                } catch (Throwable cleanupError) {
+                    throwable.addSuppressed(cleanupError);
+                }
+            } else if (context != null) {
+                try {
+                    context.lifecycleManager().cleanup();
+                } catch (Throwable cleanupError) {
+                    throwable.addSuppressed(cleanupError);
+                }
+            }
+            return false;
+        }
     }
 
     private boolean isPluginEnabled(String pluginName) {
         var foundPlugin = plugin.getServer().getPluginManager().getPlugin(pluginName);
         return foundPlugin != null && foundPlugin.isEnabled();
+    }
+
+    private FeatureContext<?> createFeatureContext(FeatureDescriptor descriptor) {
+        return featureScopeFactory.createContext(descriptor.createMeta());
+    }
+
+    private Optional<SnapshotState> captureReloadState(String featureKey, BukkitBaseFeature<?> feature) {
+        if (!(feature instanceof StatefulFeature<?> statefulFeature)) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            StatefulFeature<SnapshotState> typed = (StatefulFeature<SnapshotState>) statefulFeature;
+            Optional<SnapshotState> state = typed.captureReloadState();
+            return state == null ? Optional.empty() : state;
+        } catch (Throwable throwable) {
+            plugin.getLogger().log(
+                    Level.SEVERE,
+                    "Feature '" + featureKey + "' failed to capture reload state.",
+                    throwable
+            );
+            throw throwable;
+        }
+    }
+
+    private void restoreReloadState(
+            String featureKey,
+            BukkitBaseFeature<?> feature,
+            SnapshotState reloadState
+    ) {
+        if (!(feature instanceof StatefulFeature<?> statefulFeature)) {
+            throw new IllegalStateException(
+                    "Captured reload state exists, but replacement feature does not implement StatefulFeature."
+            );
+        }
+        @SuppressWarnings("unchecked")
+        StatefulFeature<SnapshotState> typed = (StatefulFeature<SnapshotState>) statefulFeature;
+        typed.restoreReloadState(reloadState);
+        plugin.getLogger().info("Feature " + featureKey + " restored reload state.");
+    }
+
+    private Set<String> collectLoadedDependentClosure(String featureKey) {
+        LinkedHashSet<String> closure = new LinkedHashSet<>();
+        ArrayDeque<String> pending = new ArrayDeque<>();
+        closure.add(featureKey);
+        pending.add(featureKey);
+        while (!pending.isEmpty()) {
+            String dependency = pending.removeFirst();
+            for (String dependent : dependencyManager.getDependentFeatures(dependency)) {
+                if (closure.add(dependent)) {
+                    pending.addLast(dependent);
+                }
+            }
+        }
+        return closure;
+    }
+
+    private List<String> resolveReloadOrder(Set<String> cascade) {
+        FeatureLoadOrderResolver.Result result = FeatureLoadOrderResolver.resolveLoadOrder(
+                featureRegistry.getAvailableFeatures().keySet(),
+                featureRegistry::getAvailableFeature,
+                this::resolveFeatureKey,
+                msg -> plugin.getLogger().severe(msg)
+        );
+        return result.loadOrder().stream().filter(cascade::contains).toList();
+    }
+
+    private Throwable cleanupAndDeregister(String featureKey, BukkitBaseFeature<?> feature) {
+        Throwable failure = null;
+        try {
+            if (feature != null) {
+                feature.cleanup();
+            }
+        } catch (Throwable throwable) {
+            failure = throwable;
+        } finally {
+            featureRegistry.deregisterLoadedFeature(featureKey);
+        }
+        return failure;
+    }
+
+    private static Throwable appendFailure(Throwable current, Throwable addition) {
+        if (addition == null) {
+            return current;
+        }
+        if (current == null) {
+            return addition;
+        }
+        current.addSuppressed(addition);
+        return current;
     }
 }

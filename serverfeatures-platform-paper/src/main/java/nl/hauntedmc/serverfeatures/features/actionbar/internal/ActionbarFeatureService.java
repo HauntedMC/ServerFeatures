@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.actionbar.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.*;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
@@ -29,7 +28,7 @@ public final class ActionbarFeatureService {
 
     public ActionbarFeatureService(@NotNull Actionbar feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/actionbars.yml", /*copyDefaultsIfPresent*/ true);
+        this.store = feature.getPlugin().getConfigService().view("local/actionbars.yml", /*copyDefaultsIfPresent*/ true);
     }
 
     public boolean isCycleRunning() {

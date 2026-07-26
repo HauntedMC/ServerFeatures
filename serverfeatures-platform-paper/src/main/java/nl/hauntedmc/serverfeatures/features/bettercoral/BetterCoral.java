@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.bettercoral;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -15,8 +15,8 @@ public final class BetterCoral extends BukkitBaseFeature<Meta> {
 
     private CoralRecipes recipes;
 
-    public BetterCoral(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public BetterCoral(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

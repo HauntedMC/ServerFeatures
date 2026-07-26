@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.deephaste;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -10,8 +10,8 @@ import org.bukkit.Bukkit;
 
 public class DeepHaste extends BukkitBaseFeature<Meta> {
 
-    public DeepHaste(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public DeepHaste(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

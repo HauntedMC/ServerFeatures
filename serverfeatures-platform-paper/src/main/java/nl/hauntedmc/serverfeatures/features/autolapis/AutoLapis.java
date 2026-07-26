@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.autolapis;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public final class AutoLapis extends BukkitBaseFeature<Meta> {
 
     private AutoLapisHandler handler;
 
-    public AutoLapis(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public AutoLapis(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

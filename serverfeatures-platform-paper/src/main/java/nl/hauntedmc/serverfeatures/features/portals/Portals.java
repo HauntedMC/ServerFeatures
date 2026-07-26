@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.portals;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -17,8 +17,8 @@ public class Portals extends BukkitBaseFeature<Meta> {
     private PortalRegistry registry;
     private PortalsHandler handler;
 
-    public Portals(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Portals(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

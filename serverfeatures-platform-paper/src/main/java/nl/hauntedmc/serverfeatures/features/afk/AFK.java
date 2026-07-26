@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.afk;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -17,8 +17,8 @@ public class AFK extends BukkitBaseFeature<Meta> {
     private AfkService service;
     private AfkAPI api;
 
-    public AFK(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public AFK(FeatureContext<Meta> context) {
+        super(context);
     }
 
     public AfkService getService() {

@@ -5,12 +5,15 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.framework.command.ServerFeaturesCommand;
 import nl.hauntedmc.serverfeatures.framework.command.brigadier.BrigadierDispatcher;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.feature.FeatureScopeFactory;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureLifecycleFactory;
 import nl.hauntedmc.serverfeatures.framework.listener.PreviewUIListener;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
@@ -26,6 +29,9 @@ public class ServerFeatures extends JavaPlugin {
     private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;
     private LocalizationHandler localizationHandler;
+    private ConfigService configService;
+    private FeatureLifecycleFactory featureLifecycleFactory;
+    private FeatureScopeFactory featureScopeFactory;
 
     // Keep if other parts of your framework still use dispatcher (features registering their own brig nodes).
     private BrigadierDispatcher brigadierDispatcher;
@@ -37,8 +43,16 @@ public class ServerFeatures extends JavaPlugin {
             PacketEvents.getAPI().init();
         }
 
-        mainConfigHandler = new MainConfigHandler(this);
-        localizationHandler = new LocalizationHandler(this);
+        configService = new ConfigService(this);
+        mainConfigHandler = new MainConfigHandler(this, configService);
+        localizationHandler = new LocalizationHandler(this, configService);
+        featureLifecycleFactory = new FeatureLifecycleFactory(this);
+        featureScopeFactory = new FeatureScopeFactory(
+                this,
+                mainConfigHandler,
+                localizationHandler,
+                featureLifecycleFactory
+        );
         featureLoadManager = FeatureLoadManager.create(this);
 
         // Optional: if your feature system still needs direct dispatcher access elsewhere
@@ -65,7 +79,9 @@ public class ServerFeatures extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        featureLoadManager.unloadAllFeatures();
+        if (featureLoadManager != null) {
+            featureLoadManager.unloadAllFeatures();
+        }
 
         try {
             ScoreboardManager.cleanupOnlinePlayers(getLogger());
@@ -97,6 +113,18 @@ public class ServerFeatures extends JavaPlugin {
 
     public LocalizationHandler getLocalizationHandler() {
         return localizationHandler;
+    }
+
+    public ConfigService getConfigService() {
+        return configService;
+    }
+
+    public FeatureLifecycleFactory getFeatureLifecycleFactory() {
+        return featureLifecycleFactory;
+    }
+
+    public FeatureScopeFactory getFeatureScopeFactory() {
+        return featureScopeFactory;
     }
 
     public BrigadierDispatcher getBrigadierDispatcher() {

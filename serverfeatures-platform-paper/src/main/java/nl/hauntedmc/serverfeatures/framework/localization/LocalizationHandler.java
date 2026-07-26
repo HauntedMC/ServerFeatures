@@ -4,219 +4,332 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.hook.PlaceholderAPIHook;
-import nl.hauntedmc.serverfeatures.api.io.localization.Language;
-import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
+import nl.hauntedmc.serverfeatures.api.io.localization.Language;
+import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
+import nl.hauntedmc.serverfeatures.framework.config.ConfigMigrationMerger;
+import nl.hauntedmc.serverfeatures.framework.config.FeatureStoragePaths;
 import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.logging.Logger;
 
-public class LocalizationHandler {
+/**
+ * Localization store for either framework messages or one feature's messages.
+ */
+public final class LocalizationHandler {
     public static final String LANG_DIR = "lang";
 
     private final ServerFeatures plugin;
-
-    // messages.yml (defaults/fallbacks)
-    private final ConfigView defaultMessages;
-
-    // language-specific YAMLs (e.g., lang/nl_NL.yml)
+    private final Logger logger;
+    private final ClassLoader resources;
+    private final ConfigService configService;
+    private final String featureName;
+    private final LocalizationHandler frameworkFallback;
+    private final ConfigView defaultMessagesView;
     private final EnumMap<Language, ConfigView> languageViews = new EnumMap<>(Language.class);
 
-    public LocalizationHandler(ServerFeatures plugin) {
-        this.plugin = plugin;
-
-        ConfigService service = new ConfigService(plugin);
-
-        // Always ensure default messages file exists (copy from jar if present)
-        this.defaultMessages = service.view(LANG_DIR + "/messages.yml", /*copyDefaultsIfPresent*/ true);
-
-        // Load all language views
-        loadLanguageFiles(service);
+    public LocalizationHandler(ServerFeatures plugin, ConfigService configService) {
+        this(plugin, plugin.getLogger(), plugin.getClass().getClassLoader(), configService, null, null);
     }
 
-    /**
-     * Loads each language file via ConfigService/ConfigView.
-     * If the file isn't bundled in the jar, we still create an empty local file
-     * (and warn once so admins know to populate it).
-     */
-    private void loadLanguageFiles(ConfigService service) {
-        for (Language lang : Language.values()) {
-            String resourcePath = LANG_DIR + "/" + lang.getFileName();
+    private LocalizationHandler(
+            ServerFeatures plugin,
+            Logger logger,
+            ClassLoader resources,
+            ConfigService configService,
+            String featureName,
+            LocalizationHandler frameworkFallback
+    ) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.logger = Objects.requireNonNull(logger, "logger");
+        this.resources = Objects.requireNonNull(resources, "resources");
+        this.configService = Objects.requireNonNull(configService, "configService");
+        this.featureName = featureName;
+        this.frameworkFallback = frameworkFallback;
+        this.defaultMessagesView = configService.view(defaultMessagesPath(), featureName == null);
+        reloadLocalization();
+    }
 
-            // Create/open the file; copy defaults if present in the jar
-            ConfigView view = service.view(resourcePath, /*copyDefaultsIfPresent*/ true);
-            languageViews.put(lang, view);
+    public LocalizationHandler openFeatureLocalization(String requestedFeatureName) {
+        String normalized = FeatureStoragePaths.normalizeFeatureName(requestedFeatureName);
+        if (featureName != null) {
+            return frameworkFallback.openFeatureLocalization(normalized);
+        }
+        return new LocalizationHandler(plugin, logger, resources, configService, normalized, this);
+    }
 
-            // If not bundled in the jar, log a gentle warning (same spirit as before)
-            if (plugin.getResource(resourcePath) == null) {
-                plugin.getLogger().warning("Language file " + lang.getFileName() +
-                        " not found in jar. An empty file is created under " + resourcePath +
-                        ". Please populate it to localize messages.");
+    public void reloadLocalization() {
+        if (featureName == null) {
+            registerBundledFrameworkDefaults();
+        }
+        defaultMessagesView.file.reload();
+        reloadLanguageViews();
+        logger.info(featureName == null
+                ? "Framework localization files reloaded."
+                : "Localization files reloaded for feature '" + featureName + "'.");
+    }
+
+    public void registerDefaultMessages(MessageMap messageMap) {
+        if (messageMap == null || messageMap.getMessages().isEmpty()) {
+            return;
+        }
+        Map<String, String> missing = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : messageMap.getMessages().entrySet()) {
+            if (defaultMessagesView.node(entry.getKey()).isNull()) {
+                missing.put(entry.getKey(), entry.getValue());
             }
+        }
+        if (!missing.isEmpty()) {
+            defaultMessagesView.batch(batch -> missing.forEach(batch::put));
+            logger.info(featureName == null
+                    ? "Registered missing framework localization defaults."
+                    : "Registered missing localization defaults for feature '" + featureName + "'.");
         }
     }
 
-    /**
-     * Reloads both the default messages and language-specific files.
-     */
-    public void reloadLocalization() {
-        defaultMessages.file.reload();
-        languageViews.values().forEach(v -> v.file.reload());
-        plugin.getLogger().info("All localization files reloaded.");
-    }
-
-    /**
-     * Registers multiple default messages into lang/messages.yml if absent.
-     */
-    public void registerDefaultMessages(MessageMap messageMap) {
-        defaultMessages.batch(b -> {
-            for (Map.Entry<String, String> entry : messageMap.getMessages().entrySet()) {
-                String key = entry.getKey();
-                String def = entry.getValue();
-                // Only write when missing (keeps admin edits intact)
-                if (defaultMessages.get(key) == null) {
-                    b.put(key, def);
-                }
+    public void migrateLegacyFeatureMessages(MessageMap messageMap) {
+        if (featureName == null || frameworkFallback == null
+                || messageMap == null || messageMap.getMessages().isEmpty()) {
+            return;
+        }
+        Set<String> ownedRoots = collectOwnedRoots(messageMap);
+        moveOwnedRootsFromLegacyStore(frameworkFallback.defaultMessagesView, defaultMessagesView, ownedRoots);
+        for (Language language : Language.values()) {
+            ConfigView source = frameworkFallback.languageViews.get(language);
+            if (source == null || ownedRoots.stream().noneMatch(root -> !source.node(root).isNull())) {
+                continue;
             }
-        });
+            moveOwnedRootsFromLegacyStore(source, languageView(language, true), ownedRoots);
+        }
     }
 
-    // --- Fluent Builder API ---
-
-    /**
-     * Entry point for retrieving a localized message.
-     * Usage:
-     * Component comp = localizationHandler
-     *     .getMessage("welcome.message")
-     *     .forAudience(player)
-     *     .withPlaceholders(MessagePlaceholders.of("player", player.getName()))
-     *     .build();
-     */
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
     }
 
-    public class MessageBuilder {
+    public final class MessageBuilder {
         private final String key;
         private Audience audience;
         private MessagePlaceholders placeholders = MessagePlaceholders.empty();
-
-        private boolean autoLinkUrls = false;
+        private boolean autoLinkUrls;
         private boolean autoLinkUnderline = true;
 
         private MessageBuilder(String key) {
-            this.key = key;
+            this.key = Objects.requireNonNull(key, "key");
         }
 
-        /**
-         * Set the target audience (for example, a Player).
-         * If no audience is provided, a system (default) message is assumed.
-         */
         public MessageBuilder forAudience(Audience audience) {
             this.audience = audience;
             return this;
         }
 
-        /**
-         * Set the placeholders to apply to the message.
-         */
         public MessageBuilder withPlaceholders(MessagePlaceholders placeholders) {
-            if (placeholders != null) this.placeholders = placeholders;
+            if (placeholders != null) {
+                this.placeholders = placeholders;
+            }
             return this;
         }
 
         public MessageBuilder with(String key, String value) {
-            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addString(key, value).build();
+            placeholders = MessagePlaceholders.builder().addAll(placeholders).addString(key, value).build();
             return this;
         }
 
         public MessageBuilder with(String key, Number value) {
-            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addNumber(key, value).build();
+            placeholders = MessagePlaceholders.builder().addAll(placeholders).addNumber(key, value).build();
             return this;
         }
 
         public MessageBuilder with(String key, Component value) {
-            this.placeholders = MessagePlaceholders.builder().addAll(this.placeholders).addComponent(key, value).build();
+            placeholders = MessagePlaceholders.builder().addAll(placeholders).addComponent(key, value).build();
             return this;
         }
 
-        public MessageBuilder autoLinkUrls(boolean on) {
-            this.autoLinkUrls = on;
+        public MessageBuilder autoLinkUrls(boolean enabled) {
+            autoLinkUrls = enabled;
             return this;
         }
 
-        public MessageBuilder autoLinkUnderline(boolean on) {
-            this.autoLinkUnderline = on;
+        public MessageBuilder autoLinkUnderline(boolean enabled) {
+            autoLinkUnderline = enabled;
             return this;
         }
 
-        /**
-         * Build and return the configured message component.
-         * Always uses hybrid behavior: legacy color codes (including hex), then MiniMessage tags and parsing.
-         */
         public Component build() {
-            String rawMessage = (audience instanceof Player player)
-                    ? getTranslateMessage(key, player)
-                    : defaultMessages.get(key, String.class, "&cMessage not found: " + key);
-
-            return renderComponent(rawMessage);
+            String raw = audience instanceof Player player
+                    ? resolvePlayerMessage(key, player)
+                    : resolveNonPlayerMessage(key);
+            return render(raw);
         }
 
-        private Component renderComponent(String messageString) {
-            messageString = TextFormatter.convert(messageString)
+        private Component render(String raw) {
+            String message = TextFormatter.convert(raw)
                     .expect(TextFormatter.InputFormat.MIXED_INPUT)
-                    .preprocess(s -> {
-                        if (audience instanceof Player p) {
-                            s = PlaceholderAPIHook.applyPlaceholders(s, p);
+                    .preprocess(text -> {
+                        String replaced = text;
+                        if (audience instanceof Player player) {
+                            replaced = PlaceholderAPIHook.applyPlaceholders(replaced, player);
                         }
-                        s = MessagePlaceholders.applyPlaceholders(s, placeholders);
-                        return s;
+                        return MessagePlaceholders.applyPlaceholders(replaced, placeholders);
                     })
                     .toMiniMessage();
 
-            ComponentFormatter.Converter converter = ComponentFormatter.deserialize(messageString)
+            ComponentFormatter.Converter converter = ComponentFormatter.deserialize(message)
                     .expect(TextFormatter.InputFormat.MINIMESSAGE)
                     .features(ComponentFormatter.ALL_DEFAULTS());
-
             if (autoLinkUrls) {
                 converter.autoLinkUrls(autoLinkUnderline);
             }
-
             return converter.toComponent();
         }
     }
 
-    // --- Private Helper Methods ---
-
-    /**
-     * Retrieves a translated message for a player based on their language.
-     * Falls back to the default message if no localized version is found.
-     */
-    private @NotNull String getTranslateMessage(String key, Player player) {
+    private String resolvePlayerMessage(String key, Player player) {
         Language language = FeatureServices.find(plugin, LanguageAPI.class)
                 .map(api -> api.get(player.getUniqueId()))
                 .orElse(Language.NL);
+        String message = readScopedMessage(key, language);
+        return message == null ? missingMessage(key) : message;
+    }
 
-        // Try language-specific file first
+    private String resolveNonPlayerMessage(String key) {
+        String message = readScopedMessage(key, null);
+        return message == null ? missingMessage(key) : message;
+    }
+
+    private String readScopedMessage(String key, Language language) {
         if (language != null) {
-            ConfigView view = languageViews.get(language);
-            if (view != null) {
-                String localized = view.get(key, String.class);
-                if (localized != null) {
-                    return localized;
+            ConfigView languageView = languageViews.get(language);
+            if (languageView != null) {
+                String translated = languageView.get(key, String.class);
+                if (translated != null) {
+                    return translated;
                 }
             }
         }
+        String defaultMessage = defaultMessagesView.get(key, String.class);
+        if (defaultMessage != null) {
+            return defaultMessage;
+        }
+        return frameworkFallback == null ? null : frameworkFallback.readScopedMessage(key, language);
+    }
 
-        // Fallback to defaults
-        return defaultMessages.get(key, String.class, "&cMessage not found: " + key);
+    private String missingMessage(String key) {
+        return frameworkFallback == null ? "&cMessage not found: " + key : frameworkFallback.missingMessage(key);
+    }
+
+    private void moveOwnedRootsFromLegacyStore(ConfigView source, ConfigView target, Set<String> ownedRoots) {
+        Map<String, Object> legacyValues = new LinkedHashMap<>();
+        for (String root : ownedRoots) {
+            ConfigNode sourceNode = source.node(root);
+            if (!sourceNode.isNull()) {
+                legacyValues.put(root, sourceNode.raw());
+            }
+        }
+        if (!legacyValues.isEmpty()) {
+            ConfigMigrationMerger.mergeMissing(target, legacyValues);
+            source.batch(batch -> legacyValues.keySet().forEach(batch::remove));
+            logger.info("[ServerFeatures] [Localization] Migrated legacy message overrides for feature '"
+                    + featureName + "' to '" + defaultMessagesPath() + "'");
+        }
+    }
+
+    private void registerBundledFrameworkDefaults() {
+        mergeBundledDefaultsInto(defaultMessagesView, defaultMessagesPath());
+        for (Language language : Language.values()) {
+            String path = languagePath(language);
+            mergeBundledDefaultsInto(configService.view(path, true), path);
+        }
+    }
+
+    private void mergeBundledDefaultsInto(ConfigView target, String resourcePath) {
+        ConfigNode bundled = loadBundledResource(resourcePath);
+        if (bundled != null && !bundled.isNull()) {
+            ConfigMigrationMerger.mergeMissing(target, bundled.raw());
+        }
+    }
+
+    private ConfigNode loadBundledResource(String resourcePath) {
+        try (InputStream input = resources.getResourceAsStream(resourcePath)) {
+            if (input == null) {
+                return null;
+            }
+            YamlConfiguration yaml = YamlConfiguration.loadConfiguration(
+                    new InputStreamReader(input, StandardCharsets.UTF_8)
+            );
+            return ConfigNode.ofRaw(yaml, resourcePath);
+        } catch (Exception exception) {
+            logger.warning("Could not load bundled localization resource '" + resourcePath
+                    + "': " + exception.getMessage());
+            return null;
+        }
+    }
+
+    private Set<String> collectOwnedRoots(MessageMap messageMap) {
+        Set<String> roots = new LinkedHashSet<>();
+        for (String key : messageMap.getMessages().keySet()) {
+            if (key == null || key.isBlank()) {
+                continue;
+            }
+            int dot = key.indexOf('.');
+            roots.add(dot >= 0 ? key.substring(0, dot) : key);
+        }
+        return roots;
+    }
+
+    private void reloadLanguageViews() {
+        languageViews.clear();
+        for (Language language : Language.values()) {
+            String path = languagePath(language);
+            if (featureName == null) {
+                ConfigView view = configService.view(path, true);
+                view.file.reload();
+                languageViews.put(language, view);
+            } else {
+                configService.openExisting(path).ifPresent(file -> {
+                    file.reload();
+                    languageViews.put(language, new ConfigView(file, ""));
+                });
+            }
+        }
+    }
+
+    private ConfigView languageView(Language language, boolean createIfMissing) {
+        ConfigView existing = languageViews.get(language);
+        if (existing != null || !createIfMissing) {
+            return existing;
+        }
+        ConfigView created = configService.view(languagePath(language), false);
+        languageViews.put(language, created);
+        return created;
+    }
+
+    private String defaultMessagesPath() {
+        return featureName == null
+                ? LANG_DIR + "/messages.yml"
+                : FeatureStoragePaths.messagesPath(featureName);
+    }
+
+    private String languagePath(Language language) {
+        return featureName == null
+                ? LANG_DIR + "/" + language.getFileName()
+                : FeatureStoragePaths.messagesPath(featureName, language);
     }
 }

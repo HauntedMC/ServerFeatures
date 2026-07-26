@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigServiceTest {
@@ -68,6 +69,56 @@ class ConfigServiceTest {
 
         ConfigView root = service.view("settings.yml", false);
         assertEquals(true, root.get("feature.demo.enabled", Boolean.class));
+    }
+
+    @Test
+    void rejectsPathsThatEscapeThePluginDataDirectory() {
+        ConfigService service = new ConfigService(plugin(tmp, Map.of(), new AtomicInteger()));
+
+        assertThrows(IllegalArgumentException.class, () -> service.resolve("../outside.yml"));
+        assertThrows(IllegalArgumentException.class, () -> service.resolve(tmp.resolveSibling("outside.yml").toString()));
+        assertThrows(IllegalArgumentException.class, () -> service.resolve(tmp.resolve("inside.yml").toString()));
+        assertThrows(IllegalArgumentException.class, () -> service.resolve(" "));
+    }
+
+    @Test
+    void openExistingDoesNotCreateMissingFiles() {
+        ConfigService service = new ConfigService(plugin(tmp, Map.of(), new AtomicInteger()));
+
+        assertTrue(service.openExisting("missing.yml").isEmpty());
+        assertTrue(Files.notExists(tmp.resolve("missing.yml")));
+    }
+
+    @Test
+    void rejectsDirectoriesAsYamlFiles() throws Exception {
+        Files.createDirectories(tmp.resolve("config.yml"));
+        ConfigService service = new ConfigService(plugin(tmp, Map.of(), new AtomicInteger()));
+
+        assertThrows(IllegalStateException.class, () -> service.open("config.yml", false));
+    }
+
+    @Test
+    void writesYamlThroughAtomicReplacementWithoutLeavingTemporaryFiles() throws Exception {
+        ConfigService service = new ConfigService(plugin(tmp, Map.of(), new AtomicInteger()));
+        ConfigView view = service.view("nested/config.yml", false);
+
+        view.put("value", 42);
+
+        assertEquals(42, service.view("nested/config.yml", false).get("value", Integer.class));
+        try (var files = Files.list(tmp.resolve("nested"))) {
+            assertEquals(1, files.count());
+        }
+    }
+
+    @Test
+    void propagatesPersistenceFailures() throws Exception {
+        ConfigService service = new ConfigService(plugin(tmp, Map.of(), new AtomicInteger()));
+        ConfigView view = service.view("features/Demo/config.yml", false);
+        Path target = tmp.resolve("features/Demo/config.yml");
+        Files.delete(target);
+        Files.createDirectory(target);
+
+        assertThrows(IllegalStateException.class, () -> view.put("enabled", true));
     }
 
     private static Plugin plugin(Path dataFolder, Map<String, String> resources, AtomicInteger saveCalls) {

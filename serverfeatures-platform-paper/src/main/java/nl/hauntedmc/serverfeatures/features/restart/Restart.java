@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.restart;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -17,8 +17,8 @@ public class Restart extends BukkitBaseFeature<Meta> {
     private RestartService service;
     private AutoRestartScheduler auto;
 
-    public Restart(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Restart(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

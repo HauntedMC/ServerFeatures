@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.balloons;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -21,8 +21,8 @@ public class Balloons extends BukkitBaseFeature<Meta> {
     private BalloonsHandler handler;
     private BalloonRegistry registry;
 
-    public Balloons(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Balloons(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

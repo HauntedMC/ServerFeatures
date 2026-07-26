@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.config;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
@@ -24,7 +23,7 @@ public final class LiquidTankDataHandler extends ConfigView {
     private final List<UnloadedTank> unloadedTankList = new ArrayList<>();
 
     public LiquidTankDataHandler(LiquidTank feature) {
-        super(new ConfigService(feature.getPlugin()).open("local/liquidtanks.yml", /* copyDefaultsIfPresent */ true), "");
+        super(feature.getPlugin().getConfigService().open("local/liquidtanks.yml", /* copyDefaultsIfPresent */ true), "");
         this.feature = feature;
     }
 

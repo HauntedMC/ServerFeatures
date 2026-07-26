@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.votifier;
 
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -18,8 +18,8 @@ public class Votifier extends BukkitBaseFeature<Meta> {
 
     private EventBusHandler eventBusHandler;
 
-    public Votifier(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Votifier(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

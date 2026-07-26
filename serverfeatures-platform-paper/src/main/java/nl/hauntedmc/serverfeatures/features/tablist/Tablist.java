@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.tablist;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
@@ -17,8 +17,8 @@ public class Tablist extends BukkitBaseFeature<Meta> {
 
     private TablistHandler handler;
 
-    public Tablist(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Tablist(FeatureContext<Meta> context) {
+        super(context);
     }
 
     /**

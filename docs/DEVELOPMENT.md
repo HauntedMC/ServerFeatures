@@ -49,10 +49,13 @@ Target one module and its reactor dependencies during a tight feedback loop:
 When adding a new feature module:
 
 1. Implement metadata in `features/<feature>/meta/Meta`.
-2. Extend `BukkitBaseFeature` and define `getDefaultConfig()` / `getDefaultMessages()`.
-3. Register listeners/tasks/commands through lifecycle managers.
-4. Add feature tests under the mirrored `src/test/java/...` package path.
-5. Validate enable/disable/reload behavior with no leaked resources.
+2. Accept `FeatureContext<Meta>` in the feature constructor and pass it to `BukkitBaseFeature`.
+3. Define `getDefaultConfig()` / `getDefaultMessages()`; defaults are written to the feature-owned files.
+4. Register listeners, tasks, commands, APIs, data, caches, and GUIs through lifecycle managers.
+5. Initialize already-online players when the feature normally initializes state in a join listener.
+6. Implement `StatefulFeature<S>` when transient state must survive a full feature reload.
+7. Add feature tests under the mirrored `src/test/java/...` package path.
+8. Validate enable/disable/reload behavior with no leaked resources or command aliases.
 
 ## Before You Open a PR
 

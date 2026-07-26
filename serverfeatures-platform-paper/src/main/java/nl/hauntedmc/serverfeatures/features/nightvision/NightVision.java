@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.nightvision;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -9,8 +9,8 @@ import nl.hauntedmc.serverfeatures.features.nightvision.meta.Meta;
 
 public class NightVision extends BukkitBaseFeature<Meta> {
 
-    public NightVision(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public NightVision(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

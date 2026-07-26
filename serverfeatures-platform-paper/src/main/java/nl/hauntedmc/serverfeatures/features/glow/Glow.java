@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.glow;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,6 +12,8 @@ import nl.hauntedmc.serverfeatures.features.glow.internal.GlowHandler;
 import nl.hauntedmc.serverfeatures.features.glow.listener.GlowListener;
 import nl.hauntedmc.serverfeatures.features.glow.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.glow.service.GlowStateService;
+import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
+import org.bukkit.entity.Player;
 
 /**
  * Main Glow feature class. Holds configuration, messages, and references
@@ -26,8 +28,8 @@ public class Glow extends BukkitBaseFeature<Meta> {
     private ORMContext ormContext;
     private GlowStateService glowStateService;
 
-    public Glow(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Glow(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override
@@ -76,6 +78,10 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
         getLifecycleManager().getListenerManager().registerListener(new GlowListener(this));
         getLifecycleManager().getCommandManager().registerFeatureCommand(new nl.hauntedmc.serverfeatures.features.glow.command.GlowCommand(this));
+
+        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+            initializePlayer(player);
+        }
     }
 
     @Override
@@ -97,5 +103,14 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     public GlowStateService getGlowStateService() {
         return glowStateService;
+    }
+
+    public void initializePlayer(Player player) {
+        DataRegistryIdentityGate.runWhenReady(
+                this,
+                player,
+                (readyPlayer, identity) -> glowStateService.restoreGlowFor(readyPlayer, identity),
+                "glow restore"
+        );
     }
 }

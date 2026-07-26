@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.teleportation;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -18,8 +18,8 @@ public final class Teleportation extends BukkitBaseFeature<Meta> {
     private final TeleportState state = new TeleportState(this);
     private TeleportService service; // shared instance
 
-    public Teleportation(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Teleportation(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

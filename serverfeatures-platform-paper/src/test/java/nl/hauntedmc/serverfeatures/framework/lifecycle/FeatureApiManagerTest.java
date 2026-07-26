@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.service.FeatureServiceDirectory;
 import nl.hauntedmc.serverfeatures.test.TestFeatureServiceDirectory;
+import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -45,6 +46,30 @@ class FeatureApiManagerTest {
         manager.registerService(Object.class, service);
         assertSame(service, directory.find(Object.class).orElseThrow());
         assertEquals(1, manager.getRegisteredServiceCount());
+    }
+
+    @Test
+    void servicesRemainDiscoverableWithoutDataRegistry() {
+        FeatureServiceCatalog catalog = new FeatureServiceCatalog();
+        FeatureApiManager manager = new FeatureApiManager("Example", Optional::empty, catalog);
+        manager.registerService(String.class, "local");
+
+        assertEquals("local", catalog.find(String.class).orElseThrow());
+        assertEquals("local", manager.findService(String.class).orElseThrow());
+
+        manager.unregisterAllServices();
+        assertTrue(catalog.find(String.class).isEmpty());
+    }
+
+    @Test
+    void localCatalogPreventsCollisionsWithoutDataRegistry() {
+        FeatureServiceCatalog catalog = new FeatureServiceCatalog();
+        FeatureApiManager first = new FeatureApiManager("First", Optional::empty, catalog);
+        FeatureApiManager second = new FeatureApiManager("Second", Optional::empty, catalog);
+        first.registerService(String.class, "first");
+
+        assertThrows(IllegalStateException.class, () -> second.registerService(String.class, "second"));
+        assertEquals("first", catalog.find(String.class).orElseThrow());
     }
 
     private static FeatureApiManager manager(FeatureServiceDirectory directory, String owner) {

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.chattools;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -20,8 +20,8 @@ public class ChatTools extends BukkitBaseFeature<Meta> {
         chatLocked = lock;
     }
 
-    public ChatTools(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public ChatTools(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

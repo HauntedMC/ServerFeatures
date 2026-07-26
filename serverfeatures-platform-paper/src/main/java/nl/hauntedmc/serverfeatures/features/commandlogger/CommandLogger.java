@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.commandlogger;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -16,8 +16,8 @@ public class CommandLogger extends BukkitBaseFeature<Meta> {
     private CommandLogService commandLogService;
     private ORMContext ormContext;
 
-    public CommandLogger(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public CommandLogger(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

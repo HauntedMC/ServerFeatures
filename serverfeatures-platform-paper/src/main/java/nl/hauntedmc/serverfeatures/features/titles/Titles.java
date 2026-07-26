@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.titles;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public class Titles extends BukkitBaseFeature<Meta> {
 
     private TitleHandler titleHandler;
 
-    public Titles(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Titles(FeatureContext<Meta> context) {
+        super(context);
     }
 
     /**

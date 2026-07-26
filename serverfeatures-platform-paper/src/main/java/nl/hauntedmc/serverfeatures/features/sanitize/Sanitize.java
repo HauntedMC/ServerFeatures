@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.sanitize;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -12,8 +12,8 @@ public class Sanitize extends BukkitBaseFeature<Meta> {
 
     private SanitizeService service;
 
-    public Sanitize(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Sanitize(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

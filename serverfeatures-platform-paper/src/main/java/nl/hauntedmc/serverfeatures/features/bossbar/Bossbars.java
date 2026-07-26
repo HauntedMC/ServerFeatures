@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.bossbar;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -15,8 +15,8 @@ public class Bossbars extends BukkitBaseFeature<Meta> {
 
     private BossbarHandler bossbarHandler;
 
-    public Bossbars(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Bossbars(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

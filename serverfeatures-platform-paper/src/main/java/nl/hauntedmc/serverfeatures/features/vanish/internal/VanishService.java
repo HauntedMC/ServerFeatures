@@ -31,6 +31,12 @@ public class VanishService {
         this.feature = feature;
     }
 
+    public void bootstrapOnlinePlayers() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            handleJoin(player);
+        }
+    }
+
     public boolean isVanished(UUID id) {
         return vanished.contains(id);
     }
@@ -45,6 +51,33 @@ public class VanishService {
 
     public int countVanished() {
         return vanished.size();
+    }
+
+    public Set<UUID> snapshotVanished() {
+        return Set.copyOf(vanished);
+    }
+
+    public Map<UUID, Long> snapshotPlayerIds() {
+        return Map.copyOf(playerIds);
+    }
+
+    public void restoreReloadSnapshot(Set<UUID> vanishedPlayers, Map<UUID, Long> restoredPlayerIds) {
+        if (restoredPlayerIds != null) {
+            playerIds.putAll(restoredPlayerIds);
+        }
+        if (vanishedPlayers == null || vanishedPlayers.isEmpty()) {
+            return;
+        }
+        for (UUID playerId : vanishedPlayers) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                vanished.add(playerId);
+                applyVanish(player);
+            }
+        }
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            applyToNewViewer(viewer);
+        }
     }
 
     public void setVanished(Player target, boolean value) {

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.durabilityalert;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -10,8 +10,8 @@ import nl.hauntedmc.serverfeatures.features.durabilityalert.meta.Meta;
 
 public class DurabilityAlert extends BukkitBaseFeature<Meta> {
 
-    public DurabilityAlert(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public DurabilityAlert(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

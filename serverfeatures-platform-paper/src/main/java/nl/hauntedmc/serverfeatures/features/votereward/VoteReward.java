@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.votereward;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -23,8 +23,8 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
     private CacheDirectory playerCacheDir;
     private VoteHandler voteHandler;
 
-    public VoteReward(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public VoteReward(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

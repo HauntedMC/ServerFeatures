@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.staffchat;
 
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -18,8 +18,8 @@ public class StaffChat extends BukkitBaseFeature<Meta> {
     private ChatChannelHandler chatChannelHandler;
     private EventBusHandler eventBusHandler;
 
-    public StaffChat(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public StaffChat(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

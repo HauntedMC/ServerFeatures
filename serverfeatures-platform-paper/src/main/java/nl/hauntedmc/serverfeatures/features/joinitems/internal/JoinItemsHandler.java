@@ -3,8 +3,8 @@ package nl.hauntedmc.serverfeatures.features.joinitems.internal;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.joinitems.JoinItems;
 import nl.hauntedmc.serverfeatures.features.joinitems.model.JoinItemDefinition;
 import org.bukkit.Material;
@@ -54,7 +54,7 @@ public final class JoinItemsHandler {
     public JoinItemsHandler(JoinItems feature) {
         this.feature = feature;
         this.pdcItemKey = new NamespacedKey(feature.getPlugin(), KEY_ITEM_ID);
-        this.store = new ConfigService(feature.getPlugin()).view("local/joinitems.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/joinitems.yml", /* copyDefaultsIfPresent */ true);
     }
 
     // Convenience for right-hand interactions only
@@ -174,6 +174,22 @@ public final class JoinItemsHandler {
             return;
         }
         removeOnlyManaged(player);
+    }
+
+    /**
+     * Applies the same delayed initialization used for a normal join. This is also
+     * used when the feature is enabled or reloaded while players are online.
+     */
+    public void initializePlayer(Player player) {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            if (removeOnJoin) {
+                purgeFor(player);
+            }
+            giveAll(player);
+        }, BukkitTime.ticks(getJoinDelayTicks()));
     }
 
     /**

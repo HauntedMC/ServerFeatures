@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.balloons.registry;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
@@ -23,7 +22,7 @@ public final class BalloonRegistry {
 
     public BalloonRegistry(Balloons feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/balloons.yml", /* copyDefaultsIfPresent */ true);
+        this.store = feature.getPlugin().getConfigService().view("local/balloons.yml", /* copyDefaultsIfPresent */ true);
     }
 
     public void reloadFromConfig() {

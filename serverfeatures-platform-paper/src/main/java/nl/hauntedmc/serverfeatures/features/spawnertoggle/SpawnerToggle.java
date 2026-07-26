@@ -3,7 +3,7 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -21,8 +21,8 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     private boolean griefPreventionEnabled;
 
-    public SpawnerToggle(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public SpawnerToggle(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

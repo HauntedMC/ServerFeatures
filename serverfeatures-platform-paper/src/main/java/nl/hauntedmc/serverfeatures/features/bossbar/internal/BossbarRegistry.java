@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.bossbar.internal;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.bossbar.Bossbars;
 import org.bukkit.boss.BarColor;
@@ -22,7 +21,7 @@ public class BossbarRegistry {
 
     public BossbarRegistry(Bossbars feature) {
         this.feature = feature;
-        this.store = new ConfigService(feature.getPlugin()).view("local/bossbars.yml", /*copyDefaultsIfPresent*/ true);
+        this.store = feature.getPlugin().getConfigService().view("local/bossbars.yml", /*copyDefaultsIfPresent*/ true);
         loadMessagesFromConfig();
     }
 

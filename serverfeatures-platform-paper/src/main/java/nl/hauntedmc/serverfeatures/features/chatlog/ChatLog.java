@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.chatlog;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -19,8 +19,8 @@ public class ChatLog extends BukkitBaseFeature<Meta> {
     private ReportHandler reportHandler;
     private ORMContext ormContext;
 
-    public ChatLog(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public ChatLog(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

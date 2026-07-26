@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -16,8 +16,8 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
 
     private LiquidTankManager tankManager;
 
-    public LiquidTank(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public LiquidTank(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

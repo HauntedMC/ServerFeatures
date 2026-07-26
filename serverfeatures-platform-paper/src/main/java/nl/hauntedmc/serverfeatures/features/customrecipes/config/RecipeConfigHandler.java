@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.customrecipes.config;
 
-import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.customrecipes.CustomRecipes;
 import nl.hauntedmc.serverfeatures.features.customrecipes.internal.RecipeData;
@@ -19,7 +18,7 @@ public final class RecipeConfigHandler extends ConfigView {
     private final CustomRecipes feature;
 
     public RecipeConfigHandler(CustomRecipes feature) {
-        super(new ConfigService(feature.getPlugin()).open("local/recipes.yml", /* copyDefaultsIfPresent */ true), "");
+        super(feature.getPlugin().getConfigService().open("local/recipes.yml", /* copyDefaultsIfPresent */ true), "");
         this.feature = feature;
     }
 

@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.holograms;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -26,8 +26,8 @@ public final class Holograms extends BukkitBaseFeature<Meta> {
     private HologramRegistry registry;
     private HologramHandler handler;
 
-    public Holograms(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Holograms(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override

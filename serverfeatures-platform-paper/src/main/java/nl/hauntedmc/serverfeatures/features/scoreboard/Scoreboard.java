@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard;
 
-import nl.hauntedmc.serverfeatures.ServerFeatures;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
@@ -13,8 +13,8 @@ public class Scoreboard extends BukkitBaseFeature<Meta> {
 
     private ScoreboardHandler scoreboardHandler;
 
-    public Scoreboard(ServerFeatures plugin) {
-        super(plugin, new Meta());
+    public Scoreboard(FeatureContext<Meta> context) {
+        super(context);
     }
 
     @Override
