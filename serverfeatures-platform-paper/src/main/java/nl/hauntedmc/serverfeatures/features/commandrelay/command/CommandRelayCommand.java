@@ -46,15 +46,26 @@ public class CommandRelayCommand extends FeatureCommand {
         );
 
         String channel = target + ".commandrelay.command";
-        feature.getEventBusHandler().publish(channel, cmd);
-
-        sender.sendMessage(
-                feature.getLocalizationHandler().getMessage("commandrelay.relayed")
-                        .with("target", target)
-                        .with("cmd", cmd)
-                        .forAudience(sender)
-                        .build()
-        );
+        feature.getEventBusHandler().publish(channel, cmd).whenComplete((published, throwable) -> {
+            try {
+                feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                    String messageKey = throwable == null
+                            ? "commandrelay.relayed"
+                            : "commandrelay.relay_failed";
+                    sender.sendMessage(
+                            feature.getLocalizationHandler().getMessage(messageKey)
+                                    .with("target", target)
+                                    .with("cmd", cmd)
+                                    .forAudience(sender)
+                                    .build()
+                    );
+                });
+            } catch (RuntimeException exception) {
+                feature.getLogger().warning(
+                        "CommandRelay: could not report publication result: " + exception.getMessage()
+                );
+            }
+        });
         return true;
     }
 

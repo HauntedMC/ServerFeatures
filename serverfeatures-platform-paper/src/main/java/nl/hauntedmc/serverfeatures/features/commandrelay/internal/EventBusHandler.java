@@ -1,8 +1,14 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay.internal;
 
-import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
-import nl.hauntedmc.dataprovider.database.messaging.api.Subscription;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableDelivery;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableEvent;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableSubscription;
+import nl.hauntedmc.dataprovider.database.messaging.durable.PublishedDurableEvent;
 import nl.hauntedmc.proxyfeatures.contracts.messaging.CommandRelayMessage;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
+import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
+import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
 import org.bukkit.Bukkit;
@@ -10,119 +16,249 @@ import org.bukkit.command.ConsoleCommandSender;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 public class EventBusHandler {
 
-    private static final long UNSUBSCRIBE_TIMEOUT_SECONDS = 5L;
+    private static final long CLOSE_TIMEOUT_SECONDS = 5L;
 
-    private final MessagingDataAccess redisBus;
+    private final DurableMessagingDataAccess redisBus;
     private final CommandRelay feature;
-    private Subscription subscription;
+    private final ProcessedCommandLedger processedCommands;
+    private final Set<String> activeOperations = ConcurrentHashMap.newKeySet();
+    private DurableSubscription subscription;
 
-    public EventBusHandler(CommandRelay feature, MessagingDataAccess redisBus) {
+    public EventBusHandler(
+            CommandRelay feature,
+            DurableMessagingDataAccess redisBus,
+            long processedCommandTtlMillis
+    ) {
+        this(feature, redisBus, createLedger(feature, processedCommandTtlMillis));
+    }
+
+    EventBusHandler(
+            CommandRelay feature,
+            DurableMessagingDataAccess redisBus,
+            ProcessedCommandLedger processedCommands
+    ) {
         this.feature = feature;
         this.redisBus = redisBus;
+        this.processedCommands = processedCommands;
     }
 
     /**
-     * Subscribe to the given Redis channel and handle incoming CommandRelayMessage.
+     * Consume the given durable Redis stream and handle incoming CommandRelayMessage deliveries.
      */
-    public void subscribe(String channel) {
+    public void consume(String stream, String consumerGroup) {
+        String consumer = consumerGroup + "." + UUID.randomUUID();
         try {
-            this.subscription = redisBus.subscribe(
-                    channel,
+            this.subscription = redisBus.consume(
+                    stream,
+                    consumerGroup,
+                    consumer,
                     CommandRelayMessage.TYPE,
                     CommandRelayMessage.class,
                     this::handleIncoming
             );
-        } catch (Exception ex) {
-            feature.getLogger()
-                    .severe("CommandRelay: failed to subscribe to “" + channel + "”");
+            this.subscription.completion().whenComplete((ignored, throwable) -> {
+                if (throwable != null) {
+                    feature.getLogger().severe(
+                            "CommandRelay: durable consumer stopped: " + rootMessage(throwable)
+                    );
+                }
+            });
+        } catch (RuntimeException exception) {
+            feature.getLogger().severe(
+                    "CommandRelay: failed to consume “" + stream + "”: " + rootMessage(exception)
+            );
+            throw exception;
         }
     }
 
-    private void handleIncoming(CommandRelayMessage msg) {
-        if (msg.getCommand() == null || msg.getOriginServer() == null) {
+    private void handleIncoming(DurableDelivery<CommandRelayMessage> delivery) {
+        CommandRelayMessage message = delivery.event().payload();
+        String processingKey = delivery.event().processingKey();
+        if (message == null) {
+            feature.getLogger().warning("CommandRelay: discarded null durable payload.");
+            acknowledge(delivery);
             return;
         }
 
-        String origin = msg.getOriginServer();
-        String full = msg.getCommand().trim();
+        String operationId = normalize(message.getOperationId());
+        String origin = normalize(message.getOriginServer());
+        String full = normalize(message.getCommand());
+        if (operationId == null || !operationId.equals(processingKey) || origin == null || full == null) {
+            feature.getLogger().warning(
+                    "CommandRelay: discarded invalid durable command " + processingKey + "."
+            );
+            acknowledge(delivery);
+            return;
+        }
+
+        if (processedCommands.isProcessed(processingKey)) {
+            feature.getLogger().fine("CommandRelay: ignored completed replay " + processingKey + ".");
+            acknowledge(delivery);
+            return;
+        }
+        if (!activeOperations.add(processingKey)) {
+            return;
+        }
+
         if (full.startsWith("/")) {
             full = full.substring(1);
         }
         if (full.isBlank()) {
+            activeOperations.remove(processingKey);
+            acknowledge(delivery);
             return;
         }
         String main = full.contains(" ")
                 ? full.substring(0, full.indexOf(' '))
                 : full;
 
-        // Validate against whitelist
-        List<String> whitelist =
-                CastUtils.safeCastToList(
-                        feature.getConfigHandler().get("command_whitelist"),
-                        String.class
-                );
+        List<String> whitelist = CastUtils.safeCastToList(
+                feature.getConfigHandler().get("command_whitelist"),
+                String.class
+        );
+        Set<String> allowed = whitelist.stream()
+                .filter(command -> command != null && !command.isBlank())
+                .map(command -> command.trim().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
 
-        String normalizedMain = main.toLowerCase(Locale.ROOT);
-        if (whitelist.stream()
-                .map(command -> command.toLowerCase(Locale.ROOT))
-                .noneMatch(normalizedMain::equals)) {
-            feature.getLogger()
-                    .warning("CommandRelay: received forbidden “" + main +
-                            "” from " + origin + " – ignoring");
-            return;
-        }
-
-        final String sendingCommand = full;
-        // Execute the command in console in sync thread
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
-            ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
-            boolean dispatched = Bukkit.getServer().dispatchCommand(console, sendingCommand);
-            feature.getLogger()
-                    .info("CommandRelay: dispatched “/" + sendingCommand +
-                            "” from " + origin + ": success=" + dispatched);
-        });
-
-    }
-
-    /**
-     * Unsubscribe when feature is disabled.
-     */
-    public void disable() {
-        Subscription current = subscription;
-        subscription = null;
-        if (current == null) {
-            return;
-        }
-        try {
-            current.unsubscribe().get(UNSUBSCRIBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            feature.getLogger().warning("CommandRelay: interrupted while unsubscribing.");
-        } catch (ExecutionException | TimeoutException | RuntimeException exception) {
+        if (!allowed.contains(main.toLowerCase(Locale.ROOT))) {
             feature.getLogger().warning(
-                    "CommandRelay: could not confirm subscription shutdown: " + rootMessage(exception)
+                    "CommandRelay: received forbidden “" + main + "” from " + origin + " – ignoring"
+            );
+            activeOperations.remove(processingKey);
+            acknowledge(delivery);
+            return;
+        }
+
+        String sendingCommand = full;
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                try {
+                    ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
+                    boolean dispatched = Bukkit.getServer().dispatchCommand(console, sendingCommand);
+                    feature.getLogger().info(
+                            "CommandRelay: dispatched “/" + sendingCommand + "” from " + origin
+                                    + ": success=" + dispatched
+                    );
+                    persistAndAcknowledge(delivery, processingKey);
+                } catch (RuntimeException exception) {
+                    activeOperations.remove(processingKey);
+                    feature.getLogger().warning(
+                            "CommandRelay: dispatch failed for " + processingKey + ": "
+                                    + rootMessage(exception)
+                    );
+                }
+            });
+        } catch (RuntimeException exception) {
+            activeOperations.remove(processingKey);
+            feature.getLogger().warning(
+                    "CommandRelay: could not schedule " + processingKey + ": " + rootMessage(exception)
             );
         }
     }
 
     /**
-     * Publish a command to a remote server, attaching this server as origin.
+     * Stop the durable consumer when the feature is disabled.
      */
-    public void publish(String channel, String command) {
-        // grab our own server name
-        String origin = (String) feature.getConfigHandler().getGlobalSetting("server_name");
-        redisBus.publish(channel, new CommandRelayMessage(command, origin))
-                .exceptionally(ex -> {
-                    feature.getLogger()
-                            .severe("CommandRelay: failed to publish to “" + channel + "”");
-                    return null;
+    public void disable() {
+        DurableSubscription current = subscription;
+        subscription = null;
+        if (current == null) {
+            return;
+        }
+        try {
+            current.closeAsync().get(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            feature.getLogger().warning(
+                    "CommandRelay: interrupted while stopping the durable consumer."
+            );
+        } catch (ExecutionException | TimeoutException | RuntimeException exception) {
+            feature.getLogger().warning(
+                    "CommandRelay: could not confirm durable consumer shutdown: "
+                            + rootMessage(exception)
+            );
+        }
+    }
+
+    /**
+     * Publish a command to a remote server with a retry-safe operation id.
+     */
+    public CompletableFuture<PublishedDurableEvent> publish(String stream, String command) {
+        String configuredOrigin = feature.getConfigHandler().getGlobalSetting(
+                "server_name",
+                String.class,
+                "server"
+        );
+        String origin = normalize(configuredOrigin);
+        if (origin == null) {
+            origin = "server";
+        }
+        CommandRelayMessage message = new CommandRelayMessage(command, origin);
+        DurableEvent<CommandRelayMessage> event = new DurableEvent<>(
+                message.getOperationId(),
+                message.getOperationId(),
+                message
+        );
+        CompletableFuture<PublishedDurableEvent> publication = redisBus.publish(stream, event);
+        publication.whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().severe(
+                        "CommandRelay: failed to publish to “" + stream + "”: "
+                                + rootMessage(throwable)
+                );
+            }
+        });
+        return publication;
+    }
+
+    private void persistAndAcknowledge(
+            DurableDelivery<CommandRelayMessage> delivery,
+            String processingKey
+    ) {
+        feature.getLifecycleManager().getTaskManager()
+                .runAsync(() -> processedCommands.markProcessed(processingKey))
+                .whenComplete((ignored, throwable) -> {
+                    activeOperations.remove(processingKey);
+                    if (throwable != null) {
+                        feature.getLogger().warning(
+                                "CommandRelay: could not persist completion for " + processingKey + ": "
+                                        + rootMessage(throwable)
+                        );
+                        return;
+                    }
+                    acknowledge(delivery);
                 });
+    }
+
+    private void acknowledge(DurableDelivery<CommandRelayMessage> delivery) {
+        delivery.acknowledge().whenComplete((ignored, throwable) -> {
+            if (throwable != null) {
+                feature.getLogger().warning(
+                        "CommandRelay: could not acknowledge " + delivery.event().processingKey() + ": "
+                                + rootMessage(throwable)
+                );
+            }
+        });
+    }
+
+    private static String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private static String rootMessage(Throwable throwable) {
@@ -132,5 +268,16 @@ public class EventBusHandler {
         }
         String message = current.getMessage();
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
+    }
+
+    private static ProcessedCommandLedger createLedger(
+            CommandRelay feature,
+            long processedCommandTtlMillis
+    ) {
+        CacheDirectory cacheDirectory = feature.getLifecycleManager()
+                .getCacheManager()
+                .getCacheDirectory(feature.getFeatureName(), "durable-commandrelay");
+        FileCacheStore store = (FileCacheStore) cacheDirectory.getStore("processed", CacheType.JSON);
+        return new ProcessedCommandLedger(store, processedCommandTtlMillis);
     }
 }

@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay;
 
-import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
@@ -10,9 +11,14 @@ import nl.hauntedmc.serverfeatures.features.commandrelay.internal.EventBusHandle
 import nl.hauntedmc.serverfeatures.features.commandrelay.meta.Meta;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 public class CommandRelay extends BukkitBaseFeature<Meta> {
+
+    private static final String DEFAULT_SERVER_NAME = "server";
+    private static final String DEFAULT_CONSUMER_GROUP = "serverfeatures.commandrelay.server";
+    private static final long DEFAULT_PROCESSED_COMMAND_TTL_MILLIS = 691_200_000L;
 
     private EventBusHandler eventBusHandler;
 
@@ -26,6 +32,8 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("listening", false);
         defaults.put("sending", false);
+        defaults.put("consumer_group", "");
+        defaults.put("processed_command_ttl_millis", DEFAULT_PROCESSED_COMMAND_TTL_MILLIS);
         // whitelist of main command names (no leading slash), e.g. List.of("eco", "fly")
         defaults.put("command_whitelist", List.of());
         return defaults;
@@ -36,6 +44,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         MessageMap messages = new MessageMap();
         messages.add("commandrelay.usage", "&eGebruik: /commandrelay <targetServer> <command...>");
         messages.add("commandrelay.relayed", "&aCommand relayed naar {target}: {cmd}");
+        messages.add("commandrelay.relay_failed", "&cCommand kon niet naar {target} worden verstuurd.");
         return messages;
     }
 
@@ -46,28 +55,40 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
                 .getDataManager()
                 .initDataProvider(getFeatureName());
 
-        Optional<MessagingDataAccess> redisBus = getLifecycleManager()
+        Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
                 .getDataManager()
-                .registerRedisMessagingDataAccess("redis", "hauntedmc");
+                .registerRedisMessagingProvider("redis", "hauntedmc");
 
-        if (redisBus.isEmpty()) {
+        if (redisProvider.isEmpty()) {
             throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
         }
+        DurableMessagingDataAccess redisBus = redisProvider.get().getDurableDataAccess();
+        long processedCommandTtlMillis = positiveLongSetting(
+                "processed_command_ttl_millis",
+                DEFAULT_PROCESSED_COMMAND_TTL_MILLIS
+        );
 
         // Create the handler
-        this.eventBusHandler = new EventBusHandler(this, redisBus.get());
+        this.eventBusHandler = new EventBusHandler(this, redisBus, processedCommandTtlMillis);
 
         // Fetch settings
         boolean listen = (Boolean) getConfigHandler().get("listening");
         boolean send = (Boolean) getConfigHandler().get("sending");
-        String serverName = (String) getConfigHandler().getGlobalSetting("server_name");
+        String serverName = resolveServerName(getConfigHandler().getGlobalSetting(
+                "server_name",
+                String.class,
+                DEFAULT_SERVER_NAME
+        ));
 
         // If listening, subscribe to incoming commands for this server
         if (listen) {
             String channel = serverName + ".commandrelay.command";
-            eventBusHandler.subscribe(channel);
+            String configuredGroup = getConfigHandler().get("consumer_group", String.class, "");
+            String consumerGroup = resolveConsumerGroup(configuredGroup, serverName);
+            eventBusHandler.consume(channel, consumerGroup);
             getLogger()
-                    .info("CommandRelay: listening on Redis channel “" + channel + "”");
+                    .info("CommandRelay: consuming durable Redis stream “" + channel
+                            + "” as group “" + consumerGroup + "”");
         }
 
         // If sending, register the /commandrelay command
@@ -89,5 +110,38 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
 
     public EventBusHandler getEventBusHandler() {
         return eventBusHandler;
+    }
+
+    static String resolveConsumerGroup(String configuredGroup, String serverName) {
+        if (configuredGroup != null && !configuredGroup.isBlank()) {
+            return normalizeConsumerKey(configuredGroup, DEFAULT_CONSUMER_GROUP);
+        }
+        return normalizeConsumerKey(
+                "serverfeatures.commandrelay." + resolveServerName(serverName),
+                DEFAULT_CONSUMER_GROUP
+        );
+    }
+
+    static String resolveServerName(String serverName) {
+        return normalizeConsumerKey(serverName, DEFAULT_SERVER_NAME);
+    }
+
+    private static String normalizeConsumerKey(String value, String fallback) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        normalized = normalized.replaceAll("[^a-z0-9_.:-]", "_");
+        normalized = normalized.replaceAll("_+", "_");
+        if (normalized.isBlank()) {
+            normalized = fallback;
+        }
+        return normalized.substring(0, Math.min(normalized.length(), 150));
+    }
+
+    private long positiveLongSetting(String key, long fallback) {
+        Object configured = getConfigHandler().get(key);
+        if (configured instanceof Number number && number.longValue() > 0L) {
+            return number.longValue();
+        }
+        getLogger().warning("CommandRelay setting '" + key + "' must be positive; using " + fallback + ".");
+        return fallback;
     }
 }
