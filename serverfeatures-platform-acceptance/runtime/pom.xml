@@ -9,6 +9,23 @@
     <artifactId>serverfeatures-platform-acceptance-runtime</artifactId>
     <packaging>pom</packaging>
     <name>ServerFeatures Paper Runtime Acceptance</name>
+    <dependencies>
+        <!-- Resolve the exact shaded plugins copied into the test Paper instance. -->
+        <dependency>
+            <groupId>nl.hauntedmc.dataprovider</groupId>
+            <artifactId>dataprovider-platform-paper</artifactId>
+            <version>${dataprovider.version}</version>
+            <classifier>bundled</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>nl.hauntedmc.dataregistry</groupId>
+            <artifactId>dataregistry-platform-paper</artifactId>
+            <version>${dataregistry.version}</version>
+            <classifier>bundled</classifier>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
     <build>
         <plugins>
             <plugin>

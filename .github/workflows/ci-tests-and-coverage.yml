@@ -88,7 +88,6 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-      PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
       PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
     steps:
       - name: Checkout
@@ -109,6 +108,8 @@ jobs:
           test -n "$PACKAGES_USER" || { echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2; exit 1; }
           test -n "$PACKAGES_TOKEN" || { echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN." >&2; exit 1; }
       - name: Run bundled Paper acceptance
+        env:
+          PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
         run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
       - name: Upload platform acceptance logs
         if: always()

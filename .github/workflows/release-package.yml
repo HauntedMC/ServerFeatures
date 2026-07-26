@@ -20,7 +20,6 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-      PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
       PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
 
     steps:
@@ -59,6 +58,8 @@ jobs:
 
       - name: Verify and publish the exact release reactor
         # deployAtEnd makes publication atomic with respect to every quality and runtime gate.
+        env:
+          PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
         run: ./mvnw -U -B -ntp -Prelease,platform-acceptance deploy
 
       - name: Create distributable checksum

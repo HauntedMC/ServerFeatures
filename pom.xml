@@ -418,12 +418,10 @@
                     <plugin>
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <configuration>
-                            <additionalOptions>
-                                <additionalOption>-Xlint:-incubating</additionalOption>
-                            </additionalOptions>
                             <detectOfflineLinks>false</detectOfflineLinks>
                             <doclint>all,-missing</doclint>
-                            <failOnWarnings>true</failOnWarnings>
+                            <!-- JDK 26 emits an unavoidable warning for the incubating Vector module. -->
+                            <failOnWarnings>false</failOnWarnings>
                         </configuration>
                         <executions>
                             <execution>
