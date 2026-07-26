@@ -2,15 +2,14 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage.service;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.player.PlayerData;
-import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.io.localization.Language;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.PlayerLanguage;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 
 import java.util.Locale;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -65,20 +64,27 @@ public final class LanguageService implements LanguageAPI {
 
     @Override
     public void set(UUID playerUuid, Language language) {
-        Objects.requireNonNull(language, "language");
-
-        resolvePlayerId(playerUuid).thenAccept(playerId -> playerId.ifPresent(
-                value -> players.saveLanguage(value, language.name(), language.name())
-        ));
-        languageCache.put(playerUuid, language);
+        setAsync(playerUuid, language);
     }
 
-    private java.util.concurrent.CompletionStage<Optional<Long>> resolvePlayerId(UUID playerUuid) {
-        Optional<PlayerIdentity> cached = players.findActiveIdentityCached(playerUuid);
-        if (cached.isPresent()) {
-            return java.util.concurrent.CompletableFuture.completedFuture(cached.map(PlayerIdentity::playerId));
-        }
-        return players.findIdentity(playerUuid).thenApply(identity -> identity.map(PlayerIdentity::playerId));
+    public CompletionStage<Boolean> setAsync(UUID playerUuid, Language language) {
+        Objects.requireNonNull(playerUuid, "playerUuid");
+        Objects.requireNonNull(language, "language");
+
+        return players.saveLanguage(playerUuid, language.name(), language.name())
+                .thenApply(saved -> {
+                    if (Boolean.TRUE.equals(saved)) {
+                        languageCache.put(playerUuid, language);
+                        return true;
+                    }
+                    return false;
+                })
+                .exceptionally(throwable -> {
+                    feature.getLogger().warning(
+                            "Could not save language for " + playerUuid + ": " + rootMessage(throwable)
+                    );
+                    return false;
+                });
     }
 
     private static Language fromStoredCode(String code) {
@@ -91,6 +97,15 @@ public final class LanguageService implements LanguageAPI {
         } catch (IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
 }

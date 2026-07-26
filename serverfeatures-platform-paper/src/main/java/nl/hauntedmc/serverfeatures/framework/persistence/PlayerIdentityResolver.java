@@ -65,14 +65,10 @@ public final class PlayerIdentityResolver {
         if (normalized == null) {
             return CompletableFuture.completedFuture(Optional.empty());
         }
-        try {
-            return findByUuid(UUID.fromString(normalized));
-        } catch (IllegalArgumentException ignored) {
-            Optional<PlayerIdentity> cached = findActiveByUsername(normalized);
-            return cached.isPresent()
-                    ? CompletableFuture.completedFuture(cached)
-                    : playerDirectory.findByIdentifier(normalized);
-        }
+        Optional<PlayerIdentity> cached = findActiveByIdentifier(normalized);
+        return cached.isPresent()
+                ? CompletableFuture.completedFuture(cached)
+                : playerDirectory.findByIdentifier(normalized);
     }
 
     /**
@@ -107,6 +103,14 @@ public final class PlayerIdentityResolver {
         return playerDirectory.snapshotActiveIdentities().values().stream()
                 .filter(identity -> normalized.equalsIgnoreCase(identity.username()))
                 .findFirst();
+    }
+
+    private Optional<PlayerIdentity> findActiveByIdentifier(String identifier) {
+        try {
+            return findActiveByUuid(UUID.fromString(identifier));
+        } catch (IllegalArgumentException ignored) {
+            return findActiveByUsername(identifier);
+        }
     }
 
     /**

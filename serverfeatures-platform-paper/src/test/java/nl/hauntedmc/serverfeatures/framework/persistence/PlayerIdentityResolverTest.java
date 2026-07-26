@@ -117,6 +117,25 @@ class PlayerIdentityResolverTest {
     }
 
     @Test
+    void identifierLookupDelegatesUuidAndUsernameSemanticsToDataRegistry() {
+        PlayerDirectory directory = mock(PlayerDirectory.class);
+        UUID uuid = UUID.randomUUID();
+        PlayerIdentity identity = new PlayerIdentity(45L, uuid, "OfflineAlice");
+        when(directory.findActiveIdentityCached(uuid)).thenReturn(Optional.empty());
+        when(directory.findByIdentifier(uuid.toString()))
+                .thenReturn(CompletableFuture.completedFuture(Optional.of(identity)));
+
+        PlayerIdentity result = new PlayerIdentityResolver(directory).findByIdentifier(uuid.toString())
+                .toCompletableFuture()
+                .join()
+                .orElseThrow();
+
+        assertEquals(identity, result);
+        verify(directory).findByIdentifier(uuid.toString());
+        verify(directory, never()).findByUuid(uuid);
+    }
+
+    @Test
     void returnsEmptyWhenPersistedIdentityDoesNotExist() {
         PlayerDirectory directory = mock(PlayerDirectory.class);
         UUID uuid = UUID.randomUUID();
