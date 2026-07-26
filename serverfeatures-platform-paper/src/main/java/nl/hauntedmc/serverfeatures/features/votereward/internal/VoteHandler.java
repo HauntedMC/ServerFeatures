@@ -25,6 +25,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 public class VoteHandler {
 
@@ -34,11 +35,15 @@ public class VoteHandler {
     private final PlayerData playerData;
     private final PlayerIdentityResolver playerResolver;
     private final CacheDirectory playerCacheDirectory;
+    private final FileCacheStore processedVoteStore;
+    private final Set<String> processedVoteKeys = ConcurrentHashMap.newKeySet();
+    private final Map<String, CompletableFuture<Void>> voteProcessing = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> replayGenerations = new ConcurrentHashMap<>();
     private final int msgDelay;
     private final int startDelay;
     private final int interval;
     private final long cacheTtlMillis;
+    private final long processedVoteTtlMillis;
     private final List<String> whitelist;
     private final List<String> commands;
 
@@ -49,10 +54,14 @@ public class VoteHandler {
         this.playerData = dataRegistry.players();
         this.playerResolver = new PlayerIdentityResolver(dataRegistry);
         this.playerCacheDirectory = feature.getPlayerCacheDir();
+        this.processedVoteStore = cacheStore("_processed-votes");
+        this.processedVoteKeys.addAll(processedVoteStore.listAll().keySet());
         this.msgDelay = (int) feature.getConfigHandler().get("join_message_delay");
         this.startDelay = (int) feature.getConfigHandler().get("rewards_start_delay");
         this.interval = (int) feature.getConfigHandler().get("reward_interval");
         this.cacheTtlMillis = ((Number) feature.getConfigHandler().get("cache_ttl_millis")).longValue();
+        this.processedVoteTtlMillis = ((Number) feature.getConfigHandler()
+                .get("processed_vote_ttl_millis")).longValue();
         this.whitelist = CastUtils.safeCastToList(feature.getConfigHandler().get("vote_whitelist"), String.class);
         this.commands = CastUtils.safeCastToList(feature.getConfigHandler().get("rewards"), String.class);
     }
@@ -60,65 +69,117 @@ public class VoteHandler {
     /**
      * Entry point from either listener. All Bukkit work is normalized onto the main thread.
      */
-    public void handleVote(IncomingVote vote) {
+    public CompletionStage<Void> handleVote(IncomingVote vote) {
         if (!Bukkit.isPrimaryThread()) {
-            scheduleMain(() -> handleVote(vote));
-            return;
+            return scheduleMainStage(() -> handleVote(vote));
         }
 
+        String processingKey = normalizeProcessingKey(vote.processingKey());
+        if (processingKey == null) {
+            return processVote(vote);
+        }
+        if (processedVoteKeys.contains(processingKey)) {
+            feature.getLogger().fine("Ignored already processed vote " + processingKey + ".");
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> current = new CompletableFuture<>();
+        CompletableFuture<Void> active = voteProcessing.putIfAbsent(processingKey, current);
+        if (active != null) {
+            return active;
+        }
+
+        processVote(vote)
+                .thenCompose(ignored -> markProcessed(processingKey))
+                .whenComplete((ignored, throwable) -> {
+                    voteProcessing.remove(processingKey, current);
+                    if (throwable == null) {
+                        current.complete(null);
+                    } else {
+                        current.completeExceptionally(throwable);
+                    }
+                });
+        return current;
+    }
+
+    private CompletionStage<Void> processVote(IncomingVote vote) {
         String service = vote.serviceName();
         String suppliedUsername = vote.username() == null ? "" : vote.username().trim();
 
         if (service == null || !whitelist.contains(service)) {
             feature.getLogger().warning("Rejected vote from unwhitelisted service: " + service);
-            return;
+            return CompletableFuture.completedFuture(null);
         }
         if (suppliedUsername.isBlank()) {
             feature.getLogger().warning("Rejected vote without a player username from " + service);
-            return;
+            return CompletableFuture.completedFuture(null);
         }
 
         feature.getLogger().info("Received valid vote from " + service + " for player " + suppliedUsername);
         Player onlinePlayer = Bukkit.getPlayerExact(suppliedUsername);
         if (onlinePlayer != null && onlinePlayer.isOnline()) {
-            broadcastVote(onlinePlayer.getName());
-            processVote(onlinePlayer);
-            return;
+            try {
+                broadcastVote(onlinePlayer.getName());
+                processVote(onlinePlayer);
+                return CompletableFuture.completedFuture(null);
+            } catch (RuntimeException exception) {
+                return CompletableFuture.failedFuture(exception);
+            }
         }
 
+        CompletableFuture<Void> completion = new CompletableFuture<>();
         playerResolver.findByUsername(suppliedUsername).whenComplete((identity, throwable) -> {
             if (throwable != null) {
                 feature.getLogger().warning("Could not resolve offline vote identity for " + suppliedUsername + ": "
                         + rootMessage(throwable));
+                completion.completeExceptionally(throwable);
                 return;
             }
             if (identity == null || identity.isEmpty()) {
                 feature.getLogger().warning("Rejected vote for unknown player " + suppliedUsername
                         + "; no player_entity identity exists.");
+                completion.complete(null);
                 return;
             }
-            scheduleMain(() -> processResolvedVote(identity.get(), service));
+            scheduleMainStage(() -> processResolvedVote(identity.get(), service, vote.processingKey()))
+                    .whenComplete((ignored, processingThrowable) -> completeFrom(
+                            completion,
+                            processingThrowable
+                    ));
         });
+        return completion;
     }
 
-    private void processResolvedVote(PlayerIdentity identity, String service) {
+    private CompletionStage<Void> processResolvedVote(
+            PlayerIdentity identity,
+            String service,
+            String processingKey
+    ) {
         Player current = Bukkit.getPlayer(identity.uuid());
         if (current != null && current.isOnline()) {
-            broadcastVote(current.getName());
-            processVote(current);
-            return;
+            try {
+                broadcastVote(current.getName());
+                processVote(current);
+                return CompletableFuture.completedFuture(null);
+            } catch (RuntimeException exception) {
+                return CompletableFuture.failedFuture(exception);
+            }
         }
 
-        feature.getLifecycleManager().getTaskManager().runAsync(() ->
-                queueOfflineVote(identity.uuid().toString(), service)
-        ).whenComplete((ignored, queueThrowable) -> {
-            if (queueThrowable != null) {
-                feature.getLogger().warning("Could not queue offline vote for " + identity.username() + ": "
-                        + rootMessage(queueThrowable));
-                return;
-            }
-            scheduleMain(() -> broadcastVote(identity.username()));
-        });
+        return feature.getLifecycleManager().getTaskManager()
+                .runAsync(() -> queueOfflineVote(identity.uuid().toString(), service, processingKey))
+                .thenCompose(ignored -> scheduleMainStage(() -> {
+                    broadcastVote(identity.username());
+                    return CompletableFuture.completedFuture(null);
+                }))
+                .whenComplete((ignored, queueThrowable) -> {
+                    if (queueThrowable != null) {
+                        feature.getLogger().warning(
+                                "Could not queue offline vote for " + identity.username() + ": "
+                                        + rootMessage(queueThrowable)
+                        );
+                    }
+                });
     }
 
     private void broadcastVote(String name) {
@@ -144,10 +205,13 @@ public class VoteHandler {
         }
     }
 
-    private void queueOfflineVote(String cacheKey, String service) {
+    private void queueOfflineVote(String cacheKey, String service, String processingKey) {
         FileCacheStore cache = cacheStore(cacheKey);
         CacheValue value = CacheValue.builder(cacheTtlMillis).with("service", service).build();
-        String voteKey = "vote_" + System.currentTimeMillis() + "_" + UUID.randomUUID();
+        String normalizedProcessingKey = normalizeProcessingKey(processingKey);
+        String voteKey = normalizedProcessingKey == null
+                ? "vote_" + System.currentTimeMillis() + "_" + UUID.randomUUID()
+                : normalizedProcessingKey;
         cache.put(voteKey, value);
     }
 
@@ -303,12 +367,62 @@ public class VoteHandler {
         return (FileCacheStore) playerCacheDirectory.getStore(key, CacheType.JSON);
     }
 
+    private CompletionStage<Void> markProcessed(String processingKey) {
+        return feature.getLifecycleManager().getTaskManager().runAsync(() -> {
+            CacheValue marker = CacheValue.builder(processedVoteTtlMillis)
+                    .with("processed", true)
+                    .build();
+            synchronized (processedVoteStore) {
+                processedVoteStore.put(processingKey, marker);
+            }
+            processedVoteKeys.add(processingKey);
+        });
+    }
+
+    private CompletionStage<Void> scheduleMainStage(Supplier<CompletionStage<Void>> work) {
+        CompletableFuture<Void> completion = new CompletableFuture<>();
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                try {
+                    CompletionStage<Void> stage = work.get();
+                    if (stage == null) {
+                        completion.completeExceptionally(
+                                new IllegalStateException("Scheduled vote work returned no completion stage.")
+                        );
+                        return;
+                    }
+                    stage.whenComplete((ignored, throwable) -> completeFrom(completion, throwable));
+                } catch (Throwable throwable) {
+                    completion.completeExceptionally(throwable);
+                }
+            });
+        } catch (RuntimeException exception) {
+            completion.completeExceptionally(exception);
+        }
+        return completion;
+    }
+
     private void scheduleMain(Runnable task) {
         try {
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(task);
         } catch (RuntimeException exception) {
             feature.getLogger().warning("Could not schedule vote completion: " + rootMessage(exception));
         }
+    }
+
+    private static void completeFrom(CompletableFuture<Void> completion, Throwable throwable) {
+        if (throwable == null) {
+            completion.complete(null);
+        } else {
+            completion.completeExceptionally(throwable);
+        }
+    }
+
+    private static String normalizeProcessingKey(String processingKey) {
+        if (processingKey == null || processingKey.isBlank()) {
+            return null;
+        }
+        return processingKey.trim();
     }
 
     private static String normalizeName(String value) {

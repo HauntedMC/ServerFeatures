@@ -38,6 +38,7 @@ public class VoteReward extends BukkitBaseFeature<Meta> {
         defaults.put("rewards_start_delay", 100);
         defaults.put("reward_interval", 20);
         defaults.put("cache_ttl_millis", 24 * 60 * 60 * 1_000L);
+        defaults.put("processed_vote_ttl_millis", 8 * 24 * 60 * 60 * 1_000L);
         return defaults;
     }
 

@@ -17,11 +17,12 @@ public class NativeVoteListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onHauntedVote(VoteEvent event) {
         var v = event.getVote();
-        feature.getVoteHandler().handleVote(new IncomingVote(
+        event.track(feature.getVoteHandler().handleVote(new IncomingVote(
                 v.serviceName(),
                 v.username(),
                 v.address(),
-                v.voteTimestamp()
-        ));
+                v.voteTimestamp(),
+                v.processingKey()
+        )));
     }
 }
