@@ -10,8 +10,13 @@ import org.bukkit.command.ConsoleCommandSender;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class EventBusHandler {
+
+    private static final long UNSUBSCRIBE_TIMEOUT_SECONDS = 5L;
 
     private final MessagingDataAccess redisBus;
     private final CommandRelay feature;
@@ -89,9 +94,20 @@ public class EventBusHandler {
      * Unsubscribe when feature is disabled.
      */
     public void disable() {
-        if (subscription != null) {
-            subscription.unsubscribe();
-            subscription = null;
+        Subscription current = subscription;
+        subscription = null;
+        if (current == null) {
+            return;
+        }
+        try {
+            current.unsubscribe().get(UNSUBSCRIBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            feature.getLogger().warning("CommandRelay: interrupted while unsubscribing.");
+        } catch (ExecutionException | TimeoutException | RuntimeException exception) {
+            feature.getLogger().warning(
+                    "CommandRelay: could not confirm subscription shutdown: " + rootMessage(exception)
+            );
         }
     }
 
@@ -107,5 +123,14 @@ public class EventBusHandler {
                             .severe("CommandRelay: failed to publish to “" + channel + "”");
                     return null;
                 });
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }

@@ -82,6 +82,7 @@ class EventBusHandlerTest {
         MessagingDataAccess redis = mock(MessagingDataAccess.class);
         CommandRelay feature = featureWithWhitelist(List.of("say"));
         Subscription subscription = mock(Subscription.class);
+        when(subscription.unsubscribe()).thenReturn(CompletableFuture.completedFuture(null));
         when(redis.subscribe(any(), any(), eq(CommandRelayMessage.class), any())).thenReturn(subscription);
 
         EventBusHandler handler = new EventBusHandler(feature, redis);
