@@ -2,7 +2,8 @@ package nl.hauntedmc.serverfeatures.features.vanish;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
@@ -28,6 +29,10 @@ import java.util.Set;
 import java.util.UUID;
 
 public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<Vanish.ReloadSnapshot> {
+
+    private static final String DEFAULT_STREAM = "proxy.vanish.update";
+    private static final int DEFAULT_PUBLISH_RETRY_ATTEMPTS = 3;
+    private static final long DEFAULT_PUBLISH_RETRY_DELAY_MILLIS = 250L;
 
     private VanishService service;
     private VanishRepository repository;
@@ -69,6 +74,9 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
         cfg.put("prevent_entity_targeting", true);
         cfg.put("filter_tab_completion", true);
         cfg.put("actionbar_interval_ticks", 40);
+        cfg.put("stream", DEFAULT_STREAM);
+        cfg.put("publish_retry_attempts", DEFAULT_PUBLISH_RETRY_ATTEMPTS);
+        cfg.put("publish_retry_delay_millis", DEFAULT_PUBLISH_RETRY_DELAY_MILLIS);
         return cfg;
     }
 
@@ -107,7 +115,6 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
 
         // Service (runtime logic)
         this.service = new VanishService(this);
-        this.service.bootstrapOnlinePlayers();
 
         this.api = new VanishAPI(this);
         getLifecycleManager().getApiManager().registerService(VanishAPI.class, this.api);
@@ -137,24 +144,55 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
 
         // --- Redis messaging (optional) ---
         try {
-            Optional<MessagingDataAccess> redisBus = getLifecycleManager()
+            Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
                     .getDataManager()
-                    .registerRedisMessagingDataAccess("redis", "hauntedmc");
+                    .registerRedisMessagingProvider("redis", "hauntedmc");
 
-            if (redisBus.isPresent()) {
-                String serverName = (String) getConfigHandler().getGlobalSetting("server_name");
+            if (redisProvider.isPresent()) {
+                DurableMessagingDataAccess redisBus = redisProvider.get().getDurableDataAccess();
+                String serverName = getConfigHandler().getGlobalSetting(
+                        "server_name",
+                        String.class,
+                        "server"
+                );
                 if (serverName == null || serverName.isEmpty()) {
-                    getLogger().warning("Global setting 'server_name' is missing; vanish update messages will still publish but without server attribution.");
+                    serverName = "server";
+                    getLogger().warning(
+                            "Global setting 'server_name' is missing; vanish updates will use 'server'."
+                    );
                 }
+                String stream = resolveStream(getConfigHandler().get(
+                        "stream",
+                        String.class,
+                        DEFAULT_STREAM
+                ));
+                int retryAttempts = positiveIntSetting(
+                        "publish_retry_attempts",
+                        DEFAULT_PUBLISH_RETRY_ATTEMPTS
+                );
+                long retryDelayMillis = positiveLongSetting(
+                        "publish_retry_delay_millis",
+                        DEFAULT_PUBLISH_RETRY_DELAY_MILLIS
+                );
 
-                this.eventBusHandler = new EventBusHandler(this, redisBus.get(), serverName);
-                getLogger().info("Redis messaging for Vanish initialized.");
+                this.eventBusHandler = new EventBusHandler(
+                        this,
+                        redisBus,
+                        serverName,
+                        stream,
+                        retryAttempts,
+                        retryDelayMillis
+                );
+                getLogger().info("Durable Redis messaging for Vanish initialized on '" + stream + "'.");
             } else {
                 getLogger().warning("Redis messaging connection 'redis' not available. Vanish updates will not be published to proxy.");
             }
         } catch (Throwable t) {
             getLogger().warning("Failed to initialize Redis messaging for Vanish: " + t.getMessage());
         }
+
+        // Restored online vanish state must be published only after Redis messaging is ready.
+        this.service.bootstrapOnlinePlayers();
     }
 
     @Override
@@ -195,5 +233,30 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
                     playerIds == null ? Map.of() : Map.copyOf(playerIds)
             ));
         }
+    }
+
+    static String resolveStream(String configuredStream) {
+        if (configuredStream == null || configuredStream.isBlank()) {
+            return DEFAULT_STREAM;
+        }
+        return configuredStream.trim();
+    }
+
+    private int positiveIntSetting(String key, int fallback) {
+        Object configured = getConfigHandler().get(key);
+        if (configured instanceof Number number && number.intValue() > 0) {
+            return number.intValue();
+        }
+        getLogger().warning("Vanish setting '" + key + "' must be positive; using " + fallback + ".");
+        return fallback;
+    }
+
+    private long positiveLongSetting(String key, long fallback) {
+        Object configured = getConfigHandler().get(key);
+        if (configured instanceof Number number && number.longValue() > 0L) {
+            return number.longValue();
+        }
+        getLogger().warning("Vanish setting '" + key + "' must be positive; using " + fallback + ".");
+        return fallback;
     }
 }
