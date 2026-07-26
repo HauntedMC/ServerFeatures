@@ -6,6 +6,7 @@ import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DataAccess;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
 import nl.hauntedmc.dataprovider.database.relational.RelationalDatabaseProvider;
 import nl.hauntedmc.dataprovider.logging.LogLevel;
@@ -248,6 +249,14 @@ public class FeatureDataManager {
         ConnectionRegistration registration = connectionsByIdentifier.remove(identifier);
         releaseConnection(registration, identifier);
         return Optional.empty();
+    }
+
+    public Optional<MessagingDataAccess> registerRedisMessagingDataAccess(
+            String identifier,
+            String connectionName
+    ) {
+        return registerRedisMessagingProvider(identifier, connectionName)
+                .map(MessagingDatabaseProvider::getDataAccess);
     }
 
 

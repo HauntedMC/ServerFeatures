@@ -139,7 +139,7 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
         try {
             Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                     .getDataManager()
-                    .registerDataAccess("redis", DatabaseType.REDIS_MESSAGING, "hauntedmc", MessagingDataAccess.class);
+                    .registerRedisMessagingDataAccess("redis", "hauntedmc");
 
             if (redisBus.isPresent()) {
                 String serverName = (String) getConfigHandler().getGlobalSetting("server_name");

@@ -91,9 +91,7 @@ class FeatureDataManagerTest {
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
         manager.initDataProvider("Queue");
 
-        Optional<MessagingDataAccess> result = manager.registerDataAccess(
-                "redis", DatabaseType.REDIS_MESSAGING, "hauntedmc", MessagingDataAccess.class
-        );
+        Optional<MessagingDataAccess> result = manager.registerRedisMessagingDataAccess("redis", "hauntedmc");
 
         assertSame(access, result.orElseThrow());
         verify(scope).registerDatabaseOrThrow(DatabaseType.REDIS_MESSAGING, "hauntedmc");

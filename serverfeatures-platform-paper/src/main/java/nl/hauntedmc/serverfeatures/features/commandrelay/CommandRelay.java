@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay;
 
-import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -49,12 +48,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
 
         Optional<MessagingDataAccess> redisBus = getLifecycleManager()
                 .getDataManager()
-                .registerDataAccess(
-                        "redis",
-                        DatabaseType.REDIS_MESSAGING,
-                        "hauntedmc",
-                        MessagingDataAccess.class
-                );
+                .registerRedisMessagingDataAccess("redis", "hauntedmc");
 
         if (redisBus.isEmpty()) {
             throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
