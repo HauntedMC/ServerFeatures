@@ -1,10 +1,13 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.dataprovider.api.DataProviderAPI;
+import nl.hauntedmc.dataprovider.api.DataProviderScope;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
+import nl.hauntedmc.dataprovider.database.relational.RelationalDatabaseProvider;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.framework.config.MainConfigHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,9 +46,10 @@ class FeatureDataManagerTest {
     @Test
     void strictRegistrationTracksConnectedProviderAndCleansItUp() {
         DataProviderAPI api = mock(DataProviderAPI.class);
+        DataProviderScope scope = scope(api);
         DatabaseProvider provider = mock(DatabaseProvider.class);
         when(provider.isConnected()).thenReturn(true);
-        when(api.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
+        when(scope.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
 
         manager.initDataProvider("Queue");
@@ -54,17 +58,18 @@ class FeatureDataManagerTest {
         assertEquals(1, manager.getActiveConnCount());
         manager.closeAllConnections();
 
-        verify(api).registerDatabaseOrThrow(DatabaseType.MYSQL, "default");
-        verify(api).unregisterDatabase(DatabaseType.MYSQL, "default");
+        verify(scope).registerDatabaseOrThrow(DatabaseType.MYSQL, "default");
+        verify(scope).close();
         assertEquals(0, manager.getActiveConnCount());
     }
 
     @Test
     void registrationFailureAndDisconnectedProviderAreRejected() {
         DataProviderAPI api = mock(DataProviderAPI.class);
+        DataProviderScope scope = scope(api);
         DatabaseProvider disconnected = mock(DatabaseProvider.class);
         when(disconnected.isConnected()).thenReturn(false);
-        when(api.registerDatabaseOrThrow(DatabaseType.MYSQL, "default"))
+        when(scope.registerDatabaseOrThrow(DatabaseType.MYSQL, "default"))
                 .thenThrow(new IllegalStateException("missing configuration"))
                 .thenReturn(disconnected);
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
@@ -77,11 +82,12 @@ class FeatureDataManagerTest {
     @Test
     void typedDataAccessUsesTheProviderHandle() {
         DataProviderAPI api = mock(DataProviderAPI.class);
-        DatabaseProvider provider = mock(DatabaseProvider.class);
+        DataProviderScope scope = scope(api);
+        MessagingDatabaseProvider provider = mock(MessagingDatabaseProvider.class);
         MessagingDataAccess access = mock(MessagingDataAccess.class);
         when(provider.isConnected()).thenReturn(true);
         when(provider.getDataAccess()).thenReturn(access);
-        when(api.registerDatabaseOrThrow(DatabaseType.REDIS_MESSAGING, "hauntedmc")).thenReturn(provider);
+        when(scope.registerDatabaseOrThrow(DatabaseType.REDIS_MESSAGING, "hauntedmc")).thenReturn(provider);
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
         manager.initDataProvider("Queue");
 
@@ -90,18 +96,19 @@ class FeatureDataManagerTest {
         );
 
         assertSame(access, result.orElseThrow());
-        verify(api).registerDatabaseOrThrow(DatabaseType.REDIS_MESSAGING, "hauntedmc");
+        verify(scope).registerDatabaseOrThrow(DatabaseType.REDIS_MESSAGING, "hauntedmc");
     }
 
     @Test
     void ormContextsUseTheBoundApiAndRelationalDataSource() {
         DataProviderAPI api = mock(DataProviderAPI.class);
-        DatabaseProvider provider = mock(DatabaseProvider.class);
+        DataProviderScope scope = scope(api);
+        RelationalDatabaseProvider provider = mock(RelationalDatabaseProvider.class);
         DataSource dataSource = mock(DataSource.class);
         ORMContext ormContext = mock(ORMContext.class);
         when(provider.isConnected()).thenReturn(true);
         when(provider.getDataSource()).thenReturn(dataSource);
-        when(api.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
+        when(scope.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
         when(api.createOrmContext(same(dataSource), any(), eq("validate"), eq(String.class))).thenReturn(ormContext);
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
         manager.initDataProvider("Queue");
@@ -117,10 +124,10 @@ class FeatureDataManagerTest {
     @Test
     void nonRelationalDataSourcesDoNotCreateOrmContexts() {
         DataProviderAPI api = mock(DataProviderAPI.class);
+        DataProviderScope scope = scope(api);
         DatabaseProvider provider = mock(DatabaseProvider.class);
         when(provider.isConnected()).thenReturn(true);
-        when(provider.getDataSource()).thenThrow(new UnsupportedOperationException("not relational"));
-        when(api.registerDatabaseOrThrow(DatabaseType.REDIS, "default")).thenReturn(provider);
+        when(scope.registerDatabaseOrThrow(DatabaseType.REDIS, "default")).thenReturn(provider);
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
         manager.initDataProvider("Queue");
 
@@ -131,10 +138,11 @@ class FeatureDataManagerTest {
     @Test
     void cleanupContinuesWhenDataProviderRejectsUnregistration() {
         DataProviderAPI api = mock(DataProviderAPI.class);
+        DataProviderScope scope = scope(api);
         DatabaseProvider provider = mock(DatabaseProvider.class);
         when(provider.isConnected()).thenReturn(true);
-        when(api.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
-        doThrow(new IllegalStateException("closed")).when(api).unregisterDatabase(DatabaseType.MYSQL, "default");
+        when(scope.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
+        doThrow(new IllegalStateException("closed")).when(scope).close();
         FeatureDataManager manager = new FeatureDataManager(plugin, api);
         manager.initDataProvider("Queue");
 
@@ -142,6 +150,12 @@ class FeatureDataManagerTest {
         manager.closeAllConnections();
 
         assertEquals(0, manager.getActiveConnCount());
-        verify(api).unregisterDatabase(DatabaseType.MYSQL, "default");
+        verify(scope).close();
+    }
+
+    private static DataProviderScope scope(DataProviderAPI api) {
+        DataProviderScope scope = mock(DataProviderScope.class);
+        when(api.scope(anyString())).thenReturn(scope);
+        return scope;
     }
 }

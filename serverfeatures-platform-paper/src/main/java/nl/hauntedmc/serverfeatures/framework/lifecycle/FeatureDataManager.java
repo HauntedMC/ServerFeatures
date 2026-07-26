@@ -1,10 +1,13 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.dataprovider.api.DataProviderAPI;
+import nl.hauntedmc.dataprovider.api.DataProviderScope;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DataAccess;
 import nl.hauntedmc.dataprovider.database.DatabaseProvider;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
+import nl.hauntedmc.dataprovider.database.relational.RelationalDatabaseProvider;
 import nl.hauntedmc.dataprovider.logging.LogLevel;
 import nl.hauntedmc.dataprovider.logging.LoggerAdapter;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
@@ -27,6 +30,7 @@ public class FeatureDataManager {
     private final ConcurrentHashMap<String, ConnectionRegistration> connectionsByIdentifier;
 
     private volatile DataProviderAPI boundDataProviderApi;
+    private volatile DataProviderScope dataProviderScope;
     private ORMContext ormContext;
     private String featureName;
     private boolean initialized;
@@ -60,23 +64,46 @@ public class FeatureDataManager {
      * @param featureName the name of the feature
      */
     public void initDataProvider(String featureName) {
-        this.featureName = featureName;
-        this.initialized = false;
-
         if (featureName == null || featureName.isBlank()) {
             plugin.getLogger().severe("Feature name cannot be null or blank.");
             return;
         }
+        String normalizedFeatureName = featureName.trim();
+        if ((!connectionsByIdentifier.isEmpty() || ormContext != null)
+                && this.featureName != null
+                && !this.featureName.equals(normalizedFeatureName)) {
+            throw new IllegalStateException(
+                    "Cannot rebind FeatureDataManager while DataProvider resources are active."
+            );
+        }
+        if (normalizedFeatureName.equals(this.featureName) && initialized && dataProviderScope != null) {
+            return;
+        }
+        if (connectionsByIdentifier.isEmpty() && ormContext == null) {
+            closeDataProviderScope();
+        }
+        this.featureName = normalizedFeatureName;
+        this.initialized = false;
 
-        if (getDataProviderApi().isEmpty()) {
-            plugin.getLogger().severe("DataProviderAPI is not available for feature '" + featureName + "'.");
+        Optional<DataProviderAPI> dataProviderApi = getDataProviderApi();
+        if (dataProviderApi.isEmpty()) {
+            plugin.getLogger().severe("DataProviderAPI is not available for feature '" + normalizedFeatureName + "'.");
             return;
         }
 
+        try {
+            dataProviderScope = dataProviderApi.get().scope("feature." + normalizedFeatureName);
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(
+                    java.util.logging.Level.SEVERE,
+                    "Could not create a DataProvider scope for feature '" + normalizedFeatureName + "'.",
+                    exception
+            );
+            return;
+        }
         initialized = true;
         plugin.getLogger().info(
-                "DataProvider initialized for feature '" + featureName
-                        + "'. Caller identity is resolved automatically by DataProvider."
+                "DataProvider scope initialized for feature '" + normalizedFeatureName + "'."
         );
     }
 
@@ -90,6 +117,13 @@ public class FeatureDataManager {
      * @return an Optional containing the DatabaseProvider if registration was successful; empty otherwise
      */
     public Optional<DatabaseProvider> registerConnection(String identifier, DatabaseType databaseType, String connectionName) {
+        if (!hasText(identifier) || databaseType == null || !hasText(connectionName)) {
+            plugin.getLogger().severe(
+                    "Invalid database registration request (identifier='" + identifier + "', type=" + databaseType
+                            + ", connection='" + connectionName + "')."
+            );
+            return Optional.empty();
+        }
         if (!isReady()) {
             return Optional.empty();
         }
@@ -107,12 +141,12 @@ public class FeatureDataManager {
 
         DatabaseProvider registered;
         try {
-            Optional<DataProviderAPI> dataProviderApi = getDataProviderApi();
-            if (dataProviderApi.isEmpty()) {
-                plugin.getLogger().severe("DataProviderAPI is not available for feature '" + featureName + "'.");
+            DataProviderScope scope = dataProviderScope;
+            if (scope == null) {
+                plugin.getLogger().severe("DataProvider scope is not available for feature '" + featureName + "'.");
                 return Optional.empty();
             }
-            registered = dataProviderApi.get().registerDatabaseOrThrow(databaseType, connectionName);
+            registered = scope.registerDatabaseOrThrow(databaseType, connectionName);
         } catch (Exception ex) {
             plugin.getLogger().severe(
                     "Failed to register database '" + identifier + "' (type=" + databaseType
@@ -126,6 +160,7 @@ public class FeatureDataManager {
                     "Database provider '" + identifier + "' is null or not connected (type=" + databaseType
                             + ", connection='" + connectionName + "')."
             );
+            unregisterDatabase(databaseType, connectionName, identifier);
             return Optional.empty();
         }
 
@@ -147,8 +182,16 @@ public class FeatureDataManager {
      * @return an Optional containing the DatabaseProvider, or empty if none is found
      */
     public Optional<DatabaseProvider> getDataProvider(String identifier) {
+        if (!hasText(identifier)) {
+            return Optional.empty();
+        }
         ConnectionRegistration registration = connectionsByIdentifier.get(identifier);
         if (registration == null) {
+            return Optional.empty();
+        }
+        if (!isProviderConnected(registration.provider)) {
+            releaseConnection(registration, identifier);
+            connectionsByIdentifier.remove(identifier, registration);
             return Optional.empty();
         }
         return Optional.of(registration.provider);
@@ -160,6 +203,10 @@ public class FeatureDataManager {
             String connectionName,
             Class<T> expectedDataAccessType
     ) {
+        if (expectedDataAccessType == null) {
+            plugin.getLogger().severe("Expected data access type cannot be null.");
+            return Optional.empty();
+        }
         return registerConnection(identifier, databaseType, connectionName)
                 .flatMap(provider -> {
                     Optional<T> dataAccess = getTypedDataAccess(provider, expectedDataAccessType);
@@ -174,7 +221,33 @@ public class FeatureDataManager {
     }
 
     public <T extends DataAccess> Optional<T> getDataAccess(String identifier, Class<T> expectedDataAccessType) {
+        if (expectedDataAccessType == null) {
+            return Optional.empty();
+        }
         return getDataProvider(identifier).flatMap(provider -> getTypedDataAccess(provider, expectedDataAccessType));
+    }
+
+    public Optional<MessagingDatabaseProvider> registerRedisMessagingProvider(
+            String identifier,
+            String connectionName
+    ) {
+        Optional<DatabaseProvider> provider = registerConnection(
+                identifier,
+                DatabaseType.REDIS_MESSAGING,
+                connectionName
+        );
+        if (provider.isEmpty()) {
+            return Optional.empty();
+        }
+        if (provider.get() instanceof MessagingDatabaseProvider messagingProvider) {
+            return Optional.of(messagingProvider);
+        }
+        plugin.getLogger().severe(
+                "Connection '" + identifier + "' is not a messaging provider (connection='" + connectionName + "')."
+        );
+        ConnectionRegistration registration = connectionsByIdentifier.remove(identifier);
+        releaseConnection(registration, identifier);
+        return Optional.empty();
     }
 
 
@@ -187,15 +260,25 @@ public class FeatureDataManager {
      * @return an Optional containing the newly created ORMContext, or empty if creation fails
      */
     public Optional<ORMContext> createORMContext(String identifier, Class<?>... entityClasses) {
+        if (!hasText(identifier) || !hasEntityClasses(entityClasses)) {
+            plugin.getLogger().severe("ORMContext requires a valid identifier and at least one entity class.");
+            return Optional.empty();
+        }
         Optional<DatabaseProvider> providerOptional = getDataProvider(identifier);
         if (providerOptional.isEmpty()) {
             plugin.getLogger().severe("Could not find database provider for identifier: " + identifier);
             return Optional.empty();
         }
         DatabaseProvider provider = providerOptional.get();
+        if (!(provider instanceof RelationalDatabaseProvider relationalProvider)) {
+            plugin.getLogger().severe(
+                    "Database '" + identifier + "' is not relational. ORMContext requires a relational provider."
+            );
+            return Optional.empty();
+        }
 
         try {
-            DataSource dataSource = provider.getDataSource();
+            DataSource dataSource = relationalProvider.getDataSource();
             if (dataSource == null) {
                 plugin.getLogger().severe(
                         "Database '" + identifier + "' does not expose a DataSource. ORMContext requires a relational provider."
@@ -228,16 +311,19 @@ public class FeatureDataManager {
      */
     public void closeAllConnections() {
         if (ormContext != null) {
-            ormContext.shutdown();
-            plugin.getLogger().info("ORMContext has been shut down.");
-        }
-
-        if (getDataProviderApi().isPresent()) {
-            for (var entry : connectionsByIdentifier.entrySet()) {
-                releaseConnection(entry.getValue(), entry.getKey());
+            try {
+                ormContext.shutdown();
+                plugin.getLogger().info("ORMContext has been shut down.");
+            } catch (RuntimeException exception) {
+                plugin.getLogger().log(
+                        java.util.logging.Level.WARNING,
+                        "Failed to shut down the feature ORMContext.",
+                        exception
+                );
             }
         }
 
+        closeDataProviderScope();
         connectionsByIdentifier.clear();
         ormContext = null;
         initialized = false;
@@ -311,6 +397,22 @@ public class FeatureDataManager {
         }
     }
 
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
+    private static boolean hasEntityClasses(Class<?>... entityClasses) {
+        if (entityClasses == null || entityClasses.length == 0) {
+            return false;
+        }
+        for (Class<?> entityClass : entityClasses) {
+            if (entityClass == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private <T extends DataAccess> Optional<T> getTypedDataAccess(
             DatabaseProvider provider,
             Class<T> expectedDataAccessType
@@ -330,16 +432,37 @@ public class FeatureDataManager {
         if (registration == null) {
             return;
         }
+        unregisterDatabase(registration.databaseType, registration.connectionName, identifier);
+    }
+
+    private void unregisterDatabase(DatabaseType databaseType, String connectionName, String identifier) {
         try {
-            Optional<DataProviderAPI> dataProviderApi = getDataProviderApi();
-            if (dataProviderApi.isEmpty()) {
+            DataProviderScope scope = dataProviderScope;
+            if (scope == null) {
                 return;
             }
-            dataProviderApi.get().unregisterDatabase(registration.databaseType, registration.connectionName);
+            scope.unregisterDatabase(databaseType, connectionName);
         } catch (Exception ex) {
             plugin.getLogger().warning(
-                    "Failed to unregister connection '" + identifier + "' (type=" + registration.databaseType
-                            + ", connection='" + registration.connectionName + "')."
+                    "Failed to unregister connection '" + identifier + "' (type=" + databaseType
+                            + ", connection='" + connectionName + "')."
+            );
+        }
+    }
+
+    private void closeDataProviderScope() {
+        DataProviderScope scope = dataProviderScope;
+        dataProviderScope = null;
+        if (scope == null) {
+            return;
+        }
+        try {
+            scope.close();
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(
+                    java.util.logging.Level.WARNING,
+                    "Failed to close DataProvider scope for feature '" + featureName + "'.",
+                    exception
             );
         }
     }

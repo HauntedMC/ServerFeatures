@@ -76,6 +76,6 @@ CI runs:
 
 - Checkstyle (`ci-lint.yml`)
 - Tests and coverage (`ci-tests-and-coverage.yml`)
-- Bundled Paper acceptance with DataProvider 3.1.0, DataRegistry 1.12.0, and MySQL
+- Bundled Paper acceptance with DataProvider 3.1.6, DataRegistry 1.13.1, and MySQL
 
 Tag pushes (`v*`) trigger release packaging and publication (`release-package.yml`).

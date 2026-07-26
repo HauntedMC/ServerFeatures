@@ -21,8 +21,8 @@ A modular feature framework and reusable API for your Paper server.
 - Java 25
 - Paper `26.2.build.65-beta`
 - Feature-dependent optional plugins:
-  - `DataRegistry` `1.12.0`
-  - `DataProvider` `3.1.0`
+  - `DataRegistry` `1.13.1`
+  - `DataProvider` `3.1.6`
   - `packetevents`
   - `PlaceholderAPI`
   - other integrations (for example Vault, LuckPerms, WorldGuard) only when using related features
