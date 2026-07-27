@@ -56,7 +56,9 @@ public class ChatLog extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         ormContext = getLifecycleManager().getDataManager().createORMContext("ormConnection",
                 ChatMessageEntity.class,
-                ReportedChatMessageEntity.class).orElseThrow();
+                ReportedChatMessageEntity.class).orElseThrow(() -> new IllegalStateException(
+                "ChatLog requires the MYSQL/player_data_rw connection and could not create its ORM context."
+        ));
 
         reportHandler = new ReportHandler(this);
         getLifecycleManager().getListenerManager().registerListener(new ChatListener(this));

@@ -70,7 +70,9 @@ public class Glow extends BukkitBaseFeature<Meta> {
         ormContext = getLifecycleManager().getDataManager().createORMContext(
                 "glowOrmConnection",
                 PlayerGlowStateEntity.class
-        ).orElseThrow();
+        ).orElseThrow(() -> new IllegalStateException(
+                "Glow requires the MYSQL/player_data_rw connection and could not create its ORM context."
+        ));
 
         this.registry = new GlowRegistry();
         this.glowHandler = new GlowHandler(this);

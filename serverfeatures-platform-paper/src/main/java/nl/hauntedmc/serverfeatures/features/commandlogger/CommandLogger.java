@@ -42,7 +42,9 @@ public class CommandLogger extends BukkitBaseFeature<Meta> {
         ormContext = getLifecycleManager().getDataManager().createORMContext(
                 "ormConnection",
                 CommandExecutionEntity.class
-        ).orElseThrow();
+        ).orElseThrow(() -> new IllegalStateException(
+                "CommandLogger requires the MYSQL/player_data_rw connection and could not create its ORM context."
+        ));
 
         this.commandLogService = new CommandLogService(this);
 
@@ -61,5 +63,4 @@ public class CommandLogger extends BukkitBaseFeature<Meta> {
     public CommandLogService getCommandLogService() {
         return commandLogService;
     }
-
 }
