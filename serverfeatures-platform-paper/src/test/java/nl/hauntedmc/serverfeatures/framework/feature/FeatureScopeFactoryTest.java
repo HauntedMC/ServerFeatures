@@ -57,7 +57,7 @@ class FeatureScopeFactoryTest {
     }
 
     @Test
-    void directAccessorsShareTheSameNormalizedScopeAsCreatedContext() {
+    void directAccessorsShareTheSameTrimmedScopeAsCreatedContext() {
         ServerFeatures plugin = mock(ServerFeatures.class);
         FeatureConfigHandler config = mock(FeatureConfigHandler.class);
         LocalizationHandler localization = mock(LocalizationHandler.class);
@@ -80,15 +80,15 @@ class FeatureScopeFactoryTest {
                 }
         );
 
-        FeatureContext<ExampleMeta> context = factory.createContext(new ExampleMeta(" Fancy Feature "));
+        FeatureContext<ExampleMeta> context = factory.createContext(new ExampleMeta(" Fancy_Feature "));
 
-        assertSame(context.configHandler(), factory.config("fancy-feature"));
-        assertSame(context.localizationHandler(), factory.localization(" FANCY FEATURE "));
-        assertSame(context.logger(), factory.logger("fancy_feature"));
+        assertSame(context.configHandler(), factory.config("Fancy_Feature"));
+        assertSame(context.localizationHandler(), factory.localization(" Fancy_Feature "));
+        assertSame(context.logger(), factory.logger("Fancy_Feature"));
         assertEquals(List.of(
-                "config:fancy-feature",
-                "localization:fancy-feature",
-                "logger:fancy-feature"
+                "config:Fancy_Feature",
+                "localization:Fancy_Feature",
+                "logger:Fancy_Feature"
         ), createdNames);
     }
 
@@ -186,6 +186,34 @@ class FeatureScopeFactoryTest {
         );
 
         assertThrows(NullPointerException.class, () -> factory.createContext(null));
+        assertEquals(0, calls.get());
+    }
+
+    @Test
+    void invalidFeatureNameIsRejectedBeforeFactoriesAreInvoked() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        AtomicInteger calls = new AtomicInteger();
+        FeatureScopeFactory factory = new FeatureScopeFactory(
+                plugin,
+                name -> {
+                    calls.incrementAndGet();
+                    return mock(FeatureLifecycleManager.class);
+                },
+                name -> {
+                    calls.incrementAndGet();
+                    return mock(FeatureConfigHandler.class);
+                },
+                name -> {
+                    calls.incrementAndGet();
+                    return mock(LocalizationHandler.class);
+                },
+                name -> {
+                    calls.incrementAndGet();
+                    return mock(FeatureLogger.class);
+                }
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> factory.createContext(new ExampleMeta("invalid/name")));
         assertEquals(0, calls.get());
     }
 
