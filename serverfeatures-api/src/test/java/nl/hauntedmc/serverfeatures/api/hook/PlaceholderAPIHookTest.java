@@ -83,22 +83,22 @@ class PlaceholderAPIHookTest {
         String input = "Balance: %vault_eco_balance%";
 
         for (int attempt = 0; attempt < 2; attempt++) {
-            assertEquals(input, PlaceholderAPIHook.applyPlaceholders(
-                    input,
-                    player,
-                    name -> true,
-                    (ignored, text) -> {
-                        throw new IllegalStateException("broken expansion");
-                    },
-                    () -> true,
-                    (message, failure) -> warnings.incrementAndGet(),
-                    now::get
-            ));
+            assertEquals(input, failingResolution(input, player, warnings, now));
         }
         assertEquals(1, warnings.get());
 
         now.addAndGet(TimeUnit.MINUTES.toNanos(5));
-        assertEquals(input, PlaceholderAPIHook.applyPlaceholders(
+        assertEquals(input, failingResolution(input, player, warnings, now));
+        assertEquals(2, warnings.get());
+    }
+
+    @Test
+    void containsBinaryIncompatibilityErrorsFromExpansions() {
+        Player player = player("Remy");
+        AtomicInteger warnings = new AtomicInteger();
+        String input = "Balance: %vault_eco_balance%";
+
+        String output = PlaceholderAPIHook.applyPlaceholders(
                 input,
                 player,
                 name -> true,
@@ -107,9 +107,11 @@ class PlaceholderAPIHookTest {
                 },
                 () -> true,
                 (message, failure) -> warnings.incrementAndGet(),
-                now::get
-        ));
-        assertEquals(2, warnings.get());
+                System::nanoTime
+        );
+
+        assertEquals(input, output);
+        assertEquals(1, warnings.get());
     }
 
     @Test
@@ -153,6 +155,25 @@ class PlaceholderAPIHookTest {
         );
 
         assertEquals("Remy has 125.00", output);
+    }
+
+    private static String failingResolution(
+            String input,
+            Player player,
+            AtomicInteger warnings,
+            AtomicLong now
+    ) {
+        return PlaceholderAPIHook.applyPlaceholders(
+                input,
+                player,
+                name -> true,
+                (ignored, text) -> {
+                    throw new IllegalStateException("broken expansion");
+                },
+                () -> true,
+                (message, failure) -> warnings.incrementAndGet(),
+                now::get
+        );
     }
 
     private static Player player(String name) {
