@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard;
 
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.scoreboard.internal.ScoreboardHandler;
 import nl.hauntedmc.serverfeatures.features.scoreboard.listener.PlayerJoinListener;
 import nl.hauntedmc.serverfeatures.features.scoreboard.meta.Meta;
@@ -23,7 +23,6 @@ public class Scoreboard extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("refresh_interval", 100);
         return defaults;
-
     }
 
     @Override
@@ -48,20 +47,18 @@ public class Scoreboard extends BukkitBaseFeature<Meta> {
         return messages;
     }
 
-
     @Override
     public void initialize() {
         scoreboardHandler = new ScoreboardHandler(this);
         scoreboardHandler.startUpdater();
         getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(scoreboardHandler));
 
-        // Initialize the scoreboard for all currently online players.
-        Bukkit.getOnlinePlayers().forEach(scoreboardHandler::updateScoreboardContent);
+        // Initialize each online player independently so one broken expansion cannot abort the feature.
+        Bukkit.getOnlinePlayers().forEach(scoreboardHandler::updateScoreboardSafely);
     }
 
     @Override
     public void disable() {
         scoreboardHandler.removeAllPlayers();
     }
-
 }
