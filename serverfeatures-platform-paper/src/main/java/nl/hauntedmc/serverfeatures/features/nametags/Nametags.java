@@ -66,7 +66,9 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         this.ormContext = getLifecycleManager().getDataManager()
                 .createORMContext("ormConnection", PlayerNametagEntity.class)
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalStateException(
+                        "Nametags requires the MYSQL/player_data_rw connection and could not create its ORM context."
+                ));
         this.repository = new NametagDBService(this);
 
         // Runtime manager
@@ -84,7 +86,9 @@ public class Nametags extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        this.nametagManager.removeAllNametags();
+        if (this.nametagManager != null) {
+            this.nametagManager.removeAllNametags();
+        }
     }
 
     public NametagManager getNametagManager() {
