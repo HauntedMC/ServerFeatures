@@ -17,12 +17,11 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        scoreboardHandler.updateScoreboardContent(event.getPlayer());
+        scoreboardHandler.updateScoreboardSafely(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
     public void onPlayerQuit(PlayerQuitEvent event) {
         scoreboardHandler.removePlayer(event.getPlayer());
     }
-
 }
