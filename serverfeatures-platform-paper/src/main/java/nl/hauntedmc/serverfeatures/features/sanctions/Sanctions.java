@@ -49,9 +49,10 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getDataManager().registerConnection(
                 "orm", DatabaseType.MYSQL, "player_data_rw");
         orm = getLifecycleManager().getDataManager()
-                .createORMContext("orm",
-                        SanctionEntity.class)
-                .orElseThrow();
+                .createORMContext("orm", SanctionEntity.class)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Sanctions requires the MYSQL/player_data_rw connection and could not create its ORM context."
+                ));
 
         this.service = new SanctionsDataService(this);
         this.muteRegistry = new MuteRegistry(service);
@@ -94,5 +95,4 @@ public class Sanctions extends BukkitBaseFeature<Meta> {
     public SanctionsDataService getService() {
         return service;
     }
-
 }
