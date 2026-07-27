@@ -26,6 +26,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,7 +66,7 @@ class FeatureDataManagerTest {
     }
 
     @Test
-    void registrationFailureAndDisconnectedProviderAreRejected() {
+    void registrationFailureIsRejectedAndStableDisconnectedHandleIsRetained() {
         DataProviderAPI api = mock(DataProviderAPI.class);
         DataProviderScope scope = scope(api);
         DatabaseProvider disconnected = mock(DatabaseProvider.class);
@@ -76,7 +78,10 @@ class FeatureDataManagerTest {
         manager.initDataProvider("Queue");
 
         assertTrue(manager.registerConnection("main", DatabaseType.MYSQL, "default").isEmpty());
-        assertTrue(manager.registerConnection("main", DatabaseType.MYSQL, "default").isEmpty());
+        assertSame(disconnected, manager.registerConnection("main", DatabaseType.MYSQL, "default").orElseThrow());
+        assertSame(disconnected, manager.registerConnection("main", DatabaseType.MYSQL, "default").orElseThrow());
+        verify(scope, times(2)).registerDatabaseOrThrow(DatabaseType.MYSQL, "default");
+        verify(scope, never()).unregisterDatabase(DatabaseType.MYSQL, "default");
     }
 
     @Test
@@ -131,6 +136,27 @@ class FeatureDataManagerTest {
 
         assertTrue(manager.registerConnection("cache", DatabaseType.REDIS, "default").isPresent());
         assertTrue(manager.createORMContext("cache", String.class).isEmpty());
+    }
+
+    @Test
+    void temporarilyDisconnectedProviderRemainsRegisteredUntilFeatureCleanup() {
+        DataProviderAPI api = mock(DataProviderAPI.class);
+        DataProviderScope scope = scope(api);
+        DatabaseProvider provider = mock(DatabaseProvider.class);
+        when(provider.isConnected()).thenReturn(false);
+        when(scope.registerDatabaseOrThrow(DatabaseType.MYSQL, "default")).thenReturn(provider);
+        FeatureDataManager manager = new FeatureDataManager(plugin, api);
+        manager.initDataProvider("Queue");
+
+        assertSame(provider, manager.registerConnection("main", DatabaseType.MYSQL, "default").orElseThrow());
+        assertSame(provider, manager.getDataProvider("main").orElseThrow());
+        assertSame(provider, manager.registerConnection("main", DatabaseType.MYSQL, "default").orElseThrow());
+        assertEquals(1, manager.getActiveConnCount());
+        verify(scope).registerDatabaseOrThrow(DatabaseType.MYSQL, "default");
+        verify(scope, never()).unregisterDatabase(DatabaseType.MYSQL, "default");
+
+        manager.closeAllConnections();
+        verify(scope).close();
     }
 
     @Test

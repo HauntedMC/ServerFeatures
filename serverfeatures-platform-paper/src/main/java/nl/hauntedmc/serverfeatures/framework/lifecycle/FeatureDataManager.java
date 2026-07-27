@@ -132,12 +132,9 @@ public class FeatureDataManager {
         ConnectionRegistration existing = connectionsByIdentifier.get(identifier);
         if (existing != null) {
             if (existing.databaseType == databaseType
-                    && existing.connectionName.equals(connectionName)
-                    && isProviderConnected(existing.provider)) {
+                    && existing.connectionName.equals(connectionName)) {
                 return Optional.of(existing.provider);
             }
-            releaseConnection(existing, identifier);
-            connectionsByIdentifier.remove(identifier, existing);
         }
 
         DatabaseProvider registered;
@@ -156,9 +153,9 @@ public class FeatureDataManager {
             return Optional.empty();
         }
 
-        if (!isProviderConnected(registered)) {
+        if (registered == null) {
             plugin.getLogger().severe(
-                    "Database provider '" + identifier + "' is null or not connected (type=" + databaseType
+                    "DataProvider returned no handle for database '" + identifier + "' (type=" + databaseType
                             + ", connection='" + connectionName + "')."
             );
             unregisterDatabase(databaseType, connectionName, identifier);
@@ -188,11 +185,6 @@ public class FeatureDataManager {
         }
         ConnectionRegistration registration = connectionsByIdentifier.get(identifier);
         if (registration == null) {
-            return Optional.empty();
-        }
-        if (!isProviderConnected(registration.provider)) {
-            releaseConnection(registration, identifier);
-            connectionsByIdentifier.remove(identifier, registration);
             return Optional.empty();
         }
         return Optional.of(registration.provider);
@@ -393,17 +385,6 @@ public class FeatureDataManager {
             return false;
         }
         return true;
-    }
-
-    private boolean isProviderConnected(DatabaseProvider provider) {
-        if (provider == null) {
-            return false;
-        }
-        try {
-            return provider.isConnected();
-        } catch (Exception ex) {
-            return false;
-        }
     }
 
     private static boolean hasText(String value) {
