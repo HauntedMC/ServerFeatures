@@ -117,4 +117,6 @@ jobs:
         with:
           name: serverfeatures-platform-acceptance-logs
           if-no-files-found: warn
-          path: ${{ runner.temp }}/serverfeatures-platform-acceptance
+          path: |
+            ${{ runner.temp }}/serverfeatures-platform-acceptance/paper/paper.log
+            ${{ runner.temp }}/serverfeatures-platform-acceptance/backend.log
