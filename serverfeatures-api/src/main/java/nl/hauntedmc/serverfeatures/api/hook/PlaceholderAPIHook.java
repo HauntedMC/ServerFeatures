@@ -92,21 +92,14 @@ public final class PlaceholderAPIHook {
                 return text;
             }
         } catch (RuntimeException | LinkageError failure) {
-            warnRateLimited(text, player, "placeholderapi-state", failure, warningSink, nanoTime.getAsLong());
+            warnRateLimited(text, player, failure, warningSink, nanoTime.getAsLong());
             return text;
         }
 
         MaskedText input = MaskedText.unchanged(text);
         if (VAULT_ECONOMY_PATTERN.matcher(text).find() && !safeEconomyAvailability(vaultEconomyAvailable)) {
             input = MaskedText.maskVaultEconomy(text);
-            warnRateLimited(
-                    text,
-                    player,
-                    "vault-economy-unavailable",
-                    null,
-                    warningSink,
-                    nanoTime.getAsLong()
-            );
+            warnRateLimited(text, player, null, warningSink, nanoTime.getAsLong());
         }
 
         try {
@@ -116,7 +109,7 @@ public final class PlaceholderAPIHook {
             }
             return input.restore(resolved);
         } catch (RuntimeException | LinkageError failure) {
-            warnRateLimited(text, player, failure.getClass().getName(), failure, warningSink, nanoTime.getAsLong());
+            warnRateLimited(text, player, failure, warningSink, nanoTime.getAsLong());
             return text;
         }
     }
@@ -151,7 +144,7 @@ public final class PlaceholderAPIHook {
                     return false;
                 }
             } catch (IllegalArgumentException ignored) {
-                // Some providers are generated or loaded by a bridge class loader. The service owner check above remains valid.
+                // Generated providers can use a bridge class loader; the service owner check above remains valid.
             }
             return providerReportsEnabled(provider);
         } catch (ClassNotFoundException | RuntimeException | LinkageError ignored) {
@@ -179,7 +172,6 @@ public final class PlaceholderAPIHook {
     private static void warnRateLimited(
             String text,
             Player player,
-            String reason,
             Throwable failure,
             BiConsumer<String, Throwable> warningSink,
             long now
@@ -188,8 +180,7 @@ public final class PlaceholderAPIHook {
                 playerKey(player),
                 expansionKey(text),
                 text.hashCode(),
-                text.length(),
-                reason
+                text.length()
         );
         AtomicBoolean emit = new AtomicBoolean();
         LAST_WARNINGS.compute(key, (ignored, previous) -> {
@@ -282,8 +273,7 @@ public final class PlaceholderAPIHook {
             String player,
             String expansions,
             int messageHash,
-            int messageLength,
-            String reason
+            int messageLength
     ) {
     }
 
