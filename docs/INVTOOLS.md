@@ -24,7 +24,7 @@ Neither permission is granted by default.
 ## Session behavior
 
 Online inventories use Paper's inventory API and remain live. The GUI refreshes from the target
-every `online_sync_interval_ticks` (two ticks by default), and staff edits are applied to the
+every `online_sync_interval_ticks` (five ticks by default), and staff edits are applied to the
 target immediately. Only one editor may modify an online target at a time; additional staff may
 still inspect that target. If the target disconnects, all live views close because the online
 inventory object is no longer authoritative.

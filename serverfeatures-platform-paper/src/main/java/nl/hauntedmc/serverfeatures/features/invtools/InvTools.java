@@ -24,7 +24,7 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
-        defaults.put("online_sync_interval_ticks", 2);
+        defaults.put("online_sync_interval_ticks", 5);
         defaults.put("offline_io_timeout_seconds", 10);
         defaults.put("max_offline_sessions", 4);
         defaults.put("audit_edits", true);
@@ -97,7 +97,7 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         int interval = Math.max(1, getConfigHandler().get(
                 "online_sync_interval_ticks",
                 Integer.class,
-                2
+                5
         ));
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 service::refreshOnlineViews,
