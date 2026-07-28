@@ -5,6 +5,7 @@ import de.tr7zw.changeme.nbtapi.NBTType;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBTCompoundList;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
+import de.tr7zw.changeme.nbtapi.iface.ReadableNBTList;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.bukkit.inventory.ItemStack;
@@ -320,12 +321,17 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             int regularSlotCount,
             EquipmentStorageFormat equipmentFormat
     ) throws IOException {
-        if (!root.hasTag(key, NBTType.NBTTagList)
-                || root.getListType(key) != NBTType.NBTTagCompound) {
+        if (!root.hasTag(key, NBTType.NBTTagList)) {
+            throw new IOException("Playerdata " + location + " is not a compound list");
+        }
+        ReadableNBTList<ReadWriteNBT> entries = root.getCompoundList(key);
+        NBTType listType = root.getListType(key);
+        if (listType != NBTType.NBTTagCompound
+                && !(entries.isEmpty() && listType == NBTType.NBTTagEnd)) {
             throw new IOException("Playerdata " + location + " is not a compound list");
         }
         Set<Integer> slots = new HashSet<>();
-        for (ReadWriteNBT entry : root.getCompoundList(key)) {
+        for (ReadWriteNBT entry : entries) {
             int slot = slot(entry, location);
             boolean supported = slot >= 0 && slot < regularSlotCount;
             if (equipmentFormat == EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS) {
