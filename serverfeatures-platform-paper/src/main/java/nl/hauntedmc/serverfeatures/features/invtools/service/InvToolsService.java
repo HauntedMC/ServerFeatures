@@ -227,6 +227,10 @@ public final class InvToolsService {
             return;
         }
 
+        if (view.onlineSession() && !refreshOnlineSlotBeforeMutation(view, backingSlot.getAsInt())) {
+            return;
+        }
+
         ItemStack cursor = view.onlineSession() ? event.getCursor() : view.cursor();
         if (!view.onlineSession() && !sameItem(cursor, event.getCursor())) {
             viewer.setItemOnCursor(cursor);
@@ -918,6 +922,29 @@ public final class InvToolsService {
                 targetView.refresh(latest);
             }
         }
+    }
+
+    /**
+     * Ensures a direct edit never applies a GUI snapshot over a target player's newer inventory
+     * change. Inventory events run on the main thread, so once this check succeeds the following
+     * mutation observes a stable live slot for this tick.
+     */
+    private boolean refreshOnlineSlotBeforeMutation(InvToolsView view, int backingSlot) {
+        Player target = Bukkit.getPlayer(view.targetId());
+        if (target == null || !target.isOnline()) {
+            closeOnlineTargetViews(view.targetId());
+            return false;
+        }
+
+        InventorySnapshot liveSnapshot = InventorySnapshot.capture(target);
+        ItemStack displayed = view.snapshot().itemAt(view.kind(), backingSlot);
+        ItemStack live = liveSnapshot.itemAt(view.kind(), backingSlot);
+        if (sameItem(displayed, live)) {
+            return true;
+        }
+
+        view.refresh(liveSnapshot);
+        return false;
     }
 
     private void closeOnlineTargetViews(UUID targetId) {
