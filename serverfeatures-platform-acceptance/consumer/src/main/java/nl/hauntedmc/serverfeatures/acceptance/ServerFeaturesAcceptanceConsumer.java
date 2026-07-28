@@ -23,6 +23,10 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
                 if (MenuNavigator.class.getName().isBlank()) {
                     throw new IllegalStateException("ServerFeatures public API is unavailable.");
                 }
+                if (Bukkit.getCommandMap().getCommand("invsee") == null
+                        || Bukkit.getCommandMap().getCommand("endersee") == null) {
+                    throw new IllegalStateException("InvTools commands were not registered.");
+                }
                 getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
             } catch (Exception exception) {
                 getLogger().severe("SERVERFEATURES_ACCEPTANCE_FAIL platform=paper cause=" + exception);

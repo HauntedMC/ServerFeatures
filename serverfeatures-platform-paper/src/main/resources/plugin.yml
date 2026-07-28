@@ -13,3 +13,17 @@ commands:
     usage: /serverfeatures <subcommand>
     permission: serverfeatures.use
     permission-message: You do not have permission to use this command.
+
+permissions:
+  serverfeatures.feature.invtools.command.invsee.inspect:
+    description: Inspect online and offline player inventories with /invsee.
+    default: false
+  serverfeatures.feature.invtools.command.invsee.edit:
+    description: Edit inventories opened through /invsee.
+    default: false
+  serverfeatures.feature.invtools.command.endersee.inspect:
+    description: Inspect online and offline player ender chests with /endersee.
+    default: false
+  serverfeatures.feature.invtools.command.endersee.edit:
+    description: Edit ender chests opened through /endersee.
+    default: false

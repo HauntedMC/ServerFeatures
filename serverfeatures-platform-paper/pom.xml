@@ -230,6 +230,11 @@
             <version>${snakeyaml.version}</version>
         </dependency>
         <dependency>
+            <groupId>de.tr7zw</groupId>
+            <artifactId>item-nbt-api</artifactId>
+            <version>${item.nbt.api.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
@@ -304,6 +309,10 @@
                         <relocation>
                             <pattern>org.yaml.snakeyaml</pattern>
                             <shadedPattern>nl.hauntedmc.serverfeatures.shaded.snakeyaml</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>de.tr7zw.changeme.nbtapi</pattern>
+                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nbtapi</shadedPattern>
                         </relocation>
                     </relocations>
                     <transformers>
