@@ -50,6 +50,7 @@ public final class InvToolsService {
     private final Duration loginBarrierTimeout;
     private final boolean auditEdits;
     private final Semaphore offlineSessionPermits;
+    private final LoginFenceRegistry loginFences;
     private final Object[] transitionLocks = createTransitionLocks();
 
     private final Map<UUID, InvToolsView> viewsByViewer = new ConcurrentHashMap<>();
@@ -85,6 +86,7 @@ public final class InvToolsService {
         this.loginBarrierTimeout = Objects.requireNonNull(loginBarrierTimeout, "loginBarrierTimeout");
         this.auditEdits = auditEdits;
         this.offlineSessionPermits = new Semaphore(maxOfflineSessions, true);
+        this.loginFences = new LoginFenceRegistry(Duration.ofSeconds(MAX_LOGIN_BARRIER_SECONDS));
     }
 
     public void open(Player viewer, String requestedName, InventoryKind kind) {
@@ -305,6 +307,10 @@ public final class InvToolsService {
      * Runs on Paper's async pre-login thread, before the server loads the player's data.
      */
     public LoginBarrierResult prepareLogin(UUID playerId) {
+        if (playerId == null || !active.get()) {
+            return LoginBarrierResult.ALLOW;
+        }
+        loginFences.mark(playerId);
         OfflineAccess access;
         InvToolsView view;
         InvToolsView.OfflineSavePlan plan;
@@ -418,6 +424,15 @@ public final class InvToolsService {
         });
     }
 
+    /**
+     * Clears the login fence only after Paper has exposed the player as online, then repeats the
+     * data-load guard for the narrow window between configuration and join.
+     */
+    public void handlePlayerJoin(UUID playerId) {
+        loginFences.clear(playerId);
+        handlePlayerDataLoad(playerId);
+    }
+
     public void shutdown() {
         if (!active.compareAndSet(true, false)) {
             return;
@@ -454,6 +469,7 @@ public final class InvToolsService {
             }
         });
         latestOpenRequests.clear();
+        loginFences.clear();
     }
 
     private void finishOfflineViewOnShutdown(InvToolsView view) {
@@ -501,6 +517,11 @@ public final class InvToolsService {
             openOnline(viewer, onlineTarget, kind);
             return;
         }
+        if (loginFences.isFenced(targetId)) {
+            latestOpenRequests.remove(viewerId, requestId);
+            send(viewer, "invtools.target_logging_in", "player", targetName);
+            return;
+        }
         boolean editable = hasEditPermission(viewer, kind);
         if (editable && !isEmpty(viewer.getItemOnCursor())) {
             latestOpenRequests.remove(viewerId, requestId);
@@ -527,6 +548,12 @@ public final class InvToolsService {
         synchronized (transitionLock(targetId)) {
             if (!isCurrentRequest(viewerId, requestId)) {
                 permit.release();
+                return;
+            }
+            if (loginFences.isFenced(targetId)) {
+                permit.release();
+                latestOpenRequests.remove(viewerId, requestId);
+                send(viewer, "invtools.target_logging_in", "player", targetName);
                 return;
             }
             if (offlineAccesses.putIfAbsent(targetId, reservation) != null) {
@@ -611,6 +638,14 @@ public final class InvToolsService {
                 reservation.permit().release();
                 latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
                 openOnline(viewer, nowOnline, reservation.kind());
+                return;
+            }
+            if (loginFences.isFenced(reservation.targetId())) {
+                if (offlineAccesses.remove(reservation.targetId(), reservation)) {
+                    reservation.permit().release();
+                }
+                latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
+                send(viewer, "invtools.target_logging_in", "player", reservation.targetName());
                 return;
             }
 

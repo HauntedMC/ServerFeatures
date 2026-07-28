@@ -70,7 +70,7 @@ public final class InvToolsListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
-        service.handlePlayerDataLoad(event.getPlayer().getUniqueId());
+        service.handlePlayerJoin(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
