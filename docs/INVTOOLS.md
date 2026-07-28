@@ -63,6 +63,10 @@ the offline reservation. Paper's initial-configuration event catches this before
 construction where possible, with join as a final guard; both close the view and discard
 uncommitted GUI state instead of writing over data already being loaded.
 
+Feature or server shutdown closes every visible and already-saving offline session. It waits for
+each in-flight atomic playerdata write to reach its actual terminal outcome before the lifecycle
+task manager is allowed to cancel remaining feature work.
+
 Offline editing is limited to playerdata from this exact Paper build. Older or future playerdata is
 read-only until the player has logged in on the running server version. This avoids encoding current
 item components into a different file format, which cannot be made safe without a verified reverse

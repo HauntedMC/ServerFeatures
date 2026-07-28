@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -421,25 +422,21 @@ public final class InvToolsService {
         if (!active.compareAndSet(true, false)) {
             return;
         }
+        Set<InvToolsView> shutdownViews = new LinkedHashSet<>(viewsByViewer.values());
         offlineAccesses.forEach((targetId, access) -> {
             if (access instanceof OfflineReservation reservation) {
                 reservation.cancel();
-                reservation.permit().release();
+            } else if (access instanceof ActiveOfflineView activeView) {
+                shutdownViews.add(activeView.view());
             }
         });
 
-        for (InvToolsView view : ListCopy.of(viewsByViewer.values())) {
+        for (InvToolsView view : shutdownViews) {
             detachVisible(view);
             if (view.onlineSession()) {
                 view.freeze();
             } else {
-                InvToolsView.OfflineSavePlan plan = view.beginOfflineSave();
-                if (plan != null) {
-                    InvToolsView.SaveResult result = plan.newlyStarted()
-                            ? persist(plan)
-                            : await(plan.completion());
-                    view.finishSave(result == null ? InvToolsView.SaveResult.FAILED : result);
-                }
+                finishOfflineViewOnShutdown(view);
                 releaseActiveOfflineView(view);
             }
             Player viewer = Bukkit.getPlayer(view.viewerId());
@@ -451,9 +448,35 @@ public final class InvToolsService {
         viewsByViewer.clear();
         viewsByTarget.clear();
         editorsByTarget.clear();
-        offlineAccesses.values().forEach(access -> access.permit().release());
-        offlineAccesses.clear();
+        offlineAccesses.forEach((targetId, access) -> {
+            if (offlineAccesses.remove(targetId, access)) {
+                access.permit().release();
+            }
+        });
         latestOpenRequests.clear();
+    }
+
+    private void finishOfflineViewOnShutdown(InvToolsView view) {
+        InvToolsView.SaveResult result;
+        try {
+            InvToolsView.OfflineSavePlan plan = view.beginOfflineSave();
+            if (plan == null) {
+                return;
+            }
+            result = plan.newlyStarted()
+                    ? persist(plan)
+                    : plan.completion().join();
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning(
+                    "Could not finish offline InvTools state during shutdown for "
+                            + view.targetId() + ": " + rootCause(exception).getMessage()
+            );
+            view.closeWithoutSaving();
+            auditSaveOutcome(view, InvToolsView.SaveResult.FAILED);
+            return;
+        }
+        view.finishSave(result);
+        auditSaveOutcome(view, result);
     }
 
     private void openResolved(
