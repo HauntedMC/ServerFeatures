@@ -79,6 +79,8 @@ a hard-coded version number.
   but it is still an administrative data mutation.
 - A save conflict or malformed/oversized playerdata file is rejected and logged. It is never
   overwritten optimistically.
+- If a current playerdata file contains a UUID identity tag, that identity must match its filename;
+  copied or swapped files are rejected before inspection or mutation.
 - Compressed and decompressed playerdata sizes are bounded before NBT parsing to reject compression
   bombs and pathological files without exhausting the server heap.
 - Administrative mutations are logged by default with a session ID, actor, target, source,

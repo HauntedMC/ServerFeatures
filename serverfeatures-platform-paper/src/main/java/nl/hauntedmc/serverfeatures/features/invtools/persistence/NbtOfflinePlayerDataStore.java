@@ -68,6 +68,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         Path file = playerFile(playerId);
         byte[] bytes = readPlayerData(file);
         ReadWriteNBT root = readNbt(bytes, file);
+        validatePlayerIdentity(root, playerId);
         int dataVersion = root.getOrDefault("DataVersion", 0);
         EquipmentStorageFormat equipmentFormat = equipmentFormat(root);
 
@@ -115,6 +116,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             requireRevision(original.revision(), currentBytes, playerId);
 
             ReadWriteNBT root = readNbt(currentBytes, file);
+            validatePlayerIdentity(root, playerId);
             int currentDataVersion = root.getOrDefault("DataVersion", 0);
             if (currentDataVersion != runtimeDataVersion) {
                 throw new PlayerDataConflictException(
@@ -392,6 +394,27 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             if (equipment.hasTag(key) && !equipment.hasTag(key, NBTType.NBTTagCompound)) {
                 throw new IOException("Playerdata equipment." + key + " is not a compound");
             }
+        }
+    }
+
+    private static void validatePlayerIdentity(ReadableNBT root, UUID expectedPlayerId)
+            throws IOException {
+        if (!root.hasTag("UUID")) {
+            return;
+        }
+        if (!root.hasTag("UUID", NBTType.NBTTagIntArray)) {
+            throw new IOException("Playerdata UUID is not an integer array");
+        }
+        UUID storedPlayerId;
+        try {
+            storedPlayerId = root.getUUID("UUID");
+        } catch (RuntimeException exception) {
+            throw new IOException("Playerdata UUID is malformed", exception);
+        }
+        if (!expectedPlayerId.equals(storedPlayerId)) {
+            throw new IOException(
+                    "Playerdata UUID does not match its filename for " + expectedPlayerId
+            );
         }
     }
 
