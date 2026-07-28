@@ -560,11 +560,15 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private static void forceDirectory(Path directory) throws IOException {
+    private static void forceDirectory(Path directory) {
         try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
             channel.force(true);
-        } catch (UnsupportedOperationException ignored) {
-            // Directory fsync is unavailable on this file system. The atomic move is still required.
+        } catch (IOException | UnsupportedOperationException ignored) {
+            /*
+             * Some supported platforms cannot open directories as FileChannels. The temporary
+             * file itself was already forced and the atomic move is mandatory, so a directory
+             * sync failure must not turn a completed replacement into an ambiguous failed save.
+             */
         }
     }
 
