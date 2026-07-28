@@ -66,7 +66,8 @@ uncommitted GUI state instead of writing over data already being loaded.
 Offline editing is limited to playerdata from this exact Paper build. Older or future playerdata is
 read-only until the player has logged in on the running server version. This avoids encoding current
 item components into a different file format, which cannot be made safe without a verified reverse
-data-fixer.
+data-fixer. The exact version is obtained from the running Paper data fixer rather than maintained as
+a hard-coded version number.
 
 ## Operational notes
 
@@ -74,6 +75,8 @@ data-fixer.
   but it is still an administrative data mutation.
 - A save conflict or malformed/oversized playerdata file is rejected and logged. It is never
   overwritten optimistically.
+- Compressed and decompressed playerdata sizes are bounded before NBT parsing to reject compression
+  bombs and pathological files without exhausting the server heap.
 - Administrative mutations are logged by default with actor, target, source, inventory section,
   canonical slot, and before/after material counts. Set `audit_edits: false` only if another audit
   system records the same actions.

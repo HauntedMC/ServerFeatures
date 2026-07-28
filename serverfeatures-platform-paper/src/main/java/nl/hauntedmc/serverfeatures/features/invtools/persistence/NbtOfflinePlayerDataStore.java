@@ -6,6 +6,7 @@ import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBTCompoundList;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBTList;
+import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.bukkit.inventory.ItemStack;
@@ -27,6 +28,7 @@ import java.util.HexFormat;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
 
 /**
  * Reads only the vanilla playerdata file and mutates only Inventory, EnderItems, and the five
@@ -35,20 +37,24 @@ import java.util.UUID;
 public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     public static final int EQUIPMENT_COMPOUND_DATA_VERSION = 4325;
-    /**
-     * The DataVersion written by the Paper runtime declared in this build. Offline writes are
-     * deliberately exact-version only: Item-NBT-API can upgrade item data for inspection, but it
-     * cannot safely downgrade current item components back into an older playerdata schema.
-     */
-    public static final int CURRENT_SUPPORTED_DATA_VERSION = 4903;
-    private static final int MAX_COMPRESSED_PLAYER_DATA_BYTES = 16 * 1024 * 1024;
+    private static final int MAX_COMPRESSED_PLAYER_DATA_BYTES = 4 * 1024 * 1024;
+    private static final int MAX_DECOMPRESSED_PLAYER_DATA_BYTES = 32 * 1024 * 1024;
     private static final int PLAYER_LOCK_COUNT = 64;
 
     private final Path playerDataDirectory;
+    private final int runtimeDataVersion;
     private final Object[] playerLocks = createPlayerLocks();
 
     public NbtOfflinePlayerDataStore(Path levelDirectory) {
+        this(levelDirectory, DataFixerUtil.getCurrentVersion());
+    }
+
+    NbtOfflinePlayerDataStore(Path levelDirectory, int runtimeDataVersion) {
         this.playerDataDirectory = levelDirectory.toAbsolutePath().normalize().resolve("playerdata");
+        if (runtimeDataVersion <= 0) {
+            throw new IllegalArgumentException("runtimeDataVersion must be positive");
+        }
+        this.runtimeDataVersion = runtimeDataVersion;
     }
 
     @Override
@@ -86,7 +92,8 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 snapshot,
                 revision(bytes),
                 dataVersion,
-                equipmentFormat
+                equipmentFormat,
+                runtimeDataVersion
         );
     }
 
@@ -108,6 +115,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             requireRevision(original.revision(), currentBytes, playerId);
 
             ReadWriteNBT root = readNbt(currentBytes, file);
+            int currentDataVersion = root.getOrDefault("DataVersion", 0);
+            if (currentDataVersion != runtimeDataVersion) {
+                throw new PlayerDataConflictException(
+                        "Playerdata version changed after InvTools opened it for " + playerId
+                );
+            }
             if (kind == InventoryKind.PLAYER) {
                 writeInventory(root, original.snapshot(), changedSnapshot, original.equipmentStorageFormat());
             } else {
@@ -147,6 +160,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
 
         if (format == EquipmentStorageFormat.EQUIPMENT_COMPOUND) {
+            validateModernEquipment(root);
             ReadableNBT modernEquipment = root.getCompound("equipment");
             if (modernEquipment != null) {
                 equipment[0] = decodeOptionalItem(
@@ -296,7 +310,14 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             if (isEmpty(decoded)) {
                 return null;
             }
+            if (decoded.getAmount() > decoded.getMaxStackSize()) {
+                throw new IOException(
+                        "Player item at " + location + " exceeds its legal stack size"
+                );
+            }
             return decoded.clone();
+        } catch (IOException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new IOException("Could not decode player item at " + location, exception);
         }
@@ -332,13 +353,16 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         Set<Integer> slots = new HashSet<>();
         for (ReadWriteNBT entry : entries) {
             int slot = slot(entry, location);
+            boolean legacyEquipmentSlot = isLegacyEquipmentSlot(slot);
+            if (equipmentFormat == EquipmentStorageFormat.EQUIPMENT_COMPOUND
+                    && legacyEquipmentSlot) {
+                throw new IOException(
+                        "Playerdata " + location + " mixes legacy and current equipment storage"
+                );
+            }
             boolean supported = slot >= 0 && slot < regularSlotCount;
             if (equipmentFormat == EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS) {
-                supported |= slot == InventorySnapshot.BOOTS_SLOT
-                        || slot == InventorySnapshot.LEGGINGS_SLOT
-                        || slot == InventorySnapshot.CHESTPLATE_SLOT
-                        || slot == InventorySnapshot.HELMET_SLOT
-                        || slot == InventorySnapshot.OFF_HAND_SLOT;
+                supported |= legacyEquipmentSlot;
             }
             if (!supported) {
                 continue;
@@ -354,6 +378,29 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             throw new IOException("Playerdata " + location + " entry is missing its byte Slot tag");
         }
         return entry.getByte("Slot");
+    }
+
+    private static void validateModernEquipment(ReadableNBT root) throws IOException {
+        if (root.hasTag("equipment") && !root.hasTag("equipment", NBTType.NBTTagCompound)) {
+            throw new IOException("Playerdata equipment is not a compound");
+        }
+        ReadableNBT equipment = root.getCompound("equipment");
+        if (equipment == null) {
+            return;
+        }
+        for (String key : Set.of("head", "chest", "legs", "feet", "offhand")) {
+            if (equipment.hasTag(key) && !equipment.hasTag(key, NBTType.NBTTagCompound)) {
+                throw new IOException("Playerdata equipment." + key + " is not a compound");
+            }
+        }
+    }
+
+    private static boolean isLegacyEquipmentSlot(int slot) {
+        return slot == InventorySnapshot.BOOTS_SLOT
+                || slot == InventorySnapshot.LEGGINGS_SLOT
+                || slot == InventorySnapshot.CHESTPLATE_SLOT
+                || slot == InventorySnapshot.HELMET_SLOT
+                || slot == InventorySnapshot.OFF_HAND_SLOT;
     }
 
     private static boolean sameItem(ItemStack first, ItemStack second) {
@@ -389,7 +436,29 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                         "Playerdata file exceeds the safe read limit: " + file.getFileName()
                 );
             }
+            validateDecompressedSize(bytes, file);
             return bytes;
+        }
+    }
+
+    private static void validateDecompressedSize(byte[] bytes, Path file) throws IOException {
+        try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
+            byte[] buffer = new byte[8192];
+            int total = 0;
+            int count;
+            while ((count = gzip.read(buffer)) >= 0) {
+                total = Math.addExact(total, count);
+                if (total > MAX_DECOMPRESSED_PLAYER_DATA_BYTES) {
+                    throw new IOException(
+                            "Playerdata expands beyond the safe read limit: " + file.getFileName()
+                    );
+                }
+            }
+        } catch (ArithmeticException exception) {
+            throw new IOException(
+                    "Playerdata expands beyond the safe read limit: " + file.getFileName(),
+                    exception
+            );
         }
     }
 

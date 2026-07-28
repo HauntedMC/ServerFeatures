@@ -10,17 +10,21 @@ public record OfflinePlayerData(
         InventorySnapshot snapshot,
         PlayerDataRevision revision,
         int dataVersion,
-        EquipmentStorageFormat equipmentStorageFormat
+        EquipmentStorageFormat equipmentStorageFormat,
+        int runtimeDataVersion
 ) {
     public OfflinePlayerData {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(snapshot, "snapshot");
         Objects.requireNonNull(revision, "revision");
         Objects.requireNonNull(equipmentStorageFormat, "equipmentStorageFormat");
+        if (runtimeDataVersion <= 0) {
+            throw new IllegalArgumentException("runtimeDataVersion must be positive");
+        }
     }
 
     public boolean supportsSafeEditing() {
-        return dataVersion == NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION
+        return dataVersion == runtimeDataVersion
                 && equipmentStorageFormat == EquipmentStorageFormat.EQUIPMENT_COMPOUND;
     }
 }

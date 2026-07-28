@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OfflinePlayerDataTest {
 
+    private static final int RUNTIME_DATA_VERSION = 4903;
+
     @Test
     void onlyTheExactCurrentPlayerdataVersionIsEligibleForOfflineEditing() {
         OfflinePlayerData legacy = data(
@@ -17,11 +19,11 @@ class OfflinePlayerDataTest {
                 EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS
         );
         OfflinePlayerData current = data(
-                NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION,
+                RUNTIME_DATA_VERSION,
                 EquipmentStorageFormat.EQUIPMENT_COMPOUND
         );
         OfflinePlayerData future = data(
-                NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION + 1,
+                RUNTIME_DATA_VERSION + 1,
                 EquipmentStorageFormat.EQUIPMENT_COMPOUND
         );
 
@@ -36,7 +38,8 @@ class OfflinePlayerDataTest {
                 InventorySnapshot.empty(),
                 new PlayerDataRevision("0".repeat(64)),
                 dataVersion,
-                format
+                format,
+                RUNTIME_DATA_VERSION
         );
     }
 }
