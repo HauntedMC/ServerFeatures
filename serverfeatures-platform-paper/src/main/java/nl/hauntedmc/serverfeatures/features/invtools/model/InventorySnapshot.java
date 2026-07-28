@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.invtools.model;
 
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
@@ -202,7 +203,8 @@ public final class InventorySnapshot {
         }
 
         for (int backingSlot : backingSlots) {
-            if (changed.itemAt(kind, backingSlot) != null) {
+            if (changed.itemAt(kind, backingSlot) != null
+                    || !allowsItemInSlot(kind, backingSlot, remainder)) {
                 continue;
             }
             int transferred = Math.min(remainder.getMaxStackSize(), remainder.getAmount());
@@ -278,6 +280,20 @@ public final class InventorySnapshot {
             return first == null && second == null;
         }
         return first.getAmount() == second.getAmount() && first.isSimilar(second);
+    }
+
+    private static boolean allowsItemInSlot(InventoryKind kind, int backingSlot, ItemStack item) {
+        if (kind != InventoryKind.PLAYER || item == null) {
+            return true;
+        }
+        EquipmentSlot expected = switch (backingSlot) {
+            case BOOTS_SLOT -> EquipmentSlot.FEET;
+            case LEGGINGS_SLOT -> EquipmentSlot.LEGS;
+            case CHESTPLATE_SLOT -> EquipmentSlot.CHEST;
+            case HELMET_SLOT -> EquipmentSlot.HEAD;
+            default -> null;
+        };
+        return expected == null || item.getType().getEquipmentSlot() == expected;
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {

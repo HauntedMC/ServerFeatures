@@ -121,6 +121,21 @@ class InventorySnapshotTest {
     }
 
     @Test
+    void insertionRestoresArmorToACompatibleSlotWhenStorageIsFull() {
+        InventorySnapshot snapshot = InventorySnapshot.empty();
+        for (int slot = 0; slot < InventorySnapshot.STORAGE_SIZE; slot++) {
+            snapshot = snapshot.withBackingSlot(InventoryKind.PLAYER, slot, item(Material.STONE, 64));
+        }
+        ItemStack chestplate = item(Material.DIAMOND_CHESTPLATE);
+
+        InventorySnapshot.InsertionResult result = snapshot.insert(InventoryKind.PLAYER, chestplate);
+
+        assertNull(result.remainder());
+        assertNull(result.snapshot().helmet());
+        assertTrue(result.snapshot().chestplate().isSimilar(chestplate));
+    }
+
+    @Test
     void reportsOnlyBackingSlotsChangedForTheRequestedInventoryKind() {
         InventorySnapshot original = InventorySnapshot.empty();
         InventorySnapshot changed = original

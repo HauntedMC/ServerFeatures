@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.invtools.support;
 
 import org.bukkit.Material;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
@@ -31,6 +32,7 @@ public final class TestItemStacks {
         Material testMaterial = TEST_MATERIALS.computeIfAbsent(material, ignored -> {
             Material mocked = mock(Material.class);
             when(mocked.isAir()).thenReturn(false);
+            when(mocked.getEquipmentSlot()).thenReturn(testEquipmentSlot(ignored));
             return mocked;
         });
         return mockedItem(testMaterial, initialAmount);
@@ -52,5 +54,15 @@ public final class TestItemStacks {
             return null;
         }).when(stack).setAmount(anyInt());
         return stack;
+    }
+
+    private static EquipmentSlot testEquipmentSlot(Material material) {
+        return switch (material) {
+            case DIAMOND_HELMET -> EquipmentSlot.HEAD;
+            case DIAMOND_CHESTPLATE -> EquipmentSlot.CHEST;
+            case DIAMOND_LEGGINGS -> EquipmentSlot.LEGS;
+            case DIAMOND_BOOTS -> EquipmentSlot.FEET;
+            default -> null;
+        };
     }
 }
