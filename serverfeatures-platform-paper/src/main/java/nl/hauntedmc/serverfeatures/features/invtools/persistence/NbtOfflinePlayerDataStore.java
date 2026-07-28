@@ -13,13 +13,14 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileOwnerAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -426,32 +427,57 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         try {
             copyPermissions(target, temporary);
             NBT.writeFile(temporary.toFile(), root);
-            try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
-                channel.force(true);
-            }
+            forceFile(temporary);
 
-            requireRevision(expected, readPlayerData(target), playerId);
-            try {
-                Files.move(
-                        temporary,
-                        target,
-                        StandardCopyOption.ATOMIC_MOVE,
-                        StandardCopyOption.REPLACE_EXISTING
-                );
-            } catch (AtomicMoveNotSupportedException ignored) {
-                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
-            }
+            byte[] currentBytes = readPlayerData(target);
+            requireRevision(expected, currentBytes, playerId);
+            writeRecoveryBackup(target, currentBytes, playerId);
+            moveAtomically(temporary, target);
+            forceDirectory(target.getParent());
         } finally {
             Files.deleteIfExists(temporary);
         }
     }
 
-    private static void copyPermissions(Path source, Path destination) {
+    private static void writeRecoveryBackup(Path target, byte[] source, UUID playerId) throws IOException {
+        Path backup = target.resolveSibling(target.getFileName() + ".invtools-backup");
+        Path temporary = Files.createTempFile(target.getParent(), playerId + ".invtools-backup-", ".dat");
         try {
-            Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(source);
-            Files.setPosixFilePermissions(destination, permissions);
-        } catch (IOException | UnsupportedOperationException ignored) {
-            // The server's default file permissions are acceptable on non-POSIX file systems.
+            copyPermissions(target, temporary);
+            Files.write(temporary, source, StandardOpenOption.TRUNCATE_EXISTING);
+            forceFile(temporary);
+            moveAtomically(temporary, backup);
+            forceDirectory(target.getParent());
+        } finally {
+            Files.deleteIfExists(temporary);
+        }
+    }
+
+    private static void moveAtomically(Path source, Path target) throws IOException {
+        Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    private static void forceFile(Path file) throws IOException {
+        try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
+            channel.force(true);
+        }
+    }
+
+    private static void forceDirectory(Path directory) throws IOException {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (UnsupportedOperationException ignored) {
+            // Directory fsync is unavailable on this file system. The atomic move is still required.
+        }
+    }
+
+    private static void copyPermissions(Path source, Path destination) throws IOException {
+        PosixFileAttributeView posix = Files.getFileAttributeView(source, PosixFileAttributeView.class);
+        if (posix != null) {
+            var attributes = posix.readAttributes();
+            Files.setPosixFilePermissions(destination, attributes.permissions());
+            Files.getFileAttributeView(destination, PosixFileAttributeView.class).setGroup(attributes.group());
+            Files.getFileAttributeView(destination, FileOwnerAttributeView.class).setOwner(attributes.owner());
         }
     }
 

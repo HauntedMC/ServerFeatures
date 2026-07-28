@@ -39,8 +39,10 @@ Only one offline session per target is allowed, including read-only sessions. A 
 
 - changes only the selected inventory or ender chest tags;
 - verifies a SHA-256 revision before replacing the file;
-- writes through a same-directory temporary file and requests an atomic move;
-- preserves unrelated player NBT and file permissions.
+- writes through a same-directory temporary file, requires an atomic move, and fsyncs it where the
+  file system permits;
+- retains the exact pre-write file as `playerdata/<uuid>.dat.invtools-backup` for recovery;
+- preserves unrelated player NBT and POSIX ownership, group, and permissions.
 
 Offline editing is isolated from the staff member's own inventory. The bottom inventory, shift
 transfer, number-key swaps, and drags are blocked. Items may be rearranged inside the target GUI;
