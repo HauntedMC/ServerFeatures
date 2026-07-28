@@ -87,8 +87,14 @@ public final class InvToolsView implements InventoryHolder {
         if (state != State.ACTIVE) {
             return;
         }
-        snapshot = Objects.requireNonNull(changedSnapshot, "changedSnapshot");
-        renderMappedItems();
+        InventorySnapshot replacement = Objects.requireNonNull(changedSnapshot, "changedSnapshot");
+        int[] changedSlots = snapshot.changedBackingSlots(kind, replacement);
+        snapshot = replacement;
+        for (int backingSlot : changedSlots) {
+            InventorySlotLayout.guiSlot(kind, backingSlot).ifPresent(guiSlot ->
+                    inventory.setItem(guiSlot, snapshot.itemAt(kind, backingSlot))
+            );
+        }
     }
 
     public synchronized OfflineSavePlan beginOfflineSave() {

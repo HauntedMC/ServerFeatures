@@ -124,21 +124,41 @@ public final class InventorySnapshot {
 
     public ItemStack itemAt(InventoryKind kind, int backingSlot) {
         Objects.requireNonNull(kind, "kind");
+        return cloneItem(backingItemAt(kind, backingSlot));
+    }
+
+    private ItemStack backingItemAt(InventoryKind kind, int backingSlot) {
         if (kind == InventoryKind.ENDER_CHEST) {
             requireRange(backingSlot, 0, ENDER_CHEST_SIZE, "ender chest slot");
-            return cloneItem(enderChest[backingSlot]);
+            return enderChest[backingSlot];
         }
         if (backingSlot >= 0 && backingSlot < STORAGE_SIZE) {
-            return cloneItem(storage[backingSlot]);
+            return storage[backingSlot];
         }
-        return cloneItem(switch (backingSlot) {
+        return switch (backingSlot) {
             case BOOTS_SLOT -> boots;
             case LEGGINGS_SLOT -> leggings;
             case CHESTPLATE_SLOT -> chestplate;
             case HELMET_SLOT -> helmet;
             case OFF_HAND_SLOT -> offHand;
             default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + backingSlot);
-        });
+        };
+    }
+
+    public int[] changedBackingSlots(InventoryKind kind, InventorySnapshot other) {
+        Objects.requireNonNull(kind, "kind");
+        Objects.requireNonNull(other, "other");
+        int[] slots = kind == InventoryKind.PLAYER
+                ? PLAYER_BACKING_SLOTS
+                : ENDER_BACKING_SLOTS;
+        int[] changed = new int[slots.length];
+        int changedCount = 0;
+        for (int slot : slots) {
+            if (!sameItem(backingItemAt(kind, slot), other.backingItemAt(kind, slot))) {
+                changed[changedCount++] = slot;
+            }
+        }
+        return Arrays.copyOf(changed, changedCount);
     }
 
     /**
@@ -251,6 +271,13 @@ public final class InventorySnapshot {
 
     private static ItemStack cloneItem(ItemStack item) {
         return item == null || item.getType().isAir() || item.getAmount() <= 0 ? null : item.clone();
+    }
+
+    private static boolean sameItem(ItemStack first, ItemStack second) {
+        if (first == null || second == null) {
+            return first == null && second == null;
+        }
+        return first.getAmount() == second.getAmount() && first.isSimilar(second);
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {

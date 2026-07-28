@@ -4,6 +4,7 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -117,5 +118,28 @@ class InventorySnapshotTest {
 
         assertTrue(result.remainder().isSimilar(item(Material.DIAMOND)));
         assertEquals(1, result.remainder().getAmount());
+    }
+
+    @Test
+    void reportsOnlyBackingSlotsChangedForTheRequestedInventoryKind() {
+        InventorySnapshot original = InventorySnapshot.empty();
+        InventorySnapshot changed = original
+                .withBackingSlot(InventoryKind.PLAYER, 4, item(Material.DIAMOND, 2))
+                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.HELMET_SLOT,
+                        item(Material.DIAMOND_HELMET))
+                .withBackingSlot(InventoryKind.ENDER_CHEST, 7, item(Material.EMERALD));
+
+        assertArrayEquals(
+                new int[]{4, InventorySnapshot.HELMET_SLOT},
+                original.changedBackingSlots(InventoryKind.PLAYER, changed)
+        );
+        assertArrayEquals(
+                new int[]{7},
+                original.changedBackingSlots(InventoryKind.ENDER_CHEST, changed)
+        );
+        assertArrayEquals(
+                new int[0],
+                changed.changedBackingSlots(InventoryKind.PLAYER, changed)
+        );
     }
 }
