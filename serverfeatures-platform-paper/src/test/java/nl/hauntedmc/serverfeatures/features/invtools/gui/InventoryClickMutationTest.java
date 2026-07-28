@@ -80,6 +80,18 @@ class InventoryClickMutationTest {
     }
 
     @Test
+    void pickupSomeTransfersOnlyTheSpaceRemainingOnTheCursor() {
+        InventoryClickMutation.Result result = InventoryClickMutation.apply(
+                InventoryAction.PICKUP_SOME,
+                item(Material.GOLD_INGOT, 7),
+                item(Material.GOLD_INGOT, 60)
+        ).orElseThrow();
+
+        assertEquals(3, result.slotItem().getAmount());
+        assertEquals(64, result.cursorItem().getAmount());
+    }
+
+    @Test
     void placingAllMergesWithAnExistingSimilarSlotStack() {
         InventoryClickMutation.Result result = InventoryClickMutation.apply(
                 InventoryAction.PLACE_ALL,
@@ -89,6 +101,18 @@ class InventoryClickMutationTest {
 
         assertEquals(7, result.slotItem().getAmount());
         assertNull(result.cursorItem());
+    }
+
+    @Test
+    void placeSomeTransfersOnlyTheSpaceRemainingInTheSlot() {
+        InventoryClickMutation.Result result = InventoryClickMutation.apply(
+                InventoryAction.PLACE_SOME,
+                item(Material.DIAMOND, 62),
+                item(Material.DIAMOND, 5)
+        ).orElseThrow();
+
+        assertEquals(64, result.slotItem().getAmount());
+        assertEquals(3, result.cursorItem().getAmount());
     }
 
     @Test
