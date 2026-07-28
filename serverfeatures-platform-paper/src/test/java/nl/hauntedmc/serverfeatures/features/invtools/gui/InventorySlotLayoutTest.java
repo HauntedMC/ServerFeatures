@@ -25,6 +25,7 @@ class InventorySlotLayoutTest {
         assertEquals(101, slots.get(2));
         assertEquals(100, slots.get(3));
         assertEquals(-106, slots.get(5));
+        assertEquals(5, InventorySlotLayout.guiSlot(InventoryKind.PLAYER, -106).orElseThrow());
     }
 
     @Test
@@ -34,6 +35,10 @@ class InventorySlotLayoutTest {
                     hotbarSlot,
                     InventorySlotLayout.backingSlot(InventoryKind.PLAYER, 36 + hotbarSlot)
                             .orElseThrow()
+            );
+            assertEquals(
+                    36 + hotbarSlot,
+                    InventorySlotLayout.guiSlot(InventoryKind.PLAYER, hotbarSlot).orElseThrow()
             );
         }
         for (int storageSlot = 9; storageSlot < 36; storageSlot++) {

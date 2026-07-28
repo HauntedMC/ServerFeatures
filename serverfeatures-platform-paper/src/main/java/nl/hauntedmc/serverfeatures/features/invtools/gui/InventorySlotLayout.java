@@ -20,6 +20,8 @@ public final class InventorySlotLayout {
 
     private static final Map<Integer, Integer> PLAYER_SLOTS = createPlayerSlots();
     private static final Map<Integer, Integer> ENDER_SLOTS = createEnderSlots();
+    private static final Map<Integer, Integer> PLAYER_GUI_SLOTS = createReverseSlots(PLAYER_SLOTS);
+    private static final Map<Integer, Integer> ENDER_GUI_SLOTS = createReverseSlots(ENDER_SLOTS);
 
     private InventorySlotLayout() {
     }
@@ -42,10 +44,9 @@ public final class InventorySlotLayout {
     }
 
     public static OptionalInt guiSlot(InventoryKind kind, int backingSlot) {
-        return mappedSlots(kind).entrySet().stream()
-                .filter(entry -> entry.getValue() == backingSlot)
-                .mapToInt(Map.Entry::getKey)
-                .findFirst();
+        Integer slot = (kind == InventoryKind.PLAYER ? PLAYER_GUI_SLOTS : ENDER_GUI_SLOTS)
+                .get(backingSlot);
+        return slot == null ? OptionalInt.empty() : OptionalInt.of(slot);
     }
 
     public static SlotSection section(InventoryKind kind, int guiSlot) {
@@ -90,6 +91,16 @@ public final class InventorySlotLayout {
             slots.put(slot, slot);
         }
         return Collections.unmodifiableMap(slots);
+    }
+
+    private static Map<Integer, Integer> createReverseSlots(Map<Integer, Integer> slots) {
+        Map<Integer, Integer> reversed = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Integer> entry : slots.entrySet()) {
+            if (reversed.put(entry.getValue(), entry.getKey()) != null) {
+                throw new IllegalStateException("InvTools backing slots must be unique");
+            }
+        }
+        return Collections.unmodifiableMap(reversed);
     }
 
     public enum SlotSection {
