@@ -452,6 +452,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             byte[] currentBytes = readPlayerData(target);
             requireRevision(expected, currentBytes, playerId);
             writeRecoveryBackup(target, currentBytes, playerId);
+            requireRevision(expected, readPlayerData(target), playerId);
             moveAtomically(temporary, target);
             forceDirectory(target.getParent());
         } finally {

@@ -38,7 +38,8 @@ Offline access reads the primary world's `playerdata/<uuid>.dat` file away from 
 Only one offline session per target is allowed, including read-only sessions. A write:
 
 - changes only the selected inventory or ender chest tags;
-- verifies a SHA-256 revision before replacing the file;
+- verifies a SHA-256 revision before creating the recovery backup and again immediately before
+  replacing the file;
 - writes through a same-directory temporary file, requires an atomic move, and fsyncs it where the
   file system permits;
 - retains the exact pre-write file as `playerdata/<uuid>.dat.invtools-backup` for recovery;
