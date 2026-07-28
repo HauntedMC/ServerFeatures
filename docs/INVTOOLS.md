@@ -27,7 +27,9 @@ Online inventories use Paper's inventory API and remain live. The GUI refreshes 
 every `online_sync_interval_ticks` (five ticks by default), and staff edits are applied to the
 target immediately. Only one editor may modify an online target at a time; additional staff may
 still inspect that target. If the target disconnects, all live views close because the online
-inventory object is no longer authoritative.
+inventory object is no longer authoritative. Before every online edit, InvTools compares the
+clicked slot with the target's current inventory; if it changed since the GUI was rendered, the
+view refreshes and requires a second click instead of applying a stale mutation.
 
 The main storage and hotbar are deliberately distinct in the GUI and audit log. On disk they retain
 Minecraft's canonical slot IDs: `0–8` for the hotbar and `9–35` for main storage. Avoiding a second
@@ -63,6 +65,8 @@ to protect Paper's login threads. Configuration and join listeners guard a race 
 the offline reservation. Paper's initial-configuration event catches this before player
 construction where possible, with join as a final guard; both close the view and discard
 uncommitted GUI state instead of writing over data already being loaded.
+An explicit login fence rejects new offline opens from pre-login until Paper has exposed the
+player as online, closing the remaining transition gap.
 
 Feature or server shutdown closes every visible and already-saving offline session. It waits for
 each in-flight atomic playerdata write to reach its actual terminal outcome before the lifecycle
