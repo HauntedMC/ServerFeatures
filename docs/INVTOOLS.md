@@ -45,8 +45,9 @@ Only one offline session per target is allowed, including read-only sessions. A 
 - preserves unrelated player NBT and POSIX ownership, group, and permissions.
 
 Offline editing is isolated from the staff member's own inventory. The bottom inventory, shift
-transfer, number-key swaps, and drags are blocked. Items may be rearranged inside the target GUI;
-`Q` removes one item and `Ctrl+Q` removes a stack. If the GUI closes with a target item on the
+transfer, number-key swaps, drags, and destructive Q shortcuts are blocked. Items may be safely
+rearranged inside the target GUI. Read-only offline inspection does not isolate the staff cursor or
+block ordinary interaction with the staff inventory. If an edit GUI closes with a target item on the
 cursor, that item is inserted back into the target snapshot before saving and the real cursor is
 cleared. This prevents duplication or loss when a write conflicts, fails, or overlaps a login.
 

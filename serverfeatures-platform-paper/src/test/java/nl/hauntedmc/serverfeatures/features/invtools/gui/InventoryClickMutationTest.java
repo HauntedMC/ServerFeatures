@@ -106,22 +106,17 @@ class InventoryClickMutationTest {
     }
 
     @Test
-    void dropActionsProvideExplicitDeletionForIsolatedOfflineEdits() {
-        InventoryClickMutation.Result dropOne = InventoryClickMutation.apply(
+    void rejectsDestructiveDropActions() {
+        assertTrue(InventoryClickMutation.apply(
                 InventoryAction.DROP_ONE_SLOT,
                 item(Material.DIAMOND, 3),
                 null
-        ).orElseThrow();
-        InventoryClickMutation.Result dropAll = InventoryClickMutation.apply(
+        ).isEmpty());
+        assertTrue(InventoryClickMutation.apply(
                 InventoryAction.DROP_ALL_SLOT,
                 item(Material.EMERALD, 2),
                 null
-        ).orElseThrow();
-
-        assertEquals(2, dropOne.slotItem().getAmount());
-        assertNull(dropOne.cursorItem());
-        assertNull(dropAll.slotItem());
-        assertNull(dropAll.cursorItem());
+        ).isEmpty());
     }
 
     @Test

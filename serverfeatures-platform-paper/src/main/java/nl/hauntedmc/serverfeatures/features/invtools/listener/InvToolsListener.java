@@ -36,7 +36,7 @@ public final class InvToolsListener implements Listener {
         if (!(top.getHolder(false) instanceof InvToolsView view)) {
             return;
         }
-        if (!view.onlineSession()
+        if (view.isolatesViewerCursor()
                 || event.getRawSlots().stream().anyMatch(slot -> slot < top.getSize())) {
             event.setCancelled(true);
         }

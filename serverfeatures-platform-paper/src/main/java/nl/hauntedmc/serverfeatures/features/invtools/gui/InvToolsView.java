@@ -177,6 +177,10 @@ public final class InvToolsView implements InventoryHolder {
         return editable;
     }
 
+    public boolean isolatesViewerCursor() {
+        return !onlineSession && editable;
+    }
+
     public boolean owns(Inventory candidate) {
         return candidate != null && candidate.getHolder(false) == this;
     }

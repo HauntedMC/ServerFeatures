@@ -16,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
@@ -159,6 +160,9 @@ public final class InvToolsService {
     }
 
     public void handleInventoryClick(InventoryClickEvent event) {
+        if (event.isCancelled()) {
+            return;
+        }
         if (!(event.getWhoClicked() instanceof Player viewer)) {
             return;
         }
@@ -181,7 +185,7 @@ public final class InvToolsService {
             return;
         }
         if (!view.owns(event.getClickedInventory())) {
-            if (!view.onlineSession() || canRouteThroughTop(event.getAction())) {
+            if (view.isolatesViewerCursor() || canRouteThroughTop(event.getAction())) {
                 event.setCancelled(true);
             }
             return;
@@ -228,6 +232,9 @@ public final class InvToolsService {
         ItemStack current = view.snapshot().itemAt(view.kind(), backingSlot.getAsInt());
         InventoryClickMutation.apply(event.getAction(), current, cursor)
                 .ifPresent(result -> {
+                    if (!allowsItemInSlot(view.kind(), backingSlot.getAsInt(), result.slotItem())) {
+                        return;
+                    }
                     if (!view.updateBackingSlot(
                             backingSlot.getAsInt(),
                             result.slotItem(),
@@ -252,7 +259,7 @@ public final class InvToolsService {
         if (view == null || !view.viewerId().equals(event.getPlayer().getUniqueId())) {
             return;
         }
-        if (!view.onlineSession()) {
+        if (view.isolatesViewerCursor()) {
             event.getView().setCursor(null);
         }
         closeView(view);
@@ -263,7 +270,7 @@ public final class InvToolsService {
         cancelPendingReservations(viewer.getUniqueId());
         InvToolsView view = viewsByViewer.get(viewer.getUniqueId());
         if (view != null) {
-            if (!view.onlineSession()) {
+            if (view.isolatesViewerCursor()) {
                 viewer.setItemOnCursor(null);
             }
             closeView(view);
@@ -436,13 +443,13 @@ public final class InvToolsService {
             openOnline(viewer, onlineTarget, kind);
             return;
         }
-        if (!isEmpty(viewer.getItemOnCursor())) {
+        boolean editable = hasEditPermission(viewer, kind);
+        if (editable && !isEmpty(viewer.getItemOnCursor())) {
             latestOpenRequests.remove(viewerId, requestId);
             send(viewer, "invtools.cursor_not_empty");
             return;
         }
 
-        boolean editable = hasEditPermission(viewer, kind);
         OfflineReservation reservation = new OfflineReservation(
                 viewerId,
                 targetId,
@@ -511,7 +518,7 @@ public final class InvToolsService {
             send(viewer, "invtools.load_failed", "player", reservation.targetName());
             return;
         }
-        if (!isEmpty(viewer.getItemOnCursor())) {
+        if (reservation.editable() && !isEmpty(viewer.getItemOnCursor())) {
             offlineAccesses.remove(reservation.targetId(), reservation);
             latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
             send(viewer, "invtools.cursor_not_empty");
@@ -644,7 +651,7 @@ public final class InvToolsService {
     private void closeExistingViewerSession(Player viewer) {
         InvToolsView existing = viewsByViewer.get(viewer.getUniqueId());
         if (existing != null) {
-            if (!existing.onlineSession()) {
+            if (existing.isolatesViewerCursor()) {
                 viewer.setItemOnCursor(null);
             }
             closeView(existing);
@@ -806,7 +813,7 @@ public final class InvToolsService {
 
     private void closeOnlineTargetViews(UUID targetId) {
         for (InvToolsView view : ListCopy.of(viewsByTarget.getOrDefault(targetId, Set.of()))) {
-            if (!view.onlineSession()) {
+            if (view.isolatesViewerCursor()) {
                 continue;
             }
             view.freeze();
@@ -976,6 +983,20 @@ public final class InvToolsService {
         return action == InventoryAction.MOVE_TO_OTHER_INVENTORY
                 || action == InventoryAction.COLLECT_TO_CURSOR
                 || action == InventoryAction.HOTBAR_SWAP;
+    }
+
+    private static boolean allowsItemInSlot(InventoryKind kind, int backingSlot, ItemStack item) {
+        if (kind != InventoryKind.PLAYER || isEmpty(item)) {
+            return true;
+        }
+        EquipmentSlot expected = switch (backingSlot) {
+            case InventorySnapshot.BOOTS_SLOT -> EquipmentSlot.FEET;
+            case InventorySnapshot.LEGGINGS_SLOT -> EquipmentSlot.LEGS;
+            case InventorySnapshot.CHESTPLATE_SLOT -> EquipmentSlot.CHEST;
+            case InventorySnapshot.HELMET_SLOT -> EquipmentSlot.HEAD;
+            default -> null;
+        };
+        return expected == null || item.getType().getEquipmentSlot() == expected;
     }
 
     private static InvToolsView holder(org.bukkit.inventory.Inventory inventory) {

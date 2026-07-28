@@ -33,12 +33,6 @@ public final class InventoryClickMutation {
             case PLACE_ONE -> placeOne(current, cursor);
             case PLACE_SOME -> placeSome(current, cursor);
             case SWAP_WITH_CURSOR -> result(cursor, current);
-            case DROP_ALL_SLOT -> current == null
-                    ? Optional.empty()
-                    : result(null, cursor);
-            case DROP_ONE_SLOT -> current == null
-                    ? Optional.empty()
-                    : result(withAmount(current, current.getAmount() - 1), cursor);
             default -> Optional.empty();
         };
     }
