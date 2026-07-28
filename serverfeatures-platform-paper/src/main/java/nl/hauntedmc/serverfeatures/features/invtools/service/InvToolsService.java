@@ -614,9 +614,7 @@ public final class InvToolsService {
                 return;
             }
 
-            boolean safelyEditable = reservation.editable()
-                    && hasEditPermission(viewer, reservation.kind())
-                    && loaded.supportsSafeEditing();
+            boolean editable = reservation.editable() && hasEditPermission(viewer, reservation.kind());
             InvToolsView view;
             try {
                 view = new InvToolsView(
@@ -625,7 +623,7 @@ public final class InvToolsService {
                         reservation.targetName(),
                         reservation.kind(),
                         false,
-                        safelyEditable,
+                        editable,
                         loaded.snapshot(),
                         loaded
                 );
@@ -637,10 +635,6 @@ public final class InvToolsService {
                 registerAndOpen(viewer, view);
                 latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
                 sendOpened(viewer, view);
-                if (reservation.editable() && !loaded.supportsSafeEditing()) {
-                    send(viewer, "invtools.outdated_data_read_only",
-                            "player", reservation.targetName());
-                }
             } catch (RuntimeException exception) {
                 OfflineAccess removed = offlineAccesses.remove(reservation.targetId());
                 if (removed != null) {

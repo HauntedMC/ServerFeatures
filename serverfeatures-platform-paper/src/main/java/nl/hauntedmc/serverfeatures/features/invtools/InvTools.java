@@ -71,8 +71,6 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&e{player}&c logt in; de offline weergave is veilig gesloten.");
         messages.add("invtools.join_conflict_discarded",
                 "&cNiet-opgeslagen wijzigingen voor &e{player}&c zijn vervallen omdat de speler tijdens het openen inlogde.");
-        messages.add("invtools.outdated_data_read_only",
-                "&eDe spelerdata-versie van {player} wordt niet veilig ondersteund. Laat de speler eenmaal inloggen op deze serverversie voordat je offline wijzigingen maakt.");
         messages.add("invtools.login_retry",
                 "&cJe spelerdata werd zojuist door staff bijgewerkt. Probeer over enkele seconden opnieuw.");
         return messages;

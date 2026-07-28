@@ -67,11 +67,10 @@ Feature or server shutdown closes every visible and already-saving offline sessi
 each in-flight atomic playerdata write to reach its actual terminal outcome before the lifecycle
 task manager is allowed to cancel remaining feature work.
 
-Offline editing is limited to playerdata from this exact Paper build. Older or future playerdata is
-read-only until the player has logged in on the running server version. This avoids encoding current
-item components into a different file format, which cannot be made safe without a verified reverse
-data-fixer. The exact version is obtained from the running Paper data fixer rather than maintained as
-a hard-coded version number.
+Offline access is limited to playerdata from this exact Paper build. Older or future playerdata is
+rejected before its inventory is decoded; InvTools has one current-schema reader and writer, with no
+legacy compatibility paths. The exact DataVersion is obtained from the running Paper data fixer rather
+than maintained as a hard-coded version number.
 
 ## Operational notes
 

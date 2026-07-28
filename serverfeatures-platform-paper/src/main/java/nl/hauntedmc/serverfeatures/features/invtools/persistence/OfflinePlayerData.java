@@ -8,23 +8,11 @@ import java.util.UUID;
 public record OfflinePlayerData(
         UUID playerId,
         InventorySnapshot snapshot,
-        PlayerDataRevision revision,
-        int dataVersion,
-        EquipmentStorageFormat equipmentStorageFormat,
-        int runtimeDataVersion
+        PlayerDataRevision revision
 ) {
     public OfflinePlayerData {
         Objects.requireNonNull(playerId, "playerId");
         Objects.requireNonNull(snapshot, "snapshot");
         Objects.requireNonNull(revision, "revision");
-        Objects.requireNonNull(equipmentStorageFormat, "equipmentStorageFormat");
-        if (runtimeDataVersion <= 0) {
-            throw new IllegalArgumentException("runtimeDataVersion must be positive");
-        }
-    }
-
-    public boolean supportsSafeEditing() {
-        return dataVersion == runtimeDataVersion
-                && equipmentStorageFormat == EquipmentStorageFormat.EQUIPMENT_COMPOUND;
     }
 }
