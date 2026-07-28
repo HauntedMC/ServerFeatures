@@ -937,14 +937,27 @@ public final class InvToolsService {
         }
 
         InventorySnapshot liveSnapshot = InventorySnapshot.capture(target);
-        ItemStack displayed = view.snapshot().itemAt(view.kind(), backingSlot);
-        ItemStack live = liveSnapshot.itemAt(view.kind(), backingSlot);
-        if (sameItem(displayed, live)) {
+        if (onlineSlotMatches(view.snapshot(), liveSnapshot, view.kind(), backingSlot)) {
             return true;
         }
 
         view.refresh(liveSnapshot);
         return false;
+    }
+
+    static boolean onlineSlotMatches(
+            InventorySnapshot displayedSnapshot,
+            InventorySnapshot liveSnapshot,
+            InventoryKind kind,
+            int backingSlot
+    ) {
+        Objects.requireNonNull(displayedSnapshot, "displayedSnapshot");
+        Objects.requireNonNull(liveSnapshot, "liveSnapshot");
+        Objects.requireNonNull(kind, "kind");
+        return sameItem(
+                displayedSnapshot.itemAt(kind, backingSlot),
+                liveSnapshot.itemAt(kind, backingSlot)
+        );
     }
 
     private void closeOnlineTargetViews(UUID targetId) {
