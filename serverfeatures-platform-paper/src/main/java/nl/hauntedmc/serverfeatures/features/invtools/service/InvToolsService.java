@@ -978,6 +978,7 @@ public final class InvToolsService {
     }
 
     private void notifyReservationCancelledByLogin(OfflineReservation reservation) {
+        latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
         scheduleMain(() -> {
             Player viewer = Bukkit.getPlayer(reservation.viewerId());
             if (viewer != null && viewer.isOnline()) {
