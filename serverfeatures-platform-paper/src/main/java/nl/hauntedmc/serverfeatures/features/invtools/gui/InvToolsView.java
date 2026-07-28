@@ -22,7 +22,9 @@ import java.util.concurrent.CompletableFuture;
 
 public final class InvToolsView implements InventoryHolder {
 
+    private final UUID sessionId = UUID.randomUUID();
     private final UUID viewerId;
+    private final String viewerName;
     private final UUID targetId;
     private final String targetName;
     private final InventoryKind kind;
@@ -35,6 +37,7 @@ public final class InvToolsView implements InventoryHolder {
     private ItemStack cursor;
     private State state = State.ACTIVE;
     private boolean dirty;
+    private boolean saveOutcomeAudited;
     private CompletableFuture<SaveResult> saveCompletion;
 
     public InvToolsView(
@@ -47,7 +50,9 @@ public final class InvToolsView implements InventoryHolder {
             InventorySnapshot snapshot,
             OfflinePlayerData originalOfflineData
     ) {
-        this.viewerId = Objects.requireNonNull(viewer, "viewer").getUniqueId();
+        Player checkedViewer = Objects.requireNonNull(viewer, "viewer");
+        this.viewerId = checkedViewer.getUniqueId();
+        this.viewerName = checkedViewer.getName();
         this.targetId = Objects.requireNonNull(targetId, "targetId");
         this.targetName = Objects.requireNonNull(targetName, "targetName");
         this.kind = Objects.requireNonNull(kind, "kind");
@@ -163,6 +168,14 @@ public final class InvToolsView implements InventoryHolder {
         return viewerId;
     }
 
+    public String viewerName() {
+        return viewerName;
+    }
+
+    public UUID sessionId() {
+        return sessionId;
+    }
+
     public UUID targetId() {
         return targetId;
     }
@@ -185,6 +198,14 @@ public final class InvToolsView implements InventoryHolder {
 
     public boolean isolatesViewerCursor() {
         return !onlineSession && editable;
+    }
+
+    public synchronized boolean markSaveOutcomeAudited() {
+        if (onlineSession || !dirty || saveOutcomeAudited) {
+            return false;
+        }
+        saveOutcomeAudited = true;
+        return true;
     }
 
     public boolean owns(Inventory candidate) {

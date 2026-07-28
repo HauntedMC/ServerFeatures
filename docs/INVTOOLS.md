@@ -77,6 +77,8 @@ a hard-coded version number.
   overwritten optimistically.
 - Compressed and decompressed playerdata sizes are bounded before NBT parsing to reject compression
   bombs and pathological files without exhausting the server heap.
-- Administrative mutations are logged by default with actor, target, source, inventory section,
-  canonical slot, and before/after material counts. Set `audit_edits: false` only if another audit
-  system records the same actions.
+- Administrative mutations are logged by default with a session ID, actor, target, source,
+  inventory section, canonical slot, before/after material counts, and an outcome. Online edits are
+  recorded as applied immediately. Offline edits are recorded as pending and receive exactly one
+  terminal saved, conflict, failed, or discarded save entry with the same session ID. Set
+  `audit_edits: false` only if another audit system records the same actions and outcomes.

@@ -406,6 +406,7 @@ public final class InvToolsService {
             detachVisible(view);
             access.permit().release();
         }
+        auditSaveOutcome(view, InvToolsView.SaveResult.DISCARDED);
         scheduleMain(() -> {
             Player viewer = Bukkit.getPlayer(view.viewerId());
             if (viewer != null && viewer.isOnline()) {
@@ -730,6 +731,7 @@ public final class InvToolsService {
                         "Could not settle offline InvTools cursor for " + view.targetId()
                                 + ": " + exception.getMessage()
                 );
+                auditSaveOutcome(view, InvToolsView.SaveResult.FAILED);
                 notifySaveResult(view, InvToolsView.SaveResult.FAILED);
                 return;
             }
@@ -749,6 +751,7 @@ public final class InvToolsService {
                     : InvToolsView.SaveResult.FAILED;
             view.finishSave(resolved);
             releaseActiveOfflineView(view);
+            auditSaveOutcome(view, resolved);
             scheduleMain(() -> notifySaveResult(view, resolved));
         });
         startPersistence(plan);
@@ -898,6 +901,7 @@ public final class InvToolsService {
             InvToolsView view,
             InvToolsView.SaveResult result
     ) {
+        auditSaveOutcome(view, result);
         scheduleMain(() -> {
             Player viewer = Bukkit.getPlayer(view.viewerId());
             if (viewer != null && viewer.isOnline()) {
@@ -975,12 +979,27 @@ public final class InvToolsService {
         feature.getLogger().info(
                 "InvTools edit: actor=" + actor.getName() + "/" + actor.getUniqueId()
                         + ", target=" + view.targetName() + "/" + view.targetId()
+                        + ", session=" + view.sessionId()
                         + ", source=" + (view.onlineSession() ? "online" : "offline")
+                        + ", outcome=" + (view.onlineSession() ? "applied" : "pending")
                         + ", inventory=" + view.kind()
                         + ", section=" + section
                         + ", slot=" + backingSlot
                         + ", before=" + describeItem(before)
                         + ", after=" + describeItem(after)
+        );
+    }
+
+    private void auditSaveOutcome(InvToolsView view, InvToolsView.SaveResult result) {
+        if (!auditEdits || !view.markSaveOutcomeAudited()) {
+            return;
+        }
+        feature.getLogger().info(
+                "InvTools save: actor=" + view.viewerName() + "/" + view.viewerId()
+                        + ", target=" + view.targetName() + "/" + view.targetId()
+                        + ", session=" + view.sessionId()
+                        + ", inventory=" + view.kind()
+                        + ", outcome=" + result
         );
     }
 
