@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
 import de.tr7zw.changeme.nbtapi.NBT;
+import de.tr7zw.changeme.nbtapi.NBTType;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBTCompoundList;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
-import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.bukkit.inventory.ItemStack;
@@ -23,6 +23,7 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
@@ -33,6 +34,11 @@ import java.util.UUID;
 public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     public static final int EQUIPMENT_COMPOUND_DATA_VERSION = 4325;
+    /**
+     * The DataVersion written by the Paper runtime declared in this build. Offline writes are
+     * deliberately exact-version only: Item-NBT-API can upgrade item data for inspection, but it
+     * cannot safely downgrade current item components back into an older playerdata schema.
+     */
     public static final int CURRENT_SUPPORTED_DATA_VERSION = 4903;
     private static final int MAX_COMPRESSED_PLAYER_DATA_BYTES = 16 * 1024 * 1024;
     private static final int PLAYER_LOCK_COUNT = 64;
@@ -62,8 +68,8 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         ItemStack[] enderChest = new ItemStack[InventorySnapshot.ENDER_CHEST_SIZE];
         ItemStack[] equipment = new ItemStack[5];
 
-        readInventory(root, storage, equipment, equipmentFormat, dataVersion);
-        readEnderChest(root, enderChest, dataVersion);
+        readInventory(root, storage, equipment, equipmentFormat);
+        readEnderChest(root, enderChest);
 
         InventorySnapshot snapshot = new InventorySnapshot(
                 storage,
@@ -102,9 +108,9 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
             ReadWriteNBT root = readNbt(currentBytes, file);
             if (kind == InventoryKind.PLAYER) {
-                writeInventory(root, changedSnapshot, original.equipmentStorageFormat());
+                writeInventory(root, original.snapshot(), changedSnapshot, original.equipmentStorageFormat());
             } else {
-                writeEnderChest(root, changedSnapshot);
+                writeEnderChest(root, original.snapshot(), changedSnapshot);
             }
             writeAtomically(file, root, original.revision(), playerId);
         }
@@ -114,25 +120,25 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             ReadableNBT root,
             ItemStack[] storage,
             ItemStack[] equipment,
-            EquipmentStorageFormat format,
-            int dataVersion
+            EquipmentStorageFormat format
     ) throws IOException {
+        validateSlottedList(root, "Inventory", "Inventory", InventorySnapshot.STORAGE_SIZE, format);
         for (ReadWriteNBT entry : root.getCompoundList("Inventory")) {
-            int slot = entry.getByte("Slot");
+            int slot = slot(entry, "Inventory");
             if (slot >= 0 && slot < storage.length) {
-                storage[slot] = decodeItem(entry, "Inventory slot " + slot, dataVersion);
+                storage[slot] = decodeItem(entry, "Inventory slot " + slot);
             } else if (format == EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS) {
                 switch (slot) {
                     case InventorySnapshot.HELMET_SLOT ->
-                            equipment[0] = decodeItem(entry, "helmet", dataVersion);
+                            equipment[0] = decodeItem(entry, "helmet");
                     case InventorySnapshot.CHESTPLATE_SLOT ->
-                            equipment[1] = decodeItem(entry, "chestplate", dataVersion);
+                            equipment[1] = decodeItem(entry, "chestplate");
                     case InventorySnapshot.LEGGINGS_SLOT ->
-                            equipment[2] = decodeItem(entry, "leggings", dataVersion);
+                            equipment[2] = decodeItem(entry, "leggings");
                     case InventorySnapshot.BOOTS_SLOT ->
-                            equipment[3] = decodeItem(entry, "boots", dataVersion);
+                            equipment[3] = decodeItem(entry, "boots");
                     case InventorySnapshot.OFF_HAND_SLOT ->
-                            equipment[4] = decodeItem(entry, "offhand", dataVersion);
+                            equipment[4] = decodeItem(entry, "offhand");
                     default -> {
                     }
                 }
@@ -144,28 +150,23 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             if (modernEquipment != null) {
                 equipment[0] = decodeOptionalItem(
                         modernEquipment.getCompound("head"),
-                        "helmet",
-                        dataVersion
+                        "helmet"
                 );
                 equipment[1] = decodeOptionalItem(
                         modernEquipment.getCompound("chest"),
-                        "chestplate",
-                        dataVersion
+                        "chestplate"
                 );
                 equipment[2] = decodeOptionalItem(
                         modernEquipment.getCompound("legs"),
-                        "leggings",
-                        dataVersion
+                        "leggings"
                 );
                 equipment[3] = decodeOptionalItem(
                         modernEquipment.getCompound("feet"),
-                        "boots",
-                        dataVersion
+                        "boots"
                 );
                 equipment[4] = decodeOptionalItem(
                         modernEquipment.getCompound("offhand"),
-                        "offhand",
-                        dataVersion
+                        "offhand"
                 );
             }
         }
@@ -173,58 +174,74 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     private void readEnderChest(
             ReadableNBT root,
-            ItemStack[] enderChest,
-            int dataVersion
+            ItemStack[] enderChest
     ) throws IOException {
+        validateSlottedList(root, "EnderItems", "EnderItems", InventorySnapshot.ENDER_CHEST_SIZE, null);
         for (ReadWriteNBT entry : root.getCompoundList("EnderItems")) {
-            int slot = entry.getByte("Slot");
+            int slot = slot(entry, "EnderItems");
             if (slot >= 0 && slot < enderChest.length) {
-                enderChest[slot] = decodeItem(entry, "EnderItems slot " + slot, dataVersion);
+                enderChest[slot] = decodeItem(entry, "EnderItems slot " + slot);
             }
         }
     }
 
     private void writeInventory(
             ReadWriteNBT root,
-            InventorySnapshot snapshot,
+            InventorySnapshot original,
+            InventorySnapshot changed,
             EquipmentStorageFormat format
     ) {
         ReadWriteNBTCompoundList inventory = root.getCompoundList("Inventory");
-        inventory.removeIf(entry -> isManagedInventorySlot(entry.getByte("Slot")));
-
-        ItemStack[] storage = snapshot.storage();
-        for (int slot = 0; slot < storage.length; slot++) {
-            addSlottedItem(inventory, slot, storage[slot]);
+        for (int slot = 0; slot < InventorySnapshot.STORAGE_SIZE; slot++) {
+            patchSlottedItem(inventory, slot,
+                    original.itemAt(InventoryKind.PLAYER, slot),
+                    changed.itemAt(InventoryKind.PLAYER, slot));
         }
 
         if (format == EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS) {
-            addSlottedItem(inventory, InventorySnapshot.HELMET_SLOT, snapshot.helmet());
-            addSlottedItem(inventory, InventorySnapshot.CHESTPLATE_SLOT, snapshot.chestplate());
-            addSlottedItem(inventory, InventorySnapshot.LEGGINGS_SLOT, snapshot.leggings());
-            addSlottedItem(inventory, InventorySnapshot.BOOTS_SLOT, snapshot.boots());
-            addSlottedItem(inventory, InventorySnapshot.OFF_HAND_SLOT, snapshot.offHand());
+            patchSlottedItem(inventory, InventorySnapshot.HELMET_SLOT, original.helmet(), changed.helmet());
+            patchSlottedItem(inventory, InventorySnapshot.CHESTPLATE_SLOT,
+                    original.chestplate(), changed.chestplate());
+            patchSlottedItem(inventory, InventorySnapshot.LEGGINGS_SLOT,
+                    original.leggings(), changed.leggings());
+            patchSlottedItem(inventory, InventorySnapshot.BOOTS_SLOT, original.boots(), changed.boots());
+            patchSlottedItem(inventory, InventorySnapshot.OFF_HAND_SLOT, original.offHand(), changed.offHand());
             return;
         }
 
         ReadWriteNBT equipment = root.getOrCreateCompound("equipment");
-        setEquipmentItem(equipment, "head", snapshot.helmet());
-        setEquipmentItem(equipment, "chest", snapshot.chestplate());
-        setEquipmentItem(equipment, "legs", snapshot.leggings());
-        setEquipmentItem(equipment, "feet", snapshot.boots());
-        setEquipmentItem(equipment, "offhand", snapshot.offHand());
+        patchEquipmentItem(equipment, "head", original.helmet(), changed.helmet());
+        patchEquipmentItem(equipment, "chest", original.chestplate(), changed.chestplate());
+        patchEquipmentItem(equipment, "legs", original.leggings(), changed.leggings());
+        patchEquipmentItem(equipment, "feet", original.boots(), changed.boots());
+        patchEquipmentItem(equipment, "offhand", original.offHand(), changed.offHand());
     }
 
-    private void writeEnderChest(ReadWriteNBT root, InventorySnapshot snapshot) {
+    private void writeEnderChest(
+            ReadWriteNBT root,
+            InventorySnapshot original,
+            InventorySnapshot changed
+    ) {
         ReadWriteNBTCompoundList enderItems = root.getCompoundList("EnderItems");
-        enderItems.removeIf(entry -> {
-            int slot = entry.getByte("Slot");
-            return slot >= 0 && slot < InventorySnapshot.ENDER_CHEST_SIZE;
-        });
-
-        ItemStack[] items = snapshot.enderChest();
-        for (int slot = 0; slot < items.length; slot++) {
-            addSlottedItem(enderItems, slot, items[slot]);
+        for (int slot = 0; slot < InventorySnapshot.ENDER_CHEST_SIZE; slot++) {
+            patchSlottedItem(enderItems, slot,
+                    original.itemAt(InventoryKind.ENDER_CHEST, slot),
+                    changed.itemAt(InventoryKind.ENDER_CHEST, slot));
         }
+    }
+
+    private static void patchSlottedItem(
+            ReadWriteNBTCompoundList destination,
+            int slot,
+            ItemStack original,
+            ItemStack changed
+    ) {
+        if (sameItem(original, changed)) {
+            return;
+        }
+        destination.removeIf(entry -> entry.hasTag("Slot", NBTType.NBTTagByte)
+                && entry.getByte("Slot") == (byte) slot);
+        addSlottedItem(destination, slot, changed);
     }
 
     private static void addSlottedItem(
@@ -240,6 +257,18 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         destination.addCompound(encoded);
     }
 
+    private static void patchEquipmentItem(
+            ReadWriteNBT equipment,
+            String key,
+            ItemStack original,
+            ItemStack changed
+    ) {
+        if (sameItem(original, changed)) {
+            return;
+        }
+        setEquipmentItem(equipment, key, changed);
+    }
+
     private static void setEquipmentItem(ReadWriteNBT equipment, String key, ItemStack item) {
         if (isEmpty(item)) {
             equipment.removeKey(key);
@@ -250,42 +279,24 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         target.mergeCompound(NBT.itemStackToNBT(item));
     }
 
-    private static boolean isManagedInventorySlot(int slot) {
-        if (slot >= 0 && slot < InventorySnapshot.STORAGE_SIZE) {
-            return true;
-        }
-        return slot == InventorySnapshot.BOOTS_SLOT
-                || slot == InventorySnapshot.LEGGINGS_SLOT
-                || slot == InventorySnapshot.CHESTPLATE_SLOT
-                || slot == InventorySnapshot.HELMET_SLOT
-                || slot == InventorySnapshot.OFF_HAND_SLOT;
-    }
-
     private static ItemStack decodeOptionalItem(
             ReadableNBT item,
-            String location,
-            int dataVersion
+            String location
     ) throws IOException {
-        return item == null || item.isEmpty() ? null : decodeItem(item, location, dataVersion);
+        return item == null || item.isEmpty() ? null : decodeItem(item, location);
     }
 
     private static ItemStack decodeItem(
             ReadableNBT item,
-            String location,
-            int dataVersion
+            String location
     ) throws IOException {
         try {
-            ReadableNBT readableItem = item;
-            if (dataVersion > 0 && dataVersion < DataFixerUtil.getCurrentVersion()) {
-                ReadWriteNBT copy = NBT.parseNBT(item.toString());
-                readableItem = DataFixerUtil.fixUpItemData(copy, dataVersion);
-            }
-            ItemStack decoded = NBT.itemStackFromNBT(readableItem);
+            ItemStack decoded = NBT.itemStackFromNBT(item);
             if (isEmpty(decoded)) {
                 return null;
             }
             return decoded.clone();
-        } catch (ReflectiveOperationException | RuntimeException exception) {
+        } catch (RuntimeException exception) {
             throw new IOException("Could not decode player item at " + location, exception);
         }
     }
@@ -299,6 +310,51 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         return dataVersion >= EQUIPMENT_COMPOUND_DATA_VERSION
                 ? EquipmentStorageFormat.EQUIPMENT_COMPOUND
                 : EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS;
+    }
+
+    private static void validateSlottedList(
+            ReadableNBT root,
+            String key,
+            String location,
+            int regularSlotCount,
+            EquipmentStorageFormat equipmentFormat
+    ) throws IOException {
+        if (!root.hasTag(key, NBTType.NBTTagList)
+                || root.getListType(key) != NBTType.NBTTagCompound) {
+            throw new IOException("Playerdata " + location + " is not a compound list");
+        }
+        Set<Integer> slots = new HashSet<>();
+        for (ReadWriteNBT entry : root.getCompoundList(key)) {
+            int slot = slot(entry, location);
+            boolean supported = slot >= 0 && slot < regularSlotCount;
+            if (equipmentFormat == EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS) {
+                supported |= slot == InventorySnapshot.BOOTS_SLOT
+                        || slot == InventorySnapshot.LEGGINGS_SLOT
+                        || slot == InventorySnapshot.CHESTPLATE_SLOT
+                        || slot == InventorySnapshot.HELMET_SLOT
+                        || slot == InventorySnapshot.OFF_HAND_SLOT;
+            }
+            if (!supported) {
+                continue;
+            }
+            if (!slots.add(slot)) {
+                throw new IOException("Playerdata " + location + " contains duplicate slot " + slot);
+            }
+        }
+    }
+
+    private static int slot(ReadableNBT entry, String location) throws IOException {
+        if (!entry.hasTag("Slot", NBTType.NBTTagByte)) {
+            throw new IOException("Playerdata " + location + " entry is missing its byte Slot tag");
+        }
+        return entry.getByte("Slot");
+    }
+
+    private static boolean sameItem(ItemStack first, ItemStack second) {
+        if (isEmpty(first) || isEmpty(second)) {
+            return isEmpty(first) && isEmpty(second);
+        }
+        return first.getAmount() == second.getAmount() && first.isSimilar(second);
     }
 
     private Path playerFile(UUID playerId) throws IOException {

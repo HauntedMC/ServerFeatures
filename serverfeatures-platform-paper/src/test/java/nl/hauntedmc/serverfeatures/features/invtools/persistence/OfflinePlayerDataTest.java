@@ -11,13 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class OfflinePlayerDataTest {
 
     @Test
-    void onlySupportedModernPlayerdataIsEligibleForOfflineEditing() {
+    void onlyTheExactCurrentPlayerdataVersionIsEligibleForOfflineEditing() {
         OfflinePlayerData legacy = data(
                 NbtOfflinePlayerDataStore.EQUIPMENT_COMPOUND_DATA_VERSION - 1,
                 EquipmentStorageFormat.LEGACY_INVENTORY_SLOTS
         );
-        OfflinePlayerData modern = data(
-                NbtOfflinePlayerDataStore.EQUIPMENT_COMPOUND_DATA_VERSION,
+        OfflinePlayerData current = data(
+                NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION,
                 EquipmentStorageFormat.EQUIPMENT_COMPOUND
         );
         OfflinePlayerData future = data(
@@ -26,7 +26,7 @@ class OfflinePlayerDataTest {
         );
 
         assertFalse(legacy.supportsSafeEditing());
-        assertTrue(modern.supportsSafeEditing());
+        assertTrue(current.supportsSafeEditing());
         assertFalse(future.supportsSafeEditing());
     }
 

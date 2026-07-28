@@ -57,10 +57,10 @@ the offline reservation. Paper's initial-configuration event catches this before
 construction where possible, with join as a final guard; both close the view and discard
 uncommitted GUI state instead of writing over data already being loaded.
 
-Playerdata outside the versions explicitly supported by this build is viewable after item
-data-fixing where possible, but offline editing is disabled until that player has logged in once on
-the current server version. This avoids encoding new item components into an older or future file
-format that this build cannot safely write.
+Offline editing is limited to playerdata from this exact Paper build. Older or future playerdata is
+read-only until the player has logged in on the running server version. This avoids encoding current
+item components into a different file format, which cannot be made safe without a verified reverse
+data-fixer.
 
 ## Operational notes
 

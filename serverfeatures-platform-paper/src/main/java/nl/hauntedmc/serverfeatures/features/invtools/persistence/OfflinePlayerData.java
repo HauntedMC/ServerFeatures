@@ -20,7 +20,7 @@ public record OfflinePlayerData(
     }
 
     public boolean supportsSafeEditing() {
-        return dataVersion >= NbtOfflinePlayerDataStore.EQUIPMENT_COMPOUND_DATA_VERSION
-                && dataVersion <= NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION;
+        return dataVersion == NbtOfflinePlayerDataStore.CURRENT_SUPPORTED_DATA_VERSION
+                && equipmentStorageFormat == EquipmentStorageFormat.EQUIPMENT_COMPOUND;
     }
 }
