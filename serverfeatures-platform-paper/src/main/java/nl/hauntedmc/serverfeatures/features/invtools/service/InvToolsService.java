@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Pattern;
 
 public final class InvToolsService {
@@ -47,12 +48,14 @@ public final class InvToolsService {
     private final OfflinePlayerDataStore offlineStore;
     private final Duration loginBarrierTimeout;
     private final boolean auditEdits;
+    private final Semaphore offlineSessionPermits;
     private final Object[] transitionLocks = createTransitionLocks();
 
     private final Map<UUID, InvToolsView> viewsByViewer = new ConcurrentHashMap<>();
     private final Map<UUID, Set<InvToolsView>> viewsByTarget = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> editorsByTarget = new ConcurrentHashMap<>();
     private final Map<UUID, OfflineAccess> offlineAccesses = new ConcurrentHashMap<>();
+    private final Map<UUID, OfflinePermit> offlinePermitsByTarget = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> latestOpenRequests = new ConcurrentHashMap<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
 
@@ -65,7 +68,8 @@ public final class InvToolsService {
                         Integer.class,
                         10
                 ), 1, MAX_LOGIN_BARRIER_SECONDS)),
-                feature.getConfigHandler().get("audit_edits", Boolean.class, true)
+                feature.getConfigHandler().get("audit_edits", Boolean.class, true),
+                Math.max(1, feature.getConfigHandler().get("max_offline_sessions", Integer.class, 4))
         );
     }
 
@@ -73,12 +77,14 @@ public final class InvToolsService {
             InvTools feature,
             OfflinePlayerDataStore offlineStore,
             Duration loginBarrierTimeout,
-            boolean auditEdits
+            boolean auditEdits,
+            int maxOfflineSessions
     ) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.offlineStore = Objects.requireNonNull(offlineStore, "offlineStore");
         this.loginBarrierTimeout = Objects.requireNonNull(loginBarrierTimeout, "loginBarrierTimeout");
         this.auditEdits = auditEdits;
+        this.offlineSessionPermits = new Semaphore(maxOfflineSessions, true);
     }
 
     public void open(Player viewer, String requestedName, InventoryKind kind) {
@@ -310,6 +316,7 @@ public final class InvToolsService {
             if (access instanceof OfflineReservation reservation) {
                 reservation.cancel();
                 offlineAccesses.remove(playerId, reservation);
+                releaseOfflinePermit(playerId);
                 notifyReservationCancelledByLogin(reservation);
                 return LoginBarrierResult.ALLOW;
             }
@@ -321,6 +328,7 @@ public final class InvToolsService {
                 view.closeWithoutSaving();
                 detachVisible(view);
                 offlineAccesses.remove(playerId, access);
+                releaseOfflinePermit(playerId);
                 feature.getLogger().warning(
                         "Could not settle offline InvTools state before login for " + playerId
                                 + ": " + exception.getMessage()
@@ -330,6 +338,7 @@ public final class InvToolsService {
             }
             if (plan == null) {
                 offlineAccesses.remove(playerId, access);
+                releaseOfflinePermit(playerId);
                 return LoginBarrierResult.ALLOW;
             }
             detachVisible(view);
@@ -346,6 +355,7 @@ public final class InvToolsService {
         }
         view.finishSave(result);
         offlineAccesses.remove(playerId, access);
+        releaseOfflinePermit(playerId);
         scheduleCloseAfterTransition(view, result);
         return result == InvToolsView.SaveResult.SAVED
                 || result == InvToolsView.SaveResult.UNCHANGED
@@ -366,6 +376,7 @@ public final class InvToolsService {
             OfflineAccess access = offlineAccesses.remove(playerId);
             if (access instanceof OfflineReservation reservation) {
                 reservation.cancel();
+                releaseOfflinePermit(playerId);
                 notifyReservationCancelledByLogin(reservation);
                 return;
             }
@@ -375,6 +386,7 @@ public final class InvToolsService {
             view = activeView.view();
             view.closeWithoutSaving();
             detachVisible(view);
+            releaseOfflinePermit(playerId);
         }
         scheduleMain(() -> {
             Player viewer = Bukkit.getPlayer(view.viewerId());
@@ -390,10 +402,12 @@ public final class InvToolsService {
         if (!active.compareAndSet(true, false)) {
             return;
         }
-        offlineAccesses.values().stream()
-                .filter(OfflineReservation.class::isInstance)
-                .map(OfflineReservation.class::cast)
-                .forEach(OfflineReservation::cancel);
+        offlineAccesses.forEach((targetId, access) -> {
+            if (access instanceof OfflineReservation reservation) {
+                reservation.cancel();
+                releaseOfflinePermit(targetId);
+            }
+        });
 
         for (InvToolsView view : ListCopy.of(viewsByViewer.values())) {
             detachVisible(view);
@@ -407,6 +421,7 @@ public final class InvToolsService {
                             : await(plan.completion());
                     view.finishSave(result == null ? InvToolsView.SaveResult.FAILED : result);
                 }
+                releaseOfflinePermit(view.targetId());
             }
             Player viewer = Bukkit.getPlayer(view.viewerId());
             if (viewer != null && viewer.isOnline()) {
@@ -418,6 +433,8 @@ public final class InvToolsService {
         viewsByTarget.clear();
         editorsByTarget.clear();
         offlineAccesses.clear();
+        offlinePermitsByTarget.values().forEach(OfflinePermit::release);
+        offlinePermitsByTarget.clear();
         latestOpenRequests.clear();
     }
 
@@ -450,6 +467,13 @@ public final class InvToolsService {
             return;
         }
 
+        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
+        if (!permit.acquire()) {
+            latestOpenRequests.remove(viewerId, requestId);
+            send(viewer, "invtools.busy");
+            return;
+        }
+
         OfflineReservation reservation = new OfflineReservation(
                 viewerId,
                 targetId,
@@ -460,13 +484,16 @@ public final class InvToolsService {
         );
         synchronized (transitionLock(targetId)) {
             if (!isCurrentRequest(viewerId, requestId)) {
+                permit.release();
                 return;
             }
             if (offlineAccesses.putIfAbsent(targetId, reservation) != null) {
+                permit.release();
                 latestOpenRequests.remove(viewerId, requestId);
                 send(viewer, "invtools.already_open", "player", targetName);
                 return;
             }
+            offlinePermitsByTarget.put(targetId, permit);
         }
 
         try {
@@ -477,6 +504,7 @@ public final class InvToolsService {
             ));
         } catch (RuntimeException exception) {
             offlineAccesses.remove(targetId, reservation);
+            releaseOfflinePermit(targetId);
             latestOpenRequests.remove(viewerId, requestId);
             feature.getLogger().warning(
                     "Could not schedule offline playerdata load for " + targetId + ": "
@@ -499,17 +527,20 @@ public final class InvToolsService {
         }
         if (!canStillOpen(viewer, reservation.kind())) {
             offlineAccesses.remove(reservation.targetId(), reservation);
+            releaseOfflinePermit(reservation.targetId());
             latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
             return;
         }
         if (failure == null && loaded == null) {
             offlineAccesses.remove(reservation.targetId(), reservation);
+            releaseOfflinePermit(reservation.targetId());
             latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
             send(viewer, "invtools.not_played_here", "player", reservation.targetName());
             return;
         }
         if (failure != null) {
             offlineAccesses.remove(reservation.targetId(), reservation);
+            releaseOfflinePermit(reservation.targetId());
             latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
             feature.getLogger().warning(
                     "Could not load offline playerdata for " + reservation.targetId() + ": "
@@ -520,6 +551,7 @@ public final class InvToolsService {
         }
         if (reservation.editable() && !isEmpty(viewer.getItemOnCursor())) {
             offlineAccesses.remove(reservation.targetId(), reservation);
+            releaseOfflinePermit(reservation.targetId());
             latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
             send(viewer, "invtools.cursor_not_empty");
             return;
@@ -535,6 +567,7 @@ public final class InvToolsService {
             Player nowOnline = Bukkit.getPlayer(reservation.targetId());
             if (nowOnline != null && nowOnline.isOnline()) {
                 offlineAccesses.remove(reservation.targetId(), reservation);
+                releaseOfflinePermit(reservation.targetId());
                 latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
                 openOnline(viewer, nowOnline, reservation.kind());
                 return;
@@ -557,6 +590,7 @@ public final class InvToolsService {
                 );
                 ActiveOfflineView access = new ActiveOfflineView(view);
                 if (!offlineAccesses.replace(reservation.targetId(), reservation, access)) {
+                    releaseOfflinePermit(reservation.targetId());
                     return;
                 }
                 registerAndOpen(viewer, view);
@@ -568,6 +602,7 @@ public final class InvToolsService {
                 }
             } catch (RuntimeException exception) {
                 offlineAccesses.remove(reservation.targetId());
+                releaseOfflinePermit(reservation.targetId());
                 latestOpenRequests.remove(reservation.viewerId(), reservation.requestId());
                 feature.getLogger().warning(
                         "Could not open offline InvTools view for " + reservation.targetId()
@@ -672,6 +707,7 @@ public final class InvToolsService {
             } catch (RuntimeException exception) {
                 view.closeWithoutSaving();
                 offlineAccesses.remove(view.targetId(), new ActiveOfflineView(view));
+                releaseOfflinePermit(view.targetId());
                 feature.getLogger().warning(
                         "Could not settle offline InvTools cursor for " + view.targetId()
                                 + ": " + exception.getMessage()
@@ -686,6 +722,7 @@ public final class InvToolsService {
         if (!plan.dirty()) {
             view.finishSave(InvToolsView.SaveResult.UNCHANGED);
             offlineAccesses.remove(view.targetId(), new ActiveOfflineView(view));
+            releaseOfflinePermit(view.targetId());
             return;
         }
 
@@ -695,6 +732,7 @@ public final class InvToolsService {
                     : InvToolsView.SaveResult.FAILED;
             view.finishSave(resolved);
             offlineAccesses.remove(view.targetId(), new ActiveOfflineView(view));
+            releaseOfflinePermit(view.targetId());
             scheduleMain(() -> notifySaveResult(view, resolved));
         });
         startPersistence(plan);
@@ -886,6 +924,7 @@ public final class InvToolsService {
             synchronized (transitionLock(entry.getKey())) {
                 if (offlineAccesses.remove(entry.getKey(), reservation)) {
                     reservation.cancel();
+                    releaseOfflinePermit(entry.getKey());
                 }
             }
         }
@@ -1014,6 +1053,13 @@ public final class InvToolsService {
         }
     }
 
+    private void releaseOfflinePermit(UUID targetId) {
+        OfflinePermit permit = offlinePermitsByTarget.remove(targetId);
+        if (permit != null) {
+            permit.release();
+        }
+    }
+
     private Object transitionLock(UUID playerId) {
         return transitionLocks[Math.floorMod(playerId.hashCode(), transitionLocks.length)];
     }
@@ -1132,6 +1178,25 @@ public final class InvToolsService {
 
         private boolean cancelled() {
             return cancelled.get();
+        }
+    }
+
+    private static final class OfflinePermit {
+        private final Semaphore permits;
+        private final AtomicBoolean acquired = new AtomicBoolean();
+
+        private OfflinePermit(Semaphore permits) {
+            this.permits = Objects.requireNonNull(permits, "permits");
+        }
+
+        private boolean acquire() {
+            return permits.tryAcquire() && acquired.compareAndSet(false, true);
+        }
+
+        private void release() {
+            if (acquired.compareAndSet(true, false)) {
+                permits.release();
+            }
         }
     }
 

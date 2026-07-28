@@ -26,6 +26,7 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("online_sync_interval_ticks", 2);
         defaults.put("offline_io_timeout_seconds", 10);
+        defaults.put("max_offline_sessions", 4);
         defaults.put("audit_edits", true);
         return defaults;
     }
@@ -39,6 +40,7 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         messages.add("invtools.not_played_here",
                 "&cSpeler &e{player}&c heeft nog geen spelerdata op deze server.");
         messages.add("invtools.loading", "&7Offline inventaris van &f{player}&7 wordt geladen...");
+        messages.add("invtools.busy", "&eTe veel offline inventarissen worden al verwerkt. Probeer het zo opnieuw.");
         messages.add("invtools.load_failed",
                 "&cDe offline inventaris van &e{player}&c kon niet veilig worden geladen.");
         messages.add("invtools.save_failed",

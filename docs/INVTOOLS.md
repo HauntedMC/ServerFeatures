@@ -44,6 +44,9 @@ Only one offline session per target is allowed, including read-only sessions. A 
 - retains the exact pre-write file as `playerdata/<uuid>.dat.invtools-backup` for recovery;
 - preserves unrelated player NBT and POSIX ownership, group, and permissions.
 
+At most `max_offline_sessions` offline sessions are active at once (four by default). New requests
+fail fast while that limit is reached instead of occupying Paper's shared asynchronous workers.
+
 Offline editing is isolated from the staff member's own inventory. The bottom inventory, shift
 transfer, number-key swaps, drags, and destructive Q shortcuts are blocked. Items may be safely
 rearranged inside the target GUI. Read-only offline inspection does not isolate the staff cursor or
