@@ -43,6 +43,28 @@ class PlayerDataMigrationCoordinatorTest {
     }
 
     @Test
+    void sameNameRequestsAreDrainedTogetherInsteadOfBeingReassignedOutOfOrder() {
+        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
+                mock(InvTools.class),
+                new MutableClock()
+        );
+        Player firstActor = mock(Player.class);
+        Player secondActor = mock(Player.class);
+        when(firstActor.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(secondActor.getUniqueId()).thenReturn(UUID.randomUUID());
+        UUID resolvedTarget = UUID.randomUUID();
+        UUID unrelatedLaterResolution = UUID.randomUUID();
+
+        coordinator.registerRequest(firstActor, "HauntedMC");
+        coordinator.registerRequest(secondActor, "hauntedmc");
+        coordinator.identityResolved("HAUNTEDMC", Optional.of(resolvedTarget));
+        coordinator.identityResolved("HauntedMC", Optional.of(unrelatedLaterResolution));
+
+        assertTrue(coordinator.blocksLogin(resolvedTarget));
+        assertFalse(coordinator.blocksLogin(unrelatedLaterResolution));
+    }
+
+    @Test
     void nestedPlayerdataOperationsKeepFenceUntilLastOperationFinishes() {
         PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
                 mock(InvTools.class),
