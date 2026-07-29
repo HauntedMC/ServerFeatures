@@ -134,10 +134,53 @@ Feature or server shutdown closes every visible and already-saving offline sessi
 each in-flight atomic playerdata write to reach its actual terminal outcome before the lifecycle
 task manager is allowed to cancel remaining feature work.
 
-Offline access is limited to playerdata from this exact Paper build. Older or future playerdata is
-rejected before its inventory is decoded; InvTools has one current-schema reader and writer, with no
-legacy compatibility paths. The exact DataVersion is obtained from the running Paper data fixer rather
-than maintained as a hard-coded version number.
+## Legacy playerdata migration
+
+InvTools has one current-schema inventory reader and writer. It does not hand-parse old layouts.
+Instead, an older positive `DataVersion` is upgraded with the same full Paper
+`DataFixTypes.PLAYER` data fixer used when Paper loads a real player. A record newer than the running
+Paper build is rejected because data fixing is forward-only. Missing, non-integer, malformed, or
+non-positive versions are also rejected.
+
+Migration is part of the offline open or clear operation and runs away from the server thread under
+the target's exclusive playerdata lock:
+
+1. The source file is read, bounded, parsed, UUID-checked, and hashed.
+2. The exact compressed bytes are copied to a same-directory
+   `<uuid>.dat.invtools-migration-backup` through a temporary file. The backup is fsynced, atomically
+   installed, reread, and hash-verified before Paper's converter is called.
+3. Paper converts a detached NBT root to the running `DataVersion`.
+4. InvTools validates the converted UUID, version, inventory lists, equipment compounds, item
+   decoding, slot uniqueness, and legal stack sizes before touching the source file.
+5. The converted root is written to another same-directory temporary file, fsynced, reread, and
+   validated again.
+6. The source SHA-256 is checked immediately before the converted file is atomically installed.
+7. The committed file is reread and compared with the validated temporary bytes. Only after this
+   succeeds is the temporary migration backup deleted.
+
+A conversion or validation failure before replacement leaves the original bytes untouched. A
+failure after replacement restores the exact backup through another fsynced atomic replacement and
+verifies the restored hash. If another process changes the source before commit, InvTools never
+restores over that external change; it fails closed and retains the migration backup for diagnosis.
+If both conversion and automatic recovery fail, the backup is retained and the server log identifies
+its exact path.
+
+A leftover migration backup is reconciled on the next access. A valid current target means the prior
+commit succeeded and only cleanup was interrupted, so the stale backup is removed. A missing or
+invalid target is restored from the valid backup. Two different, apparently valid old files are
+considered ambiguous and are both retained instead of guessing which one is authoritative.
+
+The command user receives in-game progress for detection, backup completion, conversion, rollback,
+success, and terminal failure. During identity-to-file handoff and all playerdata I/O, a separate
+UUID-based migration fence rejects the target in async pre-login. Paper's initial-configuration event
+checks the same fence again before player construction as a second line of defence. A player who
+started connecting before their identity was resolved cannot overlap a conversion: the ordinary
+InvTools reservation/login guards abort the offline command before disk mutation begins.
+
+The temporary migration backup is distinct from `<uuid>.dat.invtools-backup`, which is the retained
+recovery copy for an intentional inventory edit. If migration succeeded but the temporary backup
+cannot be deleted because of a filesystem problem, the converted file remains verified and the
+staff member is warned; the next access retries safe cleanup.
 
 ## Operational notes
 
@@ -149,8 +192,8 @@ than maintained as a hard-coded version number.
   therefore diagnosable without enabling a separate debug mode.
 - A save conflict or malformed/oversized playerdata file is rejected and logged. It is never
   overwritten optimistically.
-- If a current playerdata file contains a UUID identity tag, that identity must match its filename;
-  copied or swapped files are rejected before inspection or mutation.
+- If a playerdata file contains a UUID identity tag, that identity must match its filename; copied or
+  swapped files are rejected before inspection, migration, or mutation.
 - Compressed and decompressed playerdata sizes are bounded before NBT parsing to reject pathological
   files without exhausting the server heap.
 - Administrative mutations are logged by default with a session ID, actor, target, source,
