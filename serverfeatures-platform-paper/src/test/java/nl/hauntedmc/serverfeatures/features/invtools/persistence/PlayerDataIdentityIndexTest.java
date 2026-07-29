@@ -73,6 +73,20 @@ class PlayerDataIdentityIndexTest {
     }
 
     @Test
+    void ignoresMalformedUserCacheWithoutHidingPlayerdataMetadata() throws IOException {
+        UUID playerId = createPlayerDataFile();
+        Path userCache = playerDataDirectory.getParent().resolve("usercache.json");
+        Files.writeString(userCache, "not valid json");
+        PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
+                playerDataDirectory,
+                file -> playerId.equals(playerId(file)) ? "HauntedMC" : null,
+                List.of(userCache)
+        );
+
+        assertEquals(Optional.of(playerId), index.resolve(Optional.empty(), "HauntedMC"));
+    }
+
+    @Test
     void choosesTheNewestFileWhenANameExistsUnderMultipleUuids() throws IOException {
         UUID oldPlayerId = createPlayerDataFile();
         UUID currentPlayerId = createPlayerDataFile();

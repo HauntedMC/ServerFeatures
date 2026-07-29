@@ -159,7 +159,7 @@ final class PlayerDataIdentityIndex {
                 || userCacheFingerprint() != current.userCacheFingerprint();
     }
 
-    private void loadUserCacheIdentities(Map<String, UUID> indexed) throws IOException {
+    private void loadUserCacheIdentities(Map<String, UUID> indexed) {
         for (Path userCacheFile : userCacheFiles) {
             if (!Files.isRegularFile(userCacheFile, LinkOption.NOFOLLOW_LINKS)
                     || Files.isSymbolicLink(userCacheFile)) {
@@ -229,16 +229,25 @@ final class PlayerDataIdentityIndex {
                 : -1L;
     }
 
-    private long userCacheFingerprint() throws IOException {
+    private long userCacheFingerprint() {
         long fingerprint = 1L;
         for (Path userCacheFile : userCacheFiles) {
-            long modifiedMillis = Files.isRegularFile(userCacheFile, LinkOption.NOFOLLOW_LINKS)
-                    && !Files.isSymbolicLink(userCacheFile)
-                    ? Files.getLastModifiedTime(userCacheFile, LinkOption.NOFOLLOW_LINKS).toMillis()
-                    : -1L;
+            long modifiedMillis = userCacheModifiedMillis(userCacheFile);
             fingerprint = 31L * fingerprint + modifiedMillis;
         }
         return fingerprint;
+    }
+
+    private static long userCacheModifiedMillis(Path userCacheFile) {
+        try {
+            return Files.isRegularFile(userCacheFile, LinkOption.NOFOLLOW_LINKS)
+                    && !Files.isSymbolicLink(userCacheFile)
+                    ? Files.getLastModifiedTime(userCacheFile, LinkOption.NOFOLLOW_LINKS).toMillis()
+                    : -1L;
+        } catch (IOException | SecurityException ignored) {
+            // The cache is only a name-discovery hint; its transient failure must not fail InvTools.
+            return -1L;
+        }
     }
 
     private static long expiresAt() {
