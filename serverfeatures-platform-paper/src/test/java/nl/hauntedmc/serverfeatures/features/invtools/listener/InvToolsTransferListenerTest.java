@@ -65,6 +65,7 @@ class InvToolsTransferListenerTest {
         when(view.editable()).thenReturn(true);
         when(view.isInteractive()).thenReturn(true);
         when(view.onlineSession()).thenReturn(false);
+        when(view.owns(topInventory)).thenReturn(true);
         when(topInventory.getHolder(false)).thenReturn(view);
         when(inventoryView.getTopInventory()).thenReturn(topInventory);
         when(event.getView()).thenReturn(inventoryView);
