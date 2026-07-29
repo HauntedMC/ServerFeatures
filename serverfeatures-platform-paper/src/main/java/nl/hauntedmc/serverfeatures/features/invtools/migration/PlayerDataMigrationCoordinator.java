@@ -223,6 +223,27 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     @Override
+    public void backupCleanupFailed(
+            UUID playerId,
+            int sourceVersion,
+            int targetVersion,
+            Path backupFile,
+            Throwable failure
+    ) {
+        String detail = failure == null ? "unknown failure" : failure.getMessage();
+        feature.getLogger().warning(
+                "Migrated playerdata for " + playerId + " but could not delete temporary backup "
+                        + backupFile + ": " + detail
+        );
+        notifyTarget(
+                playerId,
+                "invtools.migration_backup_retained",
+                sourceVersion,
+                targetVersion
+        );
+    }
+
+    @Override
     public void migrationFailed(
             UUID playerId,
             int sourceVersion,
