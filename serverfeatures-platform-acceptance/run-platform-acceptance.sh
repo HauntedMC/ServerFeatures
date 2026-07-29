@@ -44,8 +44,7 @@ for command in curl docker java jq jar sha256sum; do require "$command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable."
 mkdir -p \
     "$work_directory/paper/plugins/DataProvider/databases" \
-    "$work_directory/paper/plugins/DataRegistry" \
-    "$work_directory/paper/plugins/ServerFeatures/features/InvTools"
+    "$work_directory/paper/plugins/DataRegistry"
 
 dataregistry_version="$(property dataregistry.version)"
 dataprovider_version="$(property dataprovider.version)"
@@ -78,7 +77,6 @@ mysql_port="$(docker compose --file "$compose_file" port mysql 3306 | sed -n 's/
 [[ -n "$mysql_port" ]] || fail "Unable to resolve MySQL port."
 printf '%s\n' 'player_data_rw:' '  access: { owner_plugin: "DataRegistry", shared_with: [] }' '  host: 127.0.0.1' "  port: $mysql_port" '  database: minecraft' '  username: root' '  password: acceptance-root' '  ssl_mode: DISABLED' '  pool_size: 3' '  min_idle: 0' >"$work_directory/paper/plugins/DataProvider/databases/mysql.yml"
 printf '%s\n' 'orm:' '  schema-mode: update' >"$work_directory/paper/plugins/DataRegistry/config.yml"
-printf '%s\n' 'enabled: true' >"$work_directory/paper/plugins/ServerFeatures/features/InvTools/config.yml"
 printf '%s\n' 'eula=true' >"$work_directory/paper/eula.txt"
 printf '%s\n' 'server-port=0' >"$work_directory/paper/server.properties"
 
