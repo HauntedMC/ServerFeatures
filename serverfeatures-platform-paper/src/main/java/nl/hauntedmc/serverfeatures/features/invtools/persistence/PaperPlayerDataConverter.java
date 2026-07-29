@@ -110,7 +110,10 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
             if (!dataFixTypes.isEnum()) {
                 throw new IOException(DATA_FIX_TYPES_CLASS + " is not an enum on this Paper build");
             }
-            Object playerType = Enum.valueOf((Class<? extends Enum>) dataFixTypes, PLAYER_TYPE);
+            Object playerType = Enum.valueOf(
+                    (Class<? extends Enum>) dataFixTypes,
+                    PLAYER_TYPE
+            );
             Method updateMethod = Arrays.stream(dataFixTypes.getMethods())
                     .filter(method -> method.getName().equals(UPDATE_METHOD))
                     .filter(method -> method.getParameterCount() == 3)
@@ -128,7 +131,7 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
                     "This Paper build does not expose the expected PLAYER data fixer",
                     exception
             );
-        } catch (ReflectiveOperationException | RuntimeException | LinkageError exception) {
+        } catch (RuntimeException | LinkageError exception) {
             throw new IOException("Could not initialize Paper's PLAYER data fixer", exception);
         }
     }
