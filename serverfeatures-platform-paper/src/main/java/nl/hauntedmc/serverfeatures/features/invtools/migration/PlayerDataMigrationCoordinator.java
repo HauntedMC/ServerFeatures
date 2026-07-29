@@ -31,6 +31,8 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
 
     private static final Duration REQUEST_TTL = Duration.ofSeconds(30);
     private static final Duration ACTIVE_NOTIFICATION_TTL = Duration.ofMinutes(5);
+    private static final Runnable NO_SHUTDOWN_BARRIER = () -> {
+    };
 
     private final InvTools feature;
     private final Clock clock;
@@ -40,6 +42,9 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             new ConcurrentHashMap<>();
     private final Map<UUID, AtomicInteger> activeOperations = new ConcurrentHashMap<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
+    private final AtomicBoolean closing = new AtomicBoolean();
+
+    private Runnable shutdownBarrier = NO_SHUTDOWN_BARRIER;
 
     public PlayerDataMigrationCoordinator(InvTools feature) {
         this(feature, Clock.systemUTC());
@@ -51,10 +56,24 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     /**
+     * Installs the storage close barrier exactly once during feature initialization.
+     */
+    public synchronized void attachShutdownBarrier(Runnable barrier) {
+        Objects.requireNonNull(barrier, "barrier");
+        if (closing.get() || !active.get()) {
+            throw new IllegalStateException("InvTools migration coordinator is shutting down");
+        }
+        if (shutdownBarrier != NO_SHUTDOWN_BARRIER) {
+            throw new IllegalStateException("InvTools migration shutdown barrier is already attached");
+        }
+        shutdownBarrier = barrier;
+    }
+
+    /**
      * Called on the main thread immediately before InvTools starts an offline command flow.
      */
     public void registerRequest(Player actor, String requestedName) {
-        if (!active.get() || actor == null || requestedName == null) {
+        if (!active.get() || closing.get() || actor == null || requestedName == null) {
             return;
         }
         String normalized = normalize(requestedName);
@@ -265,12 +284,21 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     public void shutdown() {
-        if (!active.compareAndSet(true, false)) {
+        if (!closing.compareAndSet(false, true)) {
             return;
         }
-        requestsByName.clear();
-        requestsByTarget.clear();
-        activeOperations.clear();
+        Runnable barrier;
+        synchronized (this) {
+            barrier = shutdownBarrier;
+        }
+        try {
+            barrier.run();
+        } finally {
+            active.set(false);
+            requestsByName.clear();
+            requestsByTarget.clear();
+            activeOperations.clear();
+        }
     }
 
     private void notifyTarget(UUID targetId, String key, int sourceVersion, int targetVersion) {
