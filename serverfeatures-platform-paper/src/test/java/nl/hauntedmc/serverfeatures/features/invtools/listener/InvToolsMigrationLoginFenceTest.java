@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -20,10 +19,12 @@ import static org.mockito.Mockito.when;
 
 class InvToolsMigrationLoginFenceTest {
 
+    private static final Component MIGRATION_MESSAGE = Component.text("migration in progress");
+
     @Test
     void asyncPreLoginIsRejectedBeforeServiceTouchesPlayerdata() {
         UUID playerId = UUID.randomUUID();
-        InvTools feature = mock(InvTools.class, RETURNS_DEEP_STUBS);
+        InvTools feature = mock(InvTools.class);
         PlayerDataMigrationCoordinator coordinator = mock(PlayerDataMigrationCoordinator.class);
         InvToolsService service = mock(InvToolsService.class);
         AsyncPlayerPreLoginEvent event = mock(AsyncPlayerPreLoginEvent.class);
@@ -33,11 +34,11 @@ class InvToolsMigrationLoginFenceTest {
         when(event.getUniqueId()).thenReturn(playerId);
         when(event.getName()).thenReturn("HauntedMC");
 
-        new InvToolsListener(feature, service).onPreLogin(event);
+        new InvToolsListener(feature, service, ignored -> MIGRATION_MESSAGE).onPreLogin(event);
 
         verify(event).disallow(
-                eq(AsyncPlayerPreLoginEvent.Result.KICK_OTHER),
-                any(Component.class)
+                AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                MIGRATION_MESSAGE
         );
         verify(service, never()).prepareLogin(playerId);
     }
@@ -45,7 +46,7 @@ class InvToolsMigrationLoginFenceTest {
     @Test
     void initialConfigurationRepeatsFenceBeforePlayerConstruction() {
         UUID playerId = UUID.randomUUID();
-        InvTools feature = mock(InvTools.class, RETURNS_DEEP_STUBS);
+        InvTools feature = mock(InvTools.class);
         PlayerDataMigrationCoordinator coordinator = mock(PlayerDataMigrationCoordinator.class);
         InvToolsService service = mock(InvToolsService.class);
         PlayerConnectionInitialConfigureEvent event = mock(
@@ -57,16 +58,17 @@ class InvToolsMigrationLoginFenceTest {
         when(event.getConnection().getProfile().getId()).thenReturn(playerId);
         when(event.getConnection().getProfile().getName()).thenReturn("HauntedMC");
 
-        new InvToolsListener(feature, service).onInitialConfigure(event);
+        new InvToolsListener(feature, service, ignored -> MIGRATION_MESSAGE)
+                .onInitialConfigure(event);
 
-        verify(event.getConnection()).disconnect(any(Component.class));
+        verify(event.getConnection()).disconnect(MIGRATION_MESSAGE);
         verify(service, never()).handlePlayerDataLoad(playerId);
     }
 
     @Test
     void nonMigratingPlayerContinuesThroughExistingLoginBarrier() {
         UUID playerId = UUID.randomUUID();
-        InvTools feature = mock(InvTools.class, RETURNS_DEEP_STUBS);
+        InvTools feature = mock(InvTools.class);
         PlayerDataMigrationCoordinator coordinator = mock(PlayerDataMigrationCoordinator.class);
         InvToolsService service = mock(InvToolsService.class);
         AsyncPlayerPreLoginEvent event = mock(AsyncPlayerPreLoginEvent.class);
@@ -76,7 +78,7 @@ class InvToolsMigrationLoginFenceTest {
         when(event.getUniqueId()).thenReturn(playerId);
         when(service.prepareLogin(playerId)).thenReturn(InvToolsService.LoginBarrierResult.ALLOW);
 
-        new InvToolsListener(feature, service).onPreLogin(event);
+        new InvToolsListener(feature, service, ignored -> MIGRATION_MESSAGE).onPreLogin(event);
 
         verify(service).prepareLogin(playerId);
         verify(event, never()).disallow(
