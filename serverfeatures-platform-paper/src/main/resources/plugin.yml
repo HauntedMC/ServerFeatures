@@ -15,15 +15,21 @@ commands:
     permission-message: You do not have permission to use this command.
 
 permissions:
-  serverfeatures.feature.invtools.command.invsee.inspect:
-    description: Inspect online and offline player inventories with /invsee.
+  serverfeatures.feature.invtools.command.inventory.open.inspect:
+    description: Inspect online and offline player inventories with /inv inventory open.
     default: false
-  serverfeatures.feature.invtools.command.invsee.edit:
-    description: Edit inventories opened through /invsee.
+  serverfeatures.feature.invtools.command.inventory.open.edit:
+    description: Edit inventories opened through /inv inventory open.
     default: false
-  serverfeatures.feature.invtools.command.endersee.inspect:
-    description: Inspect online and offline player ender chests with /endersee.
+  serverfeatures.feature.invtools.command.inventory.clear:
+    description: Clear online and offline player inventories with /inv inventory clear.
     default: false
-  serverfeatures.feature.invtools.command.endersee.edit:
-    description: Edit ender chests opened through /endersee.
+  serverfeatures.feature.invtools.command.enderchest.open.inspect:
+    description: Inspect online and offline player ender chests with /inv enderchest open.
+    default: false
+  serverfeatures.feature.invtools.command.enderchest.open.edit:
+    description: Edit ender chests opened through /inv enderchest open.
+    default: false
+  serverfeatures.feature.invtools.command.enderchest.clear:
+    description: Clear online and offline player ender chests with /inv enderchest clear.
     default: false

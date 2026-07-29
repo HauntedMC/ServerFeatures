@@ -14,12 +14,83 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlayerDataIdentityIndexTest {
 
     @TempDir
     Path playerDataDirectory;
+
+    @Test
+    void resolvesCanonicalForwardedUuidWithoutLocalNameMetadata() throws IOException {
+        UUID canonicalPlayerId = createPlayerDataFile();
+        PlayerDataIdentityIndex index = index(
+                Map.of(),
+                identifier -> Optional.of(new CanonicalPlayerIdentityLookup.Identity(
+                        canonicalPlayerId,
+                        "HauntedMC"
+                ))
+        );
+
+        Optional<UUID> resolved = index.resolve(Optional.empty(), "hauntedmc");
+
+        assertEquals(Optional.of(canonicalPlayerId), resolved);
+    }
+
+    @Test
+    void canonicalIdentityOutranksPapersStaleCachedUuid() throws IOException {
+        UUID staleCachedPlayerId = createPlayerDataFile();
+        UUID canonicalPlayerId = createPlayerDataFile();
+        PlayerDataIdentityIndex index = index(
+                Map.of(staleCachedPlayerId, "HauntedMC"),
+                identifier -> Optional.of(new CanonicalPlayerIdentityLookup.Identity(
+                        canonicalPlayerId,
+                        "HauntedMC"
+                ))
+        );
+
+        Optional<UUID> resolved = index.resolve(
+                Optional.of(staleCachedPlayerId),
+                "HauntedMC"
+        );
+
+        assertEquals(Optional.of(canonicalPlayerId), resolved);
+    }
+
+    @Test
+    void canonicalIdentityMustOwnPlayerdataOnThisServer() throws IOException {
+        UUID registryOnlyPlayerId = UUID.randomUUID();
+        UUID localLegacyPlayerId = createPlayerDataFile();
+        PlayerDataIdentityIndex index = index(
+                Map.of(localLegacyPlayerId, "HauntedMC"),
+                identifier -> Optional.of(new CanonicalPlayerIdentityLookup.Identity(
+                        registryOnlyPlayerId,
+                        "HauntedMC"
+                ))
+        );
+
+        Optional<UUID> resolved = index.resolve(Optional.empty(), "HauntedMC");
+
+        assertEquals(Optional.of(localLegacyPlayerId), resolved);
+    }
+
+    @Test
+    void canonicalLookupFailureIsNotReportedAsAnUnknownPlayer() {
+        PlayerDataIdentityIndex index = index(
+                Map.of(),
+                identifier -> {
+                    throw new IOException("DataRegistry unavailable");
+                }
+        );
+
+        IOException failure = assertThrows(
+                IOException.class,
+                () -> index.resolve(Optional.empty(), "HauntedMC")
+        );
+
+        assertEquals("DataRegistry unavailable", failure.getMessage());
+    }
 
     @Test
     void resolvesTheActualLocalFileWhenPapersCachedUuidHasNoData() throws IOException {
@@ -76,7 +147,8 @@ class PlayerDataIdentityIndexTest {
         PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
                 playerDataDirectory,
                 file -> null,
-                List.of(userCache)
+                List.of(userCache),
+                CanonicalPlayerIdentityLookup.none()
         );
 
         Optional<UUID> resolved = index.resolve(Optional.empty(), "HauntedMC");
@@ -92,7 +164,8 @@ class PlayerDataIdentityIndexTest {
         PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
                 playerDataDirectory,
                 file -> playerId.equals(playerId(file)) ? "HauntedMC" : null,
-                List.of(userCache)
+                List.of(userCache),
+                CanonicalPlayerIdentityLookup.none()
         );
 
         assertEquals(Optional.of(playerId), index.resolve(Optional.empty(), "HauntedMC"));
@@ -194,9 +267,18 @@ class PlayerDataIdentityIndexTest {
     }
 
     private PlayerDataIdentityIndex index(Map<UUID, String> playerNames) {
+        return index(playerNames, CanonicalPlayerIdentityLookup.none());
+    }
+
+    private PlayerDataIdentityIndex index(
+            Map<UUID, String> playerNames,
+            CanonicalPlayerIdentityLookup canonicalIdentityLookup
+    ) {
         return new PlayerDataIdentityIndex(
                 playerDataDirectory,
-                file -> playerNames.get(playerId(file))
+                file -> playerNames.get(playerId(file)),
+                List.of(),
+                canonicalIdentityLookup
         );
     }
 

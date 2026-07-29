@@ -23,9 +23,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Resolves names from the playerdata files that actually exist on this server. Paper's profile
- * cache is not authoritative for local playerdata: it can contain a valid account whose data is
- * absent here, or a different UUID after proxy/online-mode changes.
+ * Resolves command names to playerdata files that actually exist on this server.
+ *
+ * <p>DataRegistry is the primary authority for current usernames and forwarded UUIDs. Local
+ * connection observations, playerdata metadata, and Paper's user cache remain conservative fallback
+ * sources for legacy files that predate the canonical registry or survived a UUID-mode migration.</p>
  */
 final class PlayerDataIdentityIndex {
 
@@ -35,13 +37,19 @@ final class PlayerDataIdentityIndex {
     private final Path playerDataDirectory;
     private final PlayerNameReader playerNameReader;
     private final List<Path> userCacheFiles;
+    private final CanonicalPlayerIdentityLookup canonicalIdentityLookup;
     private final ConcurrentMap<String, UUID> observedPlayerIds = new ConcurrentHashMap<>();
     private final Object rebuildLock = new Object();
 
     private volatile Snapshot snapshot = Snapshot.empty();
 
     PlayerDataIdentityIndex(Path playerDataDirectory, PlayerNameReader playerNameReader) {
-        this(playerDataDirectory, playerNameReader, List.of());
+        this(
+                playerDataDirectory,
+                playerNameReader,
+                List.of(),
+                CanonicalPlayerIdentityLookup.none()
+        );
     }
 
     PlayerDataIdentityIndex(
@@ -49,9 +57,27 @@ final class PlayerDataIdentityIndex {
             PlayerNameReader playerNameReader,
             List<Path> userCacheFiles
     ) {
+        this(
+                playerDataDirectory,
+                playerNameReader,
+                userCacheFiles,
+                DataRegistryPlayerIdentityLookup.forServerFeatures()
+        );
+    }
+
+    PlayerDataIdentityIndex(
+            Path playerDataDirectory,
+            PlayerNameReader playerNameReader,
+            List<Path> userCacheFiles,
+            CanonicalPlayerIdentityLookup canonicalIdentityLookup
+    ) {
         this.playerDataDirectory = Objects.requireNonNull(playerDataDirectory, "playerDataDirectory");
         this.playerNameReader = Objects.requireNonNull(playerNameReader, "playerNameReader");
         this.userCacheFiles = List.copyOf(Objects.requireNonNull(userCacheFiles, "userCacheFiles"));
+        this.canonicalIdentityLookup = Objects.requireNonNull(
+                canonicalIdentityLookup,
+                "canonicalIdentityLookup"
+        );
     }
 
     Optional<UUID> resolve(Optional<UUID> preferredPlayerId, String playerName) throws IOException {
@@ -61,6 +87,16 @@ final class PlayerDataIdentityIndex {
         UUID observedPlayerId = observedPlayerIds.get(normalizedName);
         if (observedPlayerId != null && hasPlayerData(observedPlayerId)) {
             return Optional.of(observedPlayerId);
+        }
+
+        Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity =
+                canonicalIdentityLookup.find(playerName);
+        if (canonicalIdentity.isPresent()) {
+            CanonicalPlayerIdentityLookup.Identity identity = canonicalIdentity.get();
+            if (hasPlayerData(identity.playerId())) {
+                remember(identity.playerId(), identity.playerName());
+                return Optional.of(identity.playerId());
+            }
         }
 
         if (preferredPlayerId.isPresent()
