@@ -44,6 +44,8 @@ public final class InvToolsService {
     private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
     private static final int TRANSITION_LOCK_COUNT = 64;
     private static final int MAX_LOGIN_BARRIER_SECONDS = 30;
+    private static final int OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS = 10;
+    private static final long OFFLINE_PLAYER_DATA_RETRY_MILLIS = 100L;
 
     private final InvTools feature;
     private final OfflinePlayerDataStore offlineStore;
@@ -1117,12 +1119,46 @@ public final class InvToolsService {
 
     private OfflinePlayerData loadOffline(UUID playerId) {
         try {
-            if (!offlineStore.hasPlayerData(playerId)) {
-                return null;
-            }
-            return offlineStore.load(playerId);
+            return loadOffline(
+                    offlineStore,
+                    playerId,
+                    OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS,
+                    InvToolsService::waitForPlayerDataAppearance
+            );
         } catch (IOException exception) {
             throw new CompletionException(exception);
+        }
+    }
+
+    static OfflinePlayerData loadOffline(
+            OfflinePlayerDataStore store,
+            UUID playerId,
+            int attempts,
+            Runnable retryDelay
+    ) throws IOException {
+        Objects.requireNonNull(store, "store");
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(retryDelay, "retryDelay");
+        if (attempts < 1) {
+            throw new IllegalArgumentException("attempts must be positive");
+        }
+        for (int attempt = 1; attempt <= attempts; attempt++) {
+            if (store.hasPlayerData(playerId)) {
+                return store.load(playerId);
+            }
+            if (attempt < attempts) {
+                retryDelay.run();
+            }
+        }
+        return null;
+    }
+
+    private static void waitForPlayerDataAppearance() {
+        try {
+            Thread.sleep(OFFLINE_PLAYER_DATA_RETRY_MILLIS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new CompletionException("Interrupted while waiting for playerdata to be saved", exception);
         }
     }
 
