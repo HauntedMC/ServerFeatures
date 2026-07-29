@@ -164,16 +164,18 @@ public final class InvToolsService {
         try {
             feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
                     resolvePlayerId(localPlayer, name)
-            ).whenComplete((resolvedPlayerId, failure) -> scheduleMain(() ->
-                    completeOfflineClearResolution(
-                            actor,
-                            name,
-                            kind,
-                            permit,
-                            resolvedPlayerId,
-                            failure
-                    )
-            ));
+            ).whenComplete((resolvedPlayerId, failure) -> {
+                if (!scheduleMain(() -> completeOfflineClearResolution(
+                        actor,
+                        name,
+                        kind,
+                        permit,
+                        resolvedPlayerId,
+                        failure
+                ))) {
+                    permit.release();
+                }
+            });
         } catch (RuntimeException exception) {
             permit.release();
             feature.getLogger().warning(
@@ -200,17 +202,20 @@ public final class InvToolsService {
         try {
             feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
                     resolvePlayerId(preferredPlayerId, targetName)
-            ).whenComplete((resolvedPlayerId, failure) -> scheduleMain(() ->
-                    completeOfflineOpenResolution(
-                            viewer,
-                            targetName,
-                            kind,
-                            requestId,
-                            permit,
-                            resolvedPlayerId,
-                            failure
-                    )
-            ));
+            ).whenComplete((resolvedPlayerId, failure) -> {
+                if (!scheduleMain(() -> completeOfflineOpenResolution(
+                        viewer,
+                        targetName,
+                        kind,
+                        requestId,
+                        permit,
+                        resolvedPlayerId,
+                        failure
+                ))) {
+                    permit.release();
+                    latestOpenRequests.remove(viewer.getUniqueId(), requestId);
+                }
+            });
         } catch (RuntimeException exception) {
             permit.release();
             latestOpenRequests.remove(viewer.getUniqueId(), requestId);
@@ -236,6 +241,7 @@ public final class InvToolsService {
                 || !isCurrentRequest(viewerId, requestId)
                 || !canStillOpen(viewer, kind)) {
             permit.release();
+            latestOpenRequests.remove(viewerId, requestId);
             return;
         }
         if (failure != null) {
@@ -974,9 +980,16 @@ public final class InvToolsService {
         try {
             feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
                     loadOffline(targetId)
-            ).whenComplete((loaded, failure) -> scheduleMain(() ->
-                    completeOfflineOpen(viewer, reservation, loaded, failure)
-            ));
+            ).whenComplete((loaded, failure) -> {
+                if (!scheduleMain(() ->
+                        completeOfflineOpen(viewer, reservation, loaded, failure)
+                )) {
+                    if (offlineAccesses.remove(targetId, reservation)) {
+                        reservation.permit().release();
+                    }
+                    latestOpenRequests.remove(viewerId, requestId);
+                }
+            });
         } catch (RuntimeException exception) {
             offlineAccesses.remove(targetId, reservation);
             reservation.permit().release();
@@ -1622,16 +1635,18 @@ public final class InvToolsService {
                 && hasInspectPermission(viewer, kind);
     }
 
-    private void scheduleMain(Runnable task) {
+    private boolean scheduleMain(Runnable task) {
         if (!active.get()) {
-            return;
+            return false;
         }
         try {
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(task);
+            return true;
         } catch (RuntimeException exception) {
             feature.getLogger().warning(
                     "Could not schedule InvTools main-thread continuation: " + exception.getMessage()
             );
+            return false;
         }
     }
 
