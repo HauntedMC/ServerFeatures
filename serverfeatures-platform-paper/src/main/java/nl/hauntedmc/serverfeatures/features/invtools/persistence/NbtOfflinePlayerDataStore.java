@@ -51,6 +51,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     private final PlayerDataIdentityIndex identityIndex;
     private final PlayerDataConverter playerDataConverter;
     private final PlayerDataMigrationObserver migrationObserver;
+    private final PlayerDataNbtIo nbtIo;
     private final PlayerDataMigrationCheckpoint migrationCheckpoint;
 
     public NbtOfflinePlayerDataStore(Path levelDirectory) {
@@ -60,6 +61,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 null,
                 new PaperPlayerDataConverter(),
                 PlayerDataMigrationObserver.NONE,
+                new NbtApiPlayerDataIo(),
                 PlayerDataMigrationCheckpoint.NONE
         );
     }
@@ -71,6 +73,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 null,
                 new PaperPlayerDataConverter(),
                 PlayerDataMigrationObserver.NONE,
+                new NbtApiPlayerDataIo(),
                 PlayerDataMigrationCheckpoint.NONE
         );
     }
@@ -82,6 +85,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 pluginDataDirectory,
                 new PaperPlayerDataConverter(),
                 PlayerDataMigrationObserver.NONE,
+                new NbtApiPlayerDataIo(),
                 PlayerDataMigrationCheckpoint.NONE
         );
     }
@@ -97,6 +101,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 pluginDataDirectory,
                 new PaperPlayerDataConverter(),
                 migrationObserver,
+                new NbtApiPlayerDataIo(),
                 PlayerDataMigrationCheckpoint.NONE
         );
     }
@@ -114,6 +119,26 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 null,
                 playerDataConverter,
                 migrationObserver,
+                new NbtApiPlayerDataIo(),
+                migrationCheckpoint
+        );
+    }
+
+    NbtOfflinePlayerDataStore(
+            Path levelDirectory,
+            int runtimeDataVersion,
+            PlayerDataConverter playerDataConverter,
+            PlayerDataMigrationObserver migrationObserver,
+            PlayerDataNbtIo nbtIo,
+            PlayerDataMigrationCheckpoint migrationCheckpoint
+    ) {
+        this(
+                levelDirectory,
+                runtimeDataVersion,
+                null,
+                playerDataConverter,
+                migrationObserver,
+                nbtIo,
                 migrationCheckpoint
         );
     }
@@ -124,6 +149,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             Path pluginDataDirectory,
             PlayerDataConverter playerDataConverter,
             PlayerDataMigrationObserver migrationObserver,
+            PlayerDataNbtIo nbtIo,
             PlayerDataMigrationCheckpoint migrationCheckpoint
     ) {
         Path normalizedLevelDirectory = Objects.requireNonNull(levelDirectory, "levelDirectory")
@@ -144,6 +170,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 migrationObserver,
                 "migrationObserver"
         );
+        this.nbtIo = Objects.requireNonNull(nbtIo, "nbtIo");
         this.migrationCheckpoint = Objects.requireNonNull(
                 migrationCheckpoint,
                 "migrationCheckpoint"
@@ -183,7 +210,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         recoverInterruptedMigration(file, playerId);
 
         byte[] bytes = readPlayerData(file);
-        ReadWriteNBT root = readNbt(bytes, file);
+        ReadWriteNBT root = nbtIo.read(bytes, file);
         validatePlayerIdentity(root, playerId);
         int sourceVersion = dataVersion(root, playerId);
         if (sourceVersion > runtimeDataVersion) {
@@ -249,7 +276,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 byte[] currentBytes = readPlayerData(file);
                 requireRevision(original.revision(), currentBytes, playerId);
 
-                ReadWriteNBT root = readNbt(currentBytes, file);
+                ReadWriteNBT root = nbtIo.read(currentBytes, file);
                 validatePlayerIdentity(root, playerId);
                 if (dataVersion(root, playerId) != runtimeDataVersion) {
                     throw new PlayerDataConflictException(
@@ -315,11 +342,11 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     ".dat"
             );
             copyPermissions(file, temporary);
-            NBT.writeFile(temporary.toFile(), converted);
+            nbtIo.write(temporary, converted);
             forceFile(temporary);
 
             byte[] convertedBytes = readPlayerData(temporary);
-            ReadWriteNBT verifiedConverted = readNbt(convertedBytes, temporary);
+            ReadWriteNBT verifiedConverted = nbtIo.read(convertedBytes, temporary);
             validateCurrentPlayerData(verifiedConverted, playerId);
             installedRevision = revision(convertedBytes);
 
@@ -344,7 +371,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                                 + playerId
                 );
             }
-            ReadWriteNBT committedRoot = readNbt(committedBytes, file);
+            ReadWriteNBT committedRoot = nbtIo.read(committedBytes, file);
             validateCurrentPlayerData(committedRoot, playerId);
 
             deleteMigrationBackupAfterSuccess(
@@ -403,8 +430,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         try {
             if (targetReplaced && canRestoreInstalledTarget(
                     file,
-                    installedRevision,
-                    playerId
+                    installedRevision
             )) {
                 migrationObserver.rollbackStarted(
                         playerId,
@@ -455,8 +481,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     private boolean canRestoreInstalledTarget(
             Path file,
-            PlayerDataRevision installedRevision,
-            UUID playerId
+            PlayerDataRevision installedRevision
     ) throws IOException {
         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
             return true;
@@ -476,7 +501,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             return true;
         }
 
-        return !isParseablePlayerData(currentBytes, file, playerId);
+        return !isParseableNbt(currentBytes, file);
     }
 
     private void recoverInterruptedMigration(Path file, UUID playerId) throws IOException {
@@ -487,7 +512,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         requireRegularFile(backup, "migration backup");
 
         byte[] backupBytes = readPlayerData(backup);
-        ReadWriteNBT backupRoot = readNbt(backupBytes, backup);
+        ReadWriteNBT backupRoot = nbtIo.read(backupBytes, backup);
         validatePlayerIdentity(backupRoot, playerId);
         int backupVersion = dataVersion(backupRoot, playerId);
         PlayerDataRevision backupRevision = revision(backupBytes);
@@ -524,12 +549,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
 
         try {
-            ReadWriteNBT targetRoot = readNbt(targetBytes, file);
+            ReadWriteNBT targetRoot = nbtIo.read(targetBytes, file);
             validateCurrentPlayerData(targetRoot, playerId);
             deleteRegularBackup(backup);
             forceDirectory(file.getParent());
         } catch (IOException | RuntimeException invalidTarget) {
-            if (isParseablePlayerData(targetBytes, file, playerId)) {
+            if (isParseableNbt(targetBytes, file)) {
                 PlayerDataMigrationException exception = new PlayerDataMigrationException(
                         "Found an ambiguous interrupted migration for " + playerId
                                 + "; both the playerdata and backup are retained",
@@ -560,14 +585,9 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private static boolean isParseablePlayerData(
-            byte[] bytes,
-            Path file,
-            UUID expectedPlayerId
-    ) {
+    private boolean isParseableNbt(byte[] bytes, Path file) {
         try {
-            ReadWriteNBT root = readNbt(bytes, file);
-            validatePlayerIdentity(root, expectedPlayerId);
+            nbtIo.read(bytes, file);
             return true;
         } catch (IOException | RuntimeException exception) {
             return false;
@@ -1024,7 +1044,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     }
 
     private String readLastKnownName(Path file) throws IOException {
-        ReadWriteNBT root = readNbt(readPlayerData(file), file);
+        ReadWriteNBT root = nbtIo.read(readPlayerData(file), file);
         if (!root.hasTag("bukkit", NBTType.NBTTagCompound)) {
             return null;
         }
@@ -1074,17 +1094,6 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private static ReadWriteNBT readNbt(byte[] bytes, Path file) throws IOException {
-        try {
-            return NBT.readNBT(new ByteArrayInputStream(bytes));
-        } catch (RuntimeException exception) {
-            throw new IOException(
-                    "Could not parse playerdata file " + file.getFileName(),
-                    exception
-            );
-        }
-    }
-
     private static PlayerDataRevision revision(byte[] bytes) throws IOException {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
@@ -1106,7 +1115,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private static void writeAtomically(
+    private void writeAtomically(
             Path target,
             ReadWriteNBT root,
             PlayerDataRevision expected,
@@ -1119,7 +1128,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         );
         try {
             copyPermissions(target, temporary);
-            NBT.writeFile(temporary.toFile(), root);
+            nbtIo.write(temporary, root);
             forceFile(temporary);
 
             byte[] currentBytes = readPlayerData(target);
