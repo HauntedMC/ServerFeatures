@@ -131,6 +131,223 @@ public final class InvToolsService {
         );
     }
 
+    /**
+     * Clears the requested inventory for an online or offline player. Offline clearing uses the
+     * same target reservation, revision checks, login barrier, and atomic persistence path as an
+     * offline editor; it never writes over an active offline session.
+     */
+    public void clear(Player actor, String requestedName, InventoryKind kind) {
+        Objects.requireNonNull(actor, "actor");
+        Objects.requireNonNull(kind, "kind");
+        if (!active.get() || !actor.isOnline() || !hasClearPermission(actor, kind)) {
+            return;
+        }
+
+        String name = requestedName == null ? "" : requestedName.trim();
+        if (!PLAYER_NAME.matcher(name).matches()) {
+            send(actor, "invtools.invalid_name", "player", name);
+            return;
+        }
+
+        Player onlineTarget = Bukkit.getPlayerExact(name);
+        if (onlineTarget != null && onlineTarget.isOnline()) {
+            clearOnline(actor, onlineTarget, kind);
+            return;
+        }
+
+        OfflinePlayer localPlayer = Bukkit.getOfflinePlayerIfCached(name);
+        if (localPlayer == null) {
+            send(actor, "invtools.not_played_here", "player", name);
+            return;
+        }
+        String localName = localPlayer.getName();
+        startOfflineClear(
+                actor,
+                localPlayer.getUniqueId(),
+                localName == null ? name : localName,
+                kind
+        );
+    }
+
+    private void clearOnline(Player actor, Player target, InventoryKind kind) {
+        if (actor.getUniqueId().equals(target.getUniqueId())) {
+            send(actor, "invtools.self");
+            return;
+        }
+        if (hasOnlineEditor(target.getUniqueId())) {
+            send(actor, "invtools.clear_editing", "player", target.getName());
+            return;
+        }
+
+        if (kind == InventoryKind.ENDER_CHEST) {
+            target.getEnderChest().setStorageContents(new ItemStack[InventorySnapshot.ENDER_CHEST_SIZE]);
+        } else {
+            target.getInventory().setStorageContents(new ItemStack[InventorySnapshot.STORAGE_SIZE]);
+            target.getInventory().setHelmet(null);
+            target.getInventory().setChestplate(null);
+            target.getInventory().setLeggings(null);
+            target.getInventory().setBoots(null);
+            target.getInventory().setItemInOffHand(null);
+            target.updateInventory();
+        }
+        refreshOnlineTargetViews(target.getUniqueId(), InventorySnapshot.capture(target));
+        auditClear(actor, target.getUniqueId(), target.getName(), kind, "online", "applied");
+        send(actor, "invtools.cleared", "player", target.getName());
+    }
+
+    private void startOfflineClear(
+            Player actor,
+            UUID targetId,
+            String targetName,
+            InventoryKind kind
+    ) {
+        if (loginFences.isFenced(targetId)) {
+            send(actor, "invtools.target_logging_in", "player", targetName);
+            return;
+        }
+
+        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
+        if (!permit.acquire()) {
+            send(actor, "invtools.busy");
+            return;
+        }
+        OfflineClear clear = new OfflineClear(
+                actor.getUniqueId(),
+                actor.getName(),
+                targetId,
+                targetName,
+                kind,
+                permit
+        );
+        Player nowOnline;
+        synchronized (transitionLock(targetId)) {
+            if (!active.get() || loginFences.isFenced(targetId)) {
+                permit.release();
+                send(actor, "invtools.target_logging_in", "player", targetName);
+                return;
+            }
+            nowOnline = Bukkit.getPlayer(targetId);
+            if (nowOnline != null && nowOnline.isOnline()) {
+                permit.release();
+            } else if (offlineAccesses.putIfAbsent(targetId, clear) != null) {
+                permit.release();
+                send(actor, "invtools.already_open", "player", targetName);
+                return;
+            }
+        }
+        if (nowOnline != null && nowOnline.isOnline()) {
+            clearOnline(actor, nowOnline, kind);
+            return;
+        }
+
+        send(actor, "invtools.clearing", "player", targetName);
+        try {
+            feature.getLifecycleManager().getTaskManager().runAsync(() -> {
+                ClearResult result = clearOffline(clear);
+                clear.completion().complete(result);
+                finishOfflineClear(clear, result);
+            }).whenComplete((ignored, failure) -> {
+                if (failure == null) {
+                    return;
+                }
+                feature.getLogger().warning(
+                        "InvTools offline clear task failed: " + rootCause(failure).getMessage()
+                );
+                clear.completion().complete(ClearResult.FAILED);
+                finishOfflineClear(clear, ClearResult.FAILED);
+            });
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning(
+                    "Could not schedule InvTools offline clear: " + exception.getMessage()
+            );
+            clear.completion().complete(ClearResult.FAILED);
+            finishOfflineClear(clear, ClearResult.FAILED);
+        }
+    }
+
+    private ClearResult clearOffline(OfflineClear clear) {
+        if (clear.cancelled()) {
+            return ClearResult.CANCELLED;
+        }
+
+        OfflinePlayerData original;
+        try {
+            if (!offlineStore.hasPlayerData(clear.targetId())) {
+                return ClearResult.NOT_FOUND;
+            }
+            original = offlineStore.load(clear.targetId());
+        } catch (IOException | RuntimeException exception) {
+            feature.getLogger().warning(
+                    "Could not load offline playerdata to clear " + clear.targetId() + ": "
+                            + rootCause(exception).getMessage()
+            );
+            return ClearResult.FAILED;
+        }
+
+        synchronized (transitionLock(clear.targetId())) {
+            if (clear.cancelled()
+                    || loginFences.isFenced(clear.targetId())
+                    || offlineAccesses.get(clear.targetId()) != clear) {
+                return ClearResult.CANCELLED;
+            }
+            try {
+                offlineStore.save(original, clear.kind(), InventorySnapshot.empty());
+                return ClearResult.CLEARED;
+            } catch (PlayerDataConflictException exception) {
+                feature.getLogger().warning(
+                        "Refused conflicting offline playerdata clear for " + clear.targetId()
+                                + ": " + exception.getMessage()
+                );
+                return ClearResult.CONFLICT;
+            } catch (IOException | RuntimeException exception) {
+                feature.getLogger().warning(
+                        "Could not clear offline playerdata for " + clear.targetId() + ": "
+                                + rootCause(exception).getMessage()
+                );
+                return ClearResult.FAILED;
+            }
+        }
+    }
+
+    private void finishOfflineClear(OfflineClear clear, ClearResult result) {
+        synchronized (transitionLock(clear.targetId())) {
+            if (!offlineAccesses.remove(clear.targetId(), clear)) {
+                return;
+            }
+            clear.permit().release();
+        }
+        if (result == ClearResult.CLEARED) {
+            auditClear(
+                    clear.actorId(),
+                    clear.actorName(),
+                    clear.targetId(),
+                    clear.targetName(),
+                    clear.kind(),
+                    "offline",
+                    "saved"
+            );
+        }
+        scheduleMain(() -> notifyClearResult(clear, result));
+    }
+
+    private void notifyClearResult(OfflineClear clear, ClearResult result) {
+        Player actor = Bukkit.getPlayer(clear.actorId());
+        if (actor == null || !actor.isOnline()) {
+            return;
+        }
+        if (result == ClearResult.CLEARED) {
+            send(actor, "invtools.cleared", "player", clear.targetName());
+        } else if (result == ClearResult.NOT_FOUND) {
+            send(actor, "invtools.not_played_here", "player", clear.targetName());
+        } else if (result == ClearResult.CONFLICT) {
+            send(actor, "invtools.clear_conflict", "player", clear.targetName());
+        } else if (result == ClearResult.CANCELLED) {
+            send(actor, "invtools.clear_cancelled", "player", clear.targetName());
+        } else {
+            send(actor, "invtools.clear_failed", "player", clear.targetName());
+        }
+    }
+
     public void refreshOnlineViews() {
         if (!active.get()) {
             return;
@@ -158,12 +375,7 @@ public final class InvToolsService {
                 closeOnlineTargetViews(entry.getKey());
                 continue;
             }
-            InventorySnapshot snapshot = InventorySnapshot.capture(target);
-            for (InvToolsView view : ListCopy.of(entry.getValue())) {
-                if (view.onlineSession()) {
-                    view.refresh(snapshot);
-                }
-            }
+            refreshOnlineTargetViews(entry.getKey(), InventorySnapshot.capture(target));
         }
     }
 
@@ -316,8 +528,9 @@ public final class InvToolsService {
         }
         loginFences.mark(playerId);
         OfflineAccess access;
-        InvToolsView view;
-        InvToolsView.OfflineSavePlan plan;
+        OfflineClear clearToAwait = null;
+        InvToolsView view = null;
+        InvToolsView.OfflineSavePlan plan = null;
         synchronized (transitionLock(playerId)) {
             access = offlineAccesses.get(playerId);
             if (access == null) {
@@ -330,46 +543,68 @@ public final class InvToolsService {
                 notifyReservationCancelledByLogin(reservation);
                 return LoginBarrierResult.ALLOW;
             }
-
-            view = ((ActiveOfflineView) access).view();
-            try {
-                plan = view.beginOfflineSave();
-            } catch (RuntimeException exception) {
-                view.closeWithoutSaving();
+            if (access instanceof OfflineClear clear) {
+                clearToAwait = clear;
+            } else {
+                view = ((ActiveOfflineView) access).view();
+                try {
+                    plan = view.beginOfflineSave();
+                } catch (RuntimeException exception) {
+                    view.closeWithoutSaving();
+                    detachVisible(view);
+                    offlineAccesses.remove(playerId, access);
+                    access.permit().release();
+                    feature.getLogger().warning(
+                            "Could not settle offline InvTools state before login for " + playerId
+                                    + ": " + exception.getMessage()
+                    );
+                    scheduleCloseAfterTransition(view, InvToolsView.SaveResult.FAILED);
+                    return LoginBarrierResult.RETRY;
+                }
+                if (plan == null) {
+                    offlineAccesses.remove(playerId, access);
+                    access.permit().release();
+                    return LoginBarrierResult.ALLOW;
+                }
                 detachVisible(view);
-                offlineAccesses.remove(playerId, access);
-                access.permit().release();
-                feature.getLogger().warning(
-                        "Could not settle offline InvTools state before login for " + playerId
-                                + ": " + exception.getMessage()
-                );
-                scheduleCloseAfterTransition(view, InvToolsView.SaveResult.FAILED);
+            }
+        }
+
+        if (clearToAwait != null) {
+            OfflineClear pendingClear = clearToAwait;
+            ClearResult result = awaitClear(pendingClear.completion());
+            if (result == null) {
+                pendingClear.completion().whenComplete((completed, failure) -> finishOfflineClear(
+                        pendingClear,
+                        failure == null && completed != null ? completed : ClearResult.FAILED
+                ));
                 return LoginBarrierResult.RETRY;
             }
-            if (plan == null) {
-                offlineAccesses.remove(playerId, access);
-                access.permit().release();
-                return LoginBarrierResult.ALLOW;
-            }
-            detachVisible(view);
+            finishOfflineClear(pendingClear, result);
+            return result == ClearResult.CLEARED || result == ClearResult.NOT_FOUND
+                    ? LoginBarrierResult.ALLOW
+                    : LoginBarrierResult.RETRY;
         }
 
+        InvToolsView savingView = Objects.requireNonNull(view, "view");
+        InvToolsView.OfflineSavePlan savingPlan = Objects.requireNonNull(plan, "plan");
+        OfflineAccess savingAccess = access;
         InvToolsView.SaveResult result;
-        if (plan.newlyStarted()) {
-            startPersistence(plan);
+        if (savingPlan.newlyStarted()) {
+            startPersistence(savingPlan);
         }
-        result = await(plan.completion());
+        result = await(savingPlan.completion());
 
         if (result == null) {
-            plan.completion().whenComplete((completed, failure) -> {
+            savingPlan.completion().whenComplete((completed, failure) -> {
                 InvToolsView.SaveResult resolved = failure == null && completed != null
                         ? completed
                         : InvToolsView.SaveResult.FAILED;
-                finishLoginTransition(playerId, access, view, resolved);
+                finishLoginTransition(playerId, savingAccess, savingView, resolved);
             });
             return LoginBarrierResult.RETRY;
         }
-        finishLoginTransition(playerId, access, view, result);
+        finishLoginTransition(playerId, savingAccess, savingView, result);
         return result == InvToolsView.SaveResult.SAVED
                 || result == InvToolsView.SaveResult.UNCHANGED
                 ? LoginBarrierResult.ALLOW
@@ -409,6 +644,12 @@ public final class InvToolsService {
                 notifyReservationCancelledByLogin(reservation);
                 return;
             }
+            if (access instanceof OfflineClear clear) {
+                clear.cancel();
+                clear.permit().release();
+                scheduleMain(() -> notifyClearResult(clear, ClearResult.CANCELLED));
+                return;
+            }
             if (!(access instanceof ActiveOfflineView activeView)) {
                 return;
             }
@@ -442,11 +683,15 @@ public final class InvToolsService {
             return;
         }
         Set<InvToolsView> shutdownViews = new LinkedHashSet<>(viewsByViewer.values());
+        Set<OfflineClear> shutdownClears = new LinkedHashSet<>();
         offlineAccesses.forEach((targetId, access) -> {
             if (access instanceof OfflineReservation reservation) {
                 reservation.cancel();
             } else if (access instanceof ActiveOfflineView activeView) {
                 shutdownViews.add(activeView.view());
+            } else if (access instanceof OfflineClear clear) {
+                clear.cancel();
+                shutdownClears.add(clear);
             }
         });
 
@@ -461,6 +706,17 @@ public final class InvToolsService {
             Player viewer = Bukkit.getPlayer(view.viewerId());
             if (viewer != null && viewer.isOnline()) {
                 closeIfViewing(viewer, view);
+            }
+        }
+
+        for (OfflineClear clear : shutdownClears) {
+            try {
+                clear.completion().join();
+            } catch (RuntimeException exception) {
+                feature.getLogger().warning(
+                        "Could not finish offline InvTools clear during shutdown for "
+                                + clear.targetId() + ": " + rootCause(exception).getMessage()
+                );
             }
         }
 
@@ -885,6 +1141,23 @@ public final class InvToolsService {
         }
     }
 
+    private ClearResult awaitClear(CompletableFuture<ClearResult> future) {
+        try {
+            return future.get(loginBarrierTimeout.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (TimeoutException exception) {
+            feature.getLogger().warning("Timed out waiting for an InvTools playerdata clear.");
+            return null;
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception exception) {
+            feature.getLogger().warning(
+                    "InvTools playerdata clear failed: " + rootCause(exception).getMessage()
+            );
+            return ClearResult.FAILED;
+        }
+    }
+
     private void applyMutation(InvToolsView view, int backingSlot, ItemStack item) {
         if (!view.onlineSession()) {
             return;
@@ -914,12 +1187,20 @@ public final class InvToolsService {
         }
         target.updateInventory();
 
-        InventorySnapshot latest = InventorySnapshot.capture(target);
+        refreshOnlineTargetViews(view.targetId(), InventorySnapshot.capture(target));
+    }
+
+    private boolean hasOnlineEditor(UUID targetId) {
+        return ListCopy.of(viewsByTarget.getOrDefault(targetId, Set.of())).stream()
+                .anyMatch(view -> view.onlineSession() && view.editable());
+    }
+
+    private void refreshOnlineTargetViews(UUID targetId, InventorySnapshot snapshot) {
         for (InvToolsView targetView : ListCopy.of(
-                viewsByTarget.getOrDefault(view.targetId(), Set.of())
+                viewsByTarget.getOrDefault(targetId, Set.of())
         )) {
             if (targetView.onlineSession()) {
-                targetView.refresh(latest);
+                targetView.refresh(snapshot);
             }
         }
     }
@@ -1096,20 +1377,60 @@ public final class InvToolsService {
         );
     }
 
-    public static String inspectPermission(InventoryKind kind) {
-        return PERMISSION_PREFIX + kind.commandName() + ".inspect";
+    private void auditClear(
+            Player actor,
+            UUID targetId,
+            String targetName,
+            InventoryKind kind,
+            String source,
+            String outcome
+    ) {
+        auditClear(actor.getUniqueId(), actor.getName(), targetId, targetName, kind, source, outcome);
     }
 
-    public static String editPermission(InventoryKind kind) {
-        return PERMISSION_PREFIX + kind.commandName() + ".edit";
+    private void auditClear(
+            UUID actorId,
+            String actorName,
+            UUID targetId,
+            String targetName,
+            InventoryKind kind,
+            String source,
+            String outcome
+    ) {
+        if (!auditEdits) {
+            return;
+        }
+        feature.getLogger().info(
+                "InvTools clear: actor=" + actorName + "/" + actorId
+                        + ", target=" + targetName + "/" + targetId
+                        + ", source=" + source
+                        + ", inventory=" + kind
+                        + ", outcome=" + outcome
+        );
+    }
+
+    public static String openInspectPermission(InventoryKind kind) {
+        return PERMISSION_PREFIX + kind.commandSegment() + ".open.inspect";
+    }
+
+    public static String openEditPermission(InventoryKind kind) {
+        return PERMISSION_PREFIX + kind.commandSegment() + ".open.edit";
+    }
+
+    public static String clearPermission(InventoryKind kind) {
+        return PERMISSION_PREFIX + kind.commandSegment() + ".clear";
     }
 
     private static boolean hasInspectPermission(Player viewer, InventoryKind kind) {
-        return viewer.hasPermission(inspectPermission(kind));
+        return viewer.hasPermission(openInspectPermission(kind));
     }
 
     private static boolean hasEditPermission(Player viewer, InventoryKind kind) {
-        return viewer.hasPermission(editPermission(kind));
+        return viewer.hasPermission(openEditPermission(kind));
+    }
+
+    private static boolean hasClearPermission(Player viewer, InventoryKind kind) {
+        return viewer.hasPermission(clearPermission(kind));
     }
 
     private boolean canStillOpen(Player viewer, InventoryKind kind) {
@@ -1246,7 +1567,7 @@ public final class InvToolsService {
         RETRY
     }
 
-    private sealed interface OfflineAccess permits OfflineReservation, ActiveOfflineView {
+    private sealed interface OfflineAccess permits OfflineReservation, ActiveOfflineView, OfflineClear {
         OfflinePermit permit();
     }
 
@@ -1321,6 +1642,78 @@ public final class InvToolsService {
         private boolean cancelled() {
             return cancelled.get();
         }
+    }
+
+    private static final class OfflineClear implements OfflineAccess {
+        private final UUID actorId;
+        private final String actorName;
+        private final UUID targetId;
+        private final String targetName;
+        private final InventoryKind kind;
+        private final OfflinePermit permit;
+        private final CompletableFuture<ClearResult> completion = new CompletableFuture<>();
+        private final AtomicBoolean cancelled = new AtomicBoolean();
+
+        private OfflineClear(
+                UUID actorId,
+                String actorName,
+                UUID targetId,
+                String targetName,
+                InventoryKind kind,
+                OfflinePermit permit
+        ) {
+            this.actorId = Objects.requireNonNull(actorId, "actorId");
+            this.actorName = Objects.requireNonNull(actorName, "actorName");
+            this.targetId = Objects.requireNonNull(targetId, "targetId");
+            this.targetName = Objects.requireNonNull(targetName, "targetName");
+            this.kind = Objects.requireNonNull(kind, "kind");
+            this.permit = Objects.requireNonNull(permit, "permit");
+        }
+
+        private UUID actorId() {
+            return actorId;
+        }
+
+        private String actorName() {
+            return actorName;
+        }
+
+        private UUID targetId() {
+            return targetId;
+        }
+
+        private String targetName() {
+            return targetName;
+        }
+
+        private InventoryKind kind() {
+            return kind;
+        }
+
+        @Override
+        public OfflinePermit permit() {
+            return permit;
+        }
+
+        private CompletableFuture<ClearResult> completion() {
+            return completion;
+        }
+
+        private void cancel() {
+            cancelled.set(true);
+        }
+
+        private boolean cancelled() {
+            return cancelled.get();
+        }
+    }
+
+    private enum ClearResult {
+        CLEARED,
+        NOT_FOUND,
+        CONFLICT,
+        FAILED,
+        CANCELLED
     }
 
     private static final class OfflinePermit {

@@ -10,20 +10,28 @@ class InvToolsPermissionsTest {
     @Test
     void permissionsAreScopedToTheCommandAndAction() {
         assertEquals(
-                "serverfeatures.feature.invtools.command.invsee.inspect",
-                InvToolsService.inspectPermission(InventoryKind.PLAYER)
+                "serverfeatures.feature.invtools.command.inventory.open.inspect",
+                InvToolsService.openInspectPermission(InventoryKind.PLAYER)
         );
         assertEquals(
-                "serverfeatures.feature.invtools.command.invsee.edit",
-                InvToolsService.editPermission(InventoryKind.PLAYER)
+                "serverfeatures.feature.invtools.command.inventory.open.edit",
+                InvToolsService.openEditPermission(InventoryKind.PLAYER)
         );
         assertEquals(
-                "serverfeatures.feature.invtools.command.endersee.inspect",
-                InvToolsService.inspectPermission(InventoryKind.ENDER_CHEST)
+                "serverfeatures.feature.invtools.command.inventory.clear",
+                InvToolsService.clearPermission(InventoryKind.PLAYER)
         );
         assertEquals(
-                "serverfeatures.feature.invtools.command.endersee.edit",
-                InvToolsService.editPermission(InventoryKind.ENDER_CHEST)
+                "serverfeatures.feature.invtools.command.enderchest.open.inspect",
+                InvToolsService.openInspectPermission(InventoryKind.ENDER_CHEST)
+        );
+        assertEquals(
+                "serverfeatures.feature.invtools.command.enderchest.open.edit",
+                InvToolsService.openEditPermission(InventoryKind.ENDER_CHEST)
+        );
+        assertEquals(
+                "serverfeatures.feature.invtools.command.enderchest.clear",
+                InvToolsService.clearPermission(InventoryKind.ENDER_CHEST)
         );
     }
 }

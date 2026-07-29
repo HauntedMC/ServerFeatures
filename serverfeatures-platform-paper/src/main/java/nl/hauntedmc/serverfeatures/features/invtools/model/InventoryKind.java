@@ -1,16 +1,16 @@
 package nl.hauntedmc.serverfeatures.features.invtools.model;
 
 public enum InventoryKind {
-    PLAYER("invsee"),
-    ENDER_CHEST("endersee");
+    PLAYER("inventory"),
+    ENDER_CHEST("enderchest");
 
-    private final String commandName;
+    private final String commandSegment;
 
-    InventoryKind(String commandName) {
-        this.commandName = commandName;
+    InventoryKind(String commandSegment) {
+        this.commandSegment = commandSegment;
     }
 
-    public String commandName() {
-        return commandName;
+    public String commandSegment() {
+        return commandSegment;
     }
 }

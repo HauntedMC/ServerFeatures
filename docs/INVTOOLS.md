@@ -1,9 +1,12 @@
 # InvTools
 
-InvTools gives staff a safe GUI for inspecting or editing a player's inventory and ender chest:
+InvTools gives staff safe inventory administration under one Brigadier command tree:
 
-- `/invsee <name>` shows main storage, hotbar, armor, and offhand as visually separate sections.
-- `/endersee <name>` shows all 27 ender chest slots.
+- `/inv inventory open <name>` shows main storage, hotbar, armor, and offhand as visually
+  separate sections.
+- `/inv enderchest open <name>` shows all 27 ender chest slots.
+- `/inv inventory clear <name>` safely clears the player's inventory, armor, and offhand.
+- `/inv enderchest clear <name>` safely clears all 27 ender chest slots.
 
 The feature is disabled by default. Enable `InvTools` through the normal feature command or set
 `enabled: true` in `plugins/ServerFeatures/features/InvTools/config.yml`. Offline lookup uses only
@@ -13,13 +16,17 @@ shaded into ServerFeatures; it is not a separate server plugin dependency.
 
 ## Permissions
 
-- `serverfeatures.feature.invtools.command.invsee.inspect` opens `/invsee` read-only.
-- `serverfeatures.feature.invtools.command.invsee.edit` additionally permits editing `/invsee`.
-- `serverfeatures.feature.invtools.command.endersee.inspect` opens `/endersee` read-only.
-- `serverfeatures.feature.invtools.command.endersee.edit` additionally permits editing `/endersee`.
+- `serverfeatures.feature.invtools.command.inventory.open.inspect` opens a player inventory
+  read-only.
+- `serverfeatures.feature.invtools.command.inventory.open.edit` additionally permits editing it.
+- `serverfeatures.feature.invtools.command.inventory.clear` permits clearing it.
+- `serverfeatures.feature.invtools.command.enderchest.open.inspect` opens an ender chest
+  read-only.
+- `serverfeatures.feature.invtools.command.enderchest.open.edit` additionally permits editing it.
+- `serverfeatures.feature.invtools.command.enderchest.clear` permits clearing it.
 
-An edit permission does not grant the matching inspect permission; grant both for that command.
-Neither permission is granted by default.
+An edit permission does not grant the matching open permission, and clear permissions are separate
+from both. Neither permission is granted by default.
 
 ## Session behavior
 
@@ -49,6 +56,9 @@ Only one offline session per target is allowed, including read-only sessions. A 
 
 At most `max_offline_sessions` offline sessions are active at once (four by default). New requests
 fail fast while that limit is reached instead of occupying Paper's shared asynchronous workers.
+Offline clear uses the same limit, target reservation, revision checks, atomic replacement, recovery
+backup, and login barrier as offline editing. An inventory with an active online editor is never
+cleared until that editor has closed their session.
 
 Offline editing is isolated from the staff member's own inventory. The bottom inventory, shift
 transfer, number-key swaps, drags, and destructive Q shortcuts are blocked. Items may be safely

@@ -6,10 +6,9 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
-import nl.hauntedmc.serverfeatures.features.invtools.command.InventorySeeCommand;
+import nl.hauntedmc.serverfeatures.features.invtools.command.InvToolsCommand;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsListener;
 import nl.hauntedmc.serverfeatures.features.invtools.meta.Meta;
-import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
 
 public final class InvTools extends BukkitBaseFeature<Meta> {
@@ -34,8 +33,6 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-        messages.add("invtools.usage.invsee", "&eGebruik: /invsee <naam>");
-        messages.add("invtools.usage.endersee", "&eGebruik: /endersee <naam>");
         messages.add("invtools.invalid_name", "&cOngeldige spelersnaam: &e{player}&c.");
         messages.add("invtools.not_played_here",
                 "&cSpeler &e{player}&c heeft nog geen spelerdata op deze server.");
@@ -73,6 +70,16 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&cNiet-opgeslagen wijzigingen voor &e{player}&c zijn vervallen omdat de speler tijdens het openen inlogde.");
         messages.add("invtools.login_retry",
                 "&cJe spelerdata werd zojuist door staff bijgewerkt. Probeer over enkele seconden opnieuw.");
+        messages.add("invtools.clearing", "&7Inventaris van &f{player}&7 wordt veilig gewist...");
+        messages.add("invtools.cleared", "&aInventaris van &e{player}&a is veilig gewist.");
+        messages.add("invtools.clear_failed",
+                "&cInventaris van &e{player}&c kon niet veilig worden gewist.");
+        messages.add("invtools.clear_conflict",
+                "&cInventaris van &e{player}&c is niet gewist omdat de spelerdata veranderde.");
+        messages.add("invtools.clear_cancelled",
+                "&eHet wissen van &f{player}&e is geannuleerd omdat de speler inlogde.");
+        messages.add("invtools.clear_editing",
+                "&cInventaris van &e{player}&c wordt bewerkt; sluit die sessie eerst.");
         return messages;
     }
 
@@ -85,10 +92,7 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         }
         service = new InvToolsService(this);
 
-        getLifecycleManager().getCommandManager()
-                .registerFeatureCommand(new InventorySeeCommand(this, InventoryKind.PLAYER));
-        getLifecycleManager().getCommandManager()
-                .registerFeatureCommand(new InventorySeeCommand(this, InventoryKind.ENDER_CHEST));
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(new InvToolsCommand(this));
         getLifecycleManager().getListenerManager()
                 .registerListener(new InvToolsListener(this, service));
 
