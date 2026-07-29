@@ -23,6 +23,7 @@ public final class InventorySnapshot {
     public static final int OFF_HAND_SLOT = -106;
 
     private static final int[] PLAYER_BACKING_SLOTS = createPlayerBackingSlots();
+    private static final int[] PLAYER_SHIFT_INSERTION_SLOTS = createPlayerShiftInsertionSlots();
     private static final int[] ENDER_BACKING_SLOTS = createEnderBackingSlots();
 
     private final ItemStack[] storage;
@@ -171,16 +172,39 @@ public final class InventorySnapshot {
      */
     public InsertionResult insert(InventoryKind kind, ItemStack carriedItem) {
         Objects.requireNonNull(kind, "kind");
+        return insertIntoSlots(
+                kind,
+                carriedItem,
+                kind == InventoryKind.PLAYER ? PLAYER_BACKING_SLOTS : ENDER_BACKING_SLOTS
+        );
+    }
+
+    /**
+     * Inserts an item using normal container shift-click semantics.
+     *
+     * <p>For player inventories this fills main storage before the hotbar and never auto-equips
+     * armor or the offhand. Ender chest insertion covers its 27 storage slots.</p>
+     */
+    public InsertionResult shiftInsert(InventoryKind kind, ItemStack carriedItem) {
+        Objects.requireNonNull(kind, "kind");
+        return insertIntoSlots(
+                kind,
+                carriedItem,
+                kind == InventoryKind.PLAYER ? PLAYER_SHIFT_INSERTION_SLOTS : ENDER_BACKING_SLOTS
+        );
+    }
+
+    private InsertionResult insertIntoSlots(
+            InventoryKind kind,
+            ItemStack carriedItem,
+            int[] backingSlots
+    ) {
         ItemStack remainder = cloneItem(carriedItem);
         if (remainder == null) {
             return new InsertionResult(this, null);
         }
 
-        int[] backingSlots = kind == InventoryKind.PLAYER
-                ? PLAYER_BACKING_SLOTS
-                : ENDER_BACKING_SLOTS;
         InventorySnapshot changed = this;
-
         for (int backingSlot : backingSlots) {
             ItemStack existing = changed.itemAt(kind, backingSlot);
             if (existing == null || !existing.isSimilar(remainder)) {
@@ -297,6 +321,18 @@ public final class InventorySnapshot {
         slots[STORAGE_SIZE + 2] = LEGGINGS_SLOT;
         slots[STORAGE_SIZE + 3] = BOOTS_SLOT;
         slots[STORAGE_SIZE + 4] = OFF_HAND_SLOT;
+        return slots;
+    }
+
+    private static int[] createPlayerShiftInsertionSlots() {
+        int[] slots = new int[STORAGE_SIZE];
+        int index = 0;
+        for (int slot = 9; slot < STORAGE_SIZE; slot++) {
+            slots[index++] = slot;
+        }
+        for (int slot = 0; slot < 9; slot++) {
+            slots[index++] = slot;
+        }
         return slots;
     }
 
