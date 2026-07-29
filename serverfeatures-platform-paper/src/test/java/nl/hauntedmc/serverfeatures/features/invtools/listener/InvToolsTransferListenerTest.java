@@ -24,6 +24,7 @@ import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStac
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -69,7 +70,7 @@ class InvToolsTransferListenerTest {
         when(event.getView()).thenReturn(inventoryView);
         when(event.getWhoClicked()).thenReturn(viewer);
         when(event.getAction()).thenReturn(InventoryAction.MOVE_TO_OTHER_INVENTORY);
-        when(view.applyOfflineShiftTransfer(any(), any(), any(), any(), any(Boolean.class)))
+        when(view.applyOfflineShiftTransfer(any(), any(), any(), any(), anyBoolean()))
                 .thenReturn(true);
 
         listener = new InvToolsTransferListener(feature);
