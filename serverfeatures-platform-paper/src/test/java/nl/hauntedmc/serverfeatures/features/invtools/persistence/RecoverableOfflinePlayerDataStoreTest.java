@@ -2,8 +2,8 @@ package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
+import nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks;
 import org.bukkit.Material;
-import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -78,7 +78,7 @@ class RecoverableOfflinePlayerDataStoreTest {
         InventorySnapshot changedSnapshot = originalSnapshot.withBackingSlot(
                 InventoryKind.PLAYER,
                 0,
-                new ItemStack(Material.STONE, 3)
+                TestItemStacks.item(Material.STONE, 3)
         );
         OfflinePlayerData original = new OfflinePlayerData(
                 playerId,
@@ -109,7 +109,7 @@ class RecoverableOfflinePlayerDataStoreTest {
         InventorySnapshot changedSnapshot = originalSnapshot.withBackingSlot(
                 InventoryKind.ENDER_CHEST,
                 0,
-                new ItemStack(Material.DIAMOND, 2)
+                TestItemStacks.item(Material.DIAMOND, 2)
         );
         OfflinePlayerData original = new OfflinePlayerData(
                 playerId,
