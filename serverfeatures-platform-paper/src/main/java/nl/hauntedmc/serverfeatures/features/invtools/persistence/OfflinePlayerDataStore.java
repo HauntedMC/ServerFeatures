@@ -13,7 +13,7 @@ import java.util.UUID;
 public interface OfflinePlayerDataStore {
 
     /**
-     * Returns whether this server's primary world has a regular playerdata file for the UUID.
+     * Returns whether Paper's current player storage contains a regular data file for the UUID.
      */
     boolean hasPlayerData(UUID playerId) throws IOException;
 
