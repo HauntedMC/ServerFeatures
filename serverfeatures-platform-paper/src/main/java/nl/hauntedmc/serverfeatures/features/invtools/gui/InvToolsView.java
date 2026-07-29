@@ -250,21 +250,7 @@ public final class InvToolsView implements InventoryHolder {
         inventory.setItem(informationSlot, menuItem(
                 Material.PLAYER_HEAD,
                 Component.text(targetName, NamedTextColor.GOLD),
-                List.of(
-                        message(onlineSession
-                                ? "invtools.gui.info.online"
-                                : "invtools.gui.info.offline"),
-                        message(
-                                kind == InventoryKind.PLAYER
-                                        ? "invtools.gui.info.inventory.main"
-                                        : "invtools.gui.info.enderchest.slots"
-                        ),
-                        message(
-                                kind == InventoryKind.PLAYER
-                                        ? "invtools.gui.info.inventory.hotbar_armor"
-                                        : "invtools.gui.info.enderchest.storage"
-                        )
-                )
+                informationLore()
         ));
         inventory.setItem(modeSlot, menuItem(
                 editable ? Material.REDSTONE_TORCH : Material.SPYGLASS,
@@ -283,6 +269,25 @@ public final class InvToolsView implements InventoryHolder {
         return localization.getMessage(key)
                 .forAudience(viewerAudience)
                 .build();
+    }
+
+    private List<Component> informationLore() {
+        Component connectionStatus = message(onlineSession
+                ? "invtools.gui.info.online"
+                : "invtools.gui.info.offline");
+        if (kind == InventoryKind.PLAYER) {
+            return List.of(
+                    connectionStatus,
+                    message("invtools.gui.info.inventory.main"),
+                    message("invtools.gui.info.inventory.hotbar"),
+                    message("invtools.gui.info.inventory.armor_offhand")
+            );
+        }
+        return List.of(
+                connectionStatus,
+                message("invtools.gui.info.enderchest.slots"),
+                message("invtools.gui.info.enderchest.storage")
+        );
     }
 
     private void renderMappedItems() {

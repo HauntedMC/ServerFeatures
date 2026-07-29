@@ -93,10 +93,11 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         messages.add("invtools.gui.title.enderchest", "&8Enderkist: ");
         messages.add("invtools.gui.info.online", "&7Online speler");
         messages.add("invtools.gui.info.offline", "&7Offline speler");
-        messages.add("invtools.gui.info.inventory.main", "&8Hoofdinventaris: rijen 2–4");
-        messages.add("invtools.gui.info.inventory.hotbar_armor", "&8Hotbar: rij 5 · pantser en offhand: rij 1");
-        messages.add("invtools.gui.info.enderchest.slots", "&827 enderkistslots");
-        messages.add("invtools.gui.info.enderchest.storage", "&8Opslag: rijen 1–3");
+        messages.add("invtools.gui.info.inventory.main", "&8• Hoofdinventaris: rijen 2–4");
+        messages.add("invtools.gui.info.inventory.hotbar", "&8• Hotbar: rij 5");
+        messages.add("invtools.gui.info.inventory.armor_offhand", "&8• Pantser en offhand: rij 1");
+        messages.add("invtools.gui.info.enderchest.slots", "&8• 27 enderkistslots");
+        messages.add("invtools.gui.info.enderchest.storage", "&8• Opslag: rijen 1–3");
         messages.add("invtools.gui.mode.edit.name", "&cBewerkmodus");
         messages.add("invtools.gui.mode.edit.lore", "&7Wijzigingen worden direct toegepast.");
         messages.add("invtools.gui.mode.inspect.name", "&bInspectiemodus");
