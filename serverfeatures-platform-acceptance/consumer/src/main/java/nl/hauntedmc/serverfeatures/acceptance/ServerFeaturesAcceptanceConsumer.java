@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.acceptance;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
 import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.MenuNavigator;
+import nl.hauntedmc.serverfeatures.features.invtools.persistence.PaperPlayerDataConverter;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -23,6 +24,7 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
                 if (MenuNavigator.class.getName().isBlank()) {
                     throw new IllegalStateException("ServerFeatures public API is unavailable.");
                 }
+                new PaperPlayerDataConverter().verifyAvailable();
                 getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
             } catch (Exception exception) {
                 getLogger().severe("SERVERFEATURES_ACCEPTANCE_FAIL platform=paper cause=" + exception);
