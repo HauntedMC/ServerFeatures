@@ -71,10 +71,18 @@ public final class InvToolsServiceFactory {
 
     @SuppressWarnings("deprecation")
     private static void verifyRuntimeDataVersion() {
-        int paperDataVersion = Bukkit.getUnsafe().getDataVersion();
-        int nbtApiDataVersion = DataFixerUtil.getCurrentVersion();
+        requireMatchingDataVersion(
+                Bukkit.getUnsafe().getDataVersion(),
+                DataFixerUtil.getCurrentVersion()
+        );
+    }
+
+    static void requireMatchingDataVersion(int paperDataVersion, int nbtApiDataVersion) {
         if (paperDataVersion <= 0) {
             throw new IllegalStateException("Paper reported an invalid runtime DataVersion");
+        }
+        if (nbtApiDataVersion <= 0) {
+            throw new IllegalStateException("NBT-API reported an invalid runtime DataVersion");
         }
         if (paperDataVersion != nbtApiDataVersion) {
             throw new IllegalStateException(
