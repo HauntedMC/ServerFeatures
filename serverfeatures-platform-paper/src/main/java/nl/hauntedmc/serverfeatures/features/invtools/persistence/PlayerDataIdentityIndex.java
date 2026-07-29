@@ -23,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * Resolves command names to playerdata files that actually exist on this server.
+ * Resolves command names to the strongest UUID candidate for playerdata on this server.
  *
  * <p>DataRegistry is the primary authority for current usernames and forwarded UUIDs. Local
  * connection observations, playerdata metadata, and Paper's user cache remain conservative fallback
@@ -85,10 +85,16 @@ final class PlayerDataIdentityIndex {
         String normalizedName = normalize(playerName);
 
         UUID observedPlayerId = observedPlayerIds.get(normalizedName);
-        if (observedPlayerId != null && hasPlayerData(observedPlayerId)) {
+        if (observedPlayerId != null) {
+            /*
+             * A UUID observed from a real connection remains authoritative while Paper completes
+             * the quit sequence. The playerdata file may not exist yet when PlayerQuitEvent fires;
+             * the service's bounded appearance retry must therefore receive this UUID immediately.
+             */
             return Optional.of(observedPlayerId);
         }
 
+        UUID pendingCanonicalPlayerId = null;
         Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity =
                 canonicalIdentityLookup.find(playerName);
         if (canonicalIdentity.isPresent()) {
@@ -97,6 +103,7 @@ final class PlayerDataIdentityIndex {
                 remember(identity.playerId(), identity.playerName());
                 return Optional.of(identity.playerId());
             }
+            pendingCanonicalPlayerId = identity.playerId();
         }
 
         if (preferredPlayerId.isPresent()
@@ -110,7 +117,7 @@ final class PlayerDataIdentityIndex {
             return Optional.of(indexedPlayerId);
         }
         if (!requiresRefresh(current)) {
-            return Optional.empty();
+            return rememberPendingCanonical(canonicalIdentity, pendingCanonicalPlayerId);
         }
 
         synchronized (rebuildLock) {
@@ -122,8 +129,24 @@ final class PlayerDataIdentityIndex {
             if (requiresRefresh(current)) {
                 snapshot = rebuild();
             }
-            return Optional.ofNullable(snapshot.playerIdsByName().get(normalizedName));
+            indexedPlayerId = snapshot.playerIdsByName().get(normalizedName);
+            if (indexedPlayerId != null) {
+                return Optional.of(indexedPlayerId);
+            }
+            return rememberPendingCanonical(canonicalIdentity, pendingCanonicalPlayerId);
         }
+    }
+
+    private Optional<UUID> rememberPendingCanonical(
+            Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity,
+            UUID pendingCanonicalPlayerId
+    ) {
+        if (pendingCanonicalPlayerId == null || canonicalIdentity.isEmpty()) {
+            return Optional.empty();
+        }
+        CanonicalPlayerIdentityLookup.Identity identity = canonicalIdentity.get();
+        remember(identity.playerId(), identity.playerName());
+        return Optional.of(pendingCanonicalPlayerId);
     }
 
     void remember(UUID playerId, String playerName) {
