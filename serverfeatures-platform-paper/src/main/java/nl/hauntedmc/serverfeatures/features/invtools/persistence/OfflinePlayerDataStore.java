@@ -13,15 +13,18 @@ import java.util.UUID;
 public interface OfflinePlayerDataStore {
 
     /**
-     * Returns whether this server's primary world has a regular playerdata file for the UUID.
+     * Returns whether Paper's current player storage contains a regular data file for the UUID.
      */
     boolean hasPlayerData(UUID playerId) throws IOException;
 
     OfflinePlayerData load(UUID playerId) throws IOException;
 
     /**
-     * Resolves a name to a playerdata file that actually exists on this server. The preferred ID
-     * may come from Paper's profile cache and must therefore be verified against local storage.
+     * Resolves a name to the strongest available UUID candidate for this server.
+     *
+     * <p>An authoritative identity may be returned before its playerdata file is visible. This is
+     * required during logout because Paper fires the quit event before the final player save has
+     * necessarily reached disk. The caller is responsible for waiting for the file to appear.</p>
      */
     default Optional<UUID> resolvePlayerId(
             Optional<UUID> preferredPlayerId,

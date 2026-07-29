@@ -33,8 +33,8 @@ import java.util.UUID;
 import java.util.zip.GZIPInputStream;
 
 /**
- * Reads only the vanilla playerdata file and mutates only Inventory, EnderItems, and the five
- * player equipment entries owned by InvTools.
+ * Reads only Paper's player record and mutates only Inventory, EnderItems, and the five player
+ * equipment entries owned by InvTools.
  */
 public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
@@ -65,7 +65,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             Path pluginDataDirectory
     ) {
         Path normalizedLevelDirectory = levelDirectory.toAbsolutePath().normalize();
-        this.playerDataDirectory = normalizedLevelDirectory.resolve("playerdata");
+        this.playerDataDirectory = PaperPlayerDataLayout.playerDataDirectory(normalizedLevelDirectory);
         if (runtimeDataVersion <= 0) {
             throw new IllegalArgumentException("runtimeDataVersion must be positive");
         }
@@ -436,7 +436,8 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     private static byte[] readPlayerData(Path file) throws IOException {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(file)) {
-            throw new IOException("Playerdata file does not exist or is not a regular file: " + file.getFileName());
+            throw new IOException("Playerdata file does not exist or is not a regular file: "
+                    + file.getFileName());
         }
         try (InputStream input = Files.newInputStream(
                 file,
@@ -527,9 +528,14 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private static void writeRecoveryBackup(Path target, byte[] source, UUID playerId) throws IOException {
+    private static void writeRecoveryBackup(Path target, byte[] source, UUID playerId)
+            throws IOException {
         Path backup = target.resolveSibling(target.getFileName() + ".invtools-backup");
-        Path temporary = Files.createTempFile(target.getParent(), playerId + ".invtools-backup-", ".dat");
+        Path temporary = Files.createTempFile(
+                target.getParent(),
+                playerId + ".invtools-backup-",
+                ".dat"
+        );
         try {
             copyPermissions(target, temporary);
             Files.write(temporary, source, StandardOpenOption.TRUNCATE_EXISTING);
@@ -568,8 +574,10 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         if (posix != null) {
             var attributes = posix.readAttributes();
             Files.setPosixFilePermissions(destination, attributes.permissions());
-            Files.getFileAttributeView(destination, PosixFileAttributeView.class).setGroup(attributes.group());
-            Files.getFileAttributeView(destination, FileOwnerAttributeView.class).setOwner(attributes.owner());
+            Files.getFileAttributeView(destination, PosixFileAttributeView.class)
+                    .setGroup(attributes.group());
+            Files.getFileAttributeView(destination, FileOwnerAttributeView.class)
+                    .setOwner(attributes.owner());
         }
     }
 

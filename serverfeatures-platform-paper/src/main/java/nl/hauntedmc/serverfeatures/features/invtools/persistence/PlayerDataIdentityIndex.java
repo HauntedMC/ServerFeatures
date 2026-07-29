@@ -21,9 +21,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 /**
- * Resolves command names to playerdata files that actually exist on this server.
+ * Resolves command names to the strongest UUID candidate for playerdata on this server.
  *
  * <p>DataRegistry is the primary authority for current usernames and forwarded UUIDs. Local
  * connection observations, playerdata metadata, and Paper's user cache remain conservative fallback
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 final class PlayerDataIdentityIndex {
 
+    private static final Logger LOGGER = Logger.getLogger("ServerFeatures");
     private static final long INDEX_TTL_NANOS = 30_000_000_000L;
     private static final int MAX_USER_CACHE_BYTES = 4 * 1024 * 1024;
 
@@ -85,10 +87,19 @@ final class PlayerDataIdentityIndex {
         String normalizedName = normalize(playerName);
 
         UUID observedPlayerId = observedPlayerIds.get(normalizedName);
-        if (observedPlayerId != null && hasPlayerData(observedPlayerId)) {
+        if (observedPlayerId != null) {
+            /*
+             * A UUID observed from a real connection remains authoritative while Paper completes
+             * the quit sequence. The playerdata file may not exist yet when PlayerQuitEvent fires;
+             * the service's bounded appearance retry must therefore receive this UUID immediately.
+             */
+            if (!hasPlayerData(observedPlayerId)) {
+                logPendingCandidate("observed-connection", playerName, observedPlayerId);
+            }
             return Optional.of(observedPlayerId);
         }
 
+        UUID pendingCanonicalPlayerId = null;
         Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity =
                 canonicalIdentityLookup.find(playerName);
         if (canonicalIdentity.isPresent()) {
@@ -97,6 +108,7 @@ final class PlayerDataIdentityIndex {
                 remember(identity.playerId(), identity.playerName());
                 return Optional.of(identity.playerId());
             }
+            pendingCanonicalPlayerId = identity.playerId();
         }
 
         if (preferredPlayerId.isPresent()
@@ -110,7 +122,12 @@ final class PlayerDataIdentityIndex {
             return Optional.of(indexedPlayerId);
         }
         if (!requiresRefresh(current)) {
-            return Optional.empty();
+            return finishResolution(
+                    canonicalIdentity,
+                    pendingCanonicalPlayerId,
+                    preferredPlayerId,
+                    playerName
+            );
         }
 
         synchronized (rebuildLock) {
@@ -122,8 +139,62 @@ final class PlayerDataIdentityIndex {
             if (requiresRefresh(current)) {
                 snapshot = rebuild();
             }
-            return Optional.ofNullable(snapshot.playerIdsByName().get(normalizedName));
+            indexedPlayerId = snapshot.playerIdsByName().get(normalizedName);
+            if (indexedPlayerId != null) {
+                return Optional.of(indexedPlayerId);
+            }
+            return finishResolution(
+                    canonicalIdentity,
+                    pendingCanonicalPlayerId,
+                    preferredPlayerId,
+                    playerName
+            );
         }
+    }
+
+    private Optional<UUID> finishResolution(
+            Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity,
+            UUID pendingCanonicalPlayerId,
+            Optional<UUID> preferredPlayerId,
+            String playerName
+    ) {
+        if (pendingCanonicalPlayerId != null && canonicalIdentity.isPresent()) {
+            CanonicalPlayerIdentityLookup.Identity identity = canonicalIdentity.get();
+            remember(identity.playerId(), identity.playerName());
+            logPendingCandidate("dataregistry", playerName, pendingCanonicalPlayerId);
+            return Optional.of(pendingCanonicalPlayerId);
+        }
+        LOGGER.warning(() -> "[InvTools] Could not resolve offline player identity: name="
+                + playerName
+                + ", paperCachedUuid=" + preferredPlayerId.map(UUID::toString).orElse("none")
+                + ", " + describeDirectory());
+        return Optional.empty();
+    }
+
+    private void logPendingCandidate(String source, String playerName, UUID playerId) {
+        LOGGER.warning(() -> "[InvTools] Resolved an authoritative offline UUID while its playerdata "
+                + "file is not visible yet; the bounded logout retry will continue: source=" + source
+                + ", name=" + playerName
+                + ", uuid=" + playerId
+                + ", " + describePlayerFile(playerId));
+    }
+
+    private String describeDirectory() {
+        return "playerDataDirectory=" + playerDataDirectory.toAbsolutePath().normalize()
+                + ", directoryExists=" + Files.exists(playerDataDirectory, LinkOption.NOFOLLOW_LINKS)
+                + ", directoryIsDirectory="
+                + Files.isDirectory(playerDataDirectory, LinkOption.NOFOLLOW_LINKS)
+                + ", directoryReadable=" + Files.isReadable(playerDataDirectory);
+    }
+
+    private String describePlayerFile(UUID playerId) {
+        Path file = playerDataDirectory.resolve(playerId + ".dat").normalize();
+        return describeDirectory()
+                + ", expectedFile=" + file.toAbsolutePath().normalize()
+                + ", fileExists=" + Files.exists(file, LinkOption.NOFOLLOW_LINKS)
+                + ", fileIsRegular=" + Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+                + ", fileIsSymlink=" + Files.isSymbolicLink(file)
+                + ", fileReadable=" + Files.isReadable(file);
     }
 
     void remember(UUID playerId, String playerName) {
