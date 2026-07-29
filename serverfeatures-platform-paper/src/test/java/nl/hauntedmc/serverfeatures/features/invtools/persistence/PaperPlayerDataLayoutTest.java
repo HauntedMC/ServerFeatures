@@ -1,0 +1,24 @@
+package nl.hauntedmc.serverfeatures.features.invtools.persistence;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class PaperPlayerDataLayoutTest {
+
+    @TempDir
+    Path serverDirectory;
+
+    @Test
+    void resolvesPlayersDataBelowTheConfiguredLevelDirectory() {
+        Path levelDirectory = serverDirectory.resolve("custom-default-world");
+
+        assertEquals(
+                levelDirectory.toAbsolutePath().normalize().resolve("players").resolve("data"),
+                PaperPlayerDataLayout.playerDataDirectory(levelDirectory)
+        );
+    }
+}
