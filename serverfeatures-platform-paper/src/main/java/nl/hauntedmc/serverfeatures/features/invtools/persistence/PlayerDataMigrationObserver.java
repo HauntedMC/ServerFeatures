@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
 import java.nio.file.Path;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -75,5 +76,7 @@ public interface PlayerDataMigrationObserver {
     }
 
     default void loadFailed(UUID playerId, Throwable failure) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(failure, "failure");
     }
 }
