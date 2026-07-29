@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class PlayerDataMigrationCoordinator implements PlayerDataMigrationObserver {
 
     private static final Duration REQUEST_TTL = Duration.ofSeconds(30);
+    private static final Duration RESOLVED_REQUEST_TTL = Duration.ofMinutes(5);
     private static final Duration PENDING_OPERATION_TTL = Duration.ofSeconds(30);
 
     private final InvTools feature;
@@ -108,8 +109,13 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         }
 
         UUID targetId = playerId.get();
+        Request resolvedRequest = new Request(
+                request.actorId(),
+                request.requestedName(),
+                now() + RESOLVED_REQUEST_TTL.toMillis()
+        );
         requestsByTarget.computeIfAbsent(targetId, ignored -> new ConcurrentLinkedDeque<>())
-                .addLast(request);
+                .addLast(resolvedRequest);
         pendingUntil.merge(
                 targetId,
                 now() + PENDING_OPERATION_TTL.toMillis(),
@@ -241,6 +247,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 sourceVersion,
                 targetVersion
         );
+        clearRequests(playerId);
     }
 
     @Override
