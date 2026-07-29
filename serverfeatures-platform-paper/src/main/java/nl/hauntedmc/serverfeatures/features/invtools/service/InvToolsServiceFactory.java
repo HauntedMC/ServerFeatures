@@ -2,9 +2,10 @@ package nl.hauntedmc.serverfeatures.features.invtools.service;
 
 import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
+import nl.hauntedmc.serverfeatures.features.invtools.migration.PlayerDataMigrationCoordinator;
+import nl.hauntedmc.serverfeatures.features.invtools.persistence.ManagedOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.NbtOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.PaperPlayerDataConverter;
-import nl.hauntedmc.serverfeatures.features.invtools.persistence.PlayerDataMigrationObserver;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.RecoverableOfflinePlayerDataStore;
 import org.bukkit.Bukkit;
 
@@ -22,21 +23,26 @@ public final class InvToolsServiceFactory {
 
     public static InvToolsService create(
             InvTools feature,
-            PlayerDataMigrationObserver migrationObserver
+            PlayerDataMigrationCoordinator migrationCoordinator
     ) {
         Objects.requireNonNull(feature, "feature");
-        Objects.requireNonNull(migrationObserver, "migrationObserver");
+        Objects.requireNonNull(migrationCoordinator, "migrationCoordinator");
         verifyRuntimeCompatibility();
 
         Path levelDirectory = feature.getPlugin().getServer().getLevelDirectory();
         NbtOfflinePlayerDataStore playerDataStore = new NbtOfflinePlayerDataStore(
                 levelDirectory,
                 feature.getPlugin().getDataFolder().toPath(),
-                migrationObserver
+                migrationCoordinator
         );
+        ManagedOfflinePlayerDataStore managedStore = new ManagedOfflinePlayerDataStore(
+                new RecoverableOfflinePlayerDataStore(playerDataStore, levelDirectory)
+        );
+        migrationCoordinator.attachShutdownBarrier(managedStore::closeAndAwait);
+
         return new InvToolsService(
                 feature,
-                new RecoverableOfflinePlayerDataStore(playerDataStore, levelDirectory),
+                managedStore,
                 Duration.ofSeconds(Math.clamp(feature.getConfigHandler().get(
                         "offline_io_timeout_seconds",
                         Integer.class,
