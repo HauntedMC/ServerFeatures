@@ -4,13 +4,13 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 
+import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
 
 class InventorySnapshotTest {
 
@@ -87,6 +87,58 @@ class InventorySnapshotTest {
         assertEquals(2, result.snapshot().itemAt(InventoryKind.PLAYER, 0).getAmount());
         assertEquals(63, original.itemAt(InventoryKind.PLAYER, 9).getAmount());
         assertNull(original.itemAt(InventoryKind.PLAYER, 0));
+    }
+
+    @Test
+    void shiftInsertionUsesMainStorageBeforeTheHotbar() {
+        InventorySnapshot.InsertionResult result = InventorySnapshot.empty().shiftInsert(
+                InventoryKind.PLAYER,
+                item(Material.DIAMOND, 3)
+        );
+
+        assertNull(result.remainder());
+        assertEquals(3, result.snapshot().itemAt(InventoryKind.PLAYER, 9).getAmount());
+        assertNull(result.snapshot().itemAt(InventoryKind.PLAYER, 0));
+    }
+
+    @Test
+    void shiftInsertionDoesNotAutoEquipArmorWhenStorageIsFull() {
+        InventorySnapshot snapshot = InventorySnapshot.empty();
+        for (int slot = 0; slot < InventorySnapshot.STORAGE_SIZE; slot++) {
+            snapshot = snapshot.withBackingSlot(InventoryKind.PLAYER, slot, item(Material.STONE, 64));
+        }
+        ItemStack chestplate = item(Material.DIAMOND_CHESTPLATE);
+
+        InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
+                InventoryKind.PLAYER,
+                chestplate
+        );
+
+        assertTrue(result.remainder().isSimilar(chestplate));
+        assertNull(result.snapshot().chestplate());
+    }
+
+    @Test
+    void shiftInsertionUsesAllEnderChestStorageSlots() {
+        int stackCapacity = item(Material.DIAMOND).getMaxStackSize();
+        InventorySnapshot snapshot = InventorySnapshot.empty()
+                .withBackingSlot(
+                        InventoryKind.ENDER_CHEST,
+                        0,
+                        item(Material.DIAMOND, stackCapacity - 1)
+                );
+
+        InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
+                InventoryKind.ENDER_CHEST,
+                item(Material.DIAMOND, 3)
+        );
+
+        assertNull(result.remainder());
+        assertEquals(
+                stackCapacity,
+                result.snapshot().itemAt(InventoryKind.ENDER_CHEST, 0).getAmount()
+        );
+        assertEquals(2, result.snapshot().itemAt(InventoryKind.ENDER_CHEST, 1).getAmount());
     }
 
     @Test

@@ -71,6 +71,11 @@ inventory object is no longer authoritative. Before every online edit, InvTools 
 clicked slot with the target's current inventory; if it changed since the GUI was rendered, the
 view refreshes and requires a second click instead of applying a stale mutation.
 
+Shift-click works in both directions for online inventory and ender chest views. InvTools cancels
+Bukkit's native bulk routing and performs the transfer itself so decorative GUI slots can never
+receive real items. Transfers merge compatible stacks first, use main inventory storage before the
+hotbar, and never unexpectedly auto-equip armor or offhand items.
+
 The main storage and hotbar are deliberately distinct in the GUI and audit log. On disk they retain
 Minecraft's canonical slot IDs: `0–8` for the hotbar and `9–35` for main storage. Avoiding a second
 internal numbering scheme keeps online and offline mutations equivalent and removes a class of
@@ -94,12 +99,25 @@ Offline clear uses the same limit, target reservation, revision checks, atomic r
 backup, and login barrier as offline editing. An inventory with an active online editor is never
 cleared until that editor has closed their session.
 
-Offline editing is isolated from the staff member's own inventory. The bottom inventory, shift
-transfer, number-key swaps, drags, and destructive Q shortcuts are blocked. Items may be safely
-rearranged inside the target GUI. Read-only offline inspection does not isolate the staff cursor or
-block ordinary interaction with the staff inventory. If an edit GUI closes with a target item on the
-cursor, that item is inserted back into the target snapshot before saving and the real cursor is
-cleared. This prevents duplication or loss when a write conflicts, fails, or overlaps a login.
+Offline direct cursor editing remains isolated from the staff member's own inventory. This keeps the
+virtual target cursor independent from Bukkit's real cursor and prevents ordinary bottom-inventory,
+number-key, drag, and destructive Q actions from bypassing the playerdata transaction. If the GUI
+closes with a target item on that virtual cursor, the item is inserted back into the target snapshot
+before saving.
+
+Shift-click is the supported way to move items between the staff inventory and an offline target.
+Each staff-side change is journaled together with the detached target snapshot. Closing the view
+briefly locks the transfer session while the atomic playerdata write settles:
+
+- a successful save commits both sides of the transfer;
+- a conflict, failed save, or discarded session replays the inverse staff-inventory operations;
+- items returned during rollback are merged safely, and a remainder is dropped beside the staff
+  member rather than silently deleted if their inventory has become full;
+- the staff member cannot move, consume, drop, swap, or pick up transfer-sensitive items while that
+  final settlement is pending.
+
+This prevents receiving an item when the offline target file was never updated, and prevents losing
+an item when a transfer into the target fails to persist.
 
 When an offline target starts logging in, pre-login waits up to
 `offline_io_timeout_seconds` (ten seconds by default) for pending changes to commit before the
