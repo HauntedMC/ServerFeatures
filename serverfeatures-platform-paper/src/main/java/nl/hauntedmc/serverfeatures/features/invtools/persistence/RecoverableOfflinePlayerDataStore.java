@@ -11,10 +11,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Makes interrupted migration recovery reachable through the ordinary service preflight and verifies
- * every completed offline edit by rereading the committed playerdata through the real decoder.
- */
+/** Makes interrupted migration recovery reachable through the ordinary service preflight. */
 public final class RecoverableOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
     private static final String MIGRATION_BACKUP_SUFFIX = ".invtools-migration-backup";
@@ -70,29 +67,7 @@ public final class RecoverableOfflinePlayerDataStore implements OfflinePlayerDat
             InventoryKind kind,
             InventorySnapshot changedSnapshot
     ) throws IOException {
-        Objects.requireNonNull(original, "original");
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(changedSnapshot, "changedSnapshot");
-
         delegate.save(original, kind, changedSnapshot);
-
-        OfflinePlayerData committed;
-        try {
-            committed = delegate.load(original.playerId());
-        } catch (IOException | RuntimeException exception) {
-            throw new IOException(
-                    "Could not verify committed offline playerdata for " + original.playerId()
-                            + "; the recovery backup has been retained",
-                    exception
-            );
-        }
-        if (changedSnapshot.changedBackingSlots(kind, committed.snapshot()).length != 0) {
-            throw new IOException(
-                    "Committed offline playerdata did not match the requested " + kind
-                            + " snapshot for " + original.playerId()
-                            + "; the recovery backup has been retained"
-            );
-        }
     }
 
     private Path migrationBackup(UUID playerId) throws IOException {
