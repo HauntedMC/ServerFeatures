@@ -36,13 +36,11 @@ class PlayerDataIdentityIndexTest {
     }
 
     @Test
-    void acceptsAnExistingPreferredUuidWithoutScanningPlayerdata() throws IOException {
+    void acceptsAnExistingPreferredUuidWhenItsStoredNameMatches() throws IOException {
         UUID cachedPlayerId = createPlayerDataFile();
         PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
                 playerDataDirectory,
-                file -> {
-                    throw new AssertionError("The local index should not be scanned");
-                }
+                file -> "HauntedMC"
         );
 
         Optional<UUID> resolved = index.resolve(
@@ -51,6 +49,20 @@ class PlayerDataIdentityIndexTest {
         );
 
         assertEquals(Optional.of(cachedPlayerId), resolved);
+    }
+
+    @Test
+    void rejectsAStalePreferredUuidForAnotherPlayersData() throws IOException {
+        UUID stalePlayerId = createPlayerDataFile();
+        UUID requestedPlayerId = createPlayerDataFile();
+        PlayerDataIdentityIndex index = index(Map.of(
+                stalePlayerId, "AnotherPlayer",
+                requestedPlayerId, "HauntedMC"
+        ));
+
+        Optional<UUID> resolved = index.resolve(Optional.of(stalePlayerId), "HauntedMC");
+
+        assertEquals(Optional.of(requestedPlayerId), resolved);
     }
 
     @Test

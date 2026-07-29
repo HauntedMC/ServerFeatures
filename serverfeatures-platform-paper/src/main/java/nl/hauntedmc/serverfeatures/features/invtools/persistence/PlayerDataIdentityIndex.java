@@ -63,7 +63,8 @@ final class PlayerDataIdentityIndex {
             return Optional.of(observedPlayerId);
         }
 
-        if (preferredPlayerId.isPresent() && hasPlayerData(preferredPlayerId.get())) {
+        if (preferredPlayerId.isPresent()
+                && matchesPlayerName(preferredPlayerId.get(), normalizedName)) {
             return preferredPlayerId;
         }
 
@@ -218,6 +219,18 @@ final class PlayerDataIdentityIndex {
         return file.getParent().equals(playerDataDirectory)
                 && Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 && !Files.isSymbolicLink(file);
+    }
+
+    private boolean matchesPlayerName(UUID playerId, String normalizedName) {
+        if (!hasPlayerData(playerId)) {
+            return false;
+        }
+        try {
+            String storedName = playerNameReader.read(playerDataDirectory.resolve(playerId + ".dat"));
+            return storedName != null && normalize(storedName).equals(normalizedName);
+        } catch (IOException | RuntimeException ignored) {
+            return false;
+        }
     }
 
     private long directoryModifiedMillis() throws IOException {
