@@ -49,7 +49,8 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         messages.add("invtools.invalid_name", "&cDe spelersnaam &e{player}&c is ongeldig.");
         messages.add("invtools.not_played_here",
                 "&cGeen lokale spelerdata gevonden voor &e{player}&c op deze server.");
-        messages.add("invtools.loading", "&7Offline spelerdata van &f{player}&7 wordt veilig geladen...");
+        messages.add("invtools.loading",
+                "&7Offline spelerdata van &f{player}&7 wordt veilig geladen...");
         messages.add("invtools.busy",
                 "&eHet maximum aantal offline inventarisacties is bereikt. Probeer het zo opnieuw.");
         messages.add("invtools.load_failed",
@@ -58,9 +59,11 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&cWijzigingen voor &e{player}&c zijn niet opgeslagen; de oorspronkelijke spelerdata is behouden.");
         messages.add("invtools.offline_saved",
                 "&aDe offline wijzigingen voor &e{player}&a zijn veilig opgeslagen.");
-        messages.add("invtools.opened_inspect", "&7Je bekijkt de opslag van &f{player}&7 alleen-lezen.");
+        messages.add("invtools.opened_inspect",
+                "&7Je bekijkt de opslag van &f{player}&7 alleen-lezen.");
         messages.add("invtools.opened_edit", "&cJe bewerkt nu de opslag van &e{player}&c.");
-        messages.add("invtools.read_only", "&cDeze weergave is alleen-lezen; je mag deze opslag niet bewerken.");
+        messages.add("invtools.read_only",
+                "&cDeze weergave is alleen-lezen; je mag deze opslag niet bewerken.");
         messages.add("invtools.permission_revoked",
                 "&cJe InvTools-weergave is gesloten omdat je kijktoegang is ingetrokken.");
         messages.add("invtools.edit_permission_revoked",
@@ -96,14 +99,18 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&eDe conversie van &f{player}&e mislukte; de oorspronkelijke spelerdata wordt hersteld...");
         messages.add("invtools.migration_completed",
                 "&aDe spelerdata van &e{player}&a is veilig bijgewerkt van &e{from}&a naar &e{to}&a.");
+        messages.add("invtools.migration_backup_retained",
+                "&eDe spelerdata van &f{player}&e is bijgewerkt, maar de tijdelijke herstelbackup kon niet worden verwijderd. Controleer de serverlog.");
         messages.add("invtools.migration_failed_unchanged",
                 "&cDe conversie van &e{player}&c mislukte. Het originele bestand is ongewijzigd gebleven.");
         messages.add("invtools.migration_failed_restored",
                 "&cDe conversie van &e{player}&c mislukte. De originele spelerdata is volledig hersteld.");
         messages.add("invtools.migration_failed_backup_retained",
                 "&4De conversie en het automatische herstel van &e{player}&4 mislukten. De herstelbackup is behouden; controleer de serverlog.");
-        messages.add("invtools.clearing", "&7De offline opslag van &f{player}&7 wordt veilig geleegd...");
-        messages.add("invtools.cleared", "&aDe geselecteerde opslag van &e{player}&a is veilig geleegd.");
+        messages.add("invtools.clearing",
+                "&7De offline opslag van &f{player}&7 wordt veilig geleegd...");
+        messages.add("invtools.cleared",
+                "&aDe geselecteerde opslag van &e{player}&a is veilig geleegd.");
         messages.add("invtools.clear_failed",
                 "&cDe opslag van &e{player}&c kon niet veilig worden geleegd; er is niets gewijzigd.");
         messages.add("invtools.clear_conflict",
@@ -118,7 +125,8 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         messages.add("invtools.gui.info.offline", "&7Offline speler");
         messages.add("invtools.gui.info.inventory.main", "&8• Hoofdinventaris: rijen 2–4");
         messages.add("invtools.gui.info.inventory.hotbar", "&8• Hotbar: rij 5");
-        messages.add("invtools.gui.info.inventory.armor_offhand", "&8• Pantser en offhand: rij 1");
+        messages.add("invtools.gui.info.inventory.armor_offhand",
+                "&8• Pantser en offhand: rij 1");
         messages.add("invtools.gui.info.enderchest.slots", "&8• 27 enderkistslots");
         messages.add("invtools.gui.info.enderchest.storage", "&8• Opslag: rijen 1–3");
         messages.add("invtools.gui.mode.edit.name", "&cBewerkmodus");
@@ -139,7 +147,9 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         migrationCoordinator = new PlayerDataMigrationCoordinator(this);
         service = InvToolsServiceFactory.create(this, migrationCoordinator);
 
-        getLifecycleManager().getCommandManager().registerBrigadierCommand(new InvToolsCommand(this));
+        getLifecycleManager().getCommandManager().registerBrigadierCommand(
+                new InvToolsCommand(this)
+        );
         getLifecycleManager().getListenerManager()
                 .registerListener(new InvToolsTransferAbortListener());
         getLifecycleManager().getListenerManager()
