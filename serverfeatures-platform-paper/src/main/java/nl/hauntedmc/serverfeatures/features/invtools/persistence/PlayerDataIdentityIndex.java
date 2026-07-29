@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 /**
  * Resolves command names to the strongest UUID candidate for playerdata on this server.
@@ -31,6 +32,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 final class PlayerDataIdentityIndex {
 
+    private static final Logger LOGGER = Logger.getLogger("ServerFeatures");
     private static final long INDEX_TTL_NANOS = 30_000_000_000L;
     private static final int MAX_USER_CACHE_BYTES = 4 * 1024 * 1024;
 
@@ -91,6 +93,9 @@ final class PlayerDataIdentityIndex {
              * the quit sequence. The playerdata file may not exist yet when PlayerQuitEvent fires;
              * the service's bounded appearance retry must therefore receive this UUID immediately.
              */
+            if (!hasPlayerData(observedPlayerId)) {
+                logPendingCandidate("observed-connection", playerName, observedPlayerId);
+            }
             return Optional.of(observedPlayerId);
         }
 
@@ -117,7 +122,12 @@ final class PlayerDataIdentityIndex {
             return Optional.of(indexedPlayerId);
         }
         if (!requiresRefresh(current)) {
-            return rememberPendingCanonical(canonicalIdentity, pendingCanonicalPlayerId);
+            return finishResolution(
+                    canonicalIdentity,
+                    pendingCanonicalPlayerId,
+                    preferredPlayerId,
+                    playerName
+            );
         }
 
         synchronized (rebuildLock) {
@@ -133,20 +143,58 @@ final class PlayerDataIdentityIndex {
             if (indexedPlayerId != null) {
                 return Optional.of(indexedPlayerId);
             }
-            return rememberPendingCanonical(canonicalIdentity, pendingCanonicalPlayerId);
+            return finishResolution(
+                    canonicalIdentity,
+                    pendingCanonicalPlayerId,
+                    preferredPlayerId,
+                    playerName
+            );
         }
     }
 
-    private Optional<UUID> rememberPendingCanonical(
+    private Optional<UUID> finishResolution(
             Optional<CanonicalPlayerIdentityLookup.Identity> canonicalIdentity,
-            UUID pendingCanonicalPlayerId
+            UUID pendingCanonicalPlayerId,
+            Optional<UUID> preferredPlayerId,
+            String playerName
     ) {
-        if (pendingCanonicalPlayerId == null || canonicalIdentity.isEmpty()) {
-            return Optional.empty();
+        if (pendingCanonicalPlayerId != null && canonicalIdentity.isPresent()) {
+            CanonicalPlayerIdentityLookup.Identity identity = canonicalIdentity.get();
+            remember(identity.playerId(), identity.playerName());
+            logPendingCandidate("dataregistry", playerName, pendingCanonicalPlayerId);
+            return Optional.of(pendingCanonicalPlayerId);
         }
-        CanonicalPlayerIdentityLookup.Identity identity = canonicalIdentity.get();
-        remember(identity.playerId(), identity.playerName());
-        return Optional.of(pendingCanonicalPlayerId);
+        LOGGER.warning(() -> "[InvTools] Could not resolve offline player identity: name="
+                + playerName
+                + ", paperCachedUuid=" + preferredPlayerId.map(UUID::toString).orElse("none")
+                + ", " + describeDirectory());
+        return Optional.empty();
+    }
+
+    private void logPendingCandidate(String source, String playerName, UUID playerId) {
+        LOGGER.warning(() -> "[InvTools] Resolved an authoritative offline UUID while its playerdata "
+                + "file is not visible yet; the bounded logout retry will continue: source=" + source
+                + ", name=" + playerName
+                + ", uuid=" + playerId
+                + ", " + describePlayerFile(playerId));
+    }
+
+    private String describeDirectory() {
+        return "playerDataDirectory=" + playerDataDirectory.toAbsolutePath().normalize()
+                + ", directoryExists=" + Files.exists(playerDataDirectory, LinkOption.NOFOLLOW_LINKS)
+                + ", directoryIsDirectory="
+                + Files.isDirectory(playerDataDirectory, LinkOption.NOFOLLOW_LINKS)
+                + ", directoryReadable=" + Files.isReadable(playerDataDirectory);
+    }
+
+    private String describePlayerFile(UUID playerId) {
+        Path file = playerDataDirectory.resolve(playerId + ".dat").normalize();
+        return describeDirectory()
+                + ", expectedFile=" + file.toAbsolutePath().normalize()
+                + ", fileExists=" + Files.exists(file, LinkOption.NOFOLLOW_LINKS)
+                + ", fileIsRegular=" + Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
+                + ", fileIsSymlink=" + Files.isSymbolicLink(file)
+                + ", fileReadable=" + Files.isReadable(file);
     }
 
     void remember(UUID playerId, String playerName) {
