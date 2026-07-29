@@ -7,11 +7,13 @@ import java.util.UUID;
 
 public final class PlayerDataMigrationException extends IOException {
 
+    private static final long serialVersionUID = 1L;
+
     private final UUID playerId;
     private final int sourceVersion;
     private final int targetVersion;
     private final RecoveryStatus recoveryStatus;
-    private final Path backupFile;
+    private final transient Path backupFile;
 
     public PlayerDataMigrationException(
             String message,
