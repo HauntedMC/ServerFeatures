@@ -39,13 +39,13 @@ final class PlayerDataIdentityIndex {
         Objects.requireNonNull(preferredPlayerId, "preferredPlayerId");
         String normalizedName = normalize(playerName);
 
-        if (preferredPlayerId.isPresent() && hasPlayerData(preferredPlayerId.get())) {
-            return preferredPlayerId;
-        }
-
         UUID observedPlayerId = observedPlayerIds.get(normalizedName);
         if (observedPlayerId != null && hasPlayerData(observedPlayerId)) {
             return Optional.of(observedPlayerId);
+        }
+
+        if (preferredPlayerId.isPresent() && hasPlayerData(preferredPlayerId.get())) {
+            return preferredPlayerId;
         }
 
         Snapshot current = snapshot;

@@ -91,6 +91,21 @@ class PlayerDataIdentityIndexTest {
     }
 
     @Test
+    void realConnectionOutranksAStaleCachedUuidThatStillHasPlayerdata() throws IOException {
+        UUID staleCachedPlayerId = createPlayerDataFile();
+        UUID connectedPlayerId = createPlayerDataFile();
+        PlayerDataIdentityIndex index = index(Map.of());
+        index.remember(connectedPlayerId, "HauntedMC");
+
+        Optional<UUID> resolved = index.resolve(
+                Optional.of(staleCachedPlayerId),
+                "HauntedMC"
+        );
+
+        assertEquals(Optional.of(connectedPlayerId), resolved);
+    }
+
+    @Test
     void forgetsAPlayersPreviousNameAfterARealConnection() throws IOException {
         UUID connectedPlayerId = createPlayerDataFile();
         PlayerDataIdentityIndex index = index(Map.of());
