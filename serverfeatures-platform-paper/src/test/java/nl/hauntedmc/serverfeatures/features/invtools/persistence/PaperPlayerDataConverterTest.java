@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,6 +47,15 @@ class PaperPlayerDataConverterTest {
         );
     }
 
+    private static <T> T validateFixtureInvocation(Object fixer, T tag, int sourceVersion) {
+        Objects.requireNonNull(fixer, "fixer");
+        Objects.requireNonNull(tag, "tag");
+        if (sourceVersion < 0) {
+            throw new IllegalArgumentException("sourceVersion must not be negative");
+        }
+        return tag;
+    }
+
     private enum FakeDataFixTypes {
         PLAYER;
 
@@ -54,7 +64,7 @@ class PaperPlayerDataConverterTest {
                 FakeCompoundTag tag,
                 int sourceVersion
         ) {
-            return tag;
+            return validateFixtureInvocation(fixer, tag, sourceVersion);
         }
 
         public FakeDynamic updateToCurrentVersion(
@@ -62,7 +72,7 @@ class PaperPlayerDataConverterTest {
                 FakeDynamic tag,
                 int sourceVersion
         ) {
-            return tag;
+            return validateFixtureInvocation(fixer, tag, sourceVersion);
         }
     }
 
@@ -74,7 +84,7 @@ class PaperPlayerDataConverterTest {
                 FakeCompoundTag tag,
                 int sourceVersion
         ) {
-            return tag;
+            return validateFixtureInvocation(fixer, tag, sourceVersion);
         }
     }
 
@@ -86,7 +96,7 @@ class PaperPlayerDataConverterTest {
                 FakeCompoundTag tag,
                 int sourceVersion
         ) {
-            return tag;
+            return validateFixtureInvocation(fixer, tag, sourceVersion);
         }
     }
 
