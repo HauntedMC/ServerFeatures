@@ -120,16 +120,24 @@ class InventorySnapshotTest {
 
     @Test
     void shiftInsertionUsesAllEnderChestStorageSlots() {
+        int stackCapacity = item(Material.DIAMOND).getMaxStackSize();
         InventorySnapshot snapshot = InventorySnapshot.empty()
-                .withBackingSlot(InventoryKind.ENDER_CHEST, 0, item(Material.ENDER_PEARL, 15));
+                .withBackingSlot(
+                        InventoryKind.ENDER_CHEST,
+                        0,
+                        item(Material.DIAMOND, stackCapacity - 1)
+                );
 
         InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
                 InventoryKind.ENDER_CHEST,
-                item(Material.ENDER_PEARL, 3)
+                item(Material.DIAMOND, 3)
         );
 
         assertNull(result.remainder());
-        assertEquals(16, result.snapshot().itemAt(InventoryKind.ENDER_CHEST, 0).getAmount());
+        assertEquals(
+                stackCapacity,
+                result.snapshot().itemAt(InventoryKind.ENDER_CHEST, 0).getAmount()
+        );
         assertEquals(2, result.snapshot().itemAt(InventoryKind.ENDER_CHEST, 1).getAmount());
     }
 
