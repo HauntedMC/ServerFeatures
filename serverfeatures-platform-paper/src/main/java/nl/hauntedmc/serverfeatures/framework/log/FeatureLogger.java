@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.framework.log;
 
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -12,8 +13,8 @@ public class FeatureLogger {
     private final String prefix;
 
     public FeatureLogger(Logger delegate, String featureName) {
-        this.delegate = delegate;
-        this.prefix = "[" + featureName + "] ";
+        this.delegate = Objects.requireNonNull(delegate, "delegate");
+        this.prefix = "[" + Objects.requireNonNull(featureName, "featureName") + "] ";
     }
 
     public void info(String msg) {
@@ -34,5 +35,9 @@ public class FeatureLogger {
 
     public void log(Level level, String msg) {
         delegate.log(level, prefix + msg);
+    }
+
+    public void log(Level level, String msg, Throwable thrown) {
+        delegate.log(level, prefix + msg, thrown);
     }
 }

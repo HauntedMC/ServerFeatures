@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.invtools.listener;
 
 import io.papermc.paper.event.connection.configuration.PlayerConnectionInitialConfigureEvent;
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.InvToolsView;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
@@ -15,14 +16,38 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 
+import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Function;
+
 public final class InvToolsListener implements Listener {
 
     private final InvTools feature;
     private final InvToolsService service;
+    private final Function<String, Component> migrationLoginMessage;
 
     public InvToolsListener(InvTools feature, InvToolsService service) {
-        this.feature = feature;
-        this.service = service;
+        this(
+                feature,
+                service,
+                playerName -> feature.getLocalizationHandler()
+                        .getMessage("invtools.login_migration")
+                        .with("player", playerName)
+                        .build()
+        );
+    }
+
+    InvToolsListener(
+            InvTools feature,
+            InvToolsService service,
+            Function<String, Component> migrationLoginMessage
+    ) {
+        this.feature = Objects.requireNonNull(feature, "feature");
+        this.service = Objects.requireNonNull(service, "service");
+        this.migrationLoginMessage = Objects.requireNonNull(
+                migrationLoginMessage,
+                "migrationLoginMessage"
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -52,7 +77,15 @@ public final class InvToolsListener implements Listener {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             return;
         }
-        if (service.prepareLogin(event.getUniqueId()) == InvToolsService.LoginBarrierResult.RETRY) {
+        UUID playerId = event.getUniqueId();
+        if (feature.getMigrationCoordinator().blocksLogin(playerId)) {
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                    migrationLoginMessage.apply(event.getName())
+            );
+            return;
+        }
+        if (service.prepareLogin(playerId) == InvToolsService.LoginBarrierResult.RETRY) {
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
                     feature.getLocalizationHandler()
@@ -65,7 +98,14 @@ public final class InvToolsListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInitialConfigure(PlayerConnectionInitialConfigureEvent event) {
-        service.handlePlayerDataLoad(event.getConnection().getProfile().getId());
+        UUID playerId = event.getConnection().getProfile().getId();
+        if (feature.getMigrationCoordinator().blocksLogin(playerId)) {
+            event.getConnection().disconnect(migrationLoginMessage.apply(
+                    event.getConnection().getProfile().getName()
+            ));
+            return;
+        }
+        service.handlePlayerDataLoad(playerId);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
