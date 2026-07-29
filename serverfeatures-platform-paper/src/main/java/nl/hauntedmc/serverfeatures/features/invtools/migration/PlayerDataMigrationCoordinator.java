@@ -10,15 +10,18 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 
 /**
  * Connects asynchronous playerdata work to the staff command that requested it and exposes an
@@ -27,8 +30,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public final class PlayerDataMigrationCoordinator implements PlayerDataMigrationObserver {
 
     private static final Duration REQUEST_TTL = Duration.ofSeconds(30);
-    private static final Duration RESOLVED_REQUEST_TTL = Duration.ofMinutes(5);
     private static final Duration PENDING_OPERATION_TTL = Duration.ofSeconds(30);
+    private static final Duration ACTIVE_NOTIFICATION_TTL = Duration.ofMinutes(5);
 
     private final InvTools feature;
     private final Clock clock;
@@ -45,8 +48,8 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     PlayerDataMigrationCoordinator(InvTools feature, Clock clock) {
-        this.feature = java.util.Objects.requireNonNull(feature, "feature");
-        this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.feature = Objects.requireNonNull(feature, "feature");
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     /**
@@ -93,34 +96,33 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         }
         cleanupExpired();
         String normalized = normalize(requestedName);
-        ConcurrentLinkedDeque<Request> queue = requestsByName.get(normalized);
+        ConcurrentLinkedDeque<Request> queue = requestsByName.remove(normalized);
         if (queue == null) {
             return;
         }
+
+        long currentTime = now();
+        List<Request> requests = new ArrayList<>();
         Request request;
-        do {
-            request = queue.pollFirst();
-        } while (request != null && request.expiresAtMillis() < now());
-        if (queue.isEmpty()) {
-            requestsByName.remove(normalized, queue);
+        while ((request = queue.pollFirst()) != null) {
+            if (request.expiresAtMillis() >= currentTime) {
+                requests.add(request);
+            }
         }
-        if (request == null || playerId == null || playerId.isEmpty()) {
+        if (requests.isEmpty() || playerId == null || playerId.isEmpty()) {
             return;
         }
 
         UUID targetId = playerId.get();
-        Request resolvedRequest = new Request(
-                request.actorId(),
-                request.requestedName(),
-                now() + RESOLVED_REQUEST_TTL.toMillis()
-        );
-        requestsByTarget.computeIfAbsent(targetId, ignored -> new ConcurrentLinkedDeque<>())
-                .addLast(resolvedRequest);
-        pendingUntil.merge(
+        long handoffDeadline = currentTime + PENDING_OPERATION_TTL.toMillis();
+        ConcurrentLinkedDeque<Request> targetRequests = requestsByTarget.computeIfAbsent(
                 targetId,
-                now() + PENDING_OPERATION_TTL.toMillis(),
-                Math::max
+                ignored -> new ConcurrentLinkedDeque<>()
         );
+        for (Request pendingRequest : requests) {
+            targetRequests.addLast(pendingRequest.withDeadline(handoffDeadline));
+        }
+        pendingUntil.merge(targetId, handoffDeadline, Math::max);
     }
 
     @Override
@@ -129,8 +131,16 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             return;
         }
         pendingUntil.remove(playerId);
-        activeOperations.computeIfAbsent(playerId, ignored -> new AtomicInteger())
-                .incrementAndGet();
+        long notificationDeadline = now() + ACTIVE_NOTIFICATION_TTL.toMillis();
+        ConcurrentLinkedDeque<Request> requests = requestsByTarget.get(playerId);
+        if (requests != null) {
+            requests.replaceAll(request -> request.withDeadline(notificationDeadline));
+        }
+        activeOperations.compute(playerId, (ignored, count) -> {
+            AtomicInteger result = count == null ? new AtomicInteger() : count;
+            result.incrementAndGet();
+            return result;
+        });
     }
 
     @Override
@@ -154,12 +164,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 "Playerdata migration detected for " + playerId + ": " + sourceVersion + " -> "
                         + targetVersion + "; recovery backup=" + backupFile
         );
-        notifyTarget(
-                playerId,
-                "invtools.migration_detected",
-                sourceVersion,
-                targetVersion
-        );
+        notifyTarget(playerId, "invtools.migration_detected", sourceVersion, targetVersion);
     }
 
     @Override
@@ -173,12 +178,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 "Created and verified InvTools migration backup for " + playerId + " at "
                         + backupFile
         );
-        notifyTarget(
-                playerId,
-                "invtools.migration_backup_ready",
-                sourceVersion,
-                targetVersion
-        );
+        notifyTarget(playerId, "invtools.migration_backup_ready", sourceVersion, targetVersion);
     }
 
     @Override
@@ -187,12 +187,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 "Running Paper PLAYER data fixer for " + playerId + ": " + sourceVersion + " -> "
                         + targetVersion
         );
-        notifyTarget(
-                playerId,
-                "invtools.migration_converting",
-                sourceVersion,
-                targetVersion
-        );
+        notifyTarget(playerId, "invtools.migration_converting", sourceVersion, targetVersion);
     }
 
     @Override
@@ -205,12 +200,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         feature.getLogger().warning(
                 "Restoring playerdata migration backup for " + playerId + " from " + backupFile
         );
-        notifyTarget(
-                playerId,
-                "invtools.migration_restoring",
-                sourceVersion,
-                targetVersion
-        );
+        notifyTarget(playerId, "invtools.migration_restoring", sourceVersion, targetVersion);
     }
 
     @Override
@@ -219,12 +209,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 "Safely migrated playerdata for " + playerId + " from " + sourceVersion + " to "
                         + targetVersion
         );
-        notifyTarget(
-                playerId,
-                "invtools.migration_completed",
-                sourceVersion,
-                targetVersion
-        );
+        notifyTarget(playerId, "invtools.migration_completed", sourceVersion, targetVersion);
         clearRequests(playerId);
     }
 
@@ -236,10 +221,10 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             Path backupFile,
             Throwable failure
     ) {
-        String detail = failure == null ? "unknown failure" : failure.getMessage();
-        feature.getLogger().warning(
-                "Migrated playerdata for " + playerId + " but could not delete temporary backup "
-                        + backupFile + ": " + detail
+        logFailure(
+                "Migrated playerdata for " + playerId
+                        + " but could not delete temporary backup " + backupFile,
+                failure
         );
         notifyTarget(
                 playerId,
@@ -259,11 +244,11 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             Path backupFile,
             Throwable failure
     ) {
-        String detail = failure == null ? "unknown failure" : failure.getMessage();
-        feature.getLogger().warning(
+        logFailure(
                 "Playerdata migration failed for " + playerId + " (" + sourceVersion + " -> "
                         + targetVersion + ", recovery=" + recoveryStatus + ", backup=" + backupFile
-                        + "): " + detail
+                        + ")",
+                failure
         );
         String key = switch (recoveryStatus) {
             case ORIGINAL_UNCHANGED -> "invtools.migration_failed_unchanged";
@@ -281,6 +266,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
 
     @Override
     public void loadFailed(UUID playerId, Throwable failure) {
+        Objects.requireNonNull(failure, "failure");
         clearRequests(playerId);
     }
 
@@ -306,18 +292,29 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                     if (actor == null || !actor.isOnline()) {
                         continue;
                     }
-                    actor.sendMessage(feature.getLocalizationHandler()
-                            .getMessage(key)
-                            .forAudience(actor)
-                            .with("player", request.requestedName())
-                            .with("from", Integer.toString(sourceVersion))
-                            .with("to", Integer.toString(targetVersion))
-                            .build());
+                    try {
+                        actor.sendMessage(feature.getLocalizationHandler()
+                                .getMessage(key)
+                                .forAudience(actor)
+                                .with("player", request.requestedName())
+                                .with("from", Integer.toString(sourceVersion))
+                                .with("to", Integer.toString(targetVersion))
+                                .build());
+                    } catch (RuntimeException exception) {
+                        feature.getLogger().log(
+                                Level.WARNING,
+                                "Could not send InvTools migration notification to "
+                                        + request.actorId(),
+                                exception
+                        );
+                    }
                 }
             });
         } catch (RuntimeException exception) {
-            feature.getLogger().warning(
-                    "Could not schedule InvTools migration notification: " + exception.getMessage()
+            feature.getLogger().log(
+                    Level.WARNING,
+                    "Could not schedule InvTools migration notification",
+                    exception
             );
         }
     }
@@ -328,13 +325,13 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             return List.of();
         }
         long currentTime = now();
-        List<Request> result = new ArrayList<>();
+        Map<UUID, Request> byActor = new LinkedHashMap<>();
         for (Request request : requests) {
             if (request.expiresAtMillis() >= currentTime) {
-                result.add(request);
+                byActor.put(request.actorId(), request);
             }
         }
-        return List.copyOf(result);
+        return List.copyOf(byActor.values());
     }
 
     private void clearRequests(UUID playerId) {
@@ -362,6 +359,14 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         pendingUntil.entrySet().removeIf(entry -> entry.getValue() < currentTime);
     }
 
+    private void logFailure(String message, Throwable failure) {
+        if (failure == null) {
+            feature.getLogger().warning(message + ": unknown failure");
+            return;
+        }
+        feature.getLogger().log(Level.WARNING, message, failure);
+    }
+
     private long now() {
         return clock.millis();
     }
@@ -371,5 +376,13 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     private record Request(UUID actorId, String requestedName, long expiresAtMillis) {
+        private Request {
+            Objects.requireNonNull(actorId, "actorId");
+            Objects.requireNonNull(requestedName, "requestedName");
+        }
+
+        private Request withDeadline(long deadline) {
+            return new Request(actorId, requestedName, deadline);
+        }
     }
 }
