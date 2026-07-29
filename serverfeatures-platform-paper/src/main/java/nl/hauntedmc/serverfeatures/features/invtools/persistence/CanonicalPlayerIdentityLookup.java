@@ -22,7 +22,7 @@ interface CanonicalPlayerIdentityLookup {
 
     record Identity(UUID playerId, String playerName) {
 
-        Identity {
+        public Identity {
             Objects.requireNonNull(playerId, "playerId");
             Objects.requireNonNull(playerName, "playerName");
             if (playerName.isBlank()) {
