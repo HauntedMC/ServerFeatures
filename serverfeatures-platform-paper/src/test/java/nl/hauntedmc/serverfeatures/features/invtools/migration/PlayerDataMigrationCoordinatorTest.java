@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,23 +17,28 @@ import static org.mockito.Mockito.when;
 
 class PlayerDataMigrationCoordinatorTest {
 
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            Instant.parse("2026-07-29T20:00:00Z"),
+            ZoneOffset.UTC
+    );
+
     @Test
-    void fencesFromIdentityResolutionUntilPlayerdataOperationFinishes() {
-        MutableClock clock = new MutableClock();
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                clock
-        );
+    void identityResolutionDoesNotCreateAStaleLoginFence() {
+        PlayerDataMigrationCoordinator coordinator = coordinator();
         Player actor = mock(Player.class);
-        UUID actorId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
-        when(actor.getUniqueId()).thenReturn(actorId);
+        when(actor.getUniqueId()).thenReturn(UUID.randomUUID());
 
         coordinator.registerRequest(actor, "HauntedMC");
-        assertFalse(coordinator.blocksLogin(targetId));
-
         coordinator.identityResolved("hauntedmc", Optional.of(targetId));
-        assertTrue(coordinator.blocksLogin(targetId));
+
+        assertFalse(coordinator.blocksLogin(targetId));
+    }
+
+    @Test
+    void activePlayerdataOperationFencesUntilItFinishes() {
+        PlayerDataMigrationCoordinator coordinator = coordinator();
+        UUID targetId = UUID.randomUUID();
 
         coordinator.operationStarted(targetId);
         assertTrue(coordinator.blocksLogin(targetId));
@@ -43,33 +48,8 @@ class PlayerDataMigrationCoordinatorTest {
     }
 
     @Test
-    void sameNameRequestsAreDrainedTogetherInsteadOfBeingReassignedOutOfOrder() {
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                new MutableClock()
-        );
-        Player firstActor = mock(Player.class);
-        Player secondActor = mock(Player.class);
-        when(firstActor.getUniqueId()).thenReturn(UUID.randomUUID());
-        when(secondActor.getUniqueId()).thenReturn(UUID.randomUUID());
-        UUID resolvedTarget = UUID.randomUUID();
-        UUID unrelatedLaterResolution = UUID.randomUUID();
-
-        coordinator.registerRequest(firstActor, "HauntedMC");
-        coordinator.registerRequest(secondActor, "hauntedmc");
-        coordinator.identityResolved("HAUNTEDMC", Optional.of(resolvedTarget));
-        coordinator.identityResolved("HauntedMC", Optional.of(unrelatedLaterResolution));
-
-        assertTrue(coordinator.blocksLogin(resolvedTarget));
-        assertFalse(coordinator.blocksLogin(unrelatedLaterResolution));
-    }
-
-    @Test
     void nestedPlayerdataOperationsKeepFenceUntilLastOperationFinishes() {
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                new MutableClock()
-        );
+        PlayerDataMigrationCoordinator coordinator = coordinator();
         UUID playerId = UUID.randomUUID();
 
         coordinator.operationStarted(playerId);
@@ -85,10 +65,7 @@ class PlayerDataMigrationCoordinatorTest {
 
     @Test
     void unresolvedIdentityNeverFencesAnUnrelatedUuid() {
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                new MutableClock()
-        );
+        PlayerDataMigrationCoordinator coordinator = coordinator();
         Player actor = mock(Player.class);
         when(actor.getUniqueId()).thenReturn(UUID.randomUUID());
 
@@ -99,31 +76,8 @@ class PlayerDataMigrationCoordinatorTest {
     }
 
     @Test
-    void abandonedIdentityHandoffFenceExpires() {
-        MutableClock clock = new MutableClock();
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                clock
-        );
-        Player actor = mock(Player.class);
-        UUID targetId = UUID.randomUUID();
-        when(actor.getUniqueId()).thenReturn(UUID.randomUUID());
-
-        coordinator.registerRequest(actor, "HauntedMC");
-        coordinator.identityResolved("HauntedMC", Optional.of(targetId));
-        assertTrue(coordinator.blocksLogin(targetId));
-
-        clock.advanceSeconds(31);
-
-        assertFalse(coordinator.blocksLogin(targetId));
-    }
-
-    @Test
     void shutdownReleasesAllMigrationFences() {
-        PlayerDataMigrationCoordinator coordinator = new PlayerDataMigrationCoordinator(
-                mock(InvTools.class),
-                new MutableClock()
-        );
+        PlayerDataMigrationCoordinator coordinator = coordinator();
         UUID playerId = UUID.randomUUID();
         coordinator.operationStarted(playerId);
         assertTrue(coordinator.blocksLogin(playerId));
@@ -133,26 +87,7 @@ class PlayerDataMigrationCoordinatorTest {
         assertFalse(coordinator.blocksLogin(playerId));
     }
 
-    private static final class MutableClock extends Clock {
-        private Instant current = Instant.parse("2026-07-29T20:00:00Z");
-
-        @Override
-        public ZoneId getZone() {
-            return ZoneId.of("UTC");
-        }
-
-        @Override
-        public Clock withZone(ZoneId zone) {
-            return this;
-        }
-
-        @Override
-        public Instant instant() {
-            return current;
-        }
-
-        private void advanceSeconds(long seconds) {
-            current = current.plusSeconds(seconds);
-        }
+    private static PlayerDataMigrationCoordinator coordinator() {
+        return new PlayerDataMigrationCoordinator(mock(InvTools.class), FIXED_CLOCK);
     }
 }
