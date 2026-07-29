@@ -15,6 +15,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -26,6 +27,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.zip.GZIPInputStream;
@@ -91,6 +93,30 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 snapshot,
                 revision(bytes)
         );
+    }
+
+    /**
+     * Matches Paper's current online-mode fallback for an existing offline-mode playerdata file.
+     * The file is read in place: only Paper may migrate it during the player's own login, and a
+     * later InvTools save therefore always uses the exact file that was loaded.
+     */
+    @Override
+    public Optional<OfflinePlayerData> loadIfPresent(
+            UUID playerId,
+            String playerName,
+            boolean onlineMode
+    ) throws IOException {
+        if (hasPlayerData(playerId)) {
+            return Optional.of(load(playerId));
+        }
+        if (!onlineMode || playerName == null || playerName.isBlank()) {
+            return Optional.empty();
+        }
+        UUID offlineModePlayerId = offlineModePlayerId(playerName);
+        if (offlineModePlayerId.equals(playerId) || !hasPlayerData(offlineModePlayerId)) {
+            return Optional.empty();
+        }
+        return Optional.of(load(offlineModePlayerId));
     }
 
     @Override
@@ -365,6 +391,11 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             throw new IOException("Resolved playerdata path escaped its directory");
         }
         return file;
+    }
+
+    static UUID offlineModePlayerId(String playerName) {
+        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName)
+                .getBytes(StandardCharsets.UTF_8));
     }
 
     private static byte[] readPlayerData(Path file) throws IOException {

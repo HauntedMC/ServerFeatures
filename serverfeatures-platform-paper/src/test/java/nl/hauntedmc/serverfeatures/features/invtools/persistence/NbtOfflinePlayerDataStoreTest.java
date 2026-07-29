@@ -4,11 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -51,5 +53,14 @@ class NbtOfflinePlayerDataStoreTest {
 
         IOException exception = assertThrows(IOException.class, () -> store.load(playerId));
         assertTrue(exception.getMessage().contains("expands beyond the safe read limit"));
+    }
+
+    @Test
+    void derivesPapersCurrentOnlineModeFallbackUuid() {
+        String playerName = "LegacyPlayer";
+        UUID offlineModePlayerId = UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName)
+                .getBytes(StandardCharsets.UTF_8));
+
+        assertEquals(offlineModePlayerId, NbtOfflinePlayerDataStore.offlineModePlayerId(playerName));
     }
 }

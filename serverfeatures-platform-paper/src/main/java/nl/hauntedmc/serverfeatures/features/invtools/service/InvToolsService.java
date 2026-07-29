@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -219,6 +220,7 @@ public final class InvToolsService {
                 targetId,
                 targetName,
                 kind,
+                Bukkit.getOnlineMode(),
                 permit
         );
         Player nowOnline;
@@ -274,10 +276,17 @@ public final class InvToolsService {
 
         OfflinePlayerData original;
         try {
-            if (!offlineStore.hasPlayerData(clear.targetId())) {
+            original = loadOffline(
+                    offlineStore,
+                    clear.targetId(),
+                    clear.targetName(),
+                    clear.onlineMode(),
+                    OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS,
+                    InvToolsService::waitForPlayerDataAppearance
+            );
+            if (original == null) {
                 return ClearResult.NOT_FOUND;
             }
-            original = offlineStore.load(clear.targetId());
         } catch (IOException | RuntimeException exception) {
             feature.getLogger().warning(
                     "Could not load offline playerdata to clear " + clear.targetId() + ": "
@@ -805,6 +814,7 @@ public final class InvToolsService {
                 kind,
                 editable,
                 requestId,
+                Bukkit.getOnlineMode(),
                 permit
         );
         synchronized (transitionLock(targetId)) {
@@ -828,7 +838,7 @@ public final class InvToolsService {
 
         try {
             feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
-                    loadOffline(targetId)
+                    loadOffline(targetId, targetName, reservation.onlineMode())
             ).whenComplete((loaded, failure) -> scheduleMain(() ->
                     completeOfflineOpen(viewer, reservation, loaded, failure)
             ));
@@ -1117,11 +1127,13 @@ public final class InvToolsService {
         }
     }
 
-    private OfflinePlayerData loadOffline(UUID playerId) {
+    private OfflinePlayerData loadOffline(UUID playerId, String playerName, boolean onlineMode) {
         try {
             return loadOffline(
                     offlineStore,
                     playerId,
+                    playerName,
+                    onlineMode,
                     OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS,
                     InvToolsService::waitForPlayerDataAppearance
             );
@@ -1133,6 +1145,8 @@ public final class InvToolsService {
     static OfflinePlayerData loadOffline(
             OfflinePlayerDataStore store,
             UUID playerId,
+            String playerName,
+            boolean onlineMode,
             int attempts,
             Runnable retryDelay
     ) throws IOException {
@@ -1143,8 +1157,13 @@ public final class InvToolsService {
             throw new IllegalArgumentException("attempts must be positive");
         }
         for (int attempt = 1; attempt <= attempts; attempt++) {
-            if (store.hasPlayerData(playerId)) {
-                return store.load(playerId);
+            Optional<OfflinePlayerData> loaded = store.loadIfPresent(
+                    playerId,
+                    playerName,
+                    onlineMode
+            );
+            if (loaded.isPresent()) {
+                return loaded.get();
             }
             if (attempt < attempts) {
                 retryDelay.run();
@@ -1623,6 +1642,7 @@ public final class InvToolsService {
         private final InventoryKind kind;
         private final boolean editable;
         private final UUID requestId;
+        private final boolean onlineMode;
         private final OfflinePermit permit;
         private final AtomicBoolean cancelled = new AtomicBoolean();
 
@@ -1633,6 +1653,7 @@ public final class InvToolsService {
                 InventoryKind kind,
                 boolean editable,
                 UUID requestId,
+                boolean onlineMode,
                 OfflinePermit permit
         ) {
             this.viewerId = Objects.requireNonNull(viewerId, "viewerId");
@@ -1641,6 +1662,7 @@ public final class InvToolsService {
             this.kind = Objects.requireNonNull(kind, "kind");
             this.editable = editable;
             this.requestId = Objects.requireNonNull(requestId, "requestId");
+            this.onlineMode = onlineMode;
             this.permit = Objects.requireNonNull(permit, "permit");
         }
 
@@ -1668,6 +1690,10 @@ public final class InvToolsService {
             return requestId;
         }
 
+        private boolean onlineMode() {
+            return onlineMode;
+        }
+
         @Override
         public OfflinePermit permit() {
             return permit;
@@ -1688,6 +1714,7 @@ public final class InvToolsService {
         private final UUID targetId;
         private final String targetName;
         private final InventoryKind kind;
+        private final boolean onlineMode;
         private final OfflinePermit permit;
         private final CompletableFuture<ClearResult> completion = new CompletableFuture<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
@@ -1698,6 +1725,7 @@ public final class InvToolsService {
                 UUID targetId,
                 String targetName,
                 InventoryKind kind,
+                boolean onlineMode,
                 OfflinePermit permit
         ) {
             this.actorId = Objects.requireNonNull(actorId, "actorId");
@@ -1705,6 +1733,7 @@ public final class InvToolsService {
             this.targetId = Objects.requireNonNull(targetId, "targetId");
             this.targetName = Objects.requireNonNull(targetName, "targetName");
             this.kind = Objects.requireNonNull(kind, "kind");
+            this.onlineMode = onlineMode;
             this.permit = Objects.requireNonNull(permit, "permit");
         }
 
@@ -1726,6 +1755,10 @@ public final class InvToolsService {
 
         private InventoryKind kind() {
             return kind;
+        }
+
+        private boolean onlineMode() {
+            return onlineMode;
         }
 
         @Override

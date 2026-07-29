@@ -9,6 +9,7 @@ import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -55,9 +56,22 @@ class InvToolsServiceTest {
         AtomicInteger retryDelays = new AtomicInteger();
         OfflinePlayerDataStore store = new OfflinePlayerDataStore() {
             @Override
-            public boolean hasPlayerData(UUID checkedPlayerId) {
+            public Optional<OfflinePlayerData> loadIfPresent(
+                    UUID checkedPlayerId,
+                    String playerName,
+                    boolean onlineMode
+            ) {
                 assertEquals(playerId, checkedPlayerId);
-                return availabilityChecks.incrementAndGet() == 2;
+                assertEquals("Target", playerName);
+                assertTrue(onlineMode);
+                return availabilityChecks.incrementAndGet() == 2
+                        ? Optional.of(expected)
+                        : Optional.empty();
+            }
+
+            @Override
+            public boolean hasPlayerData(UUID checkedPlayerId) {
+                throw new UnsupportedOperationException("Not needed by this test");
             }
 
             @Override
@@ -79,6 +93,8 @@ class InvToolsServiceTest {
         OfflinePlayerData actual = InvToolsService.loadOffline(
                 store,
                 playerId,
+                "Target",
+                true,
                 3,
                 retryDelays::incrementAndGet
         );
