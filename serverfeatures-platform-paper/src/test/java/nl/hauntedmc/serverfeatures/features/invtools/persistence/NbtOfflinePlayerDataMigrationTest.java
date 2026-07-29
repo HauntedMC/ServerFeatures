@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
 import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -256,9 +257,14 @@ class NbtOfflinePlayerDataMigrationTest {
     }
 
     private static Path migrationBackup(Path playerFile) {
-        return playerFile.resolveSibling(playerFile.getFileName() + ".invtools-migration-backup");
+        return playerFile.resolveSibling(
+                playerFile.getFileName() + ".invtools-migration-backup"
+        );
     }
 
+    /**
+     * Writes a minimal compressed Java NBT compound without touching NBT-API's NMS object factory.
+     */
     private static void writeFixture(
             Path file,
             UUID playerId,
@@ -266,14 +272,55 @@ class NbtOfflinePlayerDataMigrationTest {
             String marker
     ) throws IOException {
         Files.createDirectories(file.getParent());
-        ReadWriteNBT root = NBT.createNBTObject();
-        root.setInteger("DataVersion", dataVersion);
-        root.setUUID("UUID", playerId);
-        root.setString("fixture_marker", marker);
-        root.getCompoundList("Inventory");
-        root.getCompoundList("EnderItems");
-        root.getOrCreateCompound("equipment");
-        NBT.writeFile(file.toFile(), root);
+        try (DataOutputStream output = new DataOutputStream(
+                new GZIPOutputStream(Files.newOutputStream(file))
+        )) {
+            output.writeByte(10);
+            output.writeUTF("");
+            writeInt(output, "DataVersion", dataVersion);
+            writeUuid(output, playerId);
+            writeString(output, "fixture_marker", marker);
+            writeEmptyCompoundList(output, "Inventory");
+            writeEmptyCompoundList(output, "EnderItems");
+            output.writeByte(10);
+            output.writeUTF("equipment");
+            output.writeByte(0);
+            output.writeByte(0);
+        }
+    }
+
+    private static void writeInt(DataOutputStream output, String key, int value)
+            throws IOException {
+        output.writeByte(3);
+        output.writeUTF(key);
+        output.writeInt(value);
+    }
+
+    private static void writeString(DataOutputStream output, String key, String value)
+            throws IOException {
+        output.writeByte(8);
+        output.writeUTF(key);
+        output.writeUTF(value);
+    }
+
+    private static void writeUuid(DataOutputStream output, UUID playerId) throws IOException {
+        output.writeByte(11);
+        output.writeUTF("UUID");
+        output.writeInt(4);
+        long most = playerId.getMostSignificantBits();
+        long least = playerId.getLeastSignificantBits();
+        output.writeInt((int) (most >> 32));
+        output.writeInt((int) most);
+        output.writeInt((int) (least >> 32));
+        output.writeInt((int) least);
+    }
+
+    private static void writeEmptyCompoundList(DataOutputStream output, String key)
+            throws IOException {
+        output.writeByte(9);
+        output.writeUTF(key);
+        output.writeByte(10);
+        output.writeInt(0);
     }
 
     private static final class RecordingObserver implements PlayerDataMigrationObserver {
