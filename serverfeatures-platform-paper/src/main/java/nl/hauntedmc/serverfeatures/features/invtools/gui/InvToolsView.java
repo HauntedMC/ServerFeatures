@@ -278,9 +278,9 @@ public final class InvToolsView implements InventoryHolder {
         if (kind == InventoryKind.PLAYER) {
             return List.of(
                     connectionStatus,
+                    message("invtools.gui.info.inventory.armor_offhand"),
                     message("invtools.gui.info.inventory.main"),
-                    message("invtools.gui.info.inventory.hotbar"),
-                    message("invtools.gui.info.inventory.armor_offhand")
+                    message("invtools.gui.info.inventory.hotbar")
             );
         }
         return List.of(
