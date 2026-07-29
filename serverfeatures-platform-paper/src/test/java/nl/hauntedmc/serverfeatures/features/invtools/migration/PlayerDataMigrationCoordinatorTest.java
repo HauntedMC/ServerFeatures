@@ -9,8 +9,10 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -76,15 +78,34 @@ class PlayerDataMigrationCoordinatorTest {
     }
 
     @Test
-    void shutdownReleasesAllMigrationFences() {
+    void shutdownRunsStorageBarrierBeforeReleasingLoginFence() {
         PlayerDataMigrationCoordinator coordinator = coordinator();
         UUID playerId = UUID.randomUUID();
+        AtomicBoolean barrierRan = new AtomicBoolean();
         coordinator.operationStarted(playerId);
-        assertTrue(coordinator.blocksLogin(playerId));
+        coordinator.attachShutdownBarrier(() -> {
+            assertTrue(coordinator.blocksLogin(playerId));
+            coordinator.operationFinished(playerId);
+            barrierRan.set(true);
+        });
 
         coordinator.shutdown();
 
+        assertTrue(barrierRan.get());
         assertFalse(coordinator.blocksLogin(playerId));
+    }
+
+    @Test
+    void shutdownBarrierCanOnlyBeAttachedOnce() {
+        PlayerDataMigrationCoordinator coordinator = coordinator();
+        coordinator.attachShutdownBarrier(() -> {
+        });
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> coordinator.attachShutdownBarrier(() -> {
+                })
+        );
     }
 
     private static PlayerDataMigrationCoordinator coordinator() {
