@@ -20,8 +20,11 @@ public interface OfflinePlayerDataStore {
     OfflinePlayerData load(UUID playerId) throws IOException;
 
     /**
-     * Resolves a name to a playerdata file that actually exists on this server. The preferred ID
-     * may come from Paper's profile cache and must therefore be verified against local storage.
+     * Resolves a name to the strongest available UUID candidate for this server.
+     *
+     * <p>An authoritative identity may be returned before its playerdata file is visible. This is
+     * required during logout because Paper fires the quit event before the final player save has
+     * necessarily reached disk. The caller is responsible for waiting for the file to appear.</p>
      */
     default Optional<UUID> resolvePlayerId(
             Optional<UUID> preferredPlayerId,
@@ -37,6 +40,20 @@ public interface OfflinePlayerDataStore {
      * Records an identity observed directly from a successful player connection.
      */
     default void rememberPlayerIdentity(UUID playerId, String playerName) {
+    }
+
+    /**
+     * Returns non-sensitive storage information suitable for an administrative failure log.
+     */
+    default String describeStorage() {
+        return getClass().getName();
+    }
+
+    /**
+     * Returns non-sensitive diagnostics for the expected file of one UUID.
+     */
+    default String describePlayerData(UUID playerId) {
+        return "playerId=" + playerId + ", storage=" + describeStorage();
     }
 
     void save(
