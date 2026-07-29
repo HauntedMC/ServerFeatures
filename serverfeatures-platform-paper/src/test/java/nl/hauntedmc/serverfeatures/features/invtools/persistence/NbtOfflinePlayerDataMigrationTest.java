@@ -1,17 +1,24 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
-import de.tr7zw.changeme.nbtapi.NBT;
+import de.tr7zw.changeme.nbtapi.NBTType;
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBTCompoundList;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -19,6 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class NbtOfflinePlayerDataMigrationTest {
 
@@ -27,6 +39,8 @@ class NbtOfflinePlayerDataMigrationTest {
 
     @TempDir
     Path levelDirectory;
+
+    private final FakePlayerDataNbtIo nbtIo = new FakePlayerDataNbtIo();
 
     @Test
     void createsVerifiedBackupBeforeConversionAndDeletesItAfterSuccess() throws IOException {
@@ -50,10 +64,11 @@ class NbtOfflinePlayerDataMigrationTest {
 
         OfflinePlayerData loaded = store.load(playerId);
 
+        FakePlayerDataNbtIo.State committed = nbtIo.readState(playerFile);
         assertTrue(backupExistedDuringConversion.get());
         assertFalse(Files.exists(backupFile));
-        assertEquals(CURRENT_VERSION, NBT.readFile(playerFile.toFile()).getInteger("DataVersion"));
-        assertEquals("converted", NBT.readFile(playerFile.toFile()).getString("migration_marker"));
+        assertEquals(CURRENT_VERSION, committed.dataVersion());
+        assertEquals("converted", committed.migrationMarker());
         assertEquals(playerId, loaded.playerId());
         assertEquals(
                 List.of("detected", "backup", "converting", "completed"),
@@ -150,15 +165,9 @@ class NbtOfflinePlayerDataMigrationTest {
                 PlayerDataMigrationException.RecoveryStatus.BACKUP_RETAINED,
                 exception.recoveryStatus()
         );
-        assertEquals(
-                "external-change",
-                NBT.readFile(playerFile.toFile()).getString("fixture_marker")
-        );
+        assertEquals("external-change", nbtIo.readState(playerFile).fixtureMarker());
         assertTrue(Files.isRegularFile(backupFile));
-        assertEquals(
-                "original",
-                NBT.readFile(backupFile.toFile()).getString("fixture_marker")
-        );
+        assertEquals("original", nbtIo.readState(backupFile).fixtureMarker());
     }
 
     @Test
@@ -193,13 +202,10 @@ class NbtOfflinePlayerDataMigrationTest {
         );
         assertEquals(
                 "external-after-replace",
-                NBT.readFile(playerFile.toFile()).getString("fixture_marker")
+                nbtIo.readState(playerFile).fixtureMarker()
         );
         assertTrue(Files.isRegularFile(backupFile));
-        assertEquals(
-                "original",
-                NBT.readFile(backupFile.toFile()).getString("fixture_marker")
-        );
+        assertEquals("original", nbtIo.readState(backupFile).fixtureMarker());
     }
 
     @Test
@@ -224,7 +230,7 @@ class NbtOfflinePlayerDataMigrationTest {
         assertEquals(playerId, loaded.playerId());
         assertFalse(converterCalled.get());
         assertFalse(Files.exists(backupFile));
-        assertEquals("committed", NBT.readFile(playerFile.toFile()).getString("fixture_marker"));
+        assertEquals("committed", nbtIo.readState(playerFile).fixtureMarker());
     }
 
     @Test
@@ -249,15 +255,9 @@ class NbtOfflinePlayerDataMigrationTest {
                 PlayerDataMigrationException.RecoveryStatus.BACKUP_RETAINED,
                 exception.recoveryStatus()
         );
-        assertEquals(
-                "newer-target",
-                NBT.readFile(playerFile.toFile()).getString("fixture_marker")
-        );
+        assertEquals("newer-target", nbtIo.readState(playerFile).fixtureMarker());
         assertTrue(Files.isRegularFile(backupFile));
-        assertEquals(
-                "old-backup",
-                NBT.readFile(backupFile.toFile()).getString("fixture_marker")
-        );
+        assertEquals("old-backup", nbtIo.readState(backupFile).fixtureMarker());
     }
 
     @Test
@@ -277,7 +277,7 @@ class NbtOfflinePlayerDataMigrationTest {
 
         assertTrue(Files.isRegularFile(playerFile));
         assertFalse(Files.exists(backupFile));
-        assertEquals(CURRENT_VERSION, NBT.readFile(playerFile.toFile()).getInteger("DataVersion"));
+        assertEquals(CURRENT_VERSION, nbtIo.readState(playerFile).dataVersion());
         assertTrue(observer.events.contains("restoring"));
     }
 
@@ -314,6 +314,7 @@ class NbtOfflinePlayerDataMigrationTest {
                 CURRENT_VERSION,
                 converter,
                 observer,
+                nbtIo,
                 checkpoint
         );
     }
@@ -336,65 +337,167 @@ class NbtOfflinePlayerDataMigrationTest {
         );
     }
 
-    /**
-     * Writes a minimal compressed Java NBT compound without touching NBT-API's NMS object factory.
-     */
-    private static void writeFixture(
+    private void writeFixture(
             Path file,
             UUID playerId,
             int dataVersion,
             String marker
     ) throws IOException {
-        Files.createDirectories(file.getParent());
-        try (DataOutputStream output = new DataOutputStream(
-                new GZIPOutputStream(Files.newOutputStream(file))
-        )) {
-            output.writeByte(10);
-            output.writeUTF("");
-            writeInt(output, "DataVersion", dataVersion);
-            writeUuid(output, playerId);
-            writeString(output, "fixture_marker", marker);
-            writeEmptyCompoundList(output, "Inventory");
-            writeEmptyCompoundList(output, "EnderItems");
-            output.writeByte(10);
-            output.writeUTF("equipment");
-            output.writeByte(0);
-            output.writeByte(0);
+        nbtIo.writeState(file, new FakePlayerDataNbtIo.State(
+                dataVersion,
+                playerId,
+                marker,
+                ""
+        ));
+    }
+
+    private static final class FakePlayerDataNbtIo implements PlayerDataNbtIo {
+        private final Map<ReadWriteNBT, State> states = Collections.synchronizedMap(
+                new IdentityHashMap<>()
+        );
+
+        @Override
+        public ReadWriteNBT read(byte[] bytes, Path source) throws IOException {
+            State state = decode(bytes);
+            ReadWriteNBT root = mock(ReadWriteNBT.class);
+            states.put(root, state);
+
+            when(root.hasTag("DataVersion", NBTType.NBTTagInt)).thenReturn(true);
+            when(root.getInteger("DataVersion")).thenAnswer(ignored -> state(root).dataVersion());
+            doAnswer(invocation -> {
+                state(root).dataVersion(invocation.getArgument(1));
+                return null;
+            }).when(root).setInteger(anyString(), anyInt());
+
+            when(root.hasTag("UUID")).thenReturn(true);
+            when(root.hasTag("UUID", NBTType.NBTTagIntArray)).thenReturn(true);
+            when(root.getUUID("UUID")).thenAnswer(ignored -> state(root).playerId());
+
+            when(root.getString("fixture_marker"))
+                    .thenAnswer(ignored -> state(root).fixtureMarker());
+            when(root.getString("migration_marker"))
+                    .thenAnswer(ignored -> state(root).migrationMarker());
+            doAnswer(invocation -> {
+                String key = invocation.getArgument(0);
+                String value = invocation.getArgument(1);
+                if ("fixture_marker".equals(key)) {
+                    state(root).fixtureMarker(value);
+                } else if ("migration_marker".equals(key)) {
+                    state(root).migrationMarker(value);
+                }
+                return null;
+            }).when(root).setString(anyString(), anyString());
+
+            stubEmptyCompoundList(root, "Inventory");
+            stubEmptyCompoundList(root, "EnderItems");
+            when(root.hasTag("equipment")).thenReturn(false);
+            when(root.getCompound("equipment")).thenReturn(null);
+            when(root.hasTag("bukkit", NBTType.NBTTagCompound)).thenReturn(false);
+            return root;
         }
-    }
 
-    private static void writeInt(DataOutputStream output, String key, int value)
-            throws IOException {
-        output.writeByte(3);
-        output.writeUTF(key);
-        output.writeInt(value);
-    }
+        @Override
+        public void write(Path destination, ReadWriteNBT root) throws IOException {
+            writeState(destination, state(root).snapshot());
+        }
 
-    private static void writeString(DataOutputStream output, String key, String value)
-            throws IOException {
-        output.writeByte(8);
-        output.writeUTF(key);
-        output.writeUTF(value);
-    }
+        private void stubEmptyCompoundList(ReadWriteNBT root, String key) {
+            ReadWriteNBTCompoundList list = mock(ReadWriteNBTCompoundList.class);
+            when(root.hasTag(key, NBTType.NBTTagList)).thenReturn(true);
+            when(root.getCompoundList(key)).thenReturn(list);
+            when(root.getListType(key)).thenReturn(NBTType.NBTTagCompound);
+            when(list.isEmpty()).thenReturn(true);
+            when(list.iterator()).thenAnswer(ignored -> Collections.emptyIterator());
+        }
 
-    private static void writeUuid(DataOutputStream output, UUID playerId) throws IOException {
-        output.writeByte(11);
-        output.writeUTF("UUID");
-        output.writeInt(4);
-        long most = playerId.getMostSignificantBits();
-        long least = playerId.getLeastSignificantBits();
-        output.writeInt((int) (most >> 32));
-        output.writeInt((int) most);
-        output.writeInt((int) (least >> 32));
-        output.writeInt((int) least);
-    }
+        private State state(ReadWriteNBT root) {
+            State state = states.get(root);
+            if (state == null) {
+                throw new IllegalStateException("Unknown fake playerdata root");
+            }
+            return state;
+        }
 
-    private static void writeEmptyCompoundList(DataOutputStream output, String key)
-            throws IOException {
-        output.writeByte(9);
-        output.writeUTF(key);
-        output.writeByte(10);
-        output.writeInt(0);
+        private State readState(Path file) throws IOException {
+            return decode(Files.readAllBytes(file));
+        }
+
+        private void writeState(Path file, State state) throws IOException {
+            Files.createDirectories(file.getParent());
+            try (DataOutputStream output = new DataOutputStream(
+                    new GZIPOutputStream(Files.newOutputStream(file))
+            )) {
+                output.writeInt(state.dataVersion());
+                output.writeLong(state.playerId().getMostSignificantBits());
+                output.writeLong(state.playerId().getLeastSignificantBits());
+                output.writeUTF(state.fixtureMarker());
+                output.writeUTF(state.migrationMarker());
+            }
+        }
+
+        private static State decode(byte[] bytes) throws IOException {
+            try (DataInputStream input = new DataInputStream(
+                    new GZIPInputStream(new java.io.ByteArrayInputStream(bytes))
+            )) {
+                return new State(
+                        input.readInt(),
+                        new UUID(input.readLong(), input.readLong()),
+                        input.readUTF(),
+                        input.readUTF()
+                );
+            }
+        }
+
+        private static final class State {
+            private int dataVersion;
+            private final UUID playerId;
+            private String fixtureMarker;
+            private String migrationMarker;
+
+            private State(
+                    int dataVersion,
+                    UUID playerId,
+                    String fixtureMarker,
+                    String migrationMarker
+            ) {
+                this.dataVersion = dataVersion;
+                this.playerId = playerId;
+                this.fixtureMarker = fixtureMarker;
+                this.migrationMarker = migrationMarker;
+            }
+
+            private int dataVersion() {
+                return dataVersion;
+            }
+
+            private void dataVersion(int value) {
+                dataVersion = value;
+            }
+
+            private UUID playerId() {
+                return playerId;
+            }
+
+            private String fixtureMarker() {
+                return fixtureMarker;
+            }
+
+            private void fixtureMarker(String value) {
+                fixtureMarker = value;
+            }
+
+            private String migrationMarker() {
+                return migrationMarker;
+            }
+
+            private void migrationMarker(String value) {
+                migrationMarker = value;
+            }
+
+            private State snapshot() {
+                return new State(dataVersion, playerId, fixtureMarker, migrationMarker);
+            }
+        }
     }
 
     private static final class RecordingObserver implements PlayerDataMigrationObserver {
