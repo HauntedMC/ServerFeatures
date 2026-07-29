@@ -285,7 +285,9 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         );
 
         boolean targetReplaced = false;
+        PlayerDataRevision installedRevision = null;
         Path temporary = null;
+        PlayerDataMigrationException migrationFailure = null;
         try {
             writeMigrationBackup(file, backup, originalBytes, originalRevision, playerId);
             migrationObserver.backupCreated(
@@ -319,6 +321,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             byte[] convertedBytes = readPlayerData(temporary);
             ReadWriteNBT verifiedConverted = readNbt(convertedBytes, temporary);
             validateCurrentPlayerData(verifiedConverted, playerId);
+            installedRevision = revision(convertedBytes);
 
             migrationCheckpoint.reached(
                     playerId,
@@ -335,7 +338,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     PlayerDataMigrationCheckpoint.Stage.AFTER_REPLACE
             );
             byte[] committedBytes = readPlayerData(file);
-            if (!revision(convertedBytes).equals(revision(committedBytes))) {
+            if (!installedRevision.equals(revision(committedBytes))) {
                 throw new IOException(
                         "Migrated playerdata did not match the validated temporary file for "
                                 + playerId
@@ -357,7 +360,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             );
             return new MigratedPlayerData(committedBytes, committedRoot);
         } catch (IOException | RuntimeException exception) {
-            PlayerDataMigrationException migrationFailure = recoverFailedMigration(
+            migrationFailure = recoverFailedMigration(
                     file,
                     backup,
                     playerId,
@@ -365,12 +368,21 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     originalRevision,
                     sourceVersion,
                     targetReplaced,
+                    installedRevision,
                     exception
             );
             throw migrationFailure;
         } finally {
             if (temporary != null) {
-                Files.deleteIfExists(temporary);
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (IOException | RuntimeException cleanupFailure) {
+                    if (migrationFailure != null) {
+                        migrationFailure.addSuppressed(cleanupFailure);
+                    } else {
+                        throw cleanupFailure;
+                    }
+                }
             }
         }
     }
@@ -383,12 +395,17 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             PlayerDataRevision originalRevision,
             int sourceVersion,
             boolean targetReplaced,
+            PlayerDataRevision installedRevision,
             Throwable failure
     ) {
         PlayerDataMigrationException.RecoveryStatus recoveryStatus;
         Throwable recoveryFailure = null;
         try {
-            if (targetReplaced) {
+            if (targetReplaced && canRestoreInstalledTarget(
+                    file,
+                    installedRevision,
+                    playerId
+            )) {
                 migrationObserver.rollbackStarted(
                         playerId,
                         sourceVersion,
@@ -397,6 +414,8 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 );
                 restoreMigrationBackup(file, backup, originalRevision, playerId);
                 recoveryStatus = PlayerDataMigrationException.RecoveryStatus.RESTORED_FROM_BACKUP;
+            } else if (targetReplaced) {
+                recoveryStatus = PlayerDataMigrationException.RecoveryStatus.BACKUP_RETAINED;
             } else if (targetStillMatches(file, originalBytes, originalRevision)) {
                 deleteRegularBackup(backup);
                 forceDirectory(file.getParent());
@@ -432,6 +451,32 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 result
         );
         return result;
+    }
+
+    private boolean canRestoreInstalledTarget(
+            Path file,
+            PlayerDataRevision installedRevision,
+            UUID playerId
+    ) throws IOException {
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+            return true;
+        }
+        if (Files.isSymbolicLink(file)
+                || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+
+        byte[] currentBytes;
+        try {
+            currentBytes = readPlayerData(file);
+        } catch (IOException exception) {
+            return true;
+        }
+        if (installedRevision != null && installedRevision.equals(revision(currentBytes))) {
+            return true;
+        }
+
+        return !isParseablePlayerData(currentBytes, file, playerId);
     }
 
     private void recoverInterruptedMigration(Path file, UUID playerId) throws IOException {
@@ -484,8 +529,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             deleteRegularBackup(backup);
             forceDirectory(file.getParent());
         } catch (IOException | RuntimeException invalidTarget) {
-            int targetVersion = safeDataVersion(targetBytes, file);
-            if (targetVersion > 0 && targetVersion < runtimeDataVersion) {
+            if (isParseablePlayerData(targetBytes, file, playerId)) {
                 PlayerDataMigrationException exception = new PlayerDataMigrationException(
                         "Found an ambiguous interrupted migration for " + playerId
                                 + "; both the playerdata and backup are retained",
@@ -513,6 +557,20 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     backup
             );
             restoreMigrationBackup(file, backup, backupRevision, playerId);
+        }
+    }
+
+    private static boolean isParseablePlayerData(
+            byte[] bytes,
+            Path file,
+            UUID expectedPlayerId
+    ) {
+        try {
+            ReadWriteNBT root = readNbt(bytes, file);
+            validatePlayerIdentity(root, expectedPlayerId);
+            return true;
+        } catch (IOException | RuntimeException exception) {
+            return false;
         }
     }
 
@@ -545,7 +603,9 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             forceDirectory(target.getParent());
             requireRegularFile(backup, "migration backup");
             if (!originalRevision.equals(revision(readPlayerData(backup)))) {
-                throw new IOException("Persisted migration backup verification failed for " + playerId);
+                throw new IOException(
+                        "Persisted migration backup verification failed for " + playerId
+                );
             }
         } finally {
             Files.deleteIfExists(temporary);
@@ -635,17 +695,6 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
                 || Files.isSymbolicLink(file)) {
             throw new IOException(description + " is not a regular file: " + file);
-        }
-    }
-
-    private static int safeDataVersion(byte[] bytes, Path file) {
-        try {
-            ReadWriteNBT root = readNbt(bytes, file);
-            return root.hasTag("DataVersion", NBTType.NBTTagInt)
-                    ? root.getInteger("DataVersion")
-                    : 0;
-        } catch (IOException | RuntimeException exception) {
-            return 0;
         }
     }
 
