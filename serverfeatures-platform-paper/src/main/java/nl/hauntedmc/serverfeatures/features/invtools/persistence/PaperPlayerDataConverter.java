@@ -19,6 +19,7 @@ import java.util.Arrays;
 public final class PaperPlayerDataConverter implements PlayerDataConverter {
 
     private static final String DATA_FIX_TYPES_CLASS = "net.minecraft.util.datafix.DataFixTypes";
+    private static final String COMPOUND_TAG_CLASS = "net.minecraft.nbt.CompoundTag";
     private static final String PLAYER_TYPE = "PLAYER";
     private static final String UPDATE_METHOD = "updateToCurrentVersion";
 
@@ -58,6 +59,13 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
         }
 
         Bridge activeBridge = bridge();
+        if (!activeBridge.updateMethod().getParameterTypes()[1].isInstance(rawTag)) {
+            throw new IOException(
+                    "NBT-API returned " + rawTag.getClass().getName()
+                            + " instead of Paper's CompoundTag"
+            );
+        }
+
         Object converted;
         try {
             converted = activeBridge.updateMethod().invoke(
@@ -127,9 +135,12 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
                     .filter(method -> method.getParameterCount() == 3)
                     .filter(method -> method.getParameterTypes()[2] == int.class)
                     .filter(method -> method.getParameterTypes()[0].isInstance(dataFixer))
+                    .filter(method -> method.getParameterTypes()[1]
+                            .getName()
+                            .equals(COMPOUND_TAG_CLASS))
                     .findFirst()
                     .orElseThrow(() -> new IOException(
-                            "Paper's PLAYER data-fixer method was not found on this build"
+                            "Paper's CompoundTag PLAYER data-fixer method was not found on this build"
                     ));
             return new Bridge(dataFixer, playerType, updateMethod);
         } catch (IOException exception) {
