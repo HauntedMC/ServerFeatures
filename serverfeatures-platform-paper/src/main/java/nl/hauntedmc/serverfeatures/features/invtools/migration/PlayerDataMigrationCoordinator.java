@@ -24,13 +24,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 /**
- * Connects asynchronous playerdata work to the staff command that requested it and exposes an
- * early-login fence independent of Paper's player construction lifecycle.
+ * Connects asynchronous playerdata work to the staff command that requested it and fences login
+ * while the playerdata store is actively reading, migrating, recovering, or saving that UUID.
  */
 public final class PlayerDataMigrationCoordinator implements PlayerDataMigrationObserver {
 
     private static final Duration REQUEST_TTL = Duration.ofSeconds(30);
-    private static final Duration PENDING_OPERATION_TTL = Duration.ofSeconds(30);
     private static final Duration ACTIVE_NOTIFICATION_TTL = Duration.ofMinutes(5);
 
     private final InvTools feature;
@@ -39,7 +38,6 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             new ConcurrentHashMap<>();
     private final Map<UUID, ConcurrentLinkedDeque<Request>> requestsByTarget =
             new ConcurrentHashMap<>();
-    private final Map<UUID, Long> pendingUntil = new ConcurrentHashMap<>();
     private final Map<UUID, AtomicInteger> activeOperations = new ConcurrentHashMap<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
 
@@ -74,19 +72,16 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     /**
-     * Returns true while identity-to-file handoff or actual playerdata I/O is in progress.
+     * Returns true only while playerdata I/O is active. The ordinary InvTools login fence protects
+     * the preceding identity-resolution and reservation handoff without leaving stale migration
+     * fences behind when an offline request is rejected.
      */
     public boolean blocksLogin(UUID playerId) {
         if (!active.get() || playerId == null) {
             return false;
         }
-        cleanupExpired();
         AtomicInteger activeCount = activeOperations.get(playerId);
-        if (activeCount != null && activeCount.get() > 0) {
-            return true;
-        }
-        Long deadline = pendingUntil.get(playerId);
-        return deadline != null && deadline >= now();
+        return activeCount != null && activeCount.get() > 0;
     }
 
     @Override
@@ -95,8 +90,7 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
             return;
         }
         cleanupExpired();
-        String normalized = normalize(requestedName);
-        ConcurrentLinkedDeque<Request> queue = requestsByName.remove(normalized);
+        ConcurrentLinkedDeque<Request> queue = requestsByName.remove(normalize(requestedName));
         if (queue == null) {
             return;
         }
@@ -114,15 +108,13 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         }
 
         UUID targetId = playerId.get();
-        long handoffDeadline = currentTime + PENDING_OPERATION_TTL.toMillis();
-        ConcurrentLinkedDeque<Request> targetRequests = requestsByTarget.computeIfAbsent(
-                targetId,
-                ignored -> new ConcurrentLinkedDeque<>()
-        );
-        for (Request pendingRequest : requests) {
-            targetRequests.addLast(pendingRequest.withDeadline(handoffDeadline));
-        }
-        pendingUntil.merge(targetId, handoffDeadline, Math::max);
+        requestsByTarget.compute(targetId, (ignored, existing) -> {
+            ConcurrentLinkedDeque<Request> result = existing == null
+                    ? new ConcurrentLinkedDeque<>()
+                    : existing;
+            result.addAll(requests);
+            return result;
+        });
     }
 
     @Override
@@ -130,16 +122,14 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         if (!active.get() || playerId == null) {
             return;
         }
-        pendingUntil.remove(playerId);
         long notificationDeadline = now() + ACTIVE_NOTIFICATION_TTL.toMillis();
-        ConcurrentLinkedDeque<Request> requests = requestsByTarget.get(playerId);
-        if (requests != null) {
+        requestsByTarget.computeIfPresent(playerId, (ignored, requests) -> {
             ConcurrentLinkedDeque<Request> extended = new ConcurrentLinkedDeque<>();
             for (Request request : requests) {
                 extended.addLast(request.withDeadline(notificationDeadline));
             }
-            requestsByTarget.replace(playerId, requests, extended);
-        }
+            return extended;
+        });
         activeOperations.compute(playerId, (ignored, count) -> {
             AtomicInteger result = count == null ? new AtomicInteger() : count;
             result.incrementAndGet();
@@ -280,7 +270,6 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         }
         requestsByName.clear();
         requestsByTarget.clear();
-        pendingUntil.clear();
         activeOperations.clear();
     }
 
@@ -339,11 +328,9 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     private void clearRequests(UUID playerId) {
-        if (playerId == null) {
-            return;
+        if (playerId != null) {
+            requestsByTarget.remove(playerId);
         }
-        requestsByTarget.remove(playerId);
-        pendingUntil.remove(playerId);
     }
 
     private void cleanupExpired() {
@@ -360,7 +347,6 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
                 requestsByTarget.remove(playerId, requests);
             }
         });
-        pendingUntil.entrySet().removeIf(entry -> entry.getValue() < currentTime);
     }
 
     private void logFailure(String message, Throwable failure) {
