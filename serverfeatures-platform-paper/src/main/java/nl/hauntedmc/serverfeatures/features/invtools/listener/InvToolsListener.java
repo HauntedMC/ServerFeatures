@@ -15,6 +15,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 
+import java.util.UUID;
+
 public final class InvToolsListener implements Listener {
 
     private final InvTools feature;
@@ -52,7 +54,18 @@ public final class InvToolsListener implements Listener {
         if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
             return;
         }
-        if (service.prepareLogin(event.getUniqueId()) == InvToolsService.LoginBarrierResult.RETRY) {
+        UUID playerId = event.getUniqueId();
+        if (feature.getMigrationCoordinator().blocksLogin(playerId)) {
+            event.disallow(
+                    AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                    feature.getLocalizationHandler()
+                            .getMessage("invtools.login_migration")
+                            .with("player", event.getName())
+                            .build()
+            );
+            return;
+        }
+        if (service.prepareLogin(playerId) == InvToolsService.LoginBarrierResult.RETRY) {
             event.disallow(
                     AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
                     feature.getLocalizationHandler()
@@ -65,7 +78,15 @@ public final class InvToolsListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onInitialConfigure(PlayerConnectionInitialConfigureEvent event) {
-        service.handlePlayerDataLoad(event.getConnection().getProfile().getId());
+        UUID playerId = event.getConnection().getProfile().getId();
+        if (feature.getMigrationCoordinator().blocksLogin(playerId)) {
+            event.getConnection().disconnect(feature.getLocalizationHandler()
+                    .getMessage("invtools.login_migration")
+                    .with("player", event.getConnection().getProfile().getName())
+                    .build());
+            return;
+        }
+        service.handlePlayerDataLoad(playerId);
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
