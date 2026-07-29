@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * Thin, version-pinned bridge to the same full {@code DataFixTypes.PLAYER} conversion Paper uses
@@ -26,8 +27,9 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
     private volatile Bridge bridge;
 
     /**
-     * Resolves the version-pinned Paper bridge without mutating any playerdata. Platform acceptance
-     * calls this on a real Paper runtime so mapping changes fail CI before release.
+     * Resolves the version-pinned Paper bridge without mutating playerdata. InvTools calls this
+     * during feature initialization so mapping or access changes fail before a staff command can
+     * begin a migration.
      */
     public void verifyAvailable() throws IOException {
         bridge();
@@ -39,6 +41,7 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
             int sourceVersion,
             int targetVersion
     ) throws IOException {
+        Objects.requireNonNull(source, "source");
         if (sourceVersion <= 0 || targetVersion <= 0 || sourceVersion >= targetVersion) {
             throw new IOException(
                     "Invalid playerdata conversion range " + sourceVersion + " -> " + targetVersion
@@ -51,7 +54,7 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
         Object rawTag;
         try {
             rawTag = NBTReflectionUtil.getToCompount(compound.getCompound(), compound);
-        } catch (RuntimeException exception) {
+        } catch (RuntimeException | LinkageError exception) {
             throw new IOException("Could not unwrap playerdata for Paper's data fixer", exception);
         }
         if (rawTag == null) {
@@ -89,12 +92,18 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
         if (converted == null) {
             throw new IOException("Paper's player data fixer returned no converted NBT");
         }
+        if (!activeBridge.updateMethod().getReturnType().isInstance(converted)) {
+            throw new IOException(
+                    "Paper's player data fixer returned " + converted.getClass().getName()
+                            + " instead of CompoundTag"
+            );
+        }
 
         try {
             ReadWriteNBT result = NBT.wrapNMSTag(converted);
             result.setInteger("DataVersion", targetVersion);
             return result;
-        } catch (RuntimeException exception) {
+        } catch (RuntimeException | LinkageError exception) {
             throw new IOException("Could not wrap Paper's converted playerdata", exception);
         }
     }
@@ -130,18 +139,11 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
                     (Class<? extends Enum>) dataFixTypes,
                     PLAYER_TYPE
             );
-            Method updateMethod = Arrays.stream(dataFixTypes.getMethods())
-                    .filter(method -> method.getName().equals(UPDATE_METHOD))
-                    .filter(method -> method.getParameterCount() == 3)
-                    .filter(method -> method.getParameterTypes()[2] == int.class)
-                    .filter(method -> method.getParameterTypes()[0].isInstance(dataFixer))
-                    .filter(method -> method.getParameterTypes()[1]
-                            .getName()
-                            .equals(COMPOUND_TAG_CLASS))
-                    .findFirst()
-                    .orElseThrow(() -> new IOException(
-                            "Paper's CompoundTag PLAYER data-fixer method was not found on this build"
-                    ));
+            Method updateMethod = selectCompoundUpdateMethod(
+                    dataFixTypes,
+                    dataFixer,
+                    COMPOUND_TAG_CLASS
+            );
             return new Bridge(dataFixer, playerType, updateMethod);
         } catch (IOException exception) {
             throw exception;
@@ -155,6 +157,34 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
         }
     }
 
+    static Method selectCompoundUpdateMethod(
+            Class<?> dataFixTypes,
+            Object dataFixer,
+            String compoundTagClassName
+    ) throws IOException {
+        Objects.requireNonNull(dataFixTypes, "dataFixTypes");
+        Objects.requireNonNull(dataFixer, "dataFixer");
+        Objects.requireNonNull(compoundTagClassName, "compoundTagClassName");
+        return Arrays.stream(dataFixTypes.getMethods())
+                .filter(method -> method.getName().equals(UPDATE_METHOD))
+                .filter(method -> method.getParameterCount() == 3)
+                .filter(method -> method.getParameterTypes()[2] == int.class)
+                .filter(method -> method.getParameterTypes()[0].isInstance(dataFixer))
+                .filter(method -> method.getParameterTypes()[1]
+                        .getName()
+                        .equals(compoundTagClassName))
+                .filter(method -> method.getReturnType().getName().equals(compoundTagClassName))
+                .findFirst()
+                .orElseThrow(() -> new IOException(
+                        "Paper's CompoundTag PLAYER data-fixer method was not found on this build"
+                ));
+    }
+
     private record Bridge(Object dataFixer, Object playerType, Method updateMethod) {
+        private Bridge {
+            Objects.requireNonNull(dataFixer, "dataFixer");
+            Objects.requireNonNull(playerType, "playerType");
+            Objects.requireNonNull(updateMethod, "updateMethod");
+        }
     }
 }
