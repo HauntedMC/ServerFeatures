@@ -217,24 +217,6 @@ public final class InventorySnapshot {
         return new InsertionResult(changed, remainder);
     }
 
-    public void apply(InventoryKind kind, Player player) {
-        Objects.requireNonNull(kind, "kind");
-        Objects.requireNonNull(player, "player");
-        if (kind == InventoryKind.ENDER_CHEST) {
-            player.getEnderChest().setStorageContents(enderChest());
-            return;
-        }
-
-        PlayerInventory inventory = player.getInventory();
-        inventory.setStorageContents(storage());
-        inventory.setHelmet(helmet());
-        inventory.setChestplate(chestplate());
-        inventory.setLeggings(leggings());
-        inventory.setBoots(boots());
-        inventory.setItemInOffHand(offHand());
-        player.updateInventory();
-    }
-
     public ItemStack[] storage() {
         return cloneArray(storage, STORAGE_SIZE, "storage");
     }
