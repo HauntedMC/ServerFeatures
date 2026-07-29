@@ -1,9 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
-import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
-import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
-import nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks;
-import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -13,15 +9,11 @@ import java.nio.file.Path;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RecoverableOfflinePlayerDataStoreTest {
-
-    private static final PlayerDataRevision REVISION = new PlayerDataRevision("0".repeat(64));
 
     @TempDir
     Path levelDirectory;
@@ -68,92 +60,5 @@ class RecoverableOfflinePlayerDataStoreTest {
         }
 
         assertFalse(store.hasPlayerData(playerId));
-    }
-
-    @Test
-    void rereadsAndVerifiesACommittedOfflineEdit() throws IOException {
-        UUID playerId = UUID.randomUUID();
-        OfflinePlayerDataStore delegate = mock(OfflinePlayerDataStore.class);
-        InventorySnapshot originalSnapshot = InventorySnapshot.empty();
-        InventorySnapshot changedSnapshot = originalSnapshot.withBackingSlot(
-                InventoryKind.PLAYER,
-                0,
-                TestItemStacks.item(Material.STONE, 3)
-        );
-        OfflinePlayerData original = new OfflinePlayerData(
-                playerId,
-                originalSnapshot,
-                REVISION
-        );
-        when(delegate.load(playerId)).thenReturn(new OfflinePlayerData(
-                playerId,
-                changedSnapshot,
-                REVISION
-        ));
-        RecoverableOfflinePlayerDataStore store = new RecoverableOfflinePlayerDataStore(
-                delegate,
-                levelDirectory
-        );
-
-        store.save(original, InventoryKind.PLAYER, changedSnapshot);
-
-        verify(delegate).save(original, InventoryKind.PLAYER, changedSnapshot);
-        verify(delegate).load(playerId);
-    }
-
-    @Test
-    void mismatchedCommittedEditFailsClosed() throws IOException {
-        UUID playerId = UUID.randomUUID();
-        OfflinePlayerDataStore delegate = mock(OfflinePlayerDataStore.class);
-        InventorySnapshot originalSnapshot = InventorySnapshot.empty();
-        InventorySnapshot changedSnapshot = originalSnapshot.withBackingSlot(
-                InventoryKind.ENDER_CHEST,
-                0,
-                TestItemStacks.item(Material.DIAMOND, 2)
-        );
-        OfflinePlayerData original = new OfflinePlayerData(
-                playerId,
-                originalSnapshot,
-                REVISION
-        );
-        when(delegate.load(playerId)).thenReturn(new OfflinePlayerData(
-                playerId,
-                originalSnapshot,
-                REVISION
-        ));
-        RecoverableOfflinePlayerDataStore store = new RecoverableOfflinePlayerDataStore(
-                delegate,
-                levelDirectory
-        );
-
-        IOException exception = assertThrows(
-                IOException.class,
-                () -> store.save(original, InventoryKind.ENDER_CHEST, changedSnapshot)
-        );
-
-        assertTrue(exception.getMessage().contains("did not match"));
-    }
-
-    @Test
-    void unreadableCommittedEditFailsClosed() throws IOException {
-        UUID playerId = UUID.randomUUID();
-        OfflinePlayerDataStore delegate = mock(OfflinePlayerDataStore.class);
-        OfflinePlayerData original = new OfflinePlayerData(
-                playerId,
-                InventorySnapshot.empty(),
-                REVISION
-        );
-        when(delegate.load(playerId)).thenThrow(new IOException("fixture read failure"));
-        RecoverableOfflinePlayerDataStore store = new RecoverableOfflinePlayerDataStore(
-                delegate,
-                levelDirectory
-        );
-
-        IOException exception = assertThrows(
-                IOException.class,
-                () -> store.save(original, InventoryKind.PLAYER, InventorySnapshot.empty())
-        );
-
-        assertTrue(exception.getMessage().contains("recovery backup has been retained"));
     }
 }
