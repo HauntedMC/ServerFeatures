@@ -11,11 +11,14 @@ import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsListener;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferAbortListener;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferListener;
 import nl.hauntedmc.serverfeatures.features.invtools.meta.Meta;
+import nl.hauntedmc.serverfeatures.features.invtools.migration.PlayerDataMigrationCoordinator;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
+import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsServiceFactory;
 
 public final class InvTools extends BukkitBaseFeature<Meta> {
 
     private InvToolsService service;
+    private PlayerDataMigrationCoordinator migrationCoordinator;
 
     public InvTools(FeatureContext<Meta> context) {
         super(context);
@@ -81,6 +84,24 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&cNiet-opgeslagen wijzigingen voor &e{player}&c zijn verworpen omdat de speler tijdens het openen inlogde.");
         messages.add("invtools.login_retry",
                 "&cJe spelerdata wordt nog veilig afgerond. Probeer over enkele seconden opnieuw.");
+        messages.add("invtools.login_migration",
+                "&eJe spelerdata wordt momenteel veilig gecontroleerd of bijgewerkt. Probeer over enkele seconden opnieuw.");
+        messages.add("invtools.migration_detected",
+                "&eDe spelerdata van &f{player}&e is verouderd (&f{from}&e → &f{to}&e). Eerst wordt een herstelbackup gemaakt.");
+        messages.add("invtools.migration_backup_ready",
+                "&7De herstelbackup voor &f{player}&7 is gemaakt en gecontroleerd.");
+        messages.add("invtools.migration_converting",
+                "&7Paper converteert nu de spelerdata van &f{player}&7 (&f{from}&7 → &f{to}&7)...");
+        messages.add("invtools.migration_restoring",
+                "&eDe conversie van &f{player}&e mislukte; de oorspronkelijke spelerdata wordt hersteld...");
+        messages.add("invtools.migration_completed",
+                "&aDe spelerdata van &e{player}&a is veilig bijgewerkt van &e{from}&a naar &e{to}&a.");
+        messages.add("invtools.migration_failed_unchanged",
+                "&cDe conversie van &e{player}&c mislukte. Het originele bestand is ongewijzigd gebleven.");
+        messages.add("invtools.migration_failed_restored",
+                "&cDe conversie van &e{player}&c mislukte. De originele spelerdata is volledig hersteld.");
+        messages.add("invtools.migration_failed_backup_retained",
+                "&4De conversie en het automatische herstel van &e{player}&4 mislukten. De herstelbackup is behouden; controleer de serverlog.");
         messages.add("invtools.clearing", "&7De offline opslag van &f{player}&7 wordt veilig geleegd...");
         messages.add("invtools.cleared", "&aDe geselecteerde opslag van &e{player}&a is veilig geleegd.");
         messages.add("invtools.clear_failed",
@@ -115,7 +136,8 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                     "The bundled Item-NBT-API is not compatible with this server version."
             );
         }
-        service = new InvToolsService(this);
+        migrationCoordinator = new PlayerDataMigrationCoordinator(this);
+        service = InvToolsServiceFactory.create(this, migrationCoordinator);
 
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new InvToolsCommand(this));
         getLifecycleManager().getListenerManager()
@@ -142,9 +164,16 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         if (service != null) {
             service.shutdown();
         }
+        if (migrationCoordinator != null) {
+            migrationCoordinator.shutdown();
+        }
     }
 
     public InvToolsService getService() {
         return service;
+    }
+
+    public PlayerDataMigrationCoordinator getMigrationCoordinator() {
+        return migrationCoordinator;
     }
 }
