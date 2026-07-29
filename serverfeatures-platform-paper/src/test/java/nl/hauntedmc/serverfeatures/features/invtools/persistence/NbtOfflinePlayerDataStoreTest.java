@@ -19,10 +19,10 @@ class NbtOfflinePlayerDataStoreTest {
     Path levelDirectory;
 
     @Test
-    void onlyARegularPrimaryWorldPlayerdataFileCountsAsPlayedHere() throws IOException {
+    void onlyARegularPaper26PlayerDataFileCountsAsPlayedHere() throws IOException {
         UUID playerId = UUID.randomUUID();
         NbtOfflinePlayerDataStore store = new NbtOfflinePlayerDataStore(levelDirectory, 4903);
-        Path playerData = levelDirectory.resolve("playerdata").resolve(playerId + ".dat");
+        Path playerData = paper26PlayerDataFile(playerId);
 
         assertFalse(store.hasPlayerData(playerId));
 
@@ -36,10 +36,21 @@ class NbtOfflinePlayerDataStoreTest {
     }
 
     @Test
+    void ignoresTheRemovedPre26PlayerdataDirectory() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        NbtOfflinePlayerDataStore store = new NbtOfflinePlayerDataStore(levelDirectory, 4903);
+        Path legacyPlayerData = levelDirectory.resolve("playerdata").resolve(playerId + ".dat");
+        Files.createDirectories(legacyPlayerData.getParent());
+        Files.write(legacyPlayerData, new byte[]{1});
+
+        assertFalse(store.hasPlayerData(playerId));
+    }
+
+    @Test
     void rejectsCompressedPlayerdataThatExpandsBeyondTheSafeLimit() throws IOException {
         UUID playerId = UUID.randomUUID();
         NbtOfflinePlayerDataStore store = new NbtOfflinePlayerDataStore(levelDirectory, 4903);
-        Path playerData = levelDirectory.resolve("playerdata").resolve(playerId + ".dat");
+        Path playerData = paper26PlayerDataFile(playerId);
         Files.createDirectories(playerData.getParent());
 
         byte[] chunk = new byte[8192];
@@ -53,4 +64,7 @@ class NbtOfflinePlayerDataStoreTest {
         assertTrue(exception.getMessage().contains("expands beyond the safe read limit"));
     }
 
+    private Path paper26PlayerDataFile(UUID playerId) {
+        return levelDirectory.resolve("players").resolve("data").resolve(playerId + ".dat");
+    }
 }
