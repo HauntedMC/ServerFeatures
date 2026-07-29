@@ -66,7 +66,10 @@ public final class InvToolsService {
     public InvToolsService(InvTools feature) {
         this(
                 feature,
-                new NbtOfflinePlayerDataStore(feature.getPlugin().getServer().getLevelDirectory()),
+                new NbtOfflinePlayerDataStore(
+                        feature.getPlugin().getServer().getLevelDirectory(),
+                        feature.getPlugin().getDataFolder().toPath()
+                ),
                 Duration.ofSeconds(Math.clamp(feature.getConfigHandler().get(
                         "offline_io_timeout_seconds",
                         Integer.class,

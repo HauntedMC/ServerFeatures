@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,6 +51,25 @@ class PlayerDataIdentityIndexTest {
         );
 
         assertEquals(Optional.of(cachedPlayerId), resolved);
+    }
+
+    @Test
+    void resolvesARealPlayerdataFileFromPapersPersistedUserCache() throws IOException {
+        UUID playerId = createPlayerDataFile();
+        Path userCache = playerDataDirectory.getParent().resolve("usercache.json");
+        Files.writeString(
+                userCache,
+                "[{\"name\":\"HauntedMC\",\"uuid\":\"" + playerId + "\"}]"
+        );
+        PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
+                playerDataDirectory,
+                file -> null,
+                List.of(userCache)
+        );
+
+        Optional<UUID> resolved = index.resolve(Optional.empty(), "HauntedMC");
+
+        assertEquals(Optional.of(playerId), resolved);
     }
 
     @Test

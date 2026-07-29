@@ -52,4 +52,5 @@ class NbtOfflinePlayerDataStoreTest {
         IOException exception = assertThrows(IOException.class, () -> store.load(playerId));
         assertTrue(exception.getMessage().contains("expands beyond the safe read limit"));
     }
+
 }

@@ -26,6 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -47,18 +48,32 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     private final PlayerDataIdentityIndex identityIndex;
 
     public NbtOfflinePlayerDataStore(Path levelDirectory) {
-        this(levelDirectory, DataFixerUtil.getCurrentVersion());
+        this(levelDirectory, DataFixerUtil.getCurrentVersion(), null);
     }
 
     NbtOfflinePlayerDataStore(Path levelDirectory, int runtimeDataVersion) {
-        this.playerDataDirectory = levelDirectory.toAbsolutePath().normalize().resolve("playerdata");
+        this(levelDirectory, runtimeDataVersion, null);
+    }
+
+    public NbtOfflinePlayerDataStore(Path levelDirectory, Path pluginDataDirectory) {
+        this(levelDirectory, DataFixerUtil.getCurrentVersion(), pluginDataDirectory);
+    }
+
+    private NbtOfflinePlayerDataStore(
+            Path levelDirectory,
+            int runtimeDataVersion,
+            Path pluginDataDirectory
+    ) {
+        Path normalizedLevelDirectory = levelDirectory.toAbsolutePath().normalize();
+        this.playerDataDirectory = normalizedLevelDirectory.resolve("playerdata");
         if (runtimeDataVersion <= 0) {
             throw new IllegalArgumentException("runtimeDataVersion must be positive");
         }
         this.runtimeDataVersion = runtimeDataVersion;
         this.identityIndex = new PlayerDataIdentityIndex(
                 playerDataDirectory,
-                this::readLastKnownName
+                this::readLastKnownName,
+                userCacheLocations(normalizedLevelDirectory, pluginDataDirectory)
         );
     }
 
@@ -384,6 +399,28 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             throw new IOException("Resolved playerdata path escaped its directory");
         }
         return file;
+    }
+
+    private static List<Path> userCacheLocations(Path levelDirectory, Path pluginDataDirectory) {
+        Path worldContainer = levelDirectory.getParent();
+        Path serverDirectory = pluginDataDirectory == null
+                ? null
+                : pluginDataDirectory.toAbsolutePath().normalize().getParent();
+        serverDirectory = serverDirectory == null ? null : serverDirectory.getParent();
+
+        if (worldContainer == null && serverDirectory == null) {
+            return List.of();
+        }
+        if (worldContainer == null) {
+            return List.of(serverDirectory.resolve("usercache.json"));
+        }
+        if (serverDirectory == null || worldContainer.equals(serverDirectory)) {
+            return List.of(worldContainer.resolve("usercache.json"));
+        }
+        return List.of(
+                worldContainer.resolve("usercache.json"),
+                serverDirectory.resolve("usercache.json")
+        );
     }
 
     private String readLastKnownName(Path file) throws IOException {
