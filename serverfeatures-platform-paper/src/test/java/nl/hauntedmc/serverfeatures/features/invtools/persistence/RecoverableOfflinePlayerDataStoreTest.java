@@ -1,14 +1,11 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
-import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
-import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -63,35 +60,5 @@ class RecoverableOfflinePlayerDataStoreTest {
         }
 
         assertFalse(store.hasPlayerData(playerId));
-    }
-
-    @SuppressWarnings("unused")
-    private static final class CompileTimeDelegate implements OfflinePlayerDataStore {
-        @Override
-        public boolean hasPlayerData(UUID playerId) {
-            return false;
-        }
-
-        @Override
-        public OfflinePlayerData load(UUID playerId) {
-            return null;
-        }
-
-        @Override
-        public Optional<UUID> resolvePlayerId(Optional<UUID> preferredPlayerId, String playerName) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void rememberPlayerIdentity(UUID playerId, String playerName) {
-        }
-
-        @Override
-        public void save(
-                OfflinePlayerData original,
-                InventoryKind kind,
-                InventorySnapshot changedSnapshot
-        ) {
-        }
     }
 }
