@@ -39,6 +39,22 @@ class PlayerDataIdentityIndexTest {
     }
 
     @Test
+    void returnsCanonicalUuidBeforePaperFinishesCreatingPlayerdata() throws IOException {
+        UUID canonicalPlayerId = UUID.randomUUID();
+        PlayerDataIdentityIndex index = index(
+                Map.of(),
+                identifier -> Optional.of(new CanonicalPlayerIdentityLookup.Identity(
+                        canonicalPlayerId,
+                        "HauntedMC"
+                ))
+        );
+
+        Optional<UUID> resolved = index.resolve(Optional.empty(), "HauntedMC");
+
+        assertEquals(Optional.of(canonicalPlayerId), resolved);
+    }
+
+    @Test
     void canonicalIdentityOutranksPapersStaleCachedUuid() throws IOException {
         UUID staleCachedPlayerId = createPlayerDataFile();
         UUID canonicalPlayerId = createPlayerDataFile();
@@ -59,7 +75,7 @@ class PlayerDataIdentityIndexTest {
     }
 
     @Test
-    void canonicalIdentityMustOwnPlayerdataOnThisServer() throws IOException {
+    void existingLegacyPlayerdataOutranksPendingCanonicalIdentity() throws IOException {
         UUID registryOnlyPlayerId = UUID.randomUUID();
         UUID localLegacyPlayerId = createPlayerDataFile();
         PlayerDataIdentityIndex index = index(
@@ -205,6 +221,22 @@ class PlayerDataIdentityIndexTest {
         index.remember(connectedPlayerId, "HauntedMC");
 
         Optional<UUID> resolved = index.resolve(Optional.empty(), "hauntedmc");
+
+        assertEquals(Optional.of(connectedPlayerId), resolved);
+    }
+
+    @Test
+    void observedConnectionResolvesBeforeLogoutPlayerdataAppears() throws IOException {
+        UUID connectedPlayerId = UUID.randomUUID();
+        PlayerDataIdentityIndex index = new PlayerDataIdentityIndex(
+                playerDataDirectory,
+                file -> {
+                    throw new AssertionError("The local index should not be scanned");
+                }
+        );
+        index.remember(connectedPlayerId, "HauntedMC");
+
+        Optional<UUID> resolved = index.resolve(Optional.empty(), "HauntedMC");
 
         assertEquals(Optional.of(connectedPlayerId), resolved);
     }
