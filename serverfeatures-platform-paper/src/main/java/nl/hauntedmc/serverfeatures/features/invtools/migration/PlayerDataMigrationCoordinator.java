@@ -134,7 +134,11 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
         long notificationDeadline = now() + ACTIVE_NOTIFICATION_TTL.toMillis();
         ConcurrentLinkedDeque<Request> requests = requestsByTarget.get(playerId);
         if (requests != null) {
-            requests.replaceAll(request -> request.withDeadline(notificationDeadline));
+            ConcurrentLinkedDeque<Request> extended = new ConcurrentLinkedDeque<>();
+            for (Request request : requests) {
+                extended.addLast(request.withDeadline(notificationDeadline));
+            }
+            requestsByTarget.replace(playerId, requests, extended);
         }
         activeOperations.compute(playerId, (ignored, count) -> {
             AtomicInteger result = count == null ? new AtomicInteger() : count;
