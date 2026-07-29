@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.invtools.command.InvToolsCommand;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsListener;
+import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferAbortListener;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferListener;
 import nl.hauntedmc.serverfeatures.features.invtools.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
@@ -117,6 +118,8 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         service = new InvToolsService(this);
 
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new InvToolsCommand(this));
+        getLifecycleManager().getListenerManager()
+                .registerListener(new InvToolsTransferAbortListener());
         getLifecycleManager().getListenerManager()
                 .registerListener(new InvToolsTransferListener(this));
         getLifecycleManager().getListenerManager()
