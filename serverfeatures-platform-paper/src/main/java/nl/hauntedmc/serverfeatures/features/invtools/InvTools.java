@@ -145,7 +145,13 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
             );
         }
         migrationCoordinator = new PlayerDataMigrationCoordinator(this);
-        service = InvToolsServiceFactory.create(this, migrationCoordinator);
+        try {
+            service = InvToolsServiceFactory.create(this, migrationCoordinator);
+        } catch (RuntimeException | LinkageError exception) {
+            migrationCoordinator.shutdown();
+            migrationCoordinator = null;
+            throw exception;
+        }
 
         getLifecycleManager().getCommandManager().registerBrigadierCommand(
                 new InvToolsCommand(this)
@@ -171,11 +177,14 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        if (service != null) {
-            service.shutdown();
-        }
-        if (migrationCoordinator != null) {
-            migrationCoordinator.shutdown();
+        try {
+            if (service != null) {
+                service.shutdown();
+            }
+        } finally {
+            if (migrationCoordinator != null) {
+                migrationCoordinator.shutdown();
+            }
         }
     }
 
