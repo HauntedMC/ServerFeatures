@@ -19,8 +19,13 @@ InvTools treats player identity and local playerdata ownership as two separate q
 1. DataRegistry resolves the requested name to the network's canonical, forwarded Minecraft UUID.
    Its active cache is used as a fast path and its persisted player directory is queried for known
    offline players.
-2. InvTools targets `world/playerdata/<uuid>.dat` on this exact server and requires it to be a regular,
-   non-symbolic file before reading or changing anything.
+2. InvTools targets `<level>/players/data/<uuid>.dat` on this exact server and requires it to be a
+   regular, non-symbolic file before reading or changing anything.
+
+Paper 26.1 changed the world storage format. Player records are now below `players/data` in the level
+root; the removed pre-26.1 `<level>/playerdata` directory is deliberately not used. The configured
+level directory comes from Paper, so this works with any default world name instead of assuming
+`world`.
 
 Paper can expose a player as offline and fire the quit event before the final logout save has become
 visible on disk. An authoritative UUID from a real connection or DataRegistry is therefore allowed to
@@ -35,9 +40,9 @@ mistaken for a player with data on this server.
 For playerdata created before DataRegistry was authoritative, InvTools retains a conservative local
 fallback. It can use an identity observed during a real connection, the player's
 `bukkit.lastKnownName` metadata, or a matching local entry in Paper's `usercache.json`. An existing
-legacy local file takes precedence over a canonical UUID whose file has not appeared, preserving
-access across UUID-mode migrations. A DataRegistry query failure is reported as a load failure rather
-than incorrectly claiming that the player never joined.
+legacy UUID file inside the current `players/data` directory takes precedence over a canonical UUID
+whose file has not appeared, preserving access across UUID-mode migrations. A DataRegistry query
+failure is reported as a load failure rather than incorrectly claiming that the player never joined.
 
 InvTools never performs a blocking Mojang profile lookup and never constructs a fake offline
 `Player` entity. Offline inventory access is direct, narrowly scoped playerdata I/O.
@@ -71,15 +76,16 @@ Minecraft's canonical slot IDs: `0–8` for the hotbar and `9–35` for main sto
 internal numbering scheme keeps online and offline mutations equivalent and removes a class of
 conversion bugs.
 
-Offline access reads the primary world's `playerdata/<uuid>.dat` file away from the server thread.
-Only one offline session per target is allowed, including read-only sessions. A write:
+Offline access reads `<level>/players/data/<uuid>.dat` away from the server thread. Only one offline
+session per target is allowed, including read-only sessions. A write:
 
 - changes only the selected inventory or ender chest tags;
 - verifies a SHA-256 revision before creating the recovery backup and again immediately before
   replacing the file;
 - writes through a same-directory temporary file, requires an atomic move, and fsyncs it where the
   file system permits;
-- retains the exact pre-write file as `playerdata/<uuid>.dat.invtools-backup` for recovery;
+- retains the exact pre-write file as
+  `<level>/players/data/<uuid>.dat.invtools-backup` for recovery;
 - preserves unrelated player NBT and POSIX ownership, group, and permissions.
 
 At most `max_offline_sessions` offline sessions are active at once (four by default). New requests
