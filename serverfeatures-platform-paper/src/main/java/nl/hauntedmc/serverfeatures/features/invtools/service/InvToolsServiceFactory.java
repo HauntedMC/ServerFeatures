@@ -1,9 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.invtools.service;
 
+import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.NbtOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.PlayerDataMigrationObserver;
+import nl.hauntedmc.serverfeatures.features.invtools.persistence.RecoverableOfflinePlayerDataStore;
+import org.bukkit.Bukkit;
 
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Objects;
 
@@ -20,13 +24,17 @@ public final class InvToolsServiceFactory {
     ) {
         Objects.requireNonNull(feature, "feature");
         Objects.requireNonNull(migrationObserver, "migrationObserver");
+        verifyRuntimeDataVersion();
+
+        Path levelDirectory = feature.getPlugin().getServer().getLevelDirectory();
+        NbtOfflinePlayerDataStore playerDataStore = new NbtOfflinePlayerDataStore(
+                levelDirectory,
+                feature.getPlugin().getDataFolder().toPath(),
+                migrationObserver
+        );
         return new InvToolsService(
                 feature,
-                new NbtOfflinePlayerDataStore(
-                        feature.getPlugin().getServer().getLevelDirectory(),
-                        feature.getPlugin().getDataFolder().toPath(),
-                        migrationObserver
-                ),
+                new RecoverableOfflinePlayerDataStore(playerDataStore, levelDirectory),
                 Duration.ofSeconds(Math.clamp(feature.getConfigHandler().get(
                         "offline_io_timeout_seconds",
                         Integer.class,
@@ -39,5 +47,20 @@ public final class InvToolsServiceFactory {
                         4
                 ))
         );
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void verifyRuntimeDataVersion() {
+        int paperDataVersion = Bukkit.getUnsafe().getDataVersion();
+        int nbtApiDataVersion = DataFixerUtil.getCurrentVersion();
+        if (paperDataVersion <= 0) {
+            throw new IllegalStateException("Paper reported an invalid runtime DataVersion");
+        }
+        if (paperDataVersion != nbtApiDataVersion) {
+            throw new IllegalStateException(
+                    "NBT-API DataVersion " + nbtApiDataVersion
+                            + " does not match Paper runtime DataVersion " + paperDataVersion
+            );
+        }
     }
 }
