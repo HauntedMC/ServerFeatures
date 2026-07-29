@@ -24,6 +24,14 @@ public final class PaperPlayerDataConverter implements PlayerDataConverter {
 
     private volatile Bridge bridge;
 
+    /**
+     * Resolves the version-pinned Paper bridge without mutating any playerdata. Platform acceptance
+     * calls this on a real Paper runtime so mapping changes fail CI before release.
+     */
+    public void verifyAvailable() throws IOException {
+        bridge();
+    }
+
     @Override
     public ReadWriteNBT convertToCurrent(
             ReadWriteNBT source,
