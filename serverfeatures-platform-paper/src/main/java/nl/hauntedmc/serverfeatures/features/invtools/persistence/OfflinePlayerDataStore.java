@@ -20,19 +20,23 @@ public interface OfflinePlayerDataStore {
     OfflinePlayerData load(UUID playerId) throws IOException;
 
     /**
-     * Loads data when it is present for the player's current identity. Implementations may handle
-     * the current server's documented playerdata migration rules before returning the durable
-     * source file; callers must persist changes through the returned data's player ID.
+     * Resolves a name to a playerdata file that actually exists on this server. The preferred ID
+     * may come from Paper's profile cache and must therefore be verified against local storage.
      */
-    default Optional<OfflinePlayerData> loadIfPresent(
-            UUID playerId,
-            String playerName,
-            boolean onlineMode
+    default Optional<UUID> resolvePlayerId(
+            Optional<UUID> preferredPlayerId,
+            String playerName
     ) throws IOException {
-        if (!hasPlayerData(playerId)) {
+        if (preferredPlayerId.isEmpty() || !hasPlayerData(preferredPlayerId.get())) {
             return Optional.empty();
         }
-        return Optional.of(load(playerId));
+        return preferredPlayerId;
+    }
+
+    /**
+     * Records an identity observed directly from a successful player connection.
+     */
+    default void rememberPlayerIdentity(UUID playerId, String playerName) {
     }
 
     void save(

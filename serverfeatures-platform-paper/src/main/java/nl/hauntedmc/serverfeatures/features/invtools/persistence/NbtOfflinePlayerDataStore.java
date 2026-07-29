@@ -15,7 +15,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -45,6 +44,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     private final Path playerDataDirectory;
     private final int runtimeDataVersion;
     private final Object[] playerLocks = createPlayerLocks();
+    private final PlayerDataIdentityIndex identityIndex;
 
     public NbtOfflinePlayerDataStore(Path levelDirectory) {
         this(levelDirectory, DataFixerUtil.getCurrentVersion());
@@ -56,6 +56,10 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             throw new IllegalArgumentException("runtimeDataVersion must be positive");
         }
         this.runtimeDataVersion = runtimeDataVersion;
+        this.identityIndex = new PlayerDataIdentityIndex(
+                playerDataDirectory,
+                this::readLastKnownName
+        );
     }
 
     @Override
@@ -95,28 +99,17 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         );
     }
 
-    /**
-     * Matches Paper's current online-mode fallback for an existing offline-mode playerdata file.
-     * The file is read in place: only Paper may migrate it during the player's own login, and a
-     * later InvTools save therefore always uses the exact file that was loaded.
-     */
     @Override
-    public Optional<OfflinePlayerData> loadIfPresent(
-            UUID playerId,
-            String playerName,
-            boolean onlineMode
+    public Optional<UUID> resolvePlayerId(
+            Optional<UUID> preferredPlayerId,
+            String playerName
     ) throws IOException {
-        if (hasPlayerData(playerId)) {
-            return Optional.of(load(playerId));
-        }
-        if (!onlineMode || playerName == null || playerName.isBlank()) {
-            return Optional.empty();
-        }
-        UUID offlineModePlayerId = offlineModePlayerId(playerName);
-        if (offlineModePlayerId.equals(playerId) || !hasPlayerData(offlineModePlayerId)) {
-            return Optional.empty();
-        }
-        return Optional.of(load(offlineModePlayerId));
+        return identityIndex.resolve(preferredPlayerId, playerName);
+    }
+
+    @Override
+    public void rememberPlayerIdentity(UUID playerId, String playerName) {
+        identityIndex.remember(playerId, playerName);
     }
 
     @Override
@@ -393,9 +386,15 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         return file;
     }
 
-    static UUID offlineModePlayerId(String playerName) {
-        return UUID.nameUUIDFromBytes(("OfflinePlayer:" + playerName)
-                .getBytes(StandardCharsets.UTF_8));
+    private String readLastKnownName(Path file) throws IOException {
+        ReadWriteNBT root = readNbt(readPlayerData(file), file);
+        if (!root.hasTag("bukkit", NBTType.NBTTagCompound)) {
+            return null;
+        }
+        ReadableNBT bukkitData = root.getCompound("bukkit");
+        return bukkitData != null && bukkitData.hasTag("lastKnownName", NBTType.NBTTagString)
+                ? bukkitData.getString("lastKnownName")
+                : null;
     }
 
     private static byte[] readPlayerData(Path file) throws IOException {

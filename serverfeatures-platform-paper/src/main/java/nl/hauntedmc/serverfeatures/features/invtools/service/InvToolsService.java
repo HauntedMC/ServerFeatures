@@ -118,17 +118,13 @@ public final class InvToolsService {
         }
 
         OfflinePlayer localPlayer = Bukkit.getOfflinePlayerIfCached(name);
-        if (localPlayer == null) {
-            latestOpenRequests.remove(viewerId, requestId);
-            send(viewer, "invtools.not_played_here", "player", name);
-            return;
-        }
         send(viewer, "invtools.loading", "player", name);
-        String localName = localPlayer.getName();
-        openResolved(
+        resolveOfflineOpen(
                 viewer,
-                localPlayer.getUniqueId(),
-                localName == null ? name : localName,
+                localPlayer == null
+                        ? Optional.empty()
+                        : Optional.of(localPlayer.getUniqueId()),
+                name,
                 kind,
                 requestId
         );
@@ -159,17 +155,162 @@ public final class InvToolsService {
         }
 
         OfflinePlayer localPlayer = Bukkit.getOfflinePlayerIfCached(name);
-        if (localPlayer == null) {
-            send(actor, "invtools.not_played_here", "player", name);
+        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
+        if (!permit.acquire()) {
+            send(actor, "invtools.busy");
             return;
         }
-        String localName = localPlayer.getName();
-        startOfflineClear(
-                actor,
-                localPlayer.getUniqueId(),
-                localName == null ? name : localName,
-                kind
+        send(actor, "invtools.clearing", "player", name);
+        try {
+            feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
+                    resolvePlayerId(localPlayer, name)
+            ).whenComplete((resolvedPlayerId, failure) -> scheduleMain(() ->
+                    completeOfflineClearResolution(
+                            actor,
+                            name,
+                            kind,
+                            permit,
+                            resolvedPlayerId,
+                            failure
+                    )
+            ));
+        } catch (RuntimeException exception) {
+            permit.release();
+            feature.getLogger().warning(
+                    "Could not schedule offline playerdata identity resolution for clear: "
+                            + exception.getMessage()
+            );
+            send(actor, "invtools.clear_failed", "player", name);
+        }
+    }
+
+    private void resolveOfflineOpen(
+            Player viewer,
+            Optional<UUID> preferredPlayerId,
+            String targetName,
+            InventoryKind kind,
+            UUID requestId
+    ) {
+        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
+        if (!permit.acquire()) {
+            latestOpenRequests.remove(viewer.getUniqueId(), requestId);
+            send(viewer, "invtools.busy");
+            return;
+        }
+        try {
+            feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
+                    resolvePlayerId(preferredPlayerId, targetName)
+            ).whenComplete((resolvedPlayerId, failure) -> scheduleMain(() ->
+                    completeOfflineOpenResolution(
+                            viewer,
+                            targetName,
+                            kind,
+                            requestId,
+                            permit,
+                            resolvedPlayerId,
+                            failure
+                    )
+            ));
+        } catch (RuntimeException exception) {
+            permit.release();
+            latestOpenRequests.remove(viewer.getUniqueId(), requestId);
+            feature.getLogger().warning(
+                    "Could not schedule offline playerdata identity resolution: "
+                            + exception.getMessage()
+            );
+            send(viewer, "invtools.load_failed", "player", targetName);
+        }
+    }
+
+    private void completeOfflineOpenResolution(
+            Player viewer,
+            String targetName,
+            InventoryKind kind,
+            UUID requestId,
+            OfflinePermit permit,
+            Optional<UUID> resolvedPlayerId,
+            Throwable failure
+    ) {
+        UUID viewerId = viewer.getUniqueId();
+        if (!active.get()
+                || !isCurrentRequest(viewerId, requestId)
+                || !canStillOpen(viewer, kind)) {
+            permit.release();
+            return;
+        }
+        if (failure != null) {
+            permit.release();
+            latestOpenRequests.remove(viewerId, requestId);
+            feature.getLogger().warning(
+                    "Could not resolve local playerdata for " + targetName + ": "
+                            + rootCause(failure).getMessage()
+            );
+            send(viewer, "invtools.load_failed", "player", targetName);
+            return;
+        }
+        if (resolvedPlayerId == null || resolvedPlayerId.isEmpty()) {
+            permit.release();
+            latestOpenRequests.remove(viewerId, requestId);
+            send(viewer, "invtools.not_played_here", "player", targetName);
+            return;
+        }
+        openResolved(
+                viewer,
+                resolvedPlayerId.get(),
+                targetName,
+                kind,
+                requestId,
+                permit
         );
+    }
+
+    private void completeOfflineClearResolution(
+            Player actor,
+            String targetName,
+            InventoryKind kind,
+            OfflinePermit permit,
+            Optional<UUID> resolvedPlayerId,
+            Throwable failure
+    ) {
+        if (!active.get() || !actor.isOnline() || !hasClearPermission(actor, kind)) {
+            permit.release();
+            return;
+        }
+        if (failure != null) {
+            permit.release();
+            feature.getLogger().warning(
+                    "Could not resolve local playerdata to clear " + targetName + ": "
+                            + rootCause(failure).getMessage()
+            );
+            send(actor, "invtools.clear_failed", "player", targetName);
+            return;
+        }
+        if (resolvedPlayerId == null || resolvedPlayerId.isEmpty()) {
+            permit.release();
+            send(actor, "invtools.not_played_here", "player", targetName);
+            return;
+        }
+        startOfflineClear(actor, resolvedPlayerId.get(), targetName, kind, permit);
+    }
+
+    private Optional<UUID> resolvePlayerId(OfflinePlayer preferredPlayer, String playerName) {
+        return resolvePlayerId(
+                preferredPlayer == null
+                        ? Optional.empty()
+                        : Optional.of(preferredPlayer.getUniqueId()),
+                playerName
+        );
+    }
+
+    private Optional<UUID> resolvePlayerId(
+            Optional<UUID> preferredPlayerId,
+            String playerName
+    ) {
+        try {
+            return offlineStore.resolvePlayerId(preferredPlayerId, playerName);
+        } catch (IOException exception) {
+            throw new CompletionException(exception);
+        }
     }
 
     private void clearOnline(Player actor, Player target, InventoryKind kind) {
@@ -202,25 +343,21 @@ public final class InvToolsService {
             Player actor,
             UUID targetId,
             String targetName,
-            InventoryKind kind
+            InventoryKind kind,
+            OfflinePermit permit
     ) {
         if (loginFences.isFenced(targetId)) {
+            permit.release();
             send(actor, "invtools.target_logging_in", "player", targetName);
             return;
         }
 
-        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
-        if (!permit.acquire()) {
-            send(actor, "invtools.busy");
-            return;
-        }
         OfflineClear clear = new OfflineClear(
                 actor.getUniqueId(),
                 actor.getName(),
                 targetId,
                 targetName,
                 kind,
-                Bukkit.getOnlineMode(),
                 permit
         );
         Player nowOnline;
@@ -244,7 +381,6 @@ public final class InvToolsService {
             return;
         }
 
-        send(actor, "invtools.clearing", "player", targetName);
         try {
             feature.getLifecycleManager().getTaskManager().runAsync(() -> {
                 ClearResult result = clearOffline(clear);
@@ -279,8 +415,6 @@ public final class InvToolsService {
             original = loadOffline(
                     offlineStore,
                     clear.targetId(),
-                    clear.targetName(),
-                    clear.onlineMode(),
                     OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS,
                     InvToolsService::waitForPlayerDataAppearance
             );
@@ -513,6 +647,7 @@ public final class InvToolsService {
     }
 
     public void handleTargetQuit(Player target) {
+        offlineStore.rememberPlayerIdentity(target.getUniqueId(), target.getName());
         Collection<InvToolsView> views = ListCopy.of(
                 viewsByTarget.getOrDefault(target.getUniqueId(), Set.of())
         );
@@ -684,7 +819,9 @@ public final class InvToolsService {
      * Clears the login fence only after Paper has exposed the player as online, then repeats the
      * data-load guard for the narrow window between configuration and join.
      */
-    public void handlePlayerJoin(UUID playerId) {
+    public void handlePlayerJoin(Player player) {
+        UUID playerId = Objects.requireNonNull(player, "player").getUniqueId();
+        offlineStore.rememberPlayerIdentity(playerId, player.getName());
         loginFences.clear(playerId);
         handlePlayerDataLoad(playerId);
     }
@@ -771,39 +908,38 @@ public final class InvToolsService {
             UUID targetId,
             String targetName,
             InventoryKind kind,
-            UUID requestId
+            UUID requestId,
+            OfflinePermit permit
     ) {
         UUID viewerId = viewer.getUniqueId();
         if (!isCurrentRequest(viewerId, requestId)) {
+            permit.release();
             return;
         }
         if (viewerId.equals(targetId)) {
+            permit.release();
             latestOpenRequests.remove(viewerId, requestId);
             send(viewer, "invtools.self");
             return;
         }
         Player onlineTarget = Bukkit.getPlayer(targetId);
         if (onlineTarget != null && onlineTarget.isOnline()) {
+            permit.release();
             latestOpenRequests.remove(viewerId, requestId);
             openOnline(viewer, onlineTarget, kind);
             return;
         }
         if (loginFences.isFenced(targetId)) {
+            permit.release();
             latestOpenRequests.remove(viewerId, requestId);
             send(viewer, "invtools.target_logging_in", "player", targetName);
             return;
         }
         boolean editable = hasEditPermission(viewer, kind);
         if (editable && !isEmpty(viewer.getItemOnCursor())) {
+            permit.release();
             latestOpenRequests.remove(viewerId, requestId);
             send(viewer, "invtools.cursor_not_empty");
-            return;
-        }
-
-        OfflinePermit permit = new OfflinePermit(offlineSessionPermits);
-        if (!permit.acquire()) {
-            latestOpenRequests.remove(viewerId, requestId);
-            send(viewer, "invtools.busy");
             return;
         }
 
@@ -814,7 +950,6 @@ public final class InvToolsService {
                 kind,
                 editable,
                 requestId,
-                Bukkit.getOnlineMode(),
                 permit
         );
         synchronized (transitionLock(targetId)) {
@@ -838,7 +973,7 @@ public final class InvToolsService {
 
         try {
             feature.getLifecycleManager().getTaskManager().supplyAsync(() ->
-                    loadOffline(targetId, targetName, reservation.onlineMode())
+                    loadOffline(targetId)
             ).whenComplete((loaded, failure) -> scheduleMain(() ->
                     completeOfflineOpen(viewer, reservation, loaded, failure)
             ));
@@ -1127,13 +1262,11 @@ public final class InvToolsService {
         }
     }
 
-    private OfflinePlayerData loadOffline(UUID playerId, String playerName, boolean onlineMode) {
+    private OfflinePlayerData loadOffline(UUID playerId) {
         try {
             return loadOffline(
                     offlineStore,
                     playerId,
-                    playerName,
-                    onlineMode,
                     OFFLINE_PLAYER_DATA_APPEARANCE_ATTEMPTS,
                     InvToolsService::waitForPlayerDataAppearance
             );
@@ -1145,8 +1278,6 @@ public final class InvToolsService {
     static OfflinePlayerData loadOffline(
             OfflinePlayerDataStore store,
             UUID playerId,
-            String playerName,
-            boolean onlineMode,
             int attempts,
             Runnable retryDelay
     ) throws IOException {
@@ -1157,13 +1288,8 @@ public final class InvToolsService {
             throw new IllegalArgumentException("attempts must be positive");
         }
         for (int attempt = 1; attempt <= attempts; attempt++) {
-            Optional<OfflinePlayerData> loaded = store.loadIfPresent(
-                    playerId,
-                    playerName,
-                    onlineMode
-            );
-            if (loaded.isPresent()) {
-                return loaded.get();
+            if (store.hasPlayerData(playerId)) {
+                return store.load(playerId);
             }
             if (attempt < attempts) {
                 retryDelay.run();
@@ -1642,7 +1768,6 @@ public final class InvToolsService {
         private final InventoryKind kind;
         private final boolean editable;
         private final UUID requestId;
-        private final boolean onlineMode;
         private final OfflinePermit permit;
         private final AtomicBoolean cancelled = new AtomicBoolean();
 
@@ -1653,7 +1778,6 @@ public final class InvToolsService {
                 InventoryKind kind,
                 boolean editable,
                 UUID requestId,
-                boolean onlineMode,
                 OfflinePermit permit
         ) {
             this.viewerId = Objects.requireNonNull(viewerId, "viewerId");
@@ -1662,7 +1786,6 @@ public final class InvToolsService {
             this.kind = Objects.requireNonNull(kind, "kind");
             this.editable = editable;
             this.requestId = Objects.requireNonNull(requestId, "requestId");
-            this.onlineMode = onlineMode;
             this.permit = Objects.requireNonNull(permit, "permit");
         }
 
@@ -1690,10 +1813,6 @@ public final class InvToolsService {
             return requestId;
         }
 
-        private boolean onlineMode() {
-            return onlineMode;
-        }
-
         @Override
         public OfflinePermit permit() {
             return permit;
@@ -1714,7 +1833,6 @@ public final class InvToolsService {
         private final UUID targetId;
         private final String targetName;
         private final InventoryKind kind;
-        private final boolean onlineMode;
         private final OfflinePermit permit;
         private final CompletableFuture<ClearResult> completion = new CompletableFuture<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
@@ -1725,7 +1843,6 @@ public final class InvToolsService {
                 UUID targetId,
                 String targetName,
                 InventoryKind kind,
-                boolean onlineMode,
                 OfflinePermit permit
         ) {
             this.actorId = Objects.requireNonNull(actorId, "actorId");
@@ -1733,7 +1850,6 @@ public final class InvToolsService {
             this.targetId = Objects.requireNonNull(targetId, "targetId");
             this.targetName = Objects.requireNonNull(targetName, "targetName");
             this.kind = Objects.requireNonNull(kind, "kind");
-            this.onlineMode = onlineMode;
             this.permit = Objects.requireNonNull(permit, "permit");
         }
 
@@ -1755,10 +1871,6 @@ public final class InvToolsService {
 
         private InventoryKind kind() {
             return kind;
-        }
-
-        private boolean onlineMode() {
-            return onlineMode;
         }
 
         @Override
