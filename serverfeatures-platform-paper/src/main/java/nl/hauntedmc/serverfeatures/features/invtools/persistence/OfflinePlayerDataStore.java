@@ -42,20 +42,6 @@ public interface OfflinePlayerDataStore {
     default void rememberPlayerIdentity(UUID playerId, String playerName) {
     }
 
-    /**
-     * Returns non-sensitive storage information suitable for an administrative failure log.
-     */
-    default String describeStorage() {
-        return getClass().getName();
-    }
-
-    /**
-     * Returns non-sensitive diagnostics for the expected file of one UUID.
-     */
-    default String describePlayerData(UUID playerId) {
-        return "playerId=" + playerId + ", storage=" + describeStorage();
-    }
-
     void save(
             OfflinePlayerData original,
             InventoryKind kind,
