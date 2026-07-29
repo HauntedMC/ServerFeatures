@@ -1,10 +1,10 @@
 package nl.hauntedmc.serverfeatures.acceptance;
 
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
 import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.MenuNavigator;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.PaperPlayerDataConverter;
+import nl.hauntedmc.serverfeatures.shaded.nbtapi.NBT;
+import nl.hauntedmc.serverfeatures.shaded.nbtapi.iface.ReadWriteNBT;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
