@@ -22,10 +22,18 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
+        // Feature opt-in: disabled by default because this can inspect and mutate player data.
         defaults.put("enabled", false);
+        // Tick interval for refreshing online target views. Lower values are more responsive but
+        // capture inventories more often; the service always revalidates a slot before editing it.
         defaults.put("online_sync_interval_ticks", 5);
+        // Maximum time an async pre-login thread may wait for a pending offline save or clear.
+        // InvTools clamps this to 1–30 seconds to avoid holding Paper's login threads indefinitely.
         defaults.put("offline_io_timeout_seconds", 10);
+        // Concurrent offline opens and clears. This bounds playerdata disk work and fails excess
+        // requests fast instead of queuing them on Paper's shared asynchronous workers.
         defaults.put("max_offline_sessions", 4);
+        // Emits structured audit entries for every edit and clear, including offline save outcomes.
         defaults.put("audit_edits", true);
         return defaults;
     }
