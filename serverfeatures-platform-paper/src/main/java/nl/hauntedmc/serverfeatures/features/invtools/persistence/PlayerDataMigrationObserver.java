@@ -52,6 +52,15 @@ public interface PlayerDataMigrationObserver {
     default void migrationCompleted(UUID playerId, int sourceVersion, int targetVersion) {
     }
 
+    default void backupCleanupFailed(
+            UUID playerId,
+            int sourceVersion,
+            int targetVersion,
+            Path backupFile,
+            Throwable failure
+    ) {
+    }
+
     default void migrationFailed(
             UUID playerId,
             int sourceVersion,
