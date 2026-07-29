@@ -3,10 +3,12 @@ package nl.hauntedmc.serverfeatures.features.invtools.service;
 import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.NbtOfflinePlayerDataStore;
+import nl.hauntedmc.serverfeatures.features.invtools.persistence.PaperPlayerDataConverter;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.PlayerDataMigrationObserver;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.RecoverableOfflinePlayerDataStore;
 import org.bukkit.Bukkit;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Objects;
@@ -24,7 +26,7 @@ public final class InvToolsServiceFactory {
     ) {
         Objects.requireNonNull(feature, "feature");
         Objects.requireNonNull(migrationObserver, "migrationObserver");
-        verifyRuntimeDataVersion();
+        verifyRuntimeCompatibility();
 
         Path levelDirectory = feature.getPlugin().getServer().getLevelDirectory();
         NbtOfflinePlayerDataStore playerDataStore = new NbtOfflinePlayerDataStore(
@@ -47,6 +49,18 @@ public final class InvToolsServiceFactory {
                         4
                 ))
         );
+    }
+
+    private static void verifyRuntimeCompatibility() {
+        verifyRuntimeDataVersion();
+        try {
+            new PaperPlayerDataConverter().verifyAvailable();
+        } catch (IOException exception) {
+            throw new IllegalStateException(
+                    "Paper does not expose the PLAYER data-fixer bridge required by InvTools",
+                    exception
+            );
+        }
     }
 
     @SuppressWarnings("deprecation")
