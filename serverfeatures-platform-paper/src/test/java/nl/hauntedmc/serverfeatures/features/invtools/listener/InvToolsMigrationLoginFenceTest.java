@@ -66,6 +66,27 @@ class InvToolsMigrationLoginFenceTest {
     }
 
     @Test
+    void nonMigratingInitialConfigurationReachesExistingPlayerdataGuard() {
+        UUID playerId = UUID.randomUUID();
+        InvTools feature = mock(InvTools.class);
+        PlayerDataMigrationCoordinator coordinator = mock(PlayerDataMigrationCoordinator.class);
+        InvToolsService service = mock(InvToolsService.class);
+        PlayerConnectionInitialConfigureEvent event = mock(
+                PlayerConnectionInitialConfigureEvent.class,
+                RETURNS_DEEP_STUBS
+        );
+        when(feature.getMigrationCoordinator()).thenReturn(coordinator);
+        when(coordinator.blocksLogin(playerId)).thenReturn(false);
+        when(event.getConnection().getProfile().getId()).thenReturn(playerId);
+
+        new InvToolsListener(feature, service, ignored -> MIGRATION_MESSAGE)
+                .onInitialConfigure(event);
+
+        verify(service).handlePlayerDataLoad(playerId);
+        verify(event.getConnection(), never()).disconnect(any(Component.class));
+    }
+
+    @Test
     void nonMigratingPlayerContinuesThroughExistingLoginBarrier() {
         UUID playerId = UUID.randomUUID();
         InvTools feature = mock(InvTools.class);
