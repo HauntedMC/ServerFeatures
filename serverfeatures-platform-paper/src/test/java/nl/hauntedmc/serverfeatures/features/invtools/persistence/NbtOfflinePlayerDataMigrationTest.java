@@ -162,6 +162,47 @@ class NbtOfflinePlayerDataMigrationTest {
     }
 
     @Test
+    void externalChangeAfterReplacementIsNeverRolledBackOver() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        Path playerFile = playerFile(playerId);
+        Path backupFile = migrationBackup(playerFile);
+        writeFixture(playerFile, playerId, OLD_VERSION, "original");
+        NbtOfflinePlayerDataStore store = store(
+                successfulConverter(),
+                new RecordingObserver(),
+                (ignored, stage) -> {
+                    if (stage == PlayerDataMigrationCheckpoint.Stage.AFTER_REPLACE) {
+                        writeFixture(
+                                playerFile,
+                                playerId,
+                                CURRENT_VERSION,
+                                "external-after-replace"
+                        );
+                    }
+                }
+        );
+
+        PlayerDataMigrationException exception = assertThrows(
+                PlayerDataMigrationException.class,
+                () -> store.load(playerId)
+        );
+
+        assertEquals(
+                PlayerDataMigrationException.RecoveryStatus.BACKUP_RETAINED,
+                exception.recoveryStatus()
+        );
+        assertEquals(
+                "external-after-replace",
+                NBT.readFile(playerFile.toFile()).getString("fixture_marker")
+        );
+        assertTrue(Files.isRegularFile(backupFile));
+        assertEquals(
+                "original",
+                NBT.readFile(backupFile.toFile()).getString("fixture_marker")
+        );
+    }
+
+    @Test
     void staleBackupAfterCommittedMigrationIsCleanedWithoutReconversion() throws IOException {
         UUID playerId = UUID.randomUUID();
         Path playerFile = playerFile(playerId);
@@ -184,6 +225,39 @@ class NbtOfflinePlayerDataMigrationTest {
         assertFalse(converterCalled.get());
         assertFalse(Files.exists(backupFile));
         assertEquals("committed", NBT.readFile(playerFile.toFile()).getString("fixture_marker"));
+    }
+
+    @Test
+    void staleBackupNeverOverwritesAValidNewerTarget() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        Path playerFile = playerFile(playerId);
+        Path backupFile = migrationBackup(playerFile);
+        writeFixture(playerFile, playerId, CURRENT_VERSION + 1, "newer-target");
+        writeFixture(backupFile, playerId, OLD_VERSION, "old-backup");
+        NbtOfflinePlayerDataStore store = store(
+                successfulConverter(),
+                new RecordingObserver(),
+                PlayerDataMigrationCheckpoint.NONE
+        );
+
+        PlayerDataMigrationException exception = assertThrows(
+                PlayerDataMigrationException.class,
+                () -> store.load(playerId)
+        );
+
+        assertEquals(
+                PlayerDataMigrationException.RecoveryStatus.BACKUP_RETAINED,
+                exception.recoveryStatus()
+        );
+        assertEquals(
+                "newer-target",
+                NBT.readFile(playerFile.toFile()).getString("fixture_marker")
+        );
+        assertTrue(Files.isRegularFile(backupFile));
+        assertEquals(
+                "old-backup",
+                NBT.readFile(backupFile.toFile()).getString("fixture_marker")
+        );
     }
 
     @Test
