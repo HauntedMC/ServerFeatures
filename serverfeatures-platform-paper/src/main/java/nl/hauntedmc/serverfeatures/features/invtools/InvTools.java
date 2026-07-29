@@ -41,53 +41,54 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messages = new MessageMap();
-        messages.add("invtools.invalid_name", "&cOngeldige spelersnaam: &e{player}&c.");
+        messages.add("invtools.invalid_name", "&cDe spelersnaam &e{player}&c is ongeldig.");
         messages.add("invtools.not_played_here",
-                "&cSpeler &e{player}&c heeft nog geen spelerdata op deze server.");
-        messages.add("invtools.loading", "&7Offline inventaris van &f{player}&7 wordt geladen...");
-        messages.add("invtools.busy", "&eTe veel offline inventarissen worden al verwerkt. Probeer het zo opnieuw.");
+                "&cGeen lokale spelerdata gevonden voor &e{player}&c op deze server.");
+        messages.add("invtools.loading", "&7Offline spelerdata van &f{player}&7 wordt veilig geladen...");
+        messages.add("invtools.busy",
+                "&eHet maximum aantal offline inventarisacties is bereikt. Probeer het zo opnieuw.");
         messages.add("invtools.load_failed",
-                "&cDe offline inventaris van &e{player}&c kon niet veilig worden geladen.");
+                "&cDe offline spelerdata van &e{player}&c kon niet veilig worden geladen; er is niets gewijzigd.");
         messages.add("invtools.save_failed",
-                "&cWijzigingen voor &e{player}&c zijn niet opgeslagen omdat de spelerdata veranderde of een fout optrad.");
+                "&cWijzigingen voor &e{player}&c zijn niet opgeslagen; de oorspronkelijke spelerdata is behouden.");
         messages.add("invtools.offline_saved",
-                "&aOffline wijzigingen voor &e{player}&a zijn veilig opgeslagen.");
-        messages.add("invtools.opened_inspect", "&7Je inspecteert nu &f{player}&7 (alleen-lezen).");
-        messages.add("invtools.opened_edit", "&cJe bewerkt nu de inventaris van &e{player}&c.");
-        messages.add("invtools.read_only", "&cJe hebt geen toestemming om deze inventaris te bewerken.");
+                "&aDe offline wijzigingen voor &e{player}&a zijn veilig opgeslagen.");
+        messages.add("invtools.opened_inspect", "&7Je bekijkt de opslag van &f{player}&7 alleen-lezen.");
+        messages.add("invtools.opened_edit", "&cJe bewerkt nu de opslag van &e{player}&c.");
+        messages.add("invtools.read_only", "&cDeze weergave is alleen-lezen; je mag deze opslag niet bewerken.");
         messages.add("invtools.permission_revoked",
-                "&cJe InvTools-weergave is gesloten omdat je inspectietoegang is ingetrokken.");
+                "&cJe InvTools-weergave is gesloten omdat je kijktoegang is ingetrokken.");
         messages.add("invtools.edit_permission_revoked",
                 "&cJe InvTools-weergave is gesloten omdat je bewerkingstoegang is ingetrokken.");
         messages.add("invtools.cursor_not_empty",
-                "&cMaak eerst het item op je cursor vrij voordat je offline spelerdata opent.");
+                "&cMaak eerst je cursor leeg voordat je offline spelerdata bewerkt.");
         messages.add("invtools.open_failed",
-                "&cDe inventaris van &e{player}&c kon niet veilig worden geopend.");
+                "&cDe opslag van &e{player}&c kon niet veilig worden geopend.");
         messages.add("invtools.save_conflict",
                 "&cWijzigingen voor &e{player}&c zijn niet opgeslagen omdat de spelerdata ondertussen veranderde.");
-        messages.add("invtools.self", "&cGebruik je normale inventaris om je eigen items te bekijken.");
+        messages.add("invtools.self", "&cJe kunt je eigen opslag niet via /inv openen.");
         messages.add("invtools.already_open",
-                "&cDe offline inventaris van &e{player}&c wordt al door een ander stafflid gebruikt.");
+                "&cDe offline spelerdata van &e{player}&c wordt al door een andere staffactie gebruikt.");
         messages.add("invtools.already_editing",
-                "&eDe inventaris van {player} wordt al bewerkt; je weergave is daarom alleen-lezen.");
+                "&eDe opslag van {player} wordt al bewerkt; jouw weergave is daarom alleen-lezen.");
         messages.add("invtools.target_went_offline",
-                "&e{player}&c ging offline; de live weergave is veilig gesloten.");
+                "&e{player}&c is offline gegaan; de live weergave is gesloten.");
         messages.add("invtools.target_logging_in",
-                "&e{player}&c logt in; de offline weergave is veilig gesloten.");
+                "&e{player}&c logt in; de offline weergave is gesloten om spelerdata te beschermen.");
         messages.add("invtools.join_conflict_discarded",
-                "&cNiet-opgeslagen wijzigingen voor &e{player}&c zijn vervallen omdat de speler tijdens het openen inlogde.");
+                "&cNiet-opgeslagen wijzigingen voor &e{player}&c zijn verworpen omdat de speler tijdens het openen inlogde.");
         messages.add("invtools.login_retry",
-                "&cJe spelerdata werd zojuist door staff bijgewerkt. Probeer over enkele seconden opnieuw.");
-        messages.add("invtools.clearing", "&7Inventaris van &f{player}&7 wordt veilig gewist...");
-        messages.add("invtools.cleared", "&aInventaris van &e{player}&a is veilig gewist.");
+                "&cJe spelerdata wordt nog veilig afgerond. Probeer over enkele seconden opnieuw.");
+        messages.add("invtools.clearing", "&7De offline opslag van &f{player}&7 wordt veilig geleegd...");
+        messages.add("invtools.cleared", "&aDe geselecteerde opslag van &e{player}&a is veilig geleegd.");
         messages.add("invtools.clear_failed",
-                "&cInventaris van &e{player}&c kon niet veilig worden gewist.");
+                "&cDe opslag van &e{player}&c kon niet veilig worden geleegd; er is niets gewijzigd.");
         messages.add("invtools.clear_conflict",
-                "&cInventaris van &e{player}&c is niet gewist omdat de spelerdata veranderde.");
+                "&cDe opslag van &e{player}&c is niet geleegd omdat de spelerdata ondertussen veranderde.");
         messages.add("invtools.clear_cancelled",
-                "&eHet wissen van &f{player}&e is geannuleerd omdat de speler inlogde.");
+                "&eHet legen van de opslag van &f{player}&e is geannuleerd omdat de speler inlogde.");
         messages.add("invtools.clear_editing",
-                "&cInventaris van &e{player}&c wordt bewerkt; sluit die sessie eerst.");
+                "&cDe opslag van &e{player}&c wordt nog bewerkt; sluit die sessie eerst.");
         return messages;
     }
 
