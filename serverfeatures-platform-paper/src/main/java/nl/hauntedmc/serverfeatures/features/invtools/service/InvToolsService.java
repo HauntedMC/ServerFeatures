@@ -913,6 +913,7 @@ public final class InvToolsService {
             InvToolsView view;
             try {
                 view = new InvToolsView(
+                        feature.getLocalizationHandler(),
                         viewer,
                         reservation.targetId(),
                         reservation.targetName(),
@@ -968,6 +969,7 @@ public final class InvToolsService {
         InvToolsView view;
         try {
             view = new InvToolsView(
+                    feature.getLocalizationHandler(),
                     viewer,
                     target.getUniqueId(),
                     target.getName(),

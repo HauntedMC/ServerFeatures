@@ -89,6 +89,19 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&eHet legen van de opslag van &f{player}&e is geannuleerd omdat de speler inlogde.");
         messages.add("invtools.clear_editing",
                 "&cDe opslag van &e{player}&c wordt nog bewerkt; sluit die sessie eerst.");
+        messages.add("invtools.gui.title.inventory", "&8Inventaris: ");
+        messages.add("invtools.gui.title.enderchest", "&8Enderkist: ");
+        messages.add("invtools.gui.info.online", "&7Online speler");
+        messages.add("invtools.gui.info.offline", "&7Offline speler");
+        messages.add("invtools.gui.info.inventory.main", "&8Hoofdinventaris: rijen 2–4");
+        messages.add("invtools.gui.info.inventory.hotbar_armor", "&8Hotbar: rij 5 · pantser en offhand: rij 1");
+        messages.add("invtools.gui.info.enderchest.slots", "&827 enderkistslots");
+        messages.add("invtools.gui.info.enderchest.storage", "&8Opslag: rijen 1–3");
+        messages.add("invtools.gui.mode.edit.name", "&cBewerkmodus");
+        messages.add("invtools.gui.mode.edit.lore", "&7Wijzigingen worden direct toegepast.");
+        messages.add("invtools.gui.mode.inspect.name", "&bInspectiemodus");
+        messages.add("invtools.gui.mode.inspect.lore", "&7Deze weergave is alleen-lezen.");
+        messages.add("invtools.gui.close.name", "&cSluiten");
         return messages;
     }
 

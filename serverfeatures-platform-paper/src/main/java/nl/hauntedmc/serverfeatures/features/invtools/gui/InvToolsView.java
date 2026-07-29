@@ -1,11 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.invtools.gui;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.OfflinePlayerData;
+import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -23,6 +25,8 @@ import java.util.concurrent.CompletableFuture;
 public final class InvToolsView implements InventoryHolder {
 
     private final UUID sessionId = UUID.randomUUID();
+    private final LocalizationHandler localization;
+    private final Audience viewerAudience;
     private final UUID viewerId;
     private final String viewerName;
     private final UUID targetId;
@@ -41,6 +45,7 @@ public final class InvToolsView implements InventoryHolder {
     private CompletableFuture<SaveResult> saveCompletion;
 
     public InvToolsView(
+            LocalizationHandler localization,
             Player viewer,
             UUID targetId,
             String targetName,
@@ -51,6 +56,8 @@ public final class InvToolsView implements InventoryHolder {
             OfflinePlayerData originalOfflineData
     ) {
         Player checkedViewer = Objects.requireNonNull(viewer, "viewer");
+        this.localization = Objects.requireNonNull(localization, "localization");
+        this.viewerAudience = checkedViewer;
         this.viewerId = checkedViewer.getUniqueId();
         this.viewerName = checkedViewer.getName();
         this.targetId = Objects.requireNonNull(targetId, "targetId");
@@ -218,9 +225,10 @@ public final class InvToolsView implements InventoryHolder {
     }
 
     private Component title() {
-        String label = kind == InventoryKind.PLAYER ? "Inventaris" : "Ender Chest";
         NamedTextColor color = editable ? NamedTextColor.DARK_RED : NamedTextColor.DARK_AQUA;
-        return Component.text(label + ": ", NamedTextColor.DARK_GRAY)
+        return message(kind == InventoryKind.PLAYER
+                ? "invtools.gui.title.inventory"
+                : "invtools.gui.title.enderchest")
                 .append(Component.text(targetName, color))
                 .decoration(TextDecoration.ITALIC, false);
     }
@@ -228,7 +236,7 @@ public final class InvToolsView implements InventoryHolder {
     private void render() {
         ItemStack filler = menuItem(
                 Material.GRAY_STAINED_GLASS_PANE,
-                Component.text(" ", NamedTextColor.GRAY)
+                Component.empty()
         );
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             if (InventorySlotLayout.backingSlot(kind, slot).isEmpty()) {
@@ -243,34 +251,38 @@ public final class InvToolsView implements InventoryHolder {
                 Material.PLAYER_HEAD,
                 Component.text(targetName, NamedTextColor.GOLD),
                 List.of(
-                        Component.text(onlineSession ? "Online speler" : "Offline speler", NamedTextColor.GRAY),
-                        Component.text(
+                        message(onlineSession
+                                ? "invtools.gui.info.online"
+                                : "invtools.gui.info.offline"),
+                        message(
                                 kind == InventoryKind.PLAYER
-                                        ? "Hoofdinventaris: rijen 2–4"
-                                        : "27 ender chest-slots",
-                                NamedTextColor.DARK_GRAY
+                                        ? "invtools.gui.info.inventory.main"
+                                        : "invtools.gui.info.enderchest.slots"
                         ),
-                        Component.text(
+                        message(
                                 kind == InventoryKind.PLAYER
-                                        ? "Hotbar: rij 5 · pantser/offhand: rij 1"
-                                        : "Opslag: rijen 1–3",
-                                NamedTextColor.DARK_GRAY
+                                        ? "invtools.gui.info.inventory.hotbar_armor"
+                                        : "invtools.gui.info.enderchest.storage"
                         )
                 )
         ));
         inventory.setItem(modeSlot, menuItem(
                 editable ? Material.REDSTONE_TORCH : Material.SPYGLASS,
-                Component.text(editable ? "Bewerkmodus" : "Inspectiemodus",
-                        editable ? NamedTextColor.RED : NamedTextColor.AQUA),
-                List.of(Component.text(
-                        editable ? "Wijzigingen worden direct toegepast." : "Deze weergave is alleen-lezen.",
-                        NamedTextColor.GRAY
-                ))
+                message(editable ? "invtools.gui.mode.edit.name" : "invtools.gui.mode.inspect.name"),
+                List.of(message(editable
+                        ? "invtools.gui.mode.edit.lore"
+                        : "invtools.gui.mode.inspect.lore"))
         ));
         inventory.setItem(InventorySlotLayout.closeSlot(kind), menuItem(
                 Material.BARRIER,
-                Component.text("Sluiten", NamedTextColor.RED)
+                message("invtools.gui.close.name")
         ));
+    }
+
+    private Component message(String key) {
+        return localization.getMessage(key)
+                .forAudience(viewerAudience)
+                .build();
     }
 
     private void renderMappedItems() {
