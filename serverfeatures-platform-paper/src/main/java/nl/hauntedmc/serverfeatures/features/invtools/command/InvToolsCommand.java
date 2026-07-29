@@ -66,11 +66,12 @@ public final class InvToolsCommand implements BrigadierCommand {
                                     if (player == null) {
                                         return 0;
                                     }
-                                    feature.getService().open(
-                                            player,
-                                            StringArgumentType.getString(context, "player"),
-                                            kind
+                                    String targetName = StringArgumentType.getString(
+                                            context,
+                                            "player"
                                     );
+                                    registerOfflineRequest(player, targetName);
+                                    feature.getService().open(player, targetName, kind);
                                     return 1;
                                 })))
                 .then(Commands.literal("clear")
@@ -85,13 +86,21 @@ public final class InvToolsCommand implements BrigadierCommand {
                                     if (player == null) {
                                         return 0;
                                     }
-                                    feature.getService().clear(
-                                            player,
-                                            StringArgumentType.getString(context, "player"),
-                                            kind
+                                    String targetName = StringArgumentType.getString(
+                                            context,
+                                            "player"
                                     );
+                                    registerOfflineRequest(player, targetName);
+                                    feature.getService().clear(player, targetName, kind);
                                     return 1;
                                 })));
+    }
+
+    private void registerOfflineRequest(Player actor, String targetName) {
+        Player target = Bukkit.getPlayerExact(targetName);
+        if (target == null || !target.isOnline()) {
+            feature.getMigrationCoordinator().registerRequest(actor, targetName);
+        }
     }
 
     private static boolean isPlayerWith(CommandSourceStack source, String permission) {
