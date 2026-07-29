@@ -130,9 +130,11 @@ uncommitted GUI state instead of writing over data already being loaded.
 An explicit login fence rejects new offline opens from pre-login until Paper has exposed the
 player as online, closing the remaining transition gap.
 
-Feature or server shutdown closes every visible and already-saving offline session. It waits for
-each in-flight atomic playerdata write to reach its actual terminal outcome before the lifecycle
-task manager is allowed to cancel remaining feature work.
+Feature or server shutdown first closes visible sessions and settles their saves. It then closes the
+playerdata operation gate: queued operations that have not started are rejected, while every read,
+migration, crash recovery, clear, or save that already crossed the gate is allowed to reach a real
+terminal state before migration login protection is removed. This prevents a queued legacy-data load
+from beginning after feature disable and rewriting playerdata without its listener protections.
 
 ## Legacy playerdata migration
 
@@ -141,6 +143,11 @@ Instead, an older positive `DataVersion` is upgraded with the same full Paper
 `DataFixTypes.PLAYER` data fixer used when Paper loads a real player. A record newer than the running
 Paper build is rejected because data fixing is forward-only. Missing, non-integer, malformed, or
 non-positive versions are also rejected.
+
+During feature initialization, InvTools checks that Item-NBT-API's target DataVersion exactly matches
+Paper's runtime DataVersion and resolves the exact public `CompoundTag` overload of Paper's PLAYER
+data fixer. The feature fails to initialize if either contract is unavailable; it does not wait until
+a staff command encounters legacy data.
 
 Migration is part of the offline open or clear operation and runs away from the server thread under
 the target's exclusive playerdata lock:
@@ -160,22 +167,26 @@ the target's exclusive playerdata lock:
 
 A conversion or validation failure before replacement leaves the original bytes untouched. A
 failure after replacement restores the exact backup through another fsynced atomic replacement and
-verifies the restored hash. If another process changes the source before commit, InvTools never
-restores over that external change; it fails closed and retains the migration backup for diagnosis.
-If both conversion and automatic recovery fail, the backup is retained and the server log identifies
-its exact path.
+verifies the restored hash. If another process makes a different parseable change before commit or
+before rollback, InvTools does not overwrite it; it fails closed and retains the migration backup for
+diagnosis. If both conversion and automatic recovery fail, the backup is retained and the server log
+identifies its exact path.
 
-A leftover migration backup is reconciled on the next access. A valid current target means the prior
-commit succeeded and only cleanup was interrupted, so the stale backup is removed. A missing or
-invalid target is restored from the valid backup. Two different, apparently valid old files are
-considered ambiguous and are both retained instead of guessing which one is authoritative.
+A leftover migration backup is reconciled on the next InvTools access. A valid current target means
+the prior commit succeeded and only cleanup was interrupted, so the stale backup is removed. A
+missing or unreadable target is restored from the verified backup. Two different, parseable files are
+considered ambiguous and are both retained instead of guessing which one is authoritative. Backup-only
+state is recognized by the service preflight, so recovery remains reachable even if the primary file
+is absent.
 
 The command user receives in-game progress for detection, backup completion, conversion, rollback,
-success, and terminal failure. During identity-to-file handoff and all playerdata I/O, a separate
-UUID-based migration fence rejects the target in async pre-login. Paper's initial-configuration event
-checks the same fence again before player construction as a second line of defence. A player who
-started connecting before their identity was resolved cannot overlap a conversion: the ordinary
-InvTools reservation/login guards abort the offline command before disk mutation begins.
+success, and terminal failure. The migration-specific UUID fence is active for the actual
+playerdata operation, including waiting for the per-target lock, conversion, recovery, and saving.
+The ordinary InvTools reservation and login fences protect the preceding identity-resolution handoff
+without leaving a player blocked when an offline request is rejected before disk work starts.
+`AsyncPlayerPreLoginEvent` checks the migration fence before Paper reads playerdata, and Paper's
+initial-configuration event checks it again before player construction to cover a connection that
+started just before the operation.
 
 The temporary migration backup is distinct from `<uuid>.dat.invtools-backup`, which is the retained
 recovery copy for an intentional inventory edit. If migration succeeded but the temporary backup
