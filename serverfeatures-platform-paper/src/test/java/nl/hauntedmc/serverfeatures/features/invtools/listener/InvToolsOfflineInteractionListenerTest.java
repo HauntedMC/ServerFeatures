@@ -99,6 +99,7 @@ class InvToolsOfflineInteractionListenerTest {
         OfflineCursorTransaction transaction = new OfflineCursorTransaction();
         OfflineCursorTransaction.Plan plan = transaction.plan(
                 OfflineCursorTransaction.Side.VIEWER,
+                4,
                 InventoryAction.PICKUP_ALL,
                 viewerStorage[4]
         ).orElseThrow();
@@ -109,6 +110,7 @@ class InvToolsOfflineInteractionListenerTest {
         when(event.getAction()).thenReturn(InventoryAction.PICKUP_ALL);
         when(view.planOfflineCursor(
                 OfflineCursorTransaction.Side.VIEWER,
+                4,
                 InventoryAction.PICKUP_ALL,
                 viewerStorage[4]
         )).thenReturn(Optional.of(plan));
@@ -126,6 +128,7 @@ class InvToolsOfflineInteractionListenerTest {
                 changedViewer.capture()
         );
         assertNull(changedViewer.getValue()[4]);
+        assertEquals(4, plan.nextReturnSlot());
         verify(viewer).setItemOnCursor(any(ItemStack.class));
     }
 
@@ -140,6 +143,7 @@ class InvToolsOfflineInteractionListenerTest {
         );
         OfflineCursorTransaction.Plan plan = transaction.plan(
                 OfflineCursorTransaction.Side.TARGET,
+                9,
                 InventoryAction.PLACE_ALL,
                 null
         ).orElseThrow();
@@ -153,6 +157,7 @@ class InvToolsOfflineInteractionListenerTest {
         when(view.cursorOwner()).thenReturn(OfflineCursorTransaction.Side.VIEWER);
         when(view.planOfflineCursor(
                 OfflineCursorTransaction.Side.TARGET,
+                9,
                 InventoryAction.PLACE_ALL,
                 null
         )).thenReturn(Optional.of(plan));
@@ -212,6 +217,7 @@ class InvToolsOfflineInteractionListenerTest {
         );
         OfflineCursorTransaction.Plan plan = transaction.plan(
                 OfflineCursorTransaction.Side.TARGET,
+                InventorySnapshot.HELMET_SLOT,
                 InventoryAction.PLACE_ALL,
                 null
         ).orElseThrow();
@@ -224,6 +230,7 @@ class InvToolsOfflineInteractionListenerTest {
         when(view.cursor()).thenReturn(carried);
         when(view.planOfflineCursor(
                 OfflineCursorTransaction.Side.TARGET,
+                InventorySnapshot.HELMET_SLOT,
                 InventoryAction.PLACE_ALL,
                 null
         )).thenReturn(Optional.of(plan));
