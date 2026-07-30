@@ -1,16 +1,21 @@
 package nl.hauntedmc.serverfeatures.features.restart.internal;
 
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartLifecyclePublisher;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RestartServiceTest {
@@ -57,7 +62,8 @@ class RestartServiceTest {
     }
 
     @Test
-    void cancellationInvalidatesSequenceAndAllowsAnotherCommandedRestart() throws ReflectiveOperationException {
+    void cancellationInvalidatesSequenceAndAllowsAnotherCommandedRestart()
+            throws ReflectiveOperationException {
         RestartService service = serviceWithSchedule(List.of(0));
         long initialToken = longField(service, "sequenceToken");
 
@@ -67,12 +73,46 @@ class RestartServiceTest {
         assertEquals(false, booleanField(service, "inProgress"));
     }
 
+    @Test
+    void cancellingPreparedRestartPublishesCancel() throws ReflectiveOperationException {
+        Restart feature = featureWithSchedule(List.of(0));
+        RestartLifecyclePublisher publisher = mock(RestartLifecyclePublisher.class);
+        when(publisher.publishCancelCurrent()).thenReturn(CompletableFuture.completedFuture(null));
+        RestartService service = new RestartService(feature, publisher);
+        setBooleanField(service, "shutdownCommitted", true);
+
+        service.cancelIfRunning();
+
+        verify(publisher).publishCancelCurrent();
+        assertEquals(false, booleanField(service, "shutdownCommitted"));
+    }
+
+    @Test
+    void disableDuringActualShutdownPreservesReadyMarker() throws ReflectiveOperationException {
+        Restart feature = featureWithSchedule(List.of(0));
+        RestartLifecyclePublisher publisher = mock(RestartLifecyclePublisher.class);
+        RestartService service = new RestartService(feature, publisher);
+        setBooleanField(service, "shutdownCommitted", true);
+        setBooleanField(service, "shutdownStarted", true);
+        long initialToken = longField(service, "sequenceToken");
+
+        service.cancelIfRunning();
+
+        verify(publisher, never()).publishCancelCurrent();
+        assertEquals(initialToken, longField(service, "sequenceToken"));
+        assertEquals(true, booleanField(service, "shutdownCommitted"));
+    }
+
     private static RestartService serviceWithSchedule(Object schedule) {
+        return new RestartService(featureWithSchedule(schedule));
+    }
+
+    private static Restart featureWithSchedule(Object schedule) {
         Restart feature = baseFeature();
         FeatureConfigHandler config = mock(FeatureConfigHandler.class);
         when(config.get("announce.schedule")).thenReturn(schedule);
         when(feature.getConfigHandler()).thenReturn(config);
-        return new RestartService(feature);
+        return feature;
     }
 
     private static Restart baseFeature() {
@@ -95,9 +135,16 @@ class RestartServiceTest {
         return ((java.util.concurrent.atomic.AtomicLong) atomic).get();
     }
 
-    private static boolean booleanField(RestartService service, String name) throws ReflectiveOperationException {
+    private static boolean booleanField(RestartService service, String name)
+            throws ReflectiveOperationException {
         Object atomic = field(service, name);
-        return ((java.util.concurrent.atomic.AtomicBoolean) atomic).get();
+        return ((AtomicBoolean) atomic).get();
+    }
+
+    private static void setBooleanField(RestartService service, String name, boolean value)
+            throws ReflectiveOperationException {
+        Object atomic = field(service, name);
+        ((AtomicBoolean) atomic).set(value);
     }
 
     private static Object field(RestartService service, String name) throws ReflectiveOperationException {
