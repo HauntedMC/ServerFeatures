@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartLifecyclePublisher;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -20,15 +22,24 @@ public class RestartService {
     private static final long TICK_MS = 50L;
 
     private final Restart feature;
+    private final RestartLifecyclePublisher lifecyclePublisher;
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
+    private final AtomicBoolean shutdownCommitted = new AtomicBoolean(false);
     private final AtomicLong sequenceToken = new AtomicLong(0);
 
     private final Title.Times titleTimes;
     private final int waitAfterNowSeconds;
+    private final long preparePublishTimeoutMillis;
+    private final long prepareSettleMillis;
     private final List<Integer> scheduleDesc;
 
     public RestartService(Restart feature) {
+        this(feature, null);
+    }
+
+    public RestartService(Restart feature, RestartLifecyclePublisher lifecyclePublisher) {
         this.feature = feature;
+        this.lifecyclePublisher = lifecyclePublisher;
 
         int fadeInTicks = feature.getInt("title_fade_in", 20);
         int stayTicks = feature.getInt("title_stay", 100);
@@ -40,19 +51,28 @@ public class RestartService {
         );
 
         this.waitAfterNowSeconds = feature.getInt("auto.wait_after_now_seconds", 5);
+        this.preparePublishTimeoutMillis = feature.getPositiveLong(
+                "autoreconnect.prepare_publish_timeout_millis",
+                3_000L
+        );
+        this.prepareSettleMillis = Math.max(0L, feature.getLong(
+                "autoreconnect.prepare_settle_millis",
+                500L
+        ));
         this.scheduleDesc = parseSchedule();
     }
 
     public void forceImmediate(CommandSender initiator) {
         feature.getLogger().warning("Forced restart initiated by " + (initiator == null ? "system" : initiator.getName()));
         cancelIfRunning();
-        saveKickShutdown();
+        prepareAndShutdown();
     }
 
     public boolean startCommanded(CommandSender initiator) {
         if (!inProgress.compareAndSet(false, true)) {
             return false;
         }
+        shutdownCommitted.set(false);
         feature.getLogger().info("Restart initiated by " + (initiator == null ? "system" : initiator.getName()));
         runSequence();
         return true;
@@ -63,6 +83,7 @@ public class RestartService {
             feature.getLogger().warning("Automatic restart skipped; another restart is in progress.");
             return;
         }
+        shutdownCommitted.set(false);
         feature.getLogger().info("Automatic daily restart starting…");
         runSequence();
     }
@@ -70,6 +91,7 @@ public class RestartService {
     public void cancelIfRunning() {
         sequenceToken.incrementAndGet();
         inProgress.set(false);
+        shutdownCommitted.set(false);
     }
 
     private void runSequence() {
@@ -92,7 +114,7 @@ public class RestartService {
         int totalUntilZero = Math.max(0, first - last);
         scheduleInSeconds(totalUntilZero + waitAfterNowSeconds, () -> {
             if (!isTokenValid(token)) return;
-            saveKickShutdown();
+            prepareAndShutdown();
         });
     }
 
@@ -144,15 +166,44 @@ public class RestartService {
         }
     }
 
+    private void prepareAndShutdown() {
+        if (!shutdownCommitted.compareAndSet(false, true)) {
+            return;
+        }
+        if (lifecyclePublisher == null) {
+            saveKickShutdown();
+            return;
+        }
+
+        List<Player> players = List.copyOf(feature.getPlugin().getServer().getOnlinePlayers());
+        lifecyclePublisher.publishPrepare(players)
+                .orTimeout(preparePublishTimeoutMillis, TimeUnit.MILLISECONDS)
+                .whenComplete((published, throwable) -> {
+                    long settleMillis = 0L;
+                    if (throwable != null) {
+                        feature.getLogger().warning(
+                                "Restart PREPARE could not be confirmed before shutdown; continuing without guaranteed autoreconnect: "
+                                        + rootMessage(throwable)
+                        );
+                    } else {
+                        settleMillis = prepareSettleMillis;
+                    }
+                    feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                            this::saveKickShutdown,
+                            BukkitTime.ticks(millisToTicksCeil(settleMillis))
+                    );
+                });
+    }
+
     private void saveKickShutdown() {
-        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
-            try {
-                feature.getPlugin().getServer().dispatchCommand(
-                        feature.getPlugin().getServer().getConsoleSender(), "save-all flush");
-            } catch (Throwable t) {
-                feature.getLogger().warning("Failed to dispatch 'save-all flush': " + t.getMessage());
-            }
-        });
+        try {
+            feature.getPlugin().getServer().dispatchCommand(
+                    feature.getPlugin().getServer().getConsoleSender(),
+                    "save-all flush"
+            );
+        } catch (Throwable t) {
+            feature.getLogger().warning("Failed to dispatch 'save-all flush': " + t.getMessage());
+        }
 
         for (Player p : feature.getPlugin().getServer().getOnlinePlayers()) {
             Component kick = feature.getLocalizationHandler()
@@ -205,6 +256,22 @@ public class RestartService {
         }
 
         return uniqueDesc;
+    }
+
+    private static long millisToTicksCeil(long millis) {
+        if (millis <= 0L) {
+            return 0L;
+        }
+        return Math.max(1L, (millis + TICK_MS - 1L) / TICK_MS);
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
     private record TimeFmt(int m, int s, String mm, String ss, String readable) {
