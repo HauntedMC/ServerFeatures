@@ -68,6 +68,58 @@ class RestartLifecyclePublisherTest {
     }
 
     @Test
+    void cancelPublishesPersistedRestartIdentityAndDeletesMarker() throws Exception {
+        Restart feature = feature();
+        DurableMessagingDataAccess messaging = successfulMessaging();
+        RestartMarkerStore store = store();
+        long now = System.currentTimeMillis();
+        store.save(new RestartMarker(
+                "restart-cancel",
+                "survival",
+                now,
+                now + 60_000L,
+                5_000L,
+                250L
+        ));
+        RestartLifecyclePublisher publisher = publisher(feature, messaging, store, "ignored");
+
+        publisher.publishCancelCurrent().join();
+
+        ArgumentCaptor<DurableEvent<RestartLifecycleMessage>> captor = eventCaptor();
+        verify(messaging).publish(eq("server.restart.lifecycle"), captor.capture());
+        RestartLifecycleMessage message = captor.getValue().payload();
+        assertEquals(RestartLifecycleMessage.ACTION_CANCEL, message.getAction());
+        assertEquals("restart-cancel", message.getRestartId());
+        assertEquals("survival", message.getServerName());
+        assertTrue(store.load().isEmpty());
+    }
+
+    @Test
+    void cancelClearsMarkerEvenWhenRedisPublishFails() throws Exception {
+        Restart feature = feature();
+        DurableMessagingDataAccess messaging = mock(DurableMessagingDataAccess.class);
+        when(messaging.publish(any(), any())).thenReturn(
+                CompletableFuture.failedFuture(new IllegalStateException("redis unavailable"))
+        );
+        RestartMarkerStore store = store();
+        long now = System.currentTimeMillis();
+        store.save(new RestartMarker(
+                "restart-cancel-failed",
+                "survival",
+                now,
+                now + 60_000L,
+                5_000L,
+                250L
+        ));
+        RestartLifecyclePublisher publisher = publisher(feature, messaging, store, "ignored");
+
+        CompletableFuture<PublishedDurableEvent> result = publisher.publishCancelCurrent();
+
+        assertTrue(result.isCompletedExceptionally());
+        assertTrue(store.load().isEmpty());
+    }
+
+    @Test
     void readyIsPublishedFromPersistedMarkerAndThenDeletesIt() throws Exception {
         Restart feature = feature();
         DurableMessagingDataAccess messaging = successfulMessaging();
