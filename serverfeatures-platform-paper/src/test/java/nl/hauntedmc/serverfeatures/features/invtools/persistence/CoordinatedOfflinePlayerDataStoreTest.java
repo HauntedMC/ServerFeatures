@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 class CoordinatedOfflinePlayerDataStoreTest {
 
+    private static final int PLAYER_LOCK_COUNT = 64;
     private static final PlayerDataRevision REVISION = new PlayerDataRevision("0".repeat(64));
 
     @Test
@@ -74,7 +75,7 @@ class CoordinatedOfflinePlayerDataStoreTest {
     @Test
     void samePlayerOperationsAreSerializedWhileDifferentPlayersCanProceed() throws Exception {
         UUID firstPlayer = UUID.randomUUID();
-        UUID secondPlayer = UUID.randomUUID();
+        UUID secondPlayer = differentStripe(firstPlayer);
         CountDownLatch firstEntered = new CountDownLatch(1);
         CountDownLatch releaseFirst = new CountDownLatch(1);
         CountDownLatch secondSamePlayerEntered = new CountDownLatch(1);
@@ -144,6 +145,19 @@ class CoordinatedOfflinePlayerDataStoreTest {
         }
 
         assertEquals(0, active.get());
+    }
+
+    private static UUID differentStripe(UUID firstPlayer) {
+        int firstStripe = stripe(firstPlayer);
+        UUID candidate;
+        do {
+            candidate = UUID.randomUUID();
+        } while (stripe(candidate) == firstStripe);
+        return candidate;
+    }
+
+    private static int stripe(UUID playerId) {
+        return Math.floorMod(playerId.hashCode(), PLAYER_LOCK_COUNT);
     }
 
     private static PlayerDataMigrationObserver countingObserver(AtomicInteger active) {
