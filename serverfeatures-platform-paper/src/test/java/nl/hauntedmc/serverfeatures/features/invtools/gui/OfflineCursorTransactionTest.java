@@ -75,6 +75,30 @@ class OfflineCursorTransactionTest {
     }
 
     @Test
+    void pickupAndPartialPlacementPreserveThePreferredReturnSlot() {
+        OfflineCursorTransaction transaction = new OfflineCursorTransaction();
+        OfflineCursorTransaction.Plan pickup = transaction.plan(
+                OfflineCursorTransaction.Side.TARGET,
+                InventorySnapshot.HELMET_SLOT,
+                InventoryAction.PICKUP_ALL,
+                item(Material.DIAMOND_HELMET)
+        ).orElseThrow();
+        transaction.commit(pickup);
+
+        assertEquals(InventorySnapshot.HELMET_SLOT, transaction.preferredReturnSlot());
+
+        OfflineCursorTransaction.Plan placement = transaction.plan(
+                OfflineCursorTransaction.Side.TARGET,
+                9,
+                InventoryAction.PLACE_ONE,
+                null
+        ).orElseThrow();
+        transaction.commit(placement);
+
+        assertNull(transaction.preferredReturnSlot());
+    }
+
+    @Test
     void crossInventorySwapTransfersThePlacedStackAndChangesCursorCustody() {
         OfflineCursorTransaction transaction = new OfflineCursorTransaction(
                 item(Material.DIAMOND, 2),
@@ -83,6 +107,7 @@ class OfflineCursorTransactionTest {
 
         OfflineCursorTransaction.Plan swap = transaction.plan(
                 OfflineCursorTransaction.Side.TARGET,
+                14,
                 InventoryAction.SWAP_WITH_CURSOR,
                 item(Material.EMERALD, 5)
         ).orElseThrow();
@@ -90,6 +115,7 @@ class OfflineCursorTransactionTest {
         assertFalse(swap.transfer().addedToViewer());
         assertEquals(Material.DIAMOND, swap.transfer().item().getType());
         assertEquals(OfflineCursorTransaction.Side.TARGET, swap.nextOwner());
+        assertEquals(14, swap.nextReturnSlot());
         assertEquals(Material.EMERALD, swap.result().cursorItem().getType());
     }
 
