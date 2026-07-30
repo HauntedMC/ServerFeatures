@@ -25,6 +25,7 @@ public class RestartService {
     private final RestartLifecyclePublisher lifecyclePublisher;
     private final AtomicBoolean inProgress = new AtomicBoolean(false);
     private final AtomicBoolean shutdownCommitted = new AtomicBoolean(false);
+    private final AtomicBoolean shutdownStarted = new AtomicBoolean(false);
     private final AtomicLong sequenceToken = new AtomicLong(0);
 
     private final Title.Times titleTimes;
@@ -63,9 +64,15 @@ public class RestartService {
     }
 
     public void forceImmediate(CommandSender initiator) {
-        feature.getLogger().warning("Forced restart initiated by " + (initiator == null ? "system" : initiator.getName()));
+        feature.getLogger().warning(
+                "Forced restart initiated by " + (initiator == null ? "system" : initiator.getName())
+        );
         cancelIfRunning();
-        prepareAndShutdown();
+        inProgress.set(true);
+        shutdownCommitted.set(false);
+        shutdownStarted.set(false);
+        long token = sequenceToken.incrementAndGet();
+        prepareAndShutdown(token);
     }
 
     public boolean startCommanded(CommandSender initiator) {
@@ -73,7 +80,10 @@ public class RestartService {
             return false;
         }
         shutdownCommitted.set(false);
-        feature.getLogger().info("Restart initiated by " + (initiator == null ? "system" : initiator.getName()));
+        shutdownStarted.set(false);
+        feature.getLogger().info(
+                "Restart initiated by " + (initiator == null ? "system" : initiator.getName())
+        );
         runSequence();
         return true;
     }
@@ -84,14 +94,23 @@ public class RestartService {
             return;
         }
         shutdownCommitted.set(false);
+        shutdownStarted.set(false);
         feature.getLogger().info("Automatic daily restart starting…");
         runSequence();
     }
 
     public void cancelIfRunning() {
+        if (shutdownStarted.get()) {
+            inProgress.set(false);
+            return;
+        }
+
         sequenceToken.incrementAndGet();
         inProgress.set(false);
-        shutdownCommitted.set(false);
+        boolean lifecycleWasPrepared = shutdownCommitted.getAndSet(false);
+        if (lifecycleWasPrepared && lifecyclePublisher != null) {
+            lifecyclePublisher.publishCancelCurrent();
+        }
     }
 
     private void runSequence() {
@@ -114,7 +133,7 @@ public class RestartService {
         int totalUntilZero = Math.max(0, first - last);
         scheduleInSeconds(totalUntilZero + waitAfterNowSeconds, () -> {
             if (!isTokenValid(token)) return;
-            prepareAndShutdown();
+            prepareAndShutdown(token);
         });
     }
 
@@ -166,12 +185,12 @@ public class RestartService {
         }
     }
 
-    private void prepareAndShutdown() {
-        if (!shutdownCommitted.compareAndSet(false, true)) {
+    private void prepareAndShutdown(long token) {
+        if (!isTokenValid(token) || !shutdownCommitted.compareAndSet(false, true)) {
             return;
         }
         if (lifecyclePublisher == null) {
-            saveKickShutdown();
+            saveKickShutdown(token);
             return;
         }
 
@@ -179,23 +198,33 @@ public class RestartService {
         lifecyclePublisher.publishPrepare(players)
                 .orTimeout(preparePublishTimeoutMillis, TimeUnit.MILLISECONDS)
                 .whenComplete((published, throwable) -> {
+                    if (!isTokenValid(token) || !shutdownCommitted.get()) {
+                        return;
+                    }
                     long settleMillis = 0L;
                     if (throwable != null) {
                         feature.getLogger().warning(
-                                "Restart PREPARE could not be confirmed before shutdown; continuing without guaranteed autoreconnect: "
+                                "Restart PREPARE could not be confirmed before shutdown; "
+                                        + "continuing without guaranteed autoreconnect: "
                                         + rootMessage(throwable)
                         );
                     } else {
                         settleMillis = prepareSettleMillis;
                     }
                     feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                            this::saveKickShutdown,
+                            () -> saveKickShutdown(token),
                             BukkitTime.ticks(millisToTicksCeil(settleMillis))
                     );
                 });
     }
 
-    private void saveKickShutdown() {
+    private void saveKickShutdown(long token) {
+        if (!isTokenValid(token)
+                || !shutdownCommitted.get()
+                || !shutdownStarted.compareAndSet(false, true)) {
+            return;
+        }
+
         try {
             feature.getPlugin().getServer().dispatchCommand(
                     feature.getPlugin().getServer().getConsoleSender(),
@@ -280,7 +309,9 @@ public class RestartService {
             int s = Math.max(0, totalSeconds) % 60;
             String mm = String.format("%02d", m);
             String ss = String.format("%02d", s);
-            String readable = (m > 0 && s > 0) ? (m + "m " + s + "s") : (m > 0 ? (m + "m") : (s + "s"));
+            String readable = (m > 0 && s > 0)
+                    ? (m + "m " + s + "s")
+                    : (m > 0 ? (m + "m") : (s + "s"));
             return new TimeFmt(m, s, mm, ss, readable);
         }
     }
