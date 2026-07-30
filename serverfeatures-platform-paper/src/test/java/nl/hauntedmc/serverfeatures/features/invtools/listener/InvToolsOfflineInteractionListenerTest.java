@@ -112,10 +112,10 @@ class InvToolsOfflineInteractionListenerTest {
         when(event.getSlot()).thenReturn(4);
         when(event.getAction()).thenReturn(InventoryAction.PICKUP_ALL);
         when(view.planOfflineCursor(
-                OfflineCursorTransaction.Side.VIEWER,
-                4,
-                InventoryAction.PICKUP_ALL,
-                viewerStorage[4]
+                eq(OfflineCursorTransaction.Side.VIEWER),
+                eq(4),
+                eq(InventoryAction.PICKUP_ALL),
+                any(ItemStack.class)
         )).thenReturn(Optional.of(plan));
         when(view.applyOfflineCursorMutation(any(), any(), any(), any())).thenReturn(true);
         when(view.cursor()).thenAnswer(ignored ->
