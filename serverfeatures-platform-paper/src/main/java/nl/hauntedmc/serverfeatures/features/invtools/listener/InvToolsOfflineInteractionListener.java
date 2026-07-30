@@ -92,7 +92,12 @@ public final class InvToolsOfflineInteractionListener implements Listener {
         ItemStack current = target.side() == OfflineCursorTransaction.Side.TARGET
                 ? beforeTarget.itemAt(view.kind(), target.slot())
                 : cloneOrNull(beforeViewer[target.slot()]);
-        var planned = view.planOfflineCursor(target.side(), event.getAction(), current);
+        var planned = view.planOfflineCursor(
+                target.side(),
+                target.slot(),
+                event.getAction(),
+                current
+        );
         if (planned.isEmpty()) {
             if (!isEmpty(view.cursor())
                     && view.cursorOwner() != target.side()
