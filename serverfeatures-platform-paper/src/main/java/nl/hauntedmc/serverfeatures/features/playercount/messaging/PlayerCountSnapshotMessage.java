@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.playercount.messaging;
 
 import nl.hauntedmc.dataprovider.database.messaging.api.AbstractEventMessage;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -29,7 +31,7 @@ public final class PlayerCountSnapshotMessage extends AbstractEventMessage {
     @SuppressWarnings("unused")
     private PlayerCountSnapshotMessage() {
         super(TYPE);
-        this.schemaVersion = SCHEMA_VERSION;
+        this.schemaVersion = 0;
         this.servers = Map.of();
     }
 
@@ -62,7 +64,10 @@ public final class PlayerCountSnapshotMessage extends AbstractEventMessage {
     }
 
     public Map<String, ServerCounts> getServers() {
-        return servers == null || servers.isEmpty() ? Map.of() : Map.copyOf(servers);
+        if (servers == null || servers.isEmpty()) {
+            return Map.of();
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(servers));
     }
 
     public static String normalizeServerName(String serverName) {
