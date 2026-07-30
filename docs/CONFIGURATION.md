@@ -42,6 +42,28 @@ Use these commands during operations:
 
 This keeps incidents small and rollback simple.
 
+## Restart Autoreconnect
+
+Set `autoreconnect.enabled: true` in `features/Restart/config.yml` to coordinate controlled backend restarts with
+ProxyFeatures over the durable Redis stream.
+
+The restart flow persists a restart ID before shutdown, publishes `PREPARE`, waits briefly for proxy consumption, and
+publishes `READY` only after Paper emits its full startup `ServerLoadEvent`. The marker is deleted only after `READY`
+has been published successfully.
+
+Key settings:
+
+- `autoreconnect.wait_after_ready_seconds`: extra warm-up time after full server startup before the first player returns.
+- `autoreconnect.player_interval_millis`: delay between players, preventing a single-tick login spike.
+- `autoreconnect.prepare_publish_timeout_millis`: maximum time to wait for PREPARE publication confirmation.
+- `autoreconnect.prepare_settle_millis`: small post-publication grace period before kicking players and shutting down.
+- `autoreconnect.session_ttl_seconds`: bounds stale restart sessions and markers.
+- `autoreconnect.ready_publish_attempts` and `autoreconnect.ready_retry_seconds`: retry READY publication after startup.
+- `autoreconnect.stream`: must match ProxyFeatures' `backend_autoreconnect.stream` setting.
+
+If Redis or DataProvider is unavailable, the server restart still proceeds normally; only autoreconnect is skipped for
+that cycle. The global `server_name` must exactly correspond to the backend name registered in Velocity.
+
 ## Environment-Specific Values
 
 Treat production tokens, webhooks, and credentials as environment-specific values:
