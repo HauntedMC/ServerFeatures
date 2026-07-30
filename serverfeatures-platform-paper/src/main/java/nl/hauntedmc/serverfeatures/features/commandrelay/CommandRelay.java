@@ -66,7 +66,7 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
                         DatabaseType.MYSQL,
                         AUDIT_DATABASE_CONNECTION
                 )
-                .flatMap(ignored -> dataManager.createORMContext(
+                .flatMap(unused -> dataManager.createORMContext(
                         AUDIT_DATABASE_IDENTIFIER,
                         CommandRelayAuditLogEntity.class
                 ))
