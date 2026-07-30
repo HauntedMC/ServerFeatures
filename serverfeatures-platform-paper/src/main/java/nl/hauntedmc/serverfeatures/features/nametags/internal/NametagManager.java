@@ -30,6 +30,7 @@ public final class NametagManager {
     private final Map<UUID, Long> lastUpdateNanos = new ConcurrentHashMap<>();
 
     private final Map<UUID, Boolean> selfViewPreference = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> selfViewLoadGeneration = new ConcurrentHashMap<>();
     private final Set<UUID> glideSuppressed = ConcurrentHashMap.newKeySet();
 
     private NametagManager(Nametags feature) {
@@ -68,6 +69,8 @@ public final class NametagManager {
     }
 
     public void setSelfViewEnabled(UUID playerId, boolean enabled) {
+        invalidateSelfViewLoad(playerId);
+
         Boolean current = selfViewPreference.get(playerId);
         if (current != null && current == enabled) {
             return;
@@ -109,21 +112,77 @@ public final class NametagManager {
     }
 
     public void preloadSelfView(Player player) {
+        preloadSelfView(
+                player,
+                () -> updateNametag(player, new UpdateProperties.Builder().forced(true).build())
+        );
+    }
+
+    public void preloadSelfView(Player player, Runnable afterLoad) {
         if (player == null) return;
+        Objects.requireNonNull(afterLoad, "afterLoad must not be null");
+
         UUID id = player.getUniqueId();
         String playerName = player.getName();
-        feature.getRepository()
-                .findSelfView(player.getUniqueId().toString())
-                .whenComplete((persisted, ex) -> {
-                    if (ex != null) {
-                        feature.getLogger().warning(
-                                "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
-                        );
-                        selfViewPreference.put(id, true);
-                        return;
-                    }
-                    selfViewPreference.put(id, persisted == null ? true : persisted.orElse(true));
-                });
+        long generation = beginSelfViewLoad(id);
+
+        try {
+            feature.getRepository()
+                    .findSelfView(id.toString())
+                    .whenComplete((persisted, ex) -> {
+                        if (isCurrentSelfViewLoad(id, generation)) {
+                            if (ex != null) {
+                                feature.getLogger().warning(
+                                        "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
+                                );
+                                selfViewPreference.putIfAbsent(id, true);
+                            } else {
+                                selfViewPreference.put(id, persisted == null ? true : persisted.orElse(true));
+                            }
+                        }
+
+                        runAfterSelfViewLoaded(player, id, afterLoad);
+                    });
+        } catch (RuntimeException ex) {
+            if (isCurrentSelfViewLoad(id, generation)) {
+                selfViewPreference.putIfAbsent(id, true);
+            }
+            feature.getLogger().warning(
+                    "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
+            );
+            runAfterSelfViewLoaded(player, id, afterLoad);
+        }
+    }
+
+    private long beginSelfViewLoad(UUID playerId) {
+        return selfViewLoadGeneration.merge(playerId, 1L, Long::sum);
+    }
+
+    private void invalidateSelfViewLoad(UUID playerId) {
+        selfViewLoadGeneration.merge(playerId, 1L, Long::sum);
+    }
+
+    private boolean isCurrentSelfViewLoad(UUID playerId, long generation) {
+        return selfViewLoadGeneration.getOrDefault(playerId, 0L) == generation;
+    }
+
+    private void runAfterSelfViewLoaded(Player player, UUID playerId, Runnable afterLoad) {
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                if (!feature.getPlugin().isEnabled()) {
+                    return;
+                }
+                if (player.isOnline() && player.getUniqueId().equals(playerId)) {
+                    afterLoad.run();
+                }
+            });
+        } catch (RuntimeException ex) {
+            if (feature.getPlugin().isEnabled()) {
+                feature.getLogger().warning(
+                        "Kon nametag initialisatie niet plannen voor " + player.getName() + ": " + ex.getMessage()
+                );
+            }
+        }
     }
 
     private void scheduleRepeatingUpdate() {
@@ -199,14 +258,18 @@ public final class NametagManager {
     }
 
     public void removeNametag(Player player) {
-        Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        invalidateSelfViewLoad(playerId);
+
+        Optional<Nametag> optTag = registry.getNametag(playerId);
         if (optTag.isPresent()) {
             Nametag nametag = optTag.get();
-            registry.unregister(player.getUniqueId());
+            registry.unregister(playerId);
             RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
             PacketManager.sendMulticast(new ArrayList<>(nametag.getViewers()), removePacket);
         }
-        glideSuppressed.remove(player.getUniqueId());
+        glideSuppressed.remove(playerId);
+        lastUpdateNanos.remove(playerId);
     }
 
     public void removeAllNametags() {
@@ -214,12 +277,14 @@ public final class NametagManager {
             removeNametag(nametag.getNametagOwner());
         }
         glideSuppressed.clear();
+        selfViewLoadGeneration.clear();
+        selfViewPreference.clear();
+        lastUpdateNanos.clear();
     }
 
     public void initializeOnlinePlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             preloadSelfView(player);
-            createNametag(player);
         }
     }
 
