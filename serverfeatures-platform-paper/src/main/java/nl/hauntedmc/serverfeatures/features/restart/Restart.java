@@ -50,7 +50,7 @@ public class Restart extends BukkitBaseFeature<Meta> {
         c.put("auto.wait_after_now_seconds", 5); // seconds to wait after the "now" message
 
         // Optional proxy-side reconnect after this backend has fully restarted.
-        c.put("autoreconnect.enabled", false);
+        c.put("autoreconnect.enabled", true);
         c.put("autoreconnect.stream", DEFAULT_RESTART_STREAM);
         c.put("autoreconnect.wait_after_ready_seconds", 5);
         c.put("autoreconnect.player_interval_millis", 250);
