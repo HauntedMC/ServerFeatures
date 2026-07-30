@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Main-thread owner of the complete nametag lifecycle.
@@ -47,6 +48,7 @@ public final class NametagManager {
     private final int remountRepairIntervalTicks;
     private final double teleportRebuildDistanceSquared;
 
+    private final AtomicLong tokenSequence = new AtomicLong();
     private final Map<UUID, Boolean> selfViewPreference = new ConcurrentHashMap<>();
     private final Map<UUID, Long> selfViewLoadGeneration = new ConcurrentHashMap<>();
     private final Map<UUID, Long> connectionGeneration = new ConcurrentHashMap<>();
@@ -178,10 +180,7 @@ public final class NametagManager {
     }
 
     public void preloadSelfView(Player player) {
-        preloadSelfView(player, () -> updateNametag(
-                player,
-                new UpdateProperties.Builder().forced(true).build()
-        ));
+        handleJoin(player);
     }
 
     public void preloadSelfView(Player player, Runnable afterLoad) {
@@ -237,23 +236,28 @@ public final class NametagManager {
         }
         taskManager.scheduleDelayedTask(
                 () -> {
-                    if (!viewer.isOnline() || !owner.isOnline()) {
-                        Nametag nametag = registry.getNametag(owner.getUniqueId()).orElse(null);
-                        if (nametag != null) {
-                            hideFromViewer(nametag, viewer, true);
-                        }
-                        return;
-                    }
-
-                    // A track for a replacement entity generation may follow an old untrack immediately.
-                    if (owner.getTrackedBy().contains(viewer)) {
-                        reconcilePair(viewer, owner, trackingSettleDelayTicks, false);
-                        return;
-                    }
-
                     Nametag nametag = registry.getNametag(owner.getUniqueId()).orElse(null);
-                    if (nametag != null) {
-                        hideFromViewer(nametag, viewer, true);
+                    if (nametag == null) {
+                        return;
+                    }
+
+                    boolean trackedAgain = viewer.isOnline()
+                            && owner.isOnline()
+                            && owner.getTrackedBy().contains(viewer);
+                    boolean currentAttachmentStillVisible = attachmentIndex.isVisible(
+                            nametag.getOwnerEntityId(),
+                            nametag.getEntityId(),
+                            viewer.getUniqueId()
+                    );
+
+                    // Ignore a late untrack from an older owner generation when the current fake is intact.
+                    if (trackedAgain && currentAttachmentStillVisible) {
+                        return;
+                    }
+
+                    hideFromViewer(nametag, viewer, true);
+                    if (trackedAgain) {
+                        reconcilePair(viewer, owner, trackingSettleDelayTicks, false);
                     }
                 },
                 BukkitTime.ticks(1L)
@@ -343,15 +347,9 @@ public final class NametagManager {
                 return;
             }
             for (Nametag nametag : snapshotNametags()) {
-                NametagViewerState state = nametag.getViewerState(viewer.getUniqueId());
-                if (state == null || !state.isSpawned()) {
-                    continue;
-                }
+                hideFromViewer(nametag, viewer, true);
                 if (shouldShow(viewer, nametag)) {
-                    updater.updateMetadata(nametag, List.of(viewer));
-                    updater.remount(nametag, viewer);
-                } else {
-                    hideFromViewer(nametag, viewer, true);
+                    ensureShown(nametag, viewer, trackingSettleDelayTicks);
                 }
             }
         });
@@ -443,6 +441,9 @@ public final class NametagManager {
         suspendedOwners.remove(playerId);
         glideSuppressed.remove(playerId);
         selfViewPreference.remove(playerId);
+        selfViewLoadGeneration.remove(playerId);
+        connectionGeneration.remove(playerId);
+        transitionGeneration.remove(playerId);
     }
 
     private void removeOwnedNametagNow(Nametag nametag) {
@@ -462,7 +463,8 @@ public final class NametagManager {
         }
 
         UUID playerId = player.getUniqueId();
-        long generation = transitionGeneration.merge(playerId, 1L, Long::sum);
+        long generation = nextToken();
+        transitionGeneration.put(playerId, generation);
         cancelTransitionTask(playerId);
         suspendOwnedNametag(player);
         removeViewerFromAll(player, true);
@@ -484,10 +486,13 @@ public final class NametagManager {
 
         Nametag nametag = registry.getNametag(playerId).orElse(null);
         if (nametag == null) {
+            transitionGeneration.remove(playerId, generation);
+            suspendedOwners.remove(playerId);
             registerPlayerNow(player);
             return;
         }
 
+        transitionGeneration.remove(playerId, generation);
         nametag.rotateEntityIdentity();
         attachmentIndex.register(nametag.getOwnerEntityId(), nametag.getEntityId());
         suspendedOwners.remove(playerId);
@@ -502,7 +507,8 @@ public final class NametagManager {
         }
 
         UUID playerId = player.getUniqueId();
-        long generation = transitionGeneration.merge(playerId, 1L, Long::sum);
+        long generation = nextToken();
+        transitionGeneration.put(playerId, generation);
         cancelTransitionTask(playerId);
         suspendOwnedNametag(player);
 
@@ -516,8 +522,12 @@ public final class NametagManager {
 
                     Nametag nametag = registry.getNametag(playerId).orElse(null);
                     if (nametag == null) {
+                        transitionGeneration.remove(playerId, generation);
+                        suspendedOwners.remove(playerId);
+                        registerPlayerNow(player);
                         return;
                     }
+                    transitionGeneration.remove(playerId, generation);
                     if (refreshText) {
                         nametag.updateNametagText();
                     }
@@ -657,7 +667,18 @@ public final class NametagManager {
     private void ensureShown(Nametag nametag, Player viewer, long delayTicks) {
         UUID viewerId = viewer.getUniqueId();
         NametagViewerState state = nametag.getOrCreateViewerState(viewerId);
-        if (state.isSpawned() || state.hasPendingSpawn()) {
+        if (state.isSpawned()) {
+            if (attachmentIndex.isVisible(
+                    nametag.getOwnerEntityId(),
+                    nametag.getEntityId(),
+                    viewerId
+            )) {
+                return;
+            }
+            invalidateViewerState(nametag, viewerId, state);
+            state = nametag.getOrCreateViewerState(viewerId);
+        }
+        if (state.hasPendingSpawn()) {
             return;
         }
 
@@ -859,11 +880,13 @@ public final class NametagManager {
     }
 
     private long beginConnectionSession(UUID playerId) {
-        return connectionGeneration.merge(playerId, 1L, Long::sum);
+        long token = nextToken();
+        connectionGeneration.put(playerId, token);
+        return token;
     }
 
     private void invalidateConnectionSession(UUID playerId) {
-        connectionGeneration.merge(playerId, 1L, Long::sum);
+        connectionGeneration.put(playerId, nextToken());
     }
 
     private boolean isCurrentConnectionSession(UUID playerId, long session) {
@@ -871,11 +894,13 @@ public final class NametagManager {
     }
 
     private long beginSelfViewLoad(UUID playerId) {
-        return selfViewLoadGeneration.merge(playerId, 1L, Long::sum);
+        long token = nextToken();
+        selfViewLoadGeneration.put(playerId, token);
+        return token;
     }
 
     private void invalidateSelfViewLoad(UUID playerId) {
-        selfViewLoadGeneration.merge(playerId, 1L, Long::sum);
+        selfViewLoadGeneration.put(playerId, nextToken());
     }
 
     private boolean isCurrentSelfViewLoad(UUID playerId, long generation) {
@@ -909,7 +934,7 @@ public final class NametagManager {
     }
 
     private void cancelTransition(UUID playerId) {
-        transitionGeneration.merge(playerId, 1L, Long::sum);
+        transitionGeneration.put(playerId, nextToken());
         cancelTransitionTask(playerId);
     }
 
@@ -918,6 +943,10 @@ public final class NametagManager {
         if (existing != null) {
             taskManager.cancelTask(existing);
         }
+    }
+
+    private long nextToken() {
+        return tokenSequence.incrementAndGet();
     }
 
     private int intConfig(String path, int fallback, int minimum) {
