@@ -150,7 +150,8 @@ class RestartLifecyclePublisherTest {
 
     private Restart feature() {
         Restart feature = mock(Restart.class);
-        when(feature.getLogger()).thenReturn(mock(FeatureLogger.class));
+        FeatureLogger logger = mock(FeatureLogger.class);
+        when(feature.getLogger()).thenReturn(logger);
         when(feature.getPositiveInt("autoreconnect.wait_after_ready_seconds", 5)).thenReturn(7);
         when(feature.getPositiveLong("autoreconnect.player_interval_millis", 250L)).thenReturn(300L);
         when(feature.getPositiveInt("autoreconnect.session_ttl_seconds", 600)).thenReturn(120);
@@ -161,9 +162,9 @@ class RestartLifecyclePublisherTest {
 
     private DurableMessagingDataAccess successfulMessaging() {
         DurableMessagingDataAccess messaging = mock(DurableMessagingDataAccess.class);
-        when(messaging.publish(any(), any())).thenReturn(
-                CompletableFuture.completedFuture(mock(PublishedDurableEvent.class))
-        );
+        PublishedDurableEvent published = mock(PublishedDurableEvent.class);
+        CompletableFuture<PublishedDurableEvent> completed = CompletableFuture.completedFuture(published);
+        when(messaging.publish(any(), any())).thenReturn(completed);
         return messaging;
     }
 
