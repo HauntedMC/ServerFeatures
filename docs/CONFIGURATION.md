@@ -49,7 +49,12 @@ ProxyFeatures over the durable Redis stream.
 
 The restart flow persists a restart ID before shutdown, publishes `PREPARE`, waits briefly for proxy consumption, and
 publishes `READY` only after Paper emits its full startup `ServerLoadEvent`. The marker is deleted only after `READY`
-has been published successfully.
+has been published successfully. Cancelling or reloading a prepared restart publishes `CANCEL` and removes the marker,
+while normal plugin disable during the committed server shutdown deliberately preserves it for the next startup.
+
+ServerFeatures sends only the restarting backend identity and eligible player UUIDs. It does not choose a fallback server.
+Velocity's existing routing remains authoritative; ProxyFeatures records the actual destination independently per player,
+so a single restart may temporarily distribute players across multiple lobbies, limbo servers, or other backends.
 
 Key settings:
 
@@ -61,8 +66,10 @@ Key settings:
 - `autoreconnect.ready_publish_attempts` and `autoreconnect.ready_retry_seconds`: retry READY publication after startup.
 - `autoreconnect.stream`: must match ProxyFeatures' `backend_autoreconnect.stream` setting.
 
-If Redis or DataProvider is unavailable, the server restart still proceeds normally; only autoreconnect is skipped for
-that cycle. The global `server_name` must exactly correspond to the backend name registered in Velocity.
+The countdown, PREPARE callback, settle task, and shutdown are fenced by one sequence token. Reloading or cancelling the
+feature invalidates delayed callbacks so an obsolete restart cannot shut the server down later. If Redis or DataProvider is
+unavailable, the server restart still proceeds normally; only autoreconnect is skipped for that cycle. The global
+`server_name` must exactly correspond to the backend name registered in Velocity.
 
 ## Environment-Specific Values
 
