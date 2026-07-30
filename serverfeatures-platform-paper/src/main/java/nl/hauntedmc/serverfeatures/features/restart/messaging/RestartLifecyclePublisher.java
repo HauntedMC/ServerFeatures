@@ -102,6 +102,49 @@ public final class RestartLifecyclePublisher {
         return publish(message);
     }
 
+    /**
+     * Publishes CANCEL for the currently persisted restart, then removes its local marker.
+     *
+     * <p>The marker is removed even when Redis is unavailable so a later unrelated startup can
+     * never publish a false READY. A missed CANCEL remains safe because proxy sessions expire.</p>
+     */
+    public CompletableFuture<PublishedDurableEvent> publishCancelCurrent() {
+        RestartMarker marker;
+        try {
+            marker = markerStore.load().orElse(null);
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        if (marker == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        RestartLifecycleMessage message = message(
+                marker,
+                RestartLifecycleMessage.ACTION_CANCEL,
+                "cancel",
+                List.of()
+        );
+        CompletableFuture<PublishedDurableEvent> result = closed
+                ? CompletableFuture.failedFuture(new IllegalStateException("Restart lifecycle publisher is closed"))
+                : publish(message);
+        deleteMarker("cancelled restart");
+        result.whenComplete((published, throwable) -> {
+            if (throwable == null) {
+                feature.getLogger().info(
+                        "Published restart CANCEL " + marker.restartId() + " for '"
+                                + marker.serverName() + "'."
+                );
+            } else {
+                feature.getLogger().warning(
+                        "Could not publish restart CANCEL " + marker.restartId() + ": "
+                                + rootMessage(throwable)
+                );
+            }
+        });
+        return result;
+    }
+
     /** Called only after Paper has fully loaded worlds and plugins. */
     public void publishReadyAfterServerLoad() {
         if (closed || !readyPublishing.compareAndSet(false, true)) {
