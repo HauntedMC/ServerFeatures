@@ -344,8 +344,7 @@ public final class InvToolsOfflineInteractionListener implements Listener {
     }
 
     private static boolean isHotbarSwap(InventoryAction action) {
-        return action == InventoryAction.HOTBAR_SWAP
-                || action == InventoryAction.HOTBAR_MOVE_AND_READD;
+        return action == InventoryAction.HOTBAR_SWAP;
     }
 
     private static boolean isPickup(InventoryAction action) {
