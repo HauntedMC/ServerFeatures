@@ -114,13 +114,22 @@ public final class InvToolsView implements InventoryHolder {
 
     public synchronized Optional<OfflineCursorTransaction.Plan> planOfflineCursor(
             OfflineCursorTransaction.Side side,
+            int slot,
             InventoryAction action,
             ItemStack slotItem
     ) {
         if (onlineSession || !editable || state != State.ACTIVE) {
             return Optional.empty();
         }
-        return offlineCursor.plan(side, action, slotItem);
+        return offlineCursor.plan(side, slot, action, slotItem);
+    }
+
+    public synchronized Optional<OfflineCursorTransaction.Plan> planOfflineCursor(
+            OfflineCursorTransaction.Side side,
+            InventoryAction action,
+            ItemStack slotItem
+    ) {
+        return planOfflineCursor(side, -1, action, slotItem);
     }
 
     /**
@@ -549,19 +558,11 @@ public final class InvToolsView implements InventoryHolder {
         if (carried == null) {
             return;
         }
+        Integer preferredSlot = offlineCursor.preferredReturnSlot();
         if (offlineCursor.owner() == OfflineCursorTransaction.Side.VIEWER) {
-            returnCursorToViewer(carried, false);
+            returnCursorToViewer(carried, preferredSlot, false);
         } else {
-            InventorySnapshot.InsertionResult insertion = snapshot.insert(kind, carried);
-            if (insertion.remainder() != null) {
-                throw new IllegalStateException(
-                        "The offline target cursor no longer fits its source inventory"
-                );
-            }
-            InventorySnapshot previousSnapshot = snapshot;
-            snapshot = insertion.snapshot();
-            dirty = true;
-            renderChangedMappedItems(previousSnapshot, snapshot);
+            returnCursorToTarget(carried, preferredSlot);
         }
         offlineCursor.clear();
         viewer.setItemOnCursor(null);
@@ -574,20 +575,88 @@ public final class InvToolsView implements InventoryHolder {
             return;
         }
         if (offlineCursor.owner() == OfflineCursorTransaction.Side.VIEWER) {
-            returnCursorToViewer(carried, true);
+            returnCursorToViewer(
+                    carried,
+                    offlineCursor.preferredReturnSlot(),
+                    true
+            );
         }
         offlineCursor.clear();
         viewer.setItemOnCursor(null);
         viewer.updateInventory();
     }
 
-    private void returnCursorToViewer(ItemStack carried, boolean dropRemainder) {
-        PlayerStorageTransfer.InsertionResult insertion = PlayerStorageTransfer.insert(
-                viewer.getInventory().getStorageContents(),
-                carried
+    private void returnCursorToTarget(ItemStack carried, Integer preferredSlot) {
+        InventorySnapshot previousSnapshot = snapshot;
+        PreferredSnapshotInsertion preferred = insertAtPreferredTargetSlot(
+                snapshot,
+                carried,
+                preferredSlot
         );
+        InventorySnapshot.InsertionResult insertion = preferred.remainder() == null
+                ? new InventorySnapshot.InsertionResult(preferred.snapshot(), null)
+                : preferred.snapshot().insert(kind, preferred.remainder());
+        if (insertion.remainder() != null) {
+            throw new IllegalStateException(
+                    "The offline target cursor no longer fits its source inventory"
+            );
+        }
+        snapshot = insertion.snapshot();
+        if (previousSnapshot.changedBackingSlots(kind, snapshot).length != 0) {
+            dirty = true;
+        }
+        renderChangedMappedItems(previousSnapshot, snapshot);
+    }
+
+    private PreferredSnapshotInsertion insertAtPreferredTargetSlot(
+            InventorySnapshot source,
+            ItemStack carried,
+            Integer preferredSlot
+    ) {
+        if (preferredSlot == null) {
+            return new PreferredSnapshotInsertion(source, carried);
+        }
+        ItemStack existing;
+        try {
+            existing = source.itemAt(kind, preferredSlot);
+        } catch (IllegalArgumentException exception) {
+            return new PreferredSnapshotInsertion(source, carried);
+        }
+        PreferredStackInsertion insertion = insertIntoOneSlot(existing, carried);
+        if (!insertion.changed()) {
+            return new PreferredSnapshotInsertion(source, carried);
+        }
+        return new PreferredSnapshotInsertion(
+                source.withBackingSlot(kind, preferredSlot, insertion.slotItem()),
+                insertion.remainder()
+        );
+    }
+
+    private void returnCursorToViewer(
+            ItemStack carried,
+            Integer preferredSlot,
+            boolean dropRemainder
+    ) {
+        ItemStack[] storage = viewer.getInventory().getStorageContents();
+        ItemStack remainder = carried;
+        if (preferredSlot != null
+                && preferredSlot >= 0
+                && preferredSlot < InventorySnapshot.STORAGE_SIZE) {
+            PreferredStackInsertion preferred = insertIntoOneSlot(
+                    storage[preferredSlot],
+                    carried
+            );
+            if (preferred.changed()) {
+                storage[preferredSlot] = preferred.slotItem();
+                remainder = preferred.remainder();
+            }
+        }
+
+        PlayerStorageTransfer.InsertionResult insertion = remainder == null
+                ? new PlayerStorageTransfer.InsertionResult(storage, null)
+                : PlayerStorageTransfer.insert(storage, remainder);
         viewer.getInventory().setStorageContents(insertion.storage());
-        ItemStack remainder = insertion.remainder();
+        remainder = insertion.remainder();
         if (remainder != null && !dropRemainder) {
             throw new IllegalStateException(
                     "The staff cursor no longer fits its source inventory"
@@ -601,6 +670,41 @@ public final class InvToolsView implements InventoryHolder {
                             + describeItem(remainder)
             );
         }
+    }
+
+    private static PreferredStackInsertion insertIntoOneSlot(
+            ItemStack existing,
+            ItemStack carried
+    ) {
+        ItemStack normalizedCarried = cloneOrNull(carried);
+        if (normalizedCarried == null) {
+            return new PreferredStackInsertion(existing, null, false);
+        }
+        ItemStack normalizedExisting = cloneOrNull(existing);
+        if (normalizedExisting == null) {
+            int transferred = Math.min(
+                    normalizedCarried.getMaxStackSize(),
+                    normalizedCarried.getAmount()
+            );
+            return new PreferredStackInsertion(
+                    withAmount(normalizedCarried, transferred),
+                    withAmount(normalizedCarried, normalizedCarried.getAmount() - transferred),
+                    true
+            );
+        }
+        if (!normalizedExisting.isSimilar(normalizedCarried)) {
+            return new PreferredStackInsertion(existing, carried, false);
+        }
+        int capacity = normalizedExisting.getMaxStackSize() - normalizedExisting.getAmount();
+        if (capacity <= 0) {
+            return new PreferredStackInsertion(existing, carried, false);
+        }
+        int transferred = Math.min(capacity, normalizedCarried.getAmount());
+        return new PreferredStackInsertion(
+                withAmount(normalizedExisting, normalizedExisting.getAmount() + transferred),
+                withAmount(normalizedCarried, normalizedCarried.getAmount() - transferred),
+                true
+        );
     }
 
     private void scheduleViewerTransferRollback(SaveResult result) {
@@ -688,6 +792,15 @@ public final class InvToolsView implements InventoryHolder {
         return item;
     }
 
+    private static ItemStack withAmount(ItemStack item, int amount) {
+        if (item == null || amount <= 0) {
+            return null;
+        }
+        ItemStack changed = item.clone();
+        changed.setAmount(amount);
+        return changed;
+    }
+
     private static ItemStack cloneOrNull(ItemStack item) {
         return item == null || item.getType().isAir() || item.getAmount() <= 0
                 ? null
@@ -710,6 +823,42 @@ public final class InvToolsView implements InventoryHolder {
         @Override
         public ItemStack item() {
             return cloneOrNull(item);
+        }
+    }
+
+    private record PreferredStackInsertion(
+            ItemStack slotItem,
+            ItemStack remainder,
+            boolean changed
+    ) {
+        private PreferredStackInsertion {
+            slotItem = cloneOrNull(slotItem);
+            remainder = cloneOrNull(remainder);
+        }
+
+        @Override
+        public ItemStack slotItem() {
+            return cloneOrNull(slotItem);
+        }
+
+        @Override
+        public ItemStack remainder() {
+            return cloneOrNull(remainder);
+        }
+    }
+
+    private record PreferredSnapshotInsertion(
+            InventorySnapshot snapshot,
+            ItemStack remainder
+    ) {
+        private PreferredSnapshotInsertion {
+            Objects.requireNonNull(snapshot, "snapshot");
+            remainder = cloneOrNull(remainder);
+        }
+
+        @Override
+        public ItemStack remainder() {
+            return cloneOrNull(remainder);
         }
     }
 
