@@ -158,6 +158,7 @@ public final class InvToolsView implements InventoryHolder {
         InventorySnapshot previousSnapshot = snapshot;
         boolean previousDirty = dirty;
         int previousTransferCount = viewerTransfers.size();
+        OfflineCursorTransaction.StateSnapshot previousCursorState = offlineCursor.snapshotState();
         try {
             viewer.getInventory().setStorageContents(
                     PlayerStorageTransfer.copyStorage(changedViewerStorage)
@@ -180,6 +181,7 @@ public final class InvToolsView implements InventoryHolder {
         } catch (RuntimeException exception) {
             snapshot = previousSnapshot;
             dirty = previousDirty;
+            offlineCursor.restoreState(previousCursorState);
             while (viewerTransfers.size() > previousTransferCount) {
                 viewerTransfers.removeLast();
             }
@@ -213,7 +215,7 @@ public final class InvToolsView implements InventoryHolder {
 
         InventorySnapshot previousSnapshot = snapshot;
         boolean previousDirty = dirty;
-        ItemStack previousCursor = offlineCursor.cursor();
+        OfflineCursorTransaction.StateSnapshot previousCursorState = offlineCursor.snapshotState();
         try {
             viewer.getInventory().setStorageContents(
                     PlayerStorageTransfer.copyStorage(changedViewerStorage)
@@ -229,7 +231,7 @@ public final class InvToolsView implements InventoryHolder {
         } catch (RuntimeException exception) {
             snapshot = previousSnapshot;
             dirty = previousDirty;
-            offlineCursor.replaceAfterSameSideDrag(previousCursor, side);
+            offlineCursor.restoreState(previousCursorState);
             viewer.getInventory().setStorageContents(actualStorage);
             renderMappedItems();
             viewer.updateInventory();
@@ -269,6 +271,8 @@ public final class InvToolsView implements InventoryHolder {
         }
 
         InventorySnapshot previousSnapshot = snapshot;
+        boolean previousDirty = dirty;
+        int previousTransferCount = viewerTransfers.size();
         try {
             viewer.getInventory().setStorageContents(
                     PlayerStorageTransfer.copyStorage(changedViewerStorage)
@@ -281,6 +285,10 @@ public final class InvToolsView implements InventoryHolder {
             return true;
         } catch (RuntimeException exception) {
             snapshot = previousSnapshot;
+            dirty = previousDirty;
+            while (viewerTransfers.size() > previousTransferCount) {
+                viewerTransfers.removeLast();
+            }
             viewer.getInventory().setStorageContents(actualStorage);
             renderMappedItems();
             viewer.updateInventory();
