@@ -22,6 +22,7 @@ public final class InventorySnapshot {
     public static final int HELMET_SLOT = 103;
     public static final int OFF_HAND_SLOT = -106;
 
+    private static final int NO_EQUIPMENT_SLOT = Integer.MIN_VALUE;
     private static final int[] PLAYER_BACKING_SLOTS = createPlayerBackingSlots();
     private static final int[] PLAYER_SHIFT_INSERTION_SLOTS = createPlayerShiftInsertionSlots();
     private static final int[] ENDER_BACKING_SLOTS = createEnderBackingSlots();
@@ -110,17 +111,54 @@ public final class InventorySnapshot {
         }
 
         return switch (backingSlot) {
-            case BOOTS_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, leggings, item, offHand, enderChest);
-            case LEGGINGS_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, item, boots, offHand, enderChest);
-            case CHESTPLATE_SLOT ->
-                    new InventorySnapshot(storage, helmet, item, leggings, boots, offHand, enderChest);
-            case HELMET_SLOT ->
-                    new InventorySnapshot(storage, item, chestplate, leggings, boots, offHand, enderChest);
-            case OFF_HAND_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, leggings, boots, item, enderChest);
-            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + backingSlot);
+            case BOOTS_SLOT -> new InventorySnapshot(
+                    storage,
+                    helmet,
+                    chestplate,
+                    leggings,
+                    item,
+                    offHand,
+                    enderChest
+            );
+            case LEGGINGS_SLOT -> new InventorySnapshot(
+                    storage,
+                    helmet,
+                    chestplate,
+                    item,
+                    boots,
+                    offHand,
+                    enderChest
+            );
+            case CHESTPLATE_SLOT -> new InventorySnapshot(
+                    storage,
+                    helmet,
+                    item,
+                    leggings,
+                    boots,
+                    offHand,
+                    enderChest
+            );
+            case HELMET_SLOT -> new InventorySnapshot(
+                    storage,
+                    item,
+                    chestplate,
+                    leggings,
+                    boots,
+                    offHand,
+                    enderChest
+            );
+            case OFF_HAND_SLOT -> new InventorySnapshot(
+                    storage,
+                    helmet,
+                    chestplate,
+                    leggings,
+                    boots,
+                    item,
+                    enderChest
+            );
+            default -> throw new IllegalArgumentException(
+                    "Unsupported player inventory slot: " + backingSlot
+            );
         };
     }
 
@@ -143,7 +181,9 @@ public final class InventorySnapshot {
             case CHESTPLATE_SLOT -> chestplate;
             case HELMET_SLOT -> helmet;
             case OFF_HAND_SLOT -> offHand;
-            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + backingSlot);
+            default -> throw new IllegalArgumentException(
+                    "Unsupported player inventory slot: " + backingSlot
+            );
         };
     }
 
@@ -180,17 +220,45 @@ public final class InventorySnapshot {
     }
 
     /**
-     * Inserts an item using normal container shift-click semantics.
+     * Inserts an item using intuitive player-container shift-click semantics.
      *
-     * <p>For player inventories this fills main storage before the hotbar and never auto-equips
-     * armor or the offhand. Ender chest insertion covers its 27 storage slots.</p>
+     * <p>A compatible armor item first fills its empty matching equipment slot. If that slot is
+     * occupied, or the item is not wearable player armor, insertion goes directly to main storage
+     * and then the hotbar. Non-equipment items never probe the visible armor row. Ender chest
+     * insertion covers its 27 storage slots.</p>
      */
     public InsertionResult shiftInsert(InventoryKind kind, ItemStack carriedItem) {
         Objects.requireNonNull(kind, "kind");
-        return insertIntoSlots(
-                kind,
-                carriedItem,
-                kind == InventoryKind.PLAYER ? PLAYER_SHIFT_INSERTION_SLOTS : ENDER_BACKING_SLOTS
+        if (kind == InventoryKind.ENDER_CHEST) {
+            return insertIntoSlots(kind, carriedItem, ENDER_BACKING_SLOTS);
+        }
+        return shiftInsertPlayer(carriedItem);
+    }
+
+    private InsertionResult shiftInsertPlayer(ItemStack carriedItem) {
+        ItemStack remainder = cloneItem(carriedItem);
+        if (remainder == null) {
+            return new InsertionResult(this, null);
+        }
+
+        InventorySnapshot changed = this;
+        int equipmentSlot = preferredEquipmentSlot(remainder);
+        if (equipmentSlot != NO_EQUIPMENT_SLOT
+                && changed.itemAt(InventoryKind.PLAYER, equipmentSlot) == null) {
+            changed = changed.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    equipmentSlot,
+                    withAmount(remainder, 1)
+            );
+            remainder = withAmount(remainder, remainder.getAmount() - 1);
+            if (remainder == null) {
+                return new InsertionResult(changed, null);
+            }
+        }
+        return changed.insertIntoSlots(
+                InventoryKind.PLAYER,
+                remainder,
+                PLAYER_SHIFT_INSERTION_SLOTS
         );
     }
 
@@ -278,7 +346,9 @@ public final class InventorySnapshot {
     }
 
     private static ItemStack cloneItem(ItemStack item) {
-        return item == null || item.getType().isAir() || item.getAmount() <= 0 ? null : item.clone();
+        return item == null || item.getType().isAir() || item.getAmount() <= 0
+                ? null
+                : item.clone();
     }
 
     private static boolean sameItem(ItemStack first, ItemStack second) {
@@ -300,6 +370,16 @@ public final class InventorySnapshot {
             default -> null;
         };
         return expected == null || item.getType().getEquipmentSlot() == expected;
+    }
+
+    private static int preferredEquipmentSlot(ItemStack item) {
+        return switch (item.getType().getEquipmentSlot()) {
+            case HEAD -> HELMET_SLOT;
+            case CHEST -> CHESTPLATE_SLOT;
+            case LEGS -> LEGGINGS_SLOT;
+            case FEET -> BOOTS_SLOT;
+            default -> NO_EQUIPMENT_SLOT;
+        };
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {
@@ -344,7 +424,12 @@ public final class InventorySnapshot {
         return slots;
     }
 
-    private static void requireRange(int value, int minimum, int maximumExclusive, String name) {
+    private static void requireRange(
+            int value,
+            int minimum,
+            int maximumExclusive,
+            String name
+    ) {
         if (value < minimum || value >= maximumExclusive) {
             throw new IllegalArgumentException(name + " is out of bounds: " + value);
         }
