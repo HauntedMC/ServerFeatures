@@ -5,8 +5,8 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -58,8 +58,8 @@ public final class TestItemStacks {
 
     private static EquipmentSlot testEquipmentSlot(Material material) {
         return switch (material) {
-            case DIAMOND_HELMET -> EquipmentSlot.HEAD;
-            case DIAMOND_CHESTPLATE -> EquipmentSlot.CHEST;
+            case DIAMOND_HELMET, CARVED_PUMPKIN -> EquipmentSlot.HEAD;
+            case DIAMOND_CHESTPLATE, IRON_CHESTPLATE -> EquipmentSlot.CHEST;
             case DIAMOND_LEGGINGS -> EquipmentSlot.LEGS;
             case DIAMOND_BOOTS -> EquipmentSlot.FEET;
             default -> null;
