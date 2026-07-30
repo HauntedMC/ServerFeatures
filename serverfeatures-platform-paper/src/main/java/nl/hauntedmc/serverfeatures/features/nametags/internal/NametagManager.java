@@ -1,59 +1,119 @@
 package nl.hauntedmc.serverfeatures.features.nametags.internal;
 
-import nl.hauntedmc.serverfeatures.api.io.packet.PacketManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.wrapper.RemoveNametagEntityPacket;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.packet.NametagAttachmentIndex;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.NametagUpdater;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.visibility.VisibilityManager;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitTask;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Main-thread owner of the complete nametag lifecycle.
+ *
+ * <p>Tracking events drive normal visibility. A periodic reconciliation pass recovers from missed
+ * third-party events, while generation tokens and cancellable tasks prevent stale delayed spawns
+ * from creating detached client-side entities after an untrack, teleport, relog, or rebuild.</p>
+ */
 public final class NametagManager {
-
-    private final NametagRegistry registry;
-    private final NametagUpdater updater;
+    private final NametagRegistry registry = new NametagRegistry();
+    private final NametagUpdater updater = new NametagUpdater();
+    private final NametagAttachmentIndex attachmentIndex = new NametagAttachmentIndex();
     private final Nametags feature;
-
+    private final FeatureTaskManager taskManager;
     private final VisibilityManager visibilityManager;
-    private final int updateIntervalTicks;
-    private final int viewerUpdateDelayTicks;
 
-    private final boolean remountFixEnabled;
-    private final int remountIntervalTicks;
-    private final int debounceUpdateTicks;
-
-    private final Map<UUID, Long> lastUpdateNanos = new ConcurrentHashMap<>();
+    private final int joinSettleDelayTicks;
+    private final int trackingSettleDelayTicks;
+    private final int transitionSettleDelayTicks;
+    private final int reconcileIntervalTicks;
+    private final boolean remountRepairEnabled;
+    private final int remountRepairIntervalTicks;
+    private final double teleportRebuildDistanceSquared;
 
     private final Map<UUID, Boolean> selfViewPreference = new ConcurrentHashMap<>();
     private final Map<UUID, Long> selfViewLoadGeneration = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> connectionGeneration = new ConcurrentHashMap<>();
     private final Set<UUID> glideSuppressed = ConcurrentHashMap.newKeySet();
+
+    // Main-thread-only transition state.
+    private final Map<UUID, Long> transitionGeneration = new HashMap<>();
+    private final Map<UUID, BukkitTask> transitionTasks = new HashMap<>();
+    private final Set<UUID> suspendedOwners = new HashSet<>();
 
     private NametagManager(Nametags feature) {
         this.feature = feature;
-        this.registry = new NametagRegistry();
+        this.taskManager = feature.getLifecycleManager().getTaskManager();
         this.visibilityManager = new VisibilityManager(feature);
-        this.updateIntervalTicks = (int) feature.getConfigHandler().get("update_interval_ticks");
-        this.viewerUpdateDelayTicks = (int) feature.getConfigHandler().get("viewer_update_delay_ticks");
-        this.remountFixEnabled = (boolean) feature.getConfigHandler().get("remount_fix.enabled");
-        this.remountIntervalTicks = (int) feature.getConfigHandler().get("remount_fix.interval_ticks");
-        this.debounceUpdateTicks = (int) feature.getConfigHandler().get("debounce_update_ticks");
 
-        this.updater = new NametagUpdater(this, feature.getLifecycleManager().getTaskManager());
+        this.joinSettleDelayTicks = intConfig("lifecycle.join_settle_delay_ticks", 10, 1);
+        this.trackingSettleDelayTicks = intConfig("lifecycle.tracking_settle_delay_ticks", 2, 1);
+        this.transitionSettleDelayTicks = intConfig("lifecycle.transition_settle_delay_ticks", 10, 1);
+        this.reconcileIntervalTicks = intConfig("reconciliation.interval_ticks", 10, 1);
+        this.remountRepairEnabled = booleanConfig("repair.remount_enabled", true);
+        this.remountRepairIntervalTicks = intConfig("repair.remount_interval_ticks", 100, 20);
+        int teleportDistance = intConfig("lifecycle.teleport_rebuild_distance", 64, 1);
+        this.teleportRebuildDistanceSquared = (double) teleportDistance * teleportDistance;
     }
 
-    /**
-     * Creates a fully initialized manager before any scheduled task can observe it.
-     */
     public static NametagManager create(Nametags feature) {
         NametagManager manager = new NametagManager(feature);
-        manager.scheduleRepeatingUpdate();
-        manager.schedulePeriodicRemount();
+        manager.scheduleReconciliation();
+        manager.scheduleRemountRepair();
         return manager;
+    }
+
+    public NametagAttachmentIndex getAttachmentIndex() {
+        return attachmentIndex;
+    }
+
+    public VisibilityManager getVisibilityManager() {
+        return visibilityManager;
+    }
+
+    public int getViewerUpdateDelayTicks() {
+        return trackingSettleDelayTicks;
+    }
+
+    public void handleJoin(Player player) {
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        long session = beginConnectionSession(playerId);
+        preloadSelfView(player, () -> scheduleRegistration(player, session));
+    }
+
+    public void handleQuit(Player player) {
+        if (player == null) {
+            return;
+        }
+        UUID playerId = player.getUniqueId();
+        invalidateConnectionSession(playerId);
+        invalidateSelfViewLoad(playerId);
+        executeOnMain(() -> removePlayerNow(player));
+    }
+
+    public void initializeOnlinePlayers() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            handleJoin(player);
+        }
     }
 
     public boolean isSelfViewEnabled(UUID playerId) {
@@ -70,26 +130,25 @@ public final class NametagManager {
 
     public void setSelfViewEnabled(UUID playerId, boolean enabled) {
         invalidateSelfViewLoad(playerId);
-
-        Boolean current = selfViewPreference.get(playerId);
-        if (current != null && current == enabled) {
-            return;
-        }
-
         selfViewPreference.put(playerId, enabled);
-        Player p = Bukkit.getPlayer(playerId);
-        if (p != null && p.isOnline()) {
-            String playerName = p.getName();
-            updateNametag(p, new UpdateProperties.Builder().build());
+
+        executeOnMain(() -> {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) {
+                return;
+            }
+
+            reconcilePair(player, player, 1, true);
+            String playerName = player.getName();
             feature.getRepository()
-                    .upsertSelfView(p.getUniqueId().toString(), playerName, enabled)
+                    .upsertSelfView(playerId.toString(), playerName, enabled)
                     .exceptionally(ex -> {
                         feature.getLogger().warning(
-                                "Kon selfview status niet opslaan voor " + playerName + ": " + ex.getMessage()
+                                "Kon selfview status niet opslaan voor " + playerName + ": " + rootMessage(ex)
                         );
                         return null;
                     });
-        }
+        });
     }
 
     public void setSelfViewEnabled(Player player, boolean enabled) {
@@ -100,58 +159,715 @@ public final class NametagManager {
         return selfViewPreference.getOrDefault(playerId, true) && !glideSuppressed.contains(playerId);
     }
 
-    public boolean isSelfViewAllowedNow(Player p) {
-        return isSelfViewAllowedNow(p.getUniqueId());
+    public boolean isSelfViewAllowedNow(Player player) {
+        return isSelfViewAllowedNow(player.getUniqueId());
     }
 
-    public void setGlideSuppressed(Player p, boolean suppressed) {
-        UUID id = p.getUniqueId();
-        if (suppressed) glideSuppressed.add(id);
-        else glideSuppressed.remove(id);
-        updateNametag(p, new UpdateProperties.Builder().build());
+    public void setGlideSuppressed(Player player, boolean suppressed) {
+        if (player == null) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        if (suppressed) {
+            glideSuppressed.add(playerId);
+        } else {
+            glideSuppressed.remove(playerId);
+        }
+        executeOnMain(() -> reconcilePair(player, player, 1, true));
     }
 
     public void preloadSelfView(Player player) {
-        preloadSelfView(
+        preloadSelfView(player, () -> updateNametag(
                 player,
-                () -> updateNametag(player, new UpdateProperties.Builder().forced(true).build())
-        );
+                new UpdateProperties.Builder().forced(true).build()
+        ));
     }
 
     public void preloadSelfView(Player player, Runnable afterLoad) {
-        if (player == null) return;
+        if (player == null) {
+            return;
+        }
         Objects.requireNonNull(afterLoad, "afterLoad must not be null");
 
-        UUID id = player.getUniqueId();
+        UUID playerId = player.getUniqueId();
+        Long existingSession = connectionGeneration.get(playerId);
+        long session = existingSession == null ? beginConnectionSession(playerId) : existingSession;
+        long loadGeneration = beginSelfViewLoad(playerId);
         String playerName = player.getName();
-        long generation = beginSelfViewLoad(id);
 
         try {
             feature.getRepository()
-                    .findSelfView(id.toString())
-                    .whenComplete((persisted, ex) -> {
-                        if (isCurrentSelfViewLoad(id, generation)) {
-                            if (ex != null) {
+                    .findSelfView(playerId.toString())
+                    .whenComplete((persisted, throwable) -> {
+                        if (isCurrentSelfViewLoad(playerId, loadGeneration)) {
+                            if (throwable != null) {
                                 feature.getLogger().warning(
-                                        "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
+                                        "Kon selfview voorkeur niet laden voor " + playerName + ": "
+                                                + rootMessage(throwable)
                                 );
-                                selfViewPreference.putIfAbsent(id, true);
+                                selfViewPreference.putIfAbsent(playerId, true);
                             } else {
-                                selfViewPreference.put(id, persisted == null ? true : persisted.orElse(true));
+                                selfViewPreference.put(
+                                        playerId,
+                                        persisted == null ? true : persisted.orElse(true)
+                                );
                             }
                         }
-
-                        runAfterSelfViewLoaded(player, id, afterLoad);
+                        runAfterSelfViewLoaded(player, playerId, session, afterLoad);
                     });
-        } catch (RuntimeException ex) {
-            if (isCurrentSelfViewLoad(id, generation)) {
-                selfViewPreference.putIfAbsent(id, true);
+        } catch (RuntimeException exception) {
+            if (isCurrentSelfViewLoad(playerId, loadGeneration)) {
+                selfViewPreference.putIfAbsent(playerId, true);
             }
             feature.getLogger().warning(
-                    "Kon selfview voorkeur niet laden voor " + playerName + ": " + ex.getMessage()
+                    "Kon selfview voorkeur niet laden voor " + playerName + ": " + rootMessage(exception)
             );
-            runAfterSelfViewLoaded(player, id, afterLoad);
+            runAfterSelfViewLoaded(player, playerId, session, afterLoad);
         }
+    }
+
+    public void onViewerTracks(Player viewer, Player owner) {
+        executeOnMain(() -> reconcilePair(viewer, owner, trackingSettleDelayTicks, false));
+    }
+
+    public void onViewerUntracks(Player viewer, Player owner) {
+        if (viewer == null || owner == null) {
+            return;
+        }
+        taskManager.scheduleDelayedTask(
+                () -> {
+                    if (!viewer.isOnline() || !owner.isOnline()) {
+                        Nametag nametag = registry.getNametag(owner.getUniqueId()).orElse(null);
+                        if (nametag != null) {
+                            hideFromViewer(nametag, viewer, true);
+                        }
+                        return;
+                    }
+
+                    // A track for a replacement entity generation may follow an old untrack immediately.
+                    if (owner.getTrackedBy().contains(viewer)) {
+                        reconcilePair(viewer, owner, trackingSettleDelayTicks, false);
+                        return;
+                    }
+
+                    Nametag nametag = registry.getNametag(owner.getUniqueId()).orElse(null);
+                    if (nametag != null) {
+                        hideFromViewer(nametag, viewer, true);
+                    }
+                },
+                BukkitTime.ticks(1L)
+        );
+    }
+
+    public boolean requiresTeleportRebuild(Location from, Location to) {
+        if (from == null || to == null || from.getWorld() != to.getWorld()) {
+            return true;
+        }
+        return from.distanceSquared(to) >= teleportRebuildDistanceSquared;
+    }
+
+    public void beginPlayerTransition(Player player) {
+        beginPlayerTransition(player, transitionSettleDelayTicks);
+    }
+
+    public void beginPlayerTransition(Player player, int delayTicks) {
+        executeOnMain(() -> beginPlayerTransitionNow(player, Math.max(1, delayTicks)));
+    }
+
+    public void suspendForDeath(Player player) {
+        executeOnMain(() -> {
+            if (player == null) {
+                return;
+            }
+            cancelTransition(player.getUniqueId());
+            suspendOwnedNametag(player);
+            removeViewerFromAll(player, true);
+        });
+    }
+
+    public void handleRespawn(Player player) {
+        beginPlayerTransition(player, transitionSettleDelayTicks);
+    }
+
+    public void rebuildOwner(Player player, int delayTicks, boolean refreshText) {
+        executeOnMain(() -> rebuildOwnerNow(player, Math.max(1, delayTicks), refreshText, false));
+    }
+
+    public void handlePassengerMutation(Player player) {
+        if (player == null) {
+            return;
+        }
+        taskManager.scheduleDelayedTask(
+                () -> {
+                    if (!player.isOnline()) {
+                        return;
+                    }
+                    Nametag nametag = registry.getNametag(player.getUniqueId()).orElse(null);
+                    if (nametag == null || suspendedOwners.contains(player.getUniqueId())) {
+                        return;
+                    }
+                    remountVisibleViewers(nametag);
+                },
+                BukkitTime.ticks(1L)
+        );
+    }
+
+    public void handleGameModeChange(Player player) {
+        if (player == null) {
+            return;
+        }
+        taskManager.scheduleDelayedTask(
+                () -> {
+                    if (player.isOnline()) {
+                        reconcileOwner(player, 1);
+                        reconcileViewer(player, 1);
+                    }
+                },
+                BukkitTime.ticks(1L)
+        );
+    }
+
+    public void refreshText(UUID playerId, int delayTicks) {
+        scheduleOnMain(() -> {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                refreshTextNow(player);
+            }
+        }, Math.max(0, delayTicks));
+    }
+
+    public void refreshViewer(Player viewer) {
+        executeOnMain(() -> {
+            if (viewer == null || !viewer.isOnline()) {
+                return;
+            }
+            for (Nametag nametag : snapshotNametags()) {
+                NametagViewerState state = nametag.getViewerState(viewer.getUniqueId());
+                if (state == null || !state.isSpawned()) {
+                    continue;
+                }
+                if (shouldShow(viewer, nametag)) {
+                    updater.updateMetadata(nametag, List.of(viewer));
+                    updater.remount(nametag, viewer);
+                } else {
+                    hideFromViewer(nametag, viewer, true);
+                }
+            }
+        });
+    }
+
+    /**
+     * Compatibility entry point used by existing hooks while routing all work through the new lifecycle.
+     */
+    public void updateNametag(Player player, UpdateProperties properties) {
+        if (player == null || properties == null) {
+            return;
+        }
+
+        executeOnMain(() -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            if (properties.getUpdateText()) {
+                refreshTextNow(player);
+            }
+            if (properties.isForced()) {
+                rebuildOwnerNow(player, Math.max(1L, properties.getDelay()), false, false);
+            } else if (properties.isOwnerOnly()) {
+                reconcilePair(player, player, Math.max(1L, properties.getDelay()), true);
+            } else {
+                reconcileOwner(player, Math.max(1L, properties.getDelay()));
+                reconcileViewer(player, Math.max(1L, properties.getDelay()));
+            }
+        });
+    }
+
+    public void updateNametag(int entityId, UpdateProperties properties) {
+        executeOnMain(() -> registry.getNametagByEntityId(entityId)
+                .ifPresent(nametag -> updateNametag(nametag.getNametagOwner(), properties)));
+    }
+
+    public void removeNametag(Player player) {
+        handleQuit(player);
+    }
+
+    public void removeAllNametags() {
+        executeOnMain(this::shutdownNow);
+    }
+
+    public List<Player> getRegisteredPlayers() {
+        List<Player> players = new ArrayList<>();
+        for (Nametag nametag : snapshotNametags()) {
+            Player player = nametag.getNametagOwner();
+            if (player != null && player.isOnline()) {
+                players.add(player);
+            }
+        }
+        return players;
+    }
+
+    private void scheduleRegistration(Player player, long session) {
+        taskManager.scheduleDelayedTask(
+                () -> {
+                    UUID playerId = player.getUniqueId();
+                    if (!feature.getPlugin().isEnabled()
+                            || !player.isOnline()
+                            || !isCurrentConnectionSession(playerId, session)) {
+                        return;
+                    }
+                    registerPlayerNow(player);
+                },
+                BukkitTime.ticks(joinSettleDelayTicks)
+        );
+    }
+
+    private void registerPlayerNow(Player player) {
+        UUID playerId = player.getUniqueId();
+        registry.getNametag(playerId).ifPresent(this::removeOwnedNametagNow);
+
+        Nametag nametag = new Nametag(player);
+        registry.register(nametag);
+        attachmentIndex.register(nametag.getOwnerEntityId(), nametag.getEntityId());
+
+        reconcileOwner(nametag, trackingSettleDelayTicks);
+        reconcileViewer(player, trackingSettleDelayTicks);
+    }
+
+    private void removePlayerNow(Player player) {
+        UUID playerId = player.getUniqueId();
+        cancelTransition(playerId);
+        registry.getNametag(playerId).ifPresent(this::removeOwnedNametagNow);
+        removeViewerFromAll(player, true);
+
+        suspendedOwners.remove(playerId);
+        glideSuppressed.remove(playerId);
+        selfViewPreference.remove(playerId);
+    }
+
+    private void removeOwnedNametagNow(Nametag nametag) {
+        registry.unregister(nametag);
+        suspendedOwners.remove(nametag.getNametagOwnerId());
+        cancelAllViewerTasks(nametag);
+        attachmentIndex.unregister(nametag.getOwnerEntityId(), nametag.getEntityId());
+
+        // A destroy packet for an unknown id is harmless and removes ghosts even if bookkeeping was stale.
+        updater.destroy(nametag.getEntityId(), Bukkit.getOnlinePlayers());
+        nametag.clearViewerStates();
+    }
+
+    private void beginPlayerTransitionNow(Player player, int delayTicks) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        long generation = transitionGeneration.merge(playerId, 1L, Long::sum);
+        cancelTransitionTask(playerId);
+        suspendOwnedNametag(player);
+        removeViewerFromAll(player, true);
+
+        BukkitTask task = taskManager.scheduleDelayedTask(
+                () -> completePlayerTransition(player, generation),
+                BukkitTime.ticks(delayTicks)
+        );
+        transitionTasks.put(playerId, task);
+    }
+
+    private void completePlayerTransition(Player player, long generation) {
+        UUID playerId = player.getUniqueId();
+        transitionTasks.remove(playerId);
+        if (!player.isOnline()
+                || transitionGeneration.getOrDefault(playerId, 0L) != generation) {
+            return;
+        }
+
+        Nametag nametag = registry.getNametag(playerId).orElse(null);
+        if (nametag == null) {
+            registerPlayerNow(player);
+            return;
+        }
+
+        nametag.rotateEntityIdentity();
+        attachmentIndex.register(nametag.getOwnerEntityId(), nametag.getEntityId());
+        suspendedOwners.remove(playerId);
+
+        reconcileOwner(nametag, trackingSettleDelayTicks);
+        reconcileViewer(player, trackingSettleDelayTicks);
+    }
+
+    private void rebuildOwnerNow(Player player, long delayTicks, boolean refreshText, boolean restoreViewer) {
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        long generation = transitionGeneration.merge(playerId, 1L, Long::sum);
+        cancelTransitionTask(playerId);
+        suspendOwnedNametag(player);
+
+        BukkitTask task = taskManager.scheduleDelayedTask(
+                () -> {
+                    transitionTasks.remove(playerId);
+                    if (!player.isOnline()
+                            || transitionGeneration.getOrDefault(playerId, 0L) != generation) {
+                        return;
+                    }
+
+                    Nametag nametag = registry.getNametag(playerId).orElse(null);
+                    if (nametag == null) {
+                        return;
+                    }
+                    if (refreshText) {
+                        nametag.updateNametagText();
+                    }
+                    nametag.rotateEntityIdentity();
+                    attachmentIndex.register(nametag.getOwnerEntityId(), nametag.getEntityId());
+                    suspendedOwners.remove(playerId);
+                    reconcileOwner(nametag, trackingSettleDelayTicks);
+                    if (restoreViewer) {
+                        reconcileViewer(player, trackingSettleDelayTicks);
+                    }
+                },
+                BukkitTime.ticks(delayTicks)
+        );
+        transitionTasks.put(playerId, task);
+    }
+
+    private void suspendOwnedNametag(Player player) {
+        Nametag nametag = registry.getNametag(player.getUniqueId()).orElse(null);
+        if (nametag == null) {
+            return;
+        }
+
+        suspendedOwners.add(player.getUniqueId());
+        cancelAllViewerTasks(nametag);
+        attachmentIndex.unregister(nametag.getOwnerEntityId(), nametag.getEntityId());
+        updater.destroy(nametag.getEntityId(), Bukkit.getOnlinePlayers());
+        nametag.clearViewerStates();
+    }
+
+    private void reconcileAll() {
+        if (!Bukkit.isPrimaryThread()) {
+            throw new IllegalStateException("Nametag reconciliation must run on the Bukkit main thread.");
+        }
+
+        for (Nametag nametag : snapshotNametags()) {
+            Player owner = nametag.getNametagOwner();
+            if (owner == null || !owner.isOnline()) {
+                removeOwnedNametagNow(nametag);
+                continue;
+            }
+            reconcileOwner(nametag, trackingSettleDelayTicks);
+        }
+    }
+
+    private void reconcileOwner(Player owner, long delayTicks) {
+        registry.getNametag(owner.getUniqueId()).ifPresent(nametag ->
+                reconcileOwner(nametag, delayTicks)
+        );
+    }
+
+    private void reconcileOwner(Nametag nametag, long delayTicks) {
+        Player owner = nametag.getNametagOwner();
+        if (owner == null || !owner.isOnline() || suspendedOwners.contains(nametag.getNametagOwnerId())) {
+            return;
+        }
+
+        Set<UUID> candidates = new LinkedHashSet<>();
+        for (Player viewer : owner.getTrackedBy()) {
+            candidates.add(viewer.getUniqueId());
+            reconcilePair(viewer, owner, delayTicks, false);
+        }
+        candidates.add(owner.getUniqueId());
+        reconcilePair(owner, owner, delayTicks, false);
+
+        for (Map.Entry<UUID, NametagViewerState> entry : nametag.snapshotViewerStates().entrySet()) {
+            if (candidates.contains(entry.getKey())) {
+                continue;
+            }
+            Player viewer = Bukkit.getPlayer(entry.getKey());
+            if (viewer != null && viewer.isOnline()) {
+                hideFromViewer(nametag, viewer, true);
+            } else {
+                invalidateViewerState(nametag, entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private void reconcileViewer(Player viewer, long delayTicks) {
+        if (viewer == null || !viewer.isOnline()) {
+            return;
+        }
+        for (Nametag nametag : snapshotNametags()) {
+            if (shouldShow(viewer, nametag)) {
+                ensureShown(nametag, viewer, delayTicks);
+            } else {
+                hideFromViewer(nametag, viewer, false);
+            }
+        }
+    }
+
+    private void reconcilePair(
+            Player viewer,
+            Player owner,
+            long delayTicks,
+            boolean aggressiveHide
+    ) {
+        if (viewer == null || owner == null) {
+            return;
+        }
+        Nametag nametag = registry.getNametag(owner.getUniqueId()).orElse(null);
+        if (nametag == null) {
+            return;
+        }
+
+        if (shouldShow(viewer, nametag)) {
+            ensureShown(nametag, viewer, delayTicks);
+        } else {
+            hideFromViewer(nametag, viewer, aggressiveHide);
+        }
+    }
+
+    private boolean shouldShow(Player viewer, Nametag nametag) {
+        Player owner = nametag.getNametagOwner();
+        if (viewer == null
+                || owner == null
+                || !viewer.isOnline()
+                || !owner.isOnline()
+                || viewer.isDead()
+                || owner.isDead()
+                || suspendedOwners.contains(nametag.getNametagOwnerId())
+                || viewer.getWorld() != owner.getWorld()) {
+            return false;
+        }
+
+        boolean selfView = viewer.getUniqueId().equals(nametag.getNametagOwnerId());
+        if (selfView) {
+            if (!isSelfViewAllowedNow(viewer)) {
+                return false;
+            }
+        } else if (!owner.getTrackedBy().contains(viewer)) {
+            return false;
+        }
+
+        return visibilityManager.isPlayerVisible(viewer, nametag);
+    }
+
+    private void ensureShown(Nametag nametag, Player viewer, long delayTicks) {
+        UUID viewerId = viewer.getUniqueId();
+        NametagViewerState state = nametag.getOrCreateViewerState(viewerId);
+        if (state.isSpawned() || state.hasPendingSpawn()) {
+            return;
+        }
+
+        long viewerGeneration = state.nextGeneration();
+        long entityGeneration = nametag.getEntityGeneration();
+        BukkitTask task = taskManager.scheduleDelayedTask(
+                () -> completeSpawn(
+                        nametag,
+                        viewerId,
+                        state,
+                        viewerGeneration,
+                        entityGeneration
+                ),
+                BukkitTime.ticks(Math.max(1L, delayTicks))
+        );
+        BukkitTask previous = state.replacePendingSpawn(task);
+        if (previous != null) {
+            taskManager.cancelTask(previous);
+        }
+    }
+
+    private void completeSpawn(
+            Nametag nametag,
+            UUID viewerId,
+            NametagViewerState expectedState,
+            long viewerGeneration,
+            long entityGeneration
+    ) {
+        expectedState.clearPendingSpawn();
+        if (!expectedState.isCurrent(viewerGeneration)
+                || nametag.getEntityGeneration() != entityGeneration
+                || registry.getNametag(nametag.getNametagOwnerId()).orElse(null) != nametag
+                || nametag.getViewerState(viewerId) != expectedState) {
+            return;
+        }
+
+        Player viewer = Bukkit.getPlayer(viewerId);
+        if (viewer == null || !shouldShow(viewer, nametag)) {
+            nametag.removeViewerState(viewerId, expectedState);
+            return;
+        }
+
+        try {
+            updater.spawn(nametag, viewer);
+            expectedState.markSpawned();
+            attachmentIndex.markVisible(nametag.getOwnerEntityId(), viewerId);
+        } catch (RuntimeException exception) {
+            attachmentIndex.markHidden(nametag.getOwnerEntityId(), viewerId);
+            expectedState.markHidden();
+            nametag.removeViewerState(viewerId, expectedState);
+            feature.getLogger().warning(
+                    "Kon nametag niet tonen aan " + viewer.getName() + ": " + rootMessage(exception)
+            );
+        }
+    }
+
+    private void hideFromViewer(Nametag nametag, Player viewer, boolean aggressive) {
+        UUID viewerId = viewer.getUniqueId();
+        NametagViewerState state = nametag.getViewerState(viewerId);
+        boolean wasSpawned = state != null && state.isSpawned();
+
+        if (state != null) {
+            invalidateViewerState(nametag, viewerId, state);
+        }
+        attachmentIndex.markHidden(nametag.getOwnerEntityId(), viewerId);
+
+        if (aggressive || wasSpawned) {
+            updater.destroy(nametag.getEntityId(), viewer);
+        }
+    }
+
+    private void invalidateViewerState(
+            Nametag nametag,
+            UUID viewerId,
+            NametagViewerState state
+    ) {
+        state.nextGeneration();
+        BukkitTask pending = state.clearPendingSpawn();
+        if (pending != null) {
+            taskManager.cancelTask(pending);
+        }
+        state.markHidden();
+        attachmentIndex.markHidden(nametag.getOwnerEntityId(), viewerId);
+        nametag.removeViewerState(viewerId, state);
+    }
+
+    private void cancelAllViewerTasks(Nametag nametag) {
+        for (Map.Entry<UUID, NametagViewerState> entry : nametag.snapshotViewerStates().entrySet()) {
+            invalidateViewerState(nametag, entry.getKey(), entry.getValue());
+        }
+    }
+
+    private void removeViewerFromAll(Player viewer, boolean aggressive) {
+        for (Nametag nametag : snapshotNametags()) {
+            hideFromViewer(nametag, viewer, aggressive);
+        }
+    }
+
+    private void remountVisibleViewers(Nametag nametag) {
+        for (Map.Entry<UUID, NametagViewerState> entry : nametag.snapshotViewerStates().entrySet()) {
+            if (!entry.getValue().isSpawned()) {
+                continue;
+            }
+            Player viewer = Bukkit.getPlayer(entry.getKey());
+            if (viewer == null || !shouldShow(viewer, nametag)) {
+                if (viewer != null && viewer.isOnline()) {
+                    hideFromViewer(nametag, viewer, true);
+                } else {
+                    invalidateViewerState(nametag, entry.getKey(), entry.getValue());
+                }
+                continue;
+            }
+            updater.remount(nametag, viewer);
+        }
+    }
+
+    private void refreshTextNow(Player player) {
+        Nametag nametag = registry.getNametag(player.getUniqueId()).orElse(null);
+        if (nametag == null || suspendedOwners.contains(player.getUniqueId())) {
+            return;
+        }
+
+        nametag.updateNametagText();
+        List<Player> visibleViewers = new ArrayList<>();
+        for (Map.Entry<UUID, NametagViewerState> entry : nametag.snapshotViewerStates().entrySet()) {
+            if (!entry.getValue().isSpawned()) {
+                continue;
+            }
+            Player viewer = Bukkit.getPlayer(entry.getKey());
+            if (viewer != null && shouldShow(viewer, nametag)) {
+                visibleViewers.add(viewer);
+            }
+        }
+        updater.updateMetadata(nametag, visibleViewers);
+    }
+
+    private void scheduleReconciliation() {
+        taskManager.scheduleRepeatingTask(
+                this::reconcileAll,
+                BukkitTime.ticks(reconcileIntervalTicks),
+                BukkitTime.ticks(reconcileIntervalTicks)
+        );
+    }
+
+    private void scheduleRemountRepair() {
+        if (!remountRepairEnabled) {
+            return;
+        }
+        taskManager.scheduleRepeatingTask(
+                () -> {
+                    for (Nametag nametag : snapshotNametags()) {
+                        if (!suspendedOwners.contains(nametag.getNametagOwnerId())) {
+                            remountVisibleViewers(nametag);
+                        }
+                    }
+                },
+                BukkitTime.ticks(remountRepairIntervalTicks),
+                BukkitTime.ticks(remountRepairIntervalTicks)
+        );
+    }
+
+    private void shutdownNow() {
+        for (BukkitTask transitionTask : List.copyOf(transitionTasks.values())) {
+            taskManager.cancelTask(transitionTask);
+        }
+        transitionTasks.clear();
+        transitionGeneration.clear();
+
+        for (Nametag nametag : snapshotNametags()) {
+            removeOwnedNametagNow(nametag);
+        }
+
+        attachmentIndex.clear();
+        suspendedOwners.clear();
+        glideSuppressed.clear();
+        selfViewPreference.clear();
+        selfViewLoadGeneration.clear();
+        connectionGeneration.clear();
+    }
+
+    private Collection<Nametag> snapshotNametags() {
+        return List.copyOf(registry.getAllNametags());
+    }
+
+    private void executeOnMain(Runnable action) {
+        if (Bukkit.isPrimaryThread()) {
+            action.run();
+        } else {
+            taskManager.scheduleOneTimeTask(action);
+        }
+    }
+
+    private void scheduleOnMain(Runnable action, int delayTicks) {
+        if (delayTicks <= 0 && Bukkit.isPrimaryThread()) {
+            action.run();
+            return;
+        }
+        taskManager.scheduleDelayedTask(action, BukkitTime.ticks(Math.max(0, delayTicks)));
+    }
+
+    private long beginConnectionSession(UUID playerId) {
+        return connectionGeneration.merge(playerId, 1L, Long::sum);
+    }
+
+    private void invalidateConnectionSession(UUID playerId) {
+        connectionGeneration.merge(playerId, 1L, Long::sum);
+    }
+
+    private boolean isCurrentConnectionSession(UUID playerId, long session) {
+        return connectionGeneration.getOrDefault(playerId, 0L) == session;
     }
 
     private long beginSelfViewLoad(UUID playerId) {
@@ -166,144 +882,63 @@ public final class NametagManager {
         return selfViewLoadGeneration.getOrDefault(playerId, 0L) == generation;
     }
 
-    private void runAfterSelfViewLoaded(Player player, UUID playerId, Runnable afterLoad) {
+    private void runAfterSelfViewLoaded(
+            Player player,
+            UUID playerId,
+            long session,
+            Runnable afterLoad
+    ) {
         try {
-            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
-                if (!feature.getPlugin().isEnabled()) {
+            taskManager.scheduleOneTimeTask(() -> {
+                if (!feature.getPlugin().isEnabled()
+                        || !player.isOnline()
+                        || !player.getUniqueId().equals(playerId)
+                        || !isCurrentConnectionSession(playerId, session)) {
                     return;
                 }
-                if (player.isOnline() && player.getUniqueId().equals(playerId)) {
-                    afterLoad.run();
-                }
+                afterLoad.run();
             });
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException exception) {
             if (feature.getPlugin().isEnabled()) {
                 feature.getLogger().warning(
-                        "Kon nametag initialisatie niet plannen voor " + player.getName() + ": " + ex.getMessage()
+                        "Kon nametag initialisatie niet plannen voor " + player.getName() + ": "
+                                + rootMessage(exception)
                 );
             }
         }
     }
 
-    private void scheduleRepeatingUpdate() {
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(() -> {
-            for (Nametag nametag : registry.getAllNametags()) {
-                updater.update(nametag, new UpdateProperties.Builder().build());
-            }
-        }, BukkitTime.ticks(0L), BukkitTime.ticks(updateIntervalTicks));
+    private void cancelTransition(UUID playerId) {
+        transitionGeneration.merge(playerId, 1L, Long::sum);
+        cancelTransitionTask(playerId);
     }
 
-    private void schedulePeriodicRemount() {
-        if (!remountFixEnabled || remountIntervalTicks <= 0) return;
-
-        feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(() -> {
-            for (Nametag nametag : registry.getAllNametags()) {
-                if (nametag.getNametagOwner() == null || !nametag.getNametagOwner().isOnline()) continue;
-
-                List<Player> stillVisible = new ArrayList<>();
-                for (Player viewer : nametag.getViewers()) {
-                    if (viewer != null && viewer.isOnline() && visibilityManager.isPlayerVisible(viewer, nametag)) {
-                        stillVisible.add(viewer);
-                    }
-                }
-                if (!stillVisible.isEmpty()) {
-                    updater.remount(nametag, stillVisible);
-                }
-            }
-        }, BukkitTime.ticks(remountIntervalTicks), BukkitTime.ticks(remountIntervalTicks));
-    }
-
-    private void createNametag(Player player) {
-        Nametag nametag = new Nametag(player);
-        registry.register(nametag);
-        updater.update(nametag, new UpdateProperties.Builder().build());
-    }
-
-    private boolean shouldDebounce(UUID playerId) {
-        long now = System.nanoTime();
-        long minDeltaNanos = Math.max(0, debounceUpdateTicks) * 50_000_000L;
-        Long last = lastUpdateNanos.get(playerId);
-        if (last != null && (now - last) < minDeltaNanos) {
-            return true;
-        }
-        lastUpdateNanos.put(playerId, now);
-        return false;
-    }
-
-    public void updateNametag(Player player, UpdateProperties updateProperties) {
-        if (player == null) return;
-
-        if (shouldDebounce(player.getUniqueId())) {
-            return;
-        }
-
-        Optional<Nametag> optTag = registry.getNametag(player.getUniqueId());
-        if (optTag.isEmpty()) {
-            createNametag(player);
-            return;
-        }
-        Nametag nametag = optTag.get();
-
-        updater.update(nametag, updateProperties);
-    }
-
-    public void updateNametag(int entityID, UpdateProperties updateProperties) {
-        Optional<Nametag> optTag = registry.getNametagByEntityId(entityID);
-
-        if (optTag.isEmpty()) {
-            return;
-        }
-        Nametag nametag = optTag.get();
-        updater.update(nametag, updateProperties);
-    }
-
-    public void removeNametag(Player player) {
-        UUID playerId = player.getUniqueId();
-        invalidateSelfViewLoad(playerId);
-
-        Optional<Nametag> optTag = registry.getNametag(playerId);
-        if (optTag.isPresent()) {
-            Nametag nametag = optTag.get();
-            registry.unregister(playerId);
-            RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(nametag.getEntityId());
-            PacketManager.sendMulticast(new ArrayList<>(nametag.getViewers()), removePacket);
-        }
-        glideSuppressed.remove(playerId);
-        lastUpdateNanos.remove(playerId);
-    }
-
-    public void removeAllNametags() {
-        for (Nametag nametag : registry.getAllNametags()) {
-            removeNametag(nametag.getNametagOwner());
-        }
-        glideSuppressed.clear();
-        selfViewLoadGeneration.clear();
-        selfViewPreference.clear();
-        lastUpdateNanos.clear();
-    }
-
-    public void initializeOnlinePlayers() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            preloadSelfView(player);
+    private void cancelTransitionTask(UUID playerId) {
+        BukkitTask existing = transitionTasks.remove(playerId);
+        if (existing != null) {
+            taskManager.cancelTask(existing);
         }
     }
 
-    public List<Player> getRegisteredPlayers() {
-        List<Player> players = new ArrayList<>();
-        for (Nametag nametag : registry.getAllNametags()) {
-            Player player = nametag.getNametagOwner();
-            if (player != null && player.isOnline()) {
-                players.add(player);
-            }
+    private int intConfig(String path, int fallback, int minimum) {
+        Object raw = feature.getConfigHandler().get(path);
+        if (raw instanceof Number number) {
+            return Math.max(minimum, number.intValue());
         }
-        return players;
+        return Math.max(minimum, fallback);
     }
 
-    public VisibilityManager getVisibilityManager() {
-        return visibilityManager;
+    private boolean booleanConfig(String path, boolean fallback) {
+        Object raw = feature.getConfigHandler().get(path);
+        return raw instanceof Boolean value ? value : fallback;
     }
 
-    public int getViewerUpdateDelayTicks() {
-        return viewerUpdateDelayTicks;
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }
