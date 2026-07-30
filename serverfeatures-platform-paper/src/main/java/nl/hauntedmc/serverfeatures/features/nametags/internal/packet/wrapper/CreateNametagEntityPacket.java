@@ -14,21 +14,30 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * A packet wrapper for spawning an armor stand with a custom name as a nametag.
+ * Spawns one client-side text display with a stable identity for the current nametag generation.
  */
-public class CreateNametagEntityPacket implements Packet {
+public final class CreateNametagEntityPacket implements Packet {
     private final WrapperPlayServerSpawnEntity spawnPacket;
     private final WrapperPlayServerEntityMetadata metaPacket;
 
-    public CreateNametagEntityPacket(Player player, int entityID, List<EntityData<?>> metaData) {
-        Location spawnLocation = SpigotConversionUtil.fromBukkitLocation(player.getLocation().add(0, 1.8, 0));
+    public CreateNametagEntityPacket(
+            Player owner,
+            int entityId,
+            UUID entityUuid,
+            List<EntityData<?>> metadata
+    ) {
+        org.bukkit.Location bukkitLocation = owner.getLocation().clone().add(0.0, 1.8, 0.0);
+        Location spawnLocation = SpigotConversionUtil.fromBukkitLocation(bukkitLocation);
         this.spawnPacket = new WrapperPlayServerSpawnEntity(
-                entityID,
-                UUID.randomUUID(),
+                entityId,
+                entityUuid,
                 EntityTypes.TEXT_DISPLAY,
                 spawnLocation,
-                spawnLocation.getYaw(), 0, null);
-        this.metaPacket = new WrapperPlayServerEntityMetadata(entityID, metaData);
+                spawnLocation.getYaw(),
+                0,
+                null
+        );
+        this.metaPacket = new WrapperPlayServerEntityMetadata(entityId, List.copyOf(metadata));
     }
 
     @Override
