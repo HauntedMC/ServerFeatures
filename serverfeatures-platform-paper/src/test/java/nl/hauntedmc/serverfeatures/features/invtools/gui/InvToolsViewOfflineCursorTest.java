@@ -28,11 +28,14 @@ import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStac
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -197,6 +200,139 @@ class InvToolsViewOfflineCursorTest {
         });
     }
 
+    @Test
+    void failedDirectMutationRestoresCursorCustodyAndDirtyState() {
+        ItemStack carried = item(Material.DIAMOND, 3);
+        ItemStack[] storage = new ItemStack[InventorySnapshot.STORAGE_SIZE];
+        storage[4] = carried;
+
+        withView(InventorySnapshot.empty(), storage, fixture -> {
+            ItemStack[] before = fixture.storage();
+            OfflineCursorTransaction.Plan pickup = fixture.view().planOfflineCursor(
+                    OfflineCursorTransaction.Side.VIEWER,
+                    4,
+                    InventoryAction.PICKUP_ALL,
+                    before[4]
+            ).orElseThrow();
+            ItemStack[] changed = PlayerStorageTransfer.copyStorage(before);
+            changed[4] = null;
+            failNextInventoryUpdate(fixture.viewer());
+
+            assertThrows(IllegalStateException.class, () ->
+                    fixture.view().applyOfflineCursorMutation(
+                            pickup,
+                            fixture.view().snapshot(),
+                            before,
+                            changed
+                    )
+            );
+
+            assertTrue(fixture.storage()[4].isSimilar(carried));
+            assertNull(fixture.view().cursor());
+            assertNull(fixture.view().cursorOwner());
+            assertFalse(fixture.view().hasViewerTransfers());
+            assertFalse(fixture.view().beginOfflineSave().dirty());
+        });
+    }
+
+    @Test
+    void failedSameSideDragPreservesTheExactCursorReturnSlot() {
+        ItemStack helmet = item(Material.DIAMOND_HELMET);
+        InventorySnapshot target = InventorySnapshot.empty().withBackingSlot(
+                InventoryKind.PLAYER,
+                InventorySnapshot.HELMET_SLOT,
+                helmet
+        );
+
+        withView(target, new ItemStack[InventorySnapshot.STORAGE_SIZE], fixture -> {
+            ItemStack[] viewerStorage = fixture.storage();
+            OfflineCursorTransaction.Plan pickup = fixture.view().planOfflineCursor(
+                    OfflineCursorTransaction.Side.TARGET,
+                    InventorySnapshot.HELMET_SLOT,
+                    InventoryAction.PICKUP_ALL,
+                    helmet
+            ).orElseThrow();
+            InventorySnapshot withoutHelmet = target.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    InventorySnapshot.HELMET_SLOT,
+                    null
+            );
+            assertTrue(fixture.view().applyOfflineCursorMutation(
+                    pickup,
+                    withoutHelmet,
+                    viewerStorage,
+                    viewerStorage
+            ));
+
+            InventorySnapshot dragged = withoutHelmet.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    9,
+                    helmet
+            );
+            failNextInventoryUpdate(fixture.viewer());
+            assertThrows(IllegalStateException.class, () ->
+                    fixture.view().applyOfflineSameSideDrag(
+                            dragged,
+                            viewerStorage,
+                            viewerStorage,
+                            null,
+                            OfflineCursorTransaction.Side.TARGET
+                    )
+            );
+
+            InvToolsView.OfflineSavePlan savePlan = fixture.view().beginOfflineSave();
+            assertTrue(savePlan.changedSnapshot().helmet().isSimilar(helmet));
+            assertNull(savePlan.changedSnapshot().itemAt(InventoryKind.PLAYER, 9));
+            assertNull(fixture.view().cursor());
+        });
+    }
+
+    @Test
+    void failedShiftTransferDoesNotLeaveDirtyStateOrRollbackJournal() {
+        ItemStack transferred = item(Material.EMERALD, 2);
+        InventorySnapshot target = InventorySnapshot.empty().withBackingSlot(
+                InventoryKind.PLAYER,
+                9,
+                transferred
+        );
+
+        withView(target, new ItemStack[InventorySnapshot.STORAGE_SIZE], fixture -> {
+            ItemStack[] beforeViewer = fixture.storage();
+            ItemStack[] changedViewer = PlayerStorageTransfer.copyStorage(beforeViewer);
+            changedViewer[0] = transferred;
+            InventorySnapshot changedTarget = target.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    9,
+                    null
+            );
+            failNextInventoryUpdate(fixture.viewer());
+
+            assertThrows(IllegalStateException.class, () ->
+                    fixture.view().applyOfflineShiftTransfer(
+                            changedTarget,
+                            beforeViewer,
+                            changedViewer,
+                            transferred,
+                            true
+                    )
+            );
+
+            assertNull(fixture.storage()[0]);
+            assertTrue(fixture.view().snapshot()
+                    .itemAt(InventoryKind.PLAYER, 9)
+                    .isSimilar(transferred));
+            assertFalse(fixture.view().hasViewerTransfers());
+            assertFalse(fixture.view().beginOfflineSave().dirty());
+        });
+    }
+
+    private static void failNextInventoryUpdate(Player viewer) {
+        doThrow(new IllegalStateException("inventory sync failed"))
+                .doNothing()
+                .when(viewer)
+                .updateInventory();
+    }
+
     private static void withView(
             InventorySnapshot targetSnapshot,
             ItemStack[] initialStorage,
@@ -260,16 +396,18 @@ class InvToolsViewOfflineCursorTest {
                     original
             );
             assertFalse(itemStacks.constructed().isEmpty());
-            assertion.accept(new Fixture(view, storage));
+            assertion.accept(new Fixture(view, viewer, storage));
         }
     }
 
     private record Fixture(
             InvToolsView view,
+            Player viewer,
             AtomicReference<ItemStack[]> storageReference
     ) {
         private Fixture {
             Objects.requireNonNull(view, "view");
+            Objects.requireNonNull(viewer, "viewer");
             Objects.requireNonNull(storageReference, "storageReference");
         }
 
