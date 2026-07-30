@@ -2,8 +2,9 @@ package nl.hauntedmc.serverfeatures.features.playercount.internal;
 
 import nl.hauntedmc.serverfeatures.features.playercount.messaging.PlayerCountSnapshotMessage;
 
-import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -13,6 +14,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Thread-safe latest-value store with schema validation, ordering and expiry.
  */
 public final class PlayerCountSnapshotStore {
+
+    private static final int MAX_RETIRED_PUBLISHER_EPOCHS = 32;
 
     public enum ApplyResult {
         APPLIED,
@@ -24,7 +27,7 @@ public final class PlayerCountSnapshotStore {
     private final long staleAfterMillis;
     private final String expectedPublisherId;
     private final AtomicReference<PlayerCountSnapshot> current = new AtomicReference<>();
-    private final Set<String> retiredPublisherEpochs = new HashSet<>();
+    private final Set<String> retiredPublisherEpochs = new LinkedHashSet<>();
 
     public PlayerCountSnapshotStore(
             String localServerName,
@@ -51,11 +54,19 @@ public final class PlayerCountSnapshotStore {
         if (retiredPublisherEpochs.contains(candidate.publisherEpoch())) {
             return ApplyResult.STALE;
         }
-        if (existing != null && !isNewer(candidate, existing)) {
-            return ApplyResult.STALE;
-        }
-        if (existing != null && !candidate.publisherEpoch().equals(existing.publisherEpoch())) {
-            retiredPublisherEpochs.add(existing.publisherEpoch());
+        if (existing != null) {
+            boolean sameEpoch = candidate.publisherEpoch().equals(existing.publisherEpoch());
+            if (sameEpoch && candidate.sequence() <= existing.sequence()) {
+                return ApplyResult.STALE;
+            }
+            if (!sameEpoch
+                    && candidate.publishedAtEpochMillis() <= existing.publishedAtEpochMillis()
+                    && !isStale(existing, receivedAtEpochMillis)) {
+                return ApplyResult.STALE;
+            }
+            if (!sameEpoch) {
+                retireEpoch(existing.publisherEpoch());
+            }
         }
         current.set(candidate);
         return ApplyResult.APPLIED;
@@ -123,11 +134,16 @@ public final class PlayerCountSnapshotStore {
         return nowEpochMillis - snapshot.receivedAtEpochMillis() > staleAfterMillis;
     }
 
-    private static boolean isNewer(PlayerCountSnapshot candidate, PlayerCountSnapshot existing) {
-        if (candidate.publisherEpoch().equals(existing.publisherEpoch())) {
-            return candidate.sequence() > existing.sequence();
+    private void retireEpoch(String publisherEpoch) {
+        retiredPublisherEpochs.add(publisherEpoch);
+        while (retiredPublisherEpochs.size() > MAX_RETIRED_PUBLISHER_EPOCHS) {
+            Iterator<String> iterator = retiredPublisherEpochs.iterator();
+            if (!iterator.hasNext()) {
+                return;
+            }
+            iterator.next();
+            iterator.remove();
         }
-        return candidate.publishedAtEpochMillis() > existing.publishedAtEpochMillis();
     }
 
     private PlayerCountSnapshot validate(
