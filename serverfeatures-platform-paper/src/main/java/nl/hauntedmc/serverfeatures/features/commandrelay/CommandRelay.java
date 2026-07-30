@@ -1,14 +1,19 @@
 package nl.hauntedmc.serverfeatures.features.commandrelay;
 
+import nl.hauntedmc.dataprovider.api.orm.ORMContext;
+import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
 import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
+import nl.hauntedmc.serverfeatures.features.commandrelay.audit.CommandRelayAuditLogEntity;
+import nl.hauntedmc.serverfeatures.features.commandrelay.audit.CommandRelayAuditLogService;
 import nl.hauntedmc.serverfeatures.features.commandrelay.command.CommandRelayCommand;
 import nl.hauntedmc.serverfeatures.features.commandrelay.internal.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.commandrelay.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureDataManager;
 
 import java.util.List;
 import java.util.Locale;
@@ -19,8 +24,11 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
     private static final String DEFAULT_SERVER_NAME = "server";
     private static final String DEFAULT_CONSUMER_GROUP = "serverfeatures.commandrelay.server";
     private static final long DEFAULT_PROCESSED_COMMAND_TTL_MILLIS = 691_200_000L;
+    private static final String AUDIT_DATABASE_IDENTIFIER = "commandRelayAudit";
+    private static final String AUDIT_DATABASE_CONNECTION = "system_data_rw";
 
     private EventBusHandler eventBusHandler;
+    private CommandRelayAuditLogService auditLogService;
 
     public CommandRelay(FeatureContext<Meta> context) {
         super(context);
@@ -50,14 +58,30 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        // Init Redis messaging
-        getLifecycleManager()
-                .getDataManager()
-                .initDataProvider(getFeatureName());
+        FeatureDataManager dataManager = getLifecycleManager().getDataManager();
+        dataManager.initDataProvider(getFeatureName());
 
-        Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
-                .getDataManager()
-                .registerRedisMessagingProvider("redis", "hauntedmc");
+        ORMContext auditOrm = dataManager.registerConnection(
+                        AUDIT_DATABASE_IDENTIFIER,
+                        DatabaseType.MYSQL,
+                        AUDIT_DATABASE_CONNECTION
+                )
+                .flatMap(ignored -> dataManager.createORMContext(
+                        AUDIT_DATABASE_IDENTIFIER,
+                        CommandRelayAuditLogEntity.class
+                ))
+                .orElse(null);
+        if (auditOrm == null) {
+            getLogger().warning(
+                    "CommandRelay database audit logging is disabled because the system ORM context is unavailable."
+            );
+        }
+        this.auditLogService = new CommandRelayAuditLogService(this, auditOrm);
+
+        Optional<MessagingDatabaseProvider> redisProvider = dataManager.registerRedisMessagingProvider(
+                "redis",
+                "hauntedmc"
+        );
 
         if (redisProvider.isEmpty()) {
             throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
@@ -110,6 +134,10 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
 
     public EventBusHandler getEventBusHandler() {
         return eventBusHandler;
+    }
+
+    public CommandRelayAuditLogService getAuditLogService() {
+        return auditLogService;
     }
 
     static String resolveConsumerGroup(String configuredGroup, String serverName) {
