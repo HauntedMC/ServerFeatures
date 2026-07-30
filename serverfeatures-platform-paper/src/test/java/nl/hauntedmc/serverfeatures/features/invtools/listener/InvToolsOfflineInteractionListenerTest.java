@@ -23,6 +23,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -104,6 +104,8 @@ class InvToolsOfflineInteractionListenerTest {
                 InventoryAction.PICKUP_ALL,
                 viewerStorage[4]
         ).orElseThrow();
+        ItemStack cursorAfter = plan.result().cursorItem();
+        AtomicInteger cursorReads = new AtomicInteger();
         when(view.snapshot()).thenReturn(target);
         when(viewerInventory.getStorageContents()).thenReturn(viewerStorage);
         when(event.getClickedInventory()).thenReturn(viewerInventory);
@@ -116,10 +118,9 @@ class InvToolsOfflineInteractionListenerTest {
                 viewerStorage[4]
         )).thenReturn(Optional.of(plan));
         when(view.applyOfflineCursorMutation(any(), any(), any(), any())).thenReturn(true);
-        doReturn(null)
-                .doReturn(plan.result().cursorItem())
-                .when(view)
-                .cursor();
+        when(view.cursor()).thenAnswer(ignored ->
+                cursorReads.getAndIncrement() == 0 ? null : cursorAfter
+        );
 
         listener.onInventoryClick(event);
 
@@ -151,16 +152,16 @@ class InvToolsOfflineInteractionListenerTest {
                 InventoryAction.PLACE_ALL,
                 null
         ).orElseThrow();
+        AtomicInteger cursorReads = new AtomicInteger();
         when(view.snapshot()).thenReturn(target);
         when(viewerInventory.getStorageContents()).thenReturn(viewerStorage);
         when(event.getClickedInventory()).thenReturn(topInventory);
         when(event.getSlot()).thenReturn(9);
         when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
         when(event.getCursor()).thenReturn(carried);
-        doReturn(carried)
-                .doReturn(null)
-                .when(view)
-                .cursor();
+        when(view.cursor()).thenAnswer(ignored ->
+                cursorReads.getAndIncrement() == 0 ? carried : null
+        );
         when(view.cursorOwner()).thenReturn(OfflineCursorTransaction.Side.VIEWER);
         when(view.planOfflineCursor(
                 OfflineCursorTransaction.Side.TARGET,
