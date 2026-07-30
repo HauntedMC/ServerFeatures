@@ -99,14 +99,12 @@ class InventorySnapshotTest {
         assertNull(result.remainder());
         assertEquals(3, result.snapshot().itemAt(InventoryKind.PLAYER, 9).getAmount());
         assertNull(result.snapshot().itemAt(InventoryKind.PLAYER, 0));
+        assertNull(result.snapshot().helmet());
     }
 
     @Test
-    void shiftInsertionDoesNotAutoEquipArmorWhenStorageIsFull() {
+    void shiftInsertionEquipsCompatibleArmorWhenItsSlotIsEmpty() {
         InventorySnapshot snapshot = InventorySnapshot.empty();
-        for (int slot = 0; slot < InventorySnapshot.STORAGE_SIZE; slot++) {
-            snapshot = snapshot.withBackingSlot(InventoryKind.PLAYER, slot, item(Material.STONE, 64));
-        }
         ItemStack chestplate = item(Material.DIAMOND_CHESTPLATE);
 
         InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
@@ -114,8 +112,60 @@ class InventorySnapshotTest {
                 chestplate
         );
 
-        assertTrue(result.remainder().isSimilar(chestplate));
+        assertNull(result.remainder());
+        assertTrue(result.snapshot().chestplate().isSimilar(chestplate));
+        assertNull(result.snapshot().itemAt(InventoryKind.PLAYER, 9));
+    }
+
+    @Test
+    void shiftInsertionStoresArmorWhenItsMatchingSlotIsOccupied() {
+        ItemStack equipped = item(Material.IRON_CHESTPLATE);
+        ItemStack offered = item(Material.DIAMOND_CHESTPLATE);
+        InventorySnapshot snapshot = InventorySnapshot.empty().withBackingSlot(
+                InventoryKind.PLAYER,
+                InventorySnapshot.CHESTPLATE_SLOT,
+                equipped
+        );
+
+        InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
+                InventoryKind.PLAYER,
+                offered
+        );
+
+        assertNull(result.remainder());
+        assertTrue(result.snapshot().chestplate().isSimilar(equipped));
+        assertTrue(result.snapshot().itemAt(InventoryKind.PLAYER, 9).isSimilar(offered));
+    }
+
+    @Test
+    void shiftInsertionEquipsOneWearableItemAndStoresAnyStackRemainder() {
+        ItemStack stackedHelmet = item(Material.CARVED_PUMPKIN, 3);
+
+        InventorySnapshot.InsertionResult result = InventorySnapshot.empty().shiftInsert(
+                InventoryKind.PLAYER,
+                stackedHelmet
+        );
+
+        assertNull(result.remainder());
+        assertEquals(1, result.snapshot().helmet().getAmount());
+        assertEquals(2, result.snapshot().itemAt(InventoryKind.PLAYER, 9).getAmount());
+    }
+
+    @Test
+    void nonEquipmentShiftInsertionNeverUsesTheArmorRow() {
+        InventorySnapshot snapshot = InventorySnapshot.empty();
+
+        InventorySnapshot.InsertionResult result = snapshot.shiftInsert(
+                InventoryKind.PLAYER,
+                item(Material.STONE, 4)
+        );
+
+        assertNull(result.remainder());
+        assertEquals(4, result.snapshot().itemAt(InventoryKind.PLAYER, 9).getAmount());
+        assertNull(result.snapshot().helmet());
         assertNull(result.snapshot().chestplate());
+        assertNull(result.snapshot().leggings());
+        assertNull(result.snapshot().boots());
     }
 
     @Test
@@ -152,16 +202,31 @@ class InventorySnapshotTest {
             );
         }
         full = full
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.HELMET_SLOT,
-                        item(Material.STONE, 64))
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.CHESTPLATE_SLOT,
-                        item(Material.STONE, 64))
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.LEGGINGS_SLOT,
-                        item(Material.STONE, 64))
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.BOOTS_SLOT,
-                        item(Material.STONE, 64))
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.OFF_HAND_SLOT,
-                        item(Material.STONE, 64));
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.HELMET_SLOT,
+                        item(Material.STONE, 64)
+                )
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.CHESTPLATE_SLOT,
+                        item(Material.STONE, 64)
+                )
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.LEGGINGS_SLOT,
+                        item(Material.STONE, 64)
+                )
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.BOOTS_SLOT,
+                        item(Material.STONE, 64)
+                )
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.OFF_HAND_SLOT,
+                        item(Material.STONE, 64)
+                );
 
         InventorySnapshot.InsertionResult result = full.insert(
                 InventoryKind.PLAYER,
@@ -176,11 +241,18 @@ class InventorySnapshotTest {
     void insertionRestoresArmorToACompatibleSlotWhenStorageIsFull() {
         InventorySnapshot snapshot = InventorySnapshot.empty();
         for (int slot = 0; slot < InventorySnapshot.STORAGE_SIZE; slot++) {
-            snapshot = snapshot.withBackingSlot(InventoryKind.PLAYER, slot, item(Material.STONE, 64));
+            snapshot = snapshot.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    slot,
+                    item(Material.STONE, 64)
+            );
         }
         ItemStack chestplate = item(Material.DIAMOND_CHESTPLATE);
 
-        InventorySnapshot.InsertionResult result = snapshot.insert(InventoryKind.PLAYER, chestplate);
+        InventorySnapshot.InsertionResult result = snapshot.insert(
+                InventoryKind.PLAYER,
+                chestplate
+        );
 
         assertNull(result.remainder());
         assertNull(result.snapshot().helmet());
@@ -192,8 +264,11 @@ class InventorySnapshotTest {
         InventorySnapshot original = InventorySnapshot.empty();
         InventorySnapshot changed = original
                 .withBackingSlot(InventoryKind.PLAYER, 4, item(Material.DIAMOND, 2))
-                .withBackingSlot(InventoryKind.PLAYER, InventorySnapshot.HELMET_SLOT,
-                        item(Material.DIAMOND_HELMET))
+                .withBackingSlot(
+                        InventoryKind.PLAYER,
+                        InventorySnapshot.HELMET_SLOT,
+                        item(Material.DIAMOND_HELMET)
+                )
                 .withBackingSlot(InventoryKind.ENDER_CHEST, 7, item(Material.EMERALD));
 
         assertArrayEquals(
