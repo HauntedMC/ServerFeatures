@@ -1,22 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import io.papermc.paper.event.player.PlayerUntrackEntityEvent;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
 import nl.hauntedmc.serverfeatures.features.nametags.internal.NametagManager;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
-import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureLifecycleManager;
-import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 import java.util.function.Consumer;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
@@ -28,19 +26,13 @@ import static org.mockito.Mockito.when;
 class NametagListenerTest {
 
     @Test
-    void joinWaitsForSelfViewLoadBeforeSchedulingInitialNametag() {
+    void joinWaitsForDataRegistryBeforeStartingManagerLifecycle() {
         Nametags feature = mock(Nametags.class);
         NametagManager manager = mock(NametagManager.class);
-        FeatureLifecycleManager lifecycle = mock(FeatureLifecycleManager.class);
-        FeatureTaskManager tasks = mock(FeatureTaskManager.class);
         PlayerJoinEvent event = mock(PlayerJoinEvent.class);
         Player player = mock(Player.class);
-
         when(event.getPlayer()).thenReturn(player);
-        when(player.isOnline()).thenReturn(true);
         when(feature.getNametagManager()).thenReturn(manager);
-        when(feature.getLifecycleManager()).thenReturn(lifecycle);
-        when(lifecycle.getTaskManager()).thenReturn(tasks);
 
         NametagListener listener = new NametagListener(feature);
         try (MockedStatic<DataRegistryIdentityGate> identityGate = mockStatic(DataRegistryIdentityGate.class)) {
@@ -48,7 +40,7 @@ class NametagListenerTest {
                             same(feature),
                             same(player),
                             org.mockito.ArgumentMatchers.<Consumer<Player>>any(),
-                            eq("nametag self-view preload")
+                            eq("nametag player initialization")
                     ))
                     .thenAnswer(invocation -> {
                         Consumer<Player> action = invocation.getArgument(2);
@@ -59,19 +51,66 @@ class NametagListenerTest {
             listener.onPlayerJoin(event);
         }
 
-        verify(tasks, never()).scheduleDelayedTask(any(Runnable.class), any(BukkitTime.class));
+        verify(manager).handleJoin(player);
+    }
 
-        ArgumentCaptor<Runnable> loadedCallback = ArgumentCaptor.forClass(Runnable.class);
-        verify(manager).preloadSelfView(same(player), loadedCallback.capture());
-        loadedCallback.getValue().run();
+    @Test
+    void trackingEventsDrivePairLifecycle() {
+        Nametags feature = mock(Nametags.class);
+        NametagManager manager = mock(NametagManager.class);
+        Player viewer = mock(Player.class);
+        Player owner = mock(Player.class);
+        PlayerTrackEntityEvent track = mock(PlayerTrackEntityEvent.class);
+        PlayerUntrackEntityEvent untrack = mock(PlayerUntrackEntityEvent.class);
+        when(feature.getNametagManager()).thenReturn(manager);
+        when(track.getPlayer()).thenReturn(viewer);
+        when(track.getEntity()).thenReturn(owner);
+        when(untrack.getPlayer()).thenReturn(viewer);
+        when(untrack.getEntity()).thenReturn(owner);
 
-        ArgumentCaptor<Runnable> initialUpdate = ArgumentCaptor.forClass(Runnable.class);
-        ArgumentCaptor<BukkitTime> delay = ArgumentCaptor.forClass(BukkitTime.class);
-        verify(tasks).scheduleDelayedTask(initialUpdate.capture(), delay.capture());
-        assertEquals(10L, delay.getValue().toTicks());
+        NametagListener listener = new NametagListener(feature);
+        listener.onPlayerTracksEntity(track);
+        listener.onPlayerUntracksEntity(untrack);
 
-        verify(manager, never()).updateNametag(any(Player.class), any(UpdateProperties.class));
-        initialUpdate.getValue().run();
-        verify(manager).updateNametag(same(player), any(UpdateProperties.class));
+        verify(manager).onViewerTracks(viewer, owner);
+        verify(manager).onViewerUntracks(viewer, owner);
+    }
+
+    @Test
+    void longSameWorldTeleportStartsAFullViewerAndOwnerTransition() {
+        Nametags feature = mock(Nametags.class);
+        NametagManager manager = mock(NametagManager.class);
+        Player player = mock(Player.class);
+        PlayerTeleportEvent event = mock(PlayerTeleportEvent.class);
+        World world = mock(World.class);
+        Location from = new Location(world, 0.0, 64.0, 0.0);
+        Location to = new Location(world, 100.0, 64.0, 0.0);
+        when(feature.getNametagManager()).thenReturn(manager);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getFrom()).thenReturn(from);
+        when(event.getTo()).thenReturn(to);
+        when(manager.requiresTeleportRebuild(from, to)).thenReturn(true);
+
+        new NametagListener(feature).onPlayerTeleport(event);
+
+        verify(manager).beginPlayerTransition(player);
+    }
+
+    @Test
+    void crossWorldTeleportDefersToChangedWorldLifecycle() {
+        Nametags feature = mock(Nametags.class);
+        NametagManager manager = mock(NametagManager.class);
+        Player player = mock(Player.class);
+        PlayerTeleportEvent event = mock(PlayerTeleportEvent.class);
+        Location from = new Location(mock(World.class), 0.0, 64.0, 0.0);
+        Location to = new Location(mock(World.class), 0.0, 64.0, 0.0);
+        when(feature.getNametagManager()).thenReturn(manager);
+        when(event.getPlayer()).thenReturn(player);
+        when(event.getFrom()).thenReturn(from);
+        when(event.getTo()).thenReturn(to);
+
+        new NametagListener(feature).onPlayerTeleport(event);
+
+        verify(manager, never()).beginPlayerTransition(player);
     }
 }
