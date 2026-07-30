@@ -18,17 +18,28 @@ public final class OfflineCursorTransaction {
 
     private ItemStack cursor;
     private Side owner;
+    private Integer preferredReturnSlot;
 
     public OfflineCursorTransaction() {
-        this(null, null);
+        this(null, null, null);
     }
 
     public OfflineCursorTransaction(ItemStack cursor, Side owner) {
-        this.cursor = cloneOrNull(cursor);
-        this.owner = this.cursor == null ? null : Objects.requireNonNull(owner, "owner");
+        this(cursor, owner, null);
     }
 
-    public Optional<Plan> plan(Side side, InventoryAction action, ItemStack slotItem) {
+    OfflineCursorTransaction(ItemStack cursor, Side owner, Integer preferredReturnSlot) {
+        this.cursor = cloneOrNull(cursor);
+        this.owner = this.cursor == null ? null : Objects.requireNonNull(owner, "owner");
+        this.preferredReturnSlot = this.cursor == null ? null : preferredReturnSlot;
+    }
+
+    public Optional<Plan> plan(
+            Side side,
+            int slot,
+            InventoryAction action,
+            ItemStack slotItem
+    ) {
         Objects.requireNonNull(side, "side");
         Objects.requireNonNull(action, "action");
 
@@ -60,27 +71,40 @@ public final class OfflineCursorTransaction {
         }
 
         Side nextOwner;
+        Integer nextReturnSlot;
         if (result.cursorItem() == null) {
             nextOwner = null;
+            nextReturnSlot = null;
         } else if (action == InventoryAction.SWAP_WITH_CURSOR) {
             nextOwner = side;
+            nextReturnSlot = slot;
         } else if (currentCursor == null && movement.slotToCursor() != null) {
             nextOwner = side;
+            nextReturnSlot = slot;
         } else {
             nextOwner = owner;
+            nextReturnSlot = preferredReturnSlot;
         }
-        return Optional.of(new Plan(result, nextOwner, transfer));
+        return Optional.of(new Plan(result, nextOwner, nextReturnSlot, transfer));
+    }
+
+    public Optional<Plan> plan(Side side, InventoryAction action, ItemStack slotItem) {
+        return plan(side, -1, action, slotItem);
     }
 
     public void commit(Plan plan) {
         Plan checked = Objects.requireNonNull(plan, "plan");
         cursor = checked.result().cursorItem();
         owner = cursor == null ? null : Objects.requireNonNull(checked.nextOwner(), "nextOwner");
+        preferredReturnSlot = cursor == null ? null : checked.nextReturnSlot();
     }
 
     public void replaceAfterSameSideDrag(ItemStack changedCursor, Side side) {
         cursor = cloneOrNull(changedCursor);
         owner = cursor == null ? null : Objects.requireNonNull(side, "side");
+        if (cursor == null) {
+            preferredReturnSlot = null;
+        }
     }
 
     public ItemStack cursor() {
@@ -91,6 +115,10 @@ public final class OfflineCursorTransaction {
         return owner;
     }
 
+    public Integer preferredReturnSlot() {
+        return preferredReturnSlot;
+    }
+
     public boolean hasCursor() {
         return cursor != null;
     }
@@ -98,6 +126,7 @@ public final class OfflineCursorTransaction {
     public void clear() {
         cursor = null;
         owner = null;
+        preferredReturnSlot = null;
     }
 
     private static Movement movement(
@@ -168,6 +197,7 @@ public final class OfflineCursorTransaction {
     public record Plan(
             InventoryClickMutation.Result result,
             Side nextOwner,
+            Integer nextReturnSlot,
             Transfer transfer
     ) {
         public Plan {
