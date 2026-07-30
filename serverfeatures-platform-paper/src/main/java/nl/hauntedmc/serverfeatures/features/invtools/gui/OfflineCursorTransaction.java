@@ -1,0 +1,255 @@
+package nl.hauntedmc.serverfeatures.features.invtools.gui;
+
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Tracks cursor custody for an editable offline InvTools view.
+ *
+ * <p>The cursor remains detached from both persistence domains until an item is placed. A transfer is
+ * journaled only when cursor contents cross from the staff inventory to the target snapshot or in the
+ * opposite direction. Combining a non-empty cursor with a similar stack from the other domain is
+ * rejected because that would mix two rollback owners in one Bukkit stack.</p>
+ */
+public final class OfflineCursorTransaction {
+
+    private ItemStack cursor;
+    private Side owner;
+    private Integer preferredReturnSlot;
+
+    public OfflineCursorTransaction() {
+        this(null, null, null);
+    }
+
+    public OfflineCursorTransaction(ItemStack cursor, Side owner) {
+        this(cursor, owner, null);
+    }
+
+    OfflineCursorTransaction(ItemStack cursor, Side owner, Integer preferredReturnSlot) {
+        this.cursor = cloneOrNull(cursor);
+        this.owner = this.cursor == null ? null : Objects.requireNonNull(owner, "owner");
+        this.preferredReturnSlot = this.cursor == null ? null : preferredReturnSlot;
+    }
+
+    public Optional<Plan> plan(
+            Side side,
+            int slot,
+            InventoryAction action,
+            ItemStack slotItem
+    ) {
+        Objects.requireNonNull(side, "side");
+        Objects.requireNonNull(action, "action");
+
+        ItemStack currentCursor = cursor();
+        Optional<InventoryClickMutation.Result> mutation = InventoryClickMutation.apply(
+                action,
+                slotItem,
+                currentCursor
+        );
+        if (mutation.isEmpty()) {
+            return Optional.empty();
+        }
+
+        InventoryClickMutation.Result result = mutation.get();
+        Movement movement = movement(action, slotItem, currentCursor, result);
+        if (movement.slotToCursor() != null
+                && currentCursor != null
+                && owner != side
+                && movement.cursorToSlot() == null) {
+            return Optional.empty();
+        }
+
+        Transfer transfer = null;
+        if (movement.cursorToSlot() != null && owner != null && owner != side) {
+            transfer = new Transfer(
+                    movement.cursorToSlot(),
+                    owner == Side.TARGET && side == Side.VIEWER
+            );
+        }
+
+        Side nextOwner;
+        Integer nextReturnSlot;
+        if (result.cursorItem() == null) {
+            nextOwner = null;
+            nextReturnSlot = null;
+        } else if (action == InventoryAction.SWAP_WITH_CURSOR) {
+            nextOwner = side;
+            nextReturnSlot = slot;
+        } else if (currentCursor == null && movement.slotToCursor() != null) {
+            nextOwner = side;
+            nextReturnSlot = slot;
+        } else {
+            nextOwner = owner;
+            nextReturnSlot = preferredReturnSlot;
+        }
+        return Optional.of(new Plan(result, nextOwner, nextReturnSlot, transfer));
+    }
+
+    public Optional<Plan> plan(Side side, InventoryAction action, ItemStack slotItem) {
+        return plan(side, -1, action, slotItem);
+    }
+
+    public void commit(Plan plan) {
+        Plan checked = Objects.requireNonNull(plan, "plan");
+        cursor = checked.result().cursorItem();
+        owner = cursor == null ? null : Objects.requireNonNull(checked.nextOwner(), "nextOwner");
+        preferredReturnSlot = cursor == null ? null : checked.nextReturnSlot();
+    }
+
+    public void replaceAfterSameSideDrag(ItemStack changedCursor, Side side) {
+        cursor = cloneOrNull(changedCursor);
+        owner = cursor == null ? null : Objects.requireNonNull(side, "side");
+        if (cursor == null) {
+            preferredReturnSlot = null;
+        }
+    }
+
+    StateSnapshot snapshotState() {
+        return new StateSnapshot(cursor, owner, preferredReturnSlot);
+    }
+
+    void restoreState(StateSnapshot stateSnapshot) {
+        StateSnapshot checked = Objects.requireNonNull(stateSnapshot, "stateSnapshot");
+        cursor = checked.cursor();
+        owner = cursor == null ? null : checked.owner();
+        preferredReturnSlot = cursor == null ? null : checked.preferredReturnSlot();
+    }
+
+    public ItemStack cursor() {
+        return cloneOrNull(cursor);
+    }
+
+    public Side owner() {
+        return owner;
+    }
+
+    public Integer preferredReturnSlot() {
+        return preferredReturnSlot;
+    }
+
+    public boolean hasCursor() {
+        return cursor != null;
+    }
+
+    public void clear() {
+        cursor = null;
+        owner = null;
+        preferredReturnSlot = null;
+    }
+
+    private static Movement movement(
+            InventoryAction action,
+            ItemStack slotBefore,
+            ItemStack cursorBefore,
+            InventoryClickMutation.Result result
+    ) {
+        return switch (action) {
+            case PICKUP_ALL, PICKUP_HALF, PICKUP_ONE, PICKUP_SOME -> new Movement(
+                    difference(slotBefore, result.slotItem()),
+                    null
+            );
+            case PLACE_ALL, PLACE_ONE, PLACE_SOME -> new Movement(
+                    null,
+                    difference(cursorBefore, result.cursorItem())
+            );
+            case SWAP_WITH_CURSOR -> new Movement(
+                    cloneOrNull(slotBefore),
+                    cloneOrNull(cursorBefore)
+            );
+            default -> new Movement(null, null);
+        };
+    }
+
+    private static ItemStack difference(ItemStack before, ItemStack after) {
+        ItemStack normalizedBefore = cloneOrNull(before);
+        ItemStack normalizedAfter = cloneOrNull(after);
+        if (normalizedBefore == null) {
+            return null;
+        }
+        int afterAmount = normalizedAfter == null ? 0 : normalizedAfter.getAmount();
+        int difference = normalizedBefore.getAmount() - afterAmount;
+        return difference <= 0 ? null : withAmount(normalizedBefore, difference);
+    }
+
+    private static ItemStack withAmount(ItemStack item, int amount) {
+        if (item == null || amount <= 0) {
+            return null;
+        }
+        ItemStack changed = item.clone();
+        changed.setAmount(amount);
+        return changed;
+    }
+
+    private static ItemStack cloneOrNull(ItemStack item) {
+        return item == null || item.getType().isAir() || item.getAmount() <= 0
+                ? null
+                : item.clone();
+    }
+
+    public enum Side {
+        VIEWER,
+        TARGET
+    }
+
+    public record Transfer(ItemStack item, boolean addedToViewer) {
+        public Transfer {
+            item = Objects.requireNonNull(cloneOrNull(item), "item");
+        }
+
+        @Override
+        public ItemStack item() {
+            return item.clone();
+        }
+    }
+
+    public record Plan(
+            InventoryClickMutation.Result result,
+            Side nextOwner,
+            Integer nextReturnSlot,
+            Transfer transfer
+    ) {
+        public Plan {
+            Objects.requireNonNull(result, "result");
+            if (result.cursorItem() != null) {
+                Objects.requireNonNull(nextOwner, "nextOwner");
+            }
+        }
+    }
+
+    record StateSnapshot(ItemStack cursor, Side owner, Integer preferredReturnSlot) {
+        StateSnapshot {
+            cursor = cloneOrNull(cursor);
+            if (cursor == null) {
+                owner = null;
+                preferredReturnSlot = null;
+            } else {
+                Objects.requireNonNull(owner, "owner");
+            }
+        }
+
+        @Override
+        public ItemStack cursor() {
+            return cloneOrNull(cursor);
+        }
+    }
+
+    private record Movement(ItemStack slotToCursor, ItemStack cursorToSlot) {
+        private Movement {
+            slotToCursor = cloneOrNull(slotToCursor);
+            cursorToSlot = cloneOrNull(cursorToSlot);
+        }
+
+        @Override
+        public ItemStack slotToCursor() {
+            return cloneOrNull(slotToCursor);
+        }
+
+        @Override
+        public ItemStack cursorToSlot() {
+            return cloneOrNull(cursorToSlot);
+        }
+    }
+}

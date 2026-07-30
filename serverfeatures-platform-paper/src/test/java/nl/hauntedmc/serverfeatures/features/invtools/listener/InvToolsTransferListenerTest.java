@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.log.FeatureLogger;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
@@ -47,6 +48,7 @@ class InvToolsTransferListenerTest {
         feature = mock(InvTools.class);
         FeatureConfigHandler config = mock(FeatureConfigHandler.class);
         when(feature.getConfigHandler()).thenReturn(config);
+        when(feature.getLogger()).thenReturn(mock(FeatureLogger.class));
         when(config.get("audit_edits", Boolean.class, true)).thenReturn(false);
 
         viewer = mock(Player.class);

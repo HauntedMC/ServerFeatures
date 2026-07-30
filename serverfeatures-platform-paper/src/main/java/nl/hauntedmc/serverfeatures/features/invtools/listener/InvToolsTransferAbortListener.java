@@ -9,11 +9,12 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 
 /**
- * Rolls back cross-inventory offline transfers before Paper starts persisting the staff member.
+ * Rolls back cross-inventory offline transfers and settles isolated cursor state before Paper starts
+ * persisting the staff member.
  *
  * <p>This listener deliberately runs at LOWEST and is registered before the ordinary transfer
- * listener. Clearing the transfer journal here makes the later close listeners treat the target
- * snapshot as unchanged, so neither side can be persisted independently during disconnect/death.</p>
+ * listener. Cursor-only sessions must also be handled here: waiting until PlayerQuitEvent can be too
+ * late to restore a staff-owned cursor to the inventory that Paper is about to save.</p>
  */
 public final class InvToolsTransferAbortListener implements Listener {
 
@@ -28,7 +29,7 @@ public final class InvToolsTransferAbortListener implements Listener {
         }
 
         InvToolsView view = holder(event.getView().getTopInventory());
-        if (view == null || view.onlineSession() || !view.hasViewerTransfers()) {
+        if (view == null || view.onlineSession()) {
             return;
         }
         view.abortOfflineTransfersForDisconnect();

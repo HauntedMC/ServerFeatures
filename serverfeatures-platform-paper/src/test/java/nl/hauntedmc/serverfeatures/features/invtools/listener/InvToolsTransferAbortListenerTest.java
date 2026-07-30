@@ -15,8 +15,8 @@ import static org.mockito.Mockito.when;
 class InvToolsTransferAbortListenerTest {
 
     @Test
-    void disconnectRollsBackOfflineTransfersBeforeNormalCloseHandling() {
-        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DISCONNECT, true);
+    void disconnectSettlesOfflineStateBeforeNormalCloseHandling() {
+        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DISCONNECT);
         InvToolsView view = holder(event);
 
         new InvToolsTransferAbortListener().onInventoryClose(event);
@@ -25,8 +25,8 @@ class InvToolsTransferAbortListenerTest {
     }
 
     @Test
-    void deathRollsBackOfflineTransfersBeforeNormalCloseHandling() {
-        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DEATH, true);
+    void deathSettlesOfflineStateBeforeNormalCloseHandling() {
+        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DEATH);
         InvToolsView view = holder(event);
 
         new InvToolsTransferAbortListener().onInventoryClose(event);
@@ -35,18 +35,19 @@ class InvToolsTransferAbortListenerTest {
     }
 
     @Test
-    void ordinaryCloseLeavesTransfersForAtomicSaveSettlement() {
-        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.PLAYER, true);
+    void cursorOnlyDisconnectStillInvokesEarlySettlement() {
+        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DISCONNECT);
         InvToolsView view = holder(event);
+        when(view.hasViewerTransfers()).thenReturn(false);
 
         new InvToolsTransferAbortListener().onInventoryClose(event);
 
-        verify(view, never()).abortOfflineTransfersForDisconnect();
+        verify(view).abortOfflineTransfersForDisconnect();
     }
 
     @Test
-    void disconnectWithoutCrossInventoryTransfersRequiresNoRollback() {
-        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.DISCONNECT, false);
+    void ordinaryCloseLeavesStateForAtomicSaveSettlement() {
+        InventoryCloseEvent event = closeEvent(InventoryCloseEvent.Reason.PLAYER);
         InvToolsView view = holder(event);
 
         new InvToolsTransferAbortListener().onInventoryClose(event);
@@ -54,10 +55,7 @@ class InvToolsTransferAbortListenerTest {
         verify(view, never()).abortOfflineTransfersForDisconnect();
     }
 
-    private static InventoryCloseEvent closeEvent(
-            InventoryCloseEvent.Reason reason,
-            boolean hasTransfers
-    ) {
+    private static InventoryCloseEvent closeEvent(InventoryCloseEvent.Reason reason) {
         InventoryCloseEvent event = mock(InventoryCloseEvent.class);
         Player player = mock(Player.class);
         InventoryView inventoryView = mock(InventoryView.class);
@@ -70,7 +68,6 @@ class InvToolsTransferAbortListenerTest {
         when(inventoryView.getTopInventory()).thenReturn(topInventory);
         when(topInventory.getHolder(false)).thenReturn(view);
         when(view.onlineSession()).thenReturn(false);
-        when(view.hasViewerTransfers()).thenReturn(hasTransfers);
         return event;
     }
 

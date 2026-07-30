@@ -8,10 +8,7 @@ import org.bukkit.inventory.PlayerInventory;
 import java.util.Arrays;
 import java.util.Objects;
 
-/**
- * Detached inventory state. Every item crossing this boundary is cloned so disk work and GUI
- * sessions never retain references owned by a live Bukkit inventory.
- */
+/** Detached inventory state with cloned items at every ownership boundary. */
 public final class InventorySnapshot {
 
     public static final int STORAGE_SIZE = 36;
@@ -22,9 +19,10 @@ public final class InventorySnapshot {
     public static final int HELMET_SLOT = 103;
     public static final int OFF_HAND_SLOT = -106;
 
-    private static final int[] PLAYER_BACKING_SLOTS = createPlayerBackingSlots();
-    private static final int[] PLAYER_SHIFT_INSERTION_SLOTS = createPlayerShiftInsertionSlots();
-    private static final int[] ENDER_BACKING_SLOTS = createEnderBackingSlots();
+    private static final int NO_EQUIPMENT_SLOT = Integer.MIN_VALUE;
+    private static final int[] PLAYER_BACKING_SLOTS = playerBackingSlots();
+    private static final int[] PLAYER_SHIFT_SLOTS = playerShiftSlots();
+    private static final int[] ENDER_SLOTS = sequentialSlots(ENDER_CHEST_SIZE);
 
     private final ItemStack[] storage;
     private final ItemStack helmet;
@@ -65,8 +63,8 @@ public final class InventorySnapshot {
     }
 
     public static InventorySnapshot capture(Player player) {
-        Objects.requireNonNull(player, "player");
-        PlayerInventory inventory = player.getInventory();
+        Player checked = Objects.requireNonNull(player, "player");
+        PlayerInventory inventory = checked.getInventory();
         return new InventorySnapshot(
                 inventory.getStorageContents(),
                 inventory.getHelmet(),
@@ -74,150 +72,135 @@ public final class InventorySnapshot {
                 inventory.getLeggings(),
                 inventory.getBoots(),
                 inventory.getItemInOffHand(),
-                player.getEnderChest().getStorageContents()
+                checked.getEnderChest().getStorageContents()
         );
     }
 
-    public InventorySnapshot withBackingSlot(InventoryKind kind, int backingSlot, ItemStack item) {
+    public InventorySnapshot withBackingSlot(InventoryKind kind, int slot, ItemStack item) {
         Objects.requireNonNull(kind, "kind");
         if (kind == InventoryKind.ENDER_CHEST) {
-            requireRange(backingSlot, 0, ENDER_CHEST_SIZE, "ender chest slot");
+            requireRange(slot, ENDER_CHEST_SIZE, "ender chest slot");
             ItemStack[] changed = enderChest();
-            changed[backingSlot] = cloneItem(item);
-            return new InventorySnapshot(
-                    storage,
-                    helmet,
-                    chestplate,
-                    leggings,
-                    boots,
-                    offHand,
-                    changed
-            );
+            changed[slot] = cloneItem(item);
+            return copy(storage, helmet, chestplate, leggings, boots, offHand, changed);
         }
-
-        if (backingSlot >= 0 && backingSlot < STORAGE_SIZE) {
+        if (slot >= 0 && slot < STORAGE_SIZE) {
             ItemStack[] changed = storage();
-            changed[backingSlot] = cloneItem(item);
-            return new InventorySnapshot(
-                    changed,
-                    helmet,
-                    chestplate,
-                    leggings,
-                    boots,
-                    offHand,
-                    enderChest
-            );
+            changed[slot] = cloneItem(item);
+            return copy(changed, helmet, chestplate, leggings, boots, offHand, enderChest);
         }
-
-        return switch (backingSlot) {
-            case BOOTS_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, leggings, item, offHand, enderChest);
-            case LEGGINGS_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, item, boots, offHand, enderChest);
-            case CHESTPLATE_SLOT ->
-                    new InventorySnapshot(storage, helmet, item, leggings, boots, offHand, enderChest);
-            case HELMET_SLOT ->
-                    new InventorySnapshot(storage, item, chestplate, leggings, boots, offHand, enderChest);
-            case OFF_HAND_SLOT ->
-                    new InventorySnapshot(storage, helmet, chestplate, leggings, boots, item, enderChest);
-            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + backingSlot);
+        return switch (slot) {
+            case HELMET_SLOT -> copy(storage, item, chestplate, leggings, boots, offHand, enderChest);
+            case CHESTPLATE_SLOT -> copy(storage, helmet, item, leggings, boots, offHand, enderChest);
+            case LEGGINGS_SLOT -> copy(storage, helmet, chestplate, item, boots, offHand, enderChest);
+            case BOOTS_SLOT -> copy(storage, helmet, chestplate, leggings, item, offHand, enderChest);
+            case OFF_HAND_SLOT -> copy(storage, helmet, chestplate, leggings, boots, item, enderChest);
+            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + slot);
         };
     }
 
-    public ItemStack itemAt(InventoryKind kind, int backingSlot) {
-        Objects.requireNonNull(kind, "kind");
-        return cloneItem(backingItemAt(kind, backingSlot));
+    public ItemStack itemAt(InventoryKind kind, int slot) {
+        return cloneItem(backingItemAt(Objects.requireNonNull(kind, "kind"), slot));
     }
 
-    private ItemStack backingItemAt(InventoryKind kind, int backingSlot) {
+    private ItemStack backingItemAt(InventoryKind kind, int slot) {
         if (kind == InventoryKind.ENDER_CHEST) {
-            requireRange(backingSlot, 0, ENDER_CHEST_SIZE, "ender chest slot");
-            return enderChest[backingSlot];
+            requireRange(slot, ENDER_CHEST_SIZE, "ender chest slot");
+            return enderChest[slot];
         }
-        if (backingSlot >= 0 && backingSlot < STORAGE_SIZE) {
-            return storage[backingSlot];
+        if (slot >= 0 && slot < STORAGE_SIZE) {
+            return storage[slot];
         }
-        return switch (backingSlot) {
-            case BOOTS_SLOT -> boots;
-            case LEGGINGS_SLOT -> leggings;
-            case CHESTPLATE_SLOT -> chestplate;
+        return switch (slot) {
             case HELMET_SLOT -> helmet;
+            case CHESTPLATE_SLOT -> chestplate;
+            case LEGGINGS_SLOT -> leggings;
+            case BOOTS_SLOT -> boots;
             case OFF_HAND_SLOT -> offHand;
-            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + backingSlot);
+            default -> throw new IllegalArgumentException("Unsupported player inventory slot: " + slot);
         };
     }
 
     public int[] changedBackingSlots(InventoryKind kind, InventorySnapshot other) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(other, "other");
-        int[] slots = kind == InventoryKind.PLAYER
-                ? PLAYER_BACKING_SLOTS
-                : ENDER_BACKING_SLOTS;
-        int[] changed = new int[slots.length];
-        int changedCount = 0;
-        for (int slot : slots) {
+        int[] candidates = kind == InventoryKind.PLAYER ? PLAYER_BACKING_SLOTS : ENDER_SLOTS;
+        int[] changed = new int[candidates.length];
+        int count = 0;
+        for (int slot : candidates) {
             if (!sameItem(backingItemAt(kind, slot), other.backingItemAt(kind, slot))) {
-                changed[changedCount++] = slot;
+                changed[count++] = slot;
             }
         }
-        return Arrays.copyOf(changed, changedCount);
+        return Arrays.copyOf(changed, count);
     }
 
-    /**
-     * Inserts a carried stack back into this inventory without overwriting another item.
-     *
-     * <p>This is used to settle an offline editor's cursor before committing playerdata. A
-     * correctly isolated edit session always has enough capacity because the carried items came
-     * from the same snapshot.</p>
-     */
+    /** Restores a cursor stack to any compatible slot without overwriting another item. */
     public InsertionResult insert(InventoryKind kind, ItemStack carriedItem) {
         Objects.requireNonNull(kind, "kind");
         return insertIntoSlots(
                 kind,
                 carriedItem,
-                kind == InventoryKind.PLAYER ? PLAYER_BACKING_SLOTS : ENDER_BACKING_SLOTS
+                kind == InventoryKind.PLAYER ? PLAYER_BACKING_SLOTS : ENDER_SLOTS
         );
     }
 
     /**
-     * Inserts an item using normal container shift-click semantics.
-     *
-     * <p>For player inventories this fills main storage before the hotbar and never auto-equips
-     * armor or the offhand. Ender chest insertion covers its 27 storage slots.</p>
+     * Shift-inserts with normal player expectations: empty matching armor slot first, then main
+     * storage, then hotbar. Ordinary items never probe armor or offhand slots.
      */
     public InsertionResult shiftInsert(InventoryKind kind, ItemStack carriedItem) {
         Objects.requireNonNull(kind, "kind");
-        return insertIntoSlots(
-                kind,
-                carriedItem,
-                kind == InventoryKind.PLAYER ? PLAYER_SHIFT_INSERTION_SLOTS : ENDER_BACKING_SLOTS
-        );
-    }
-
-    private InsertionResult insertIntoSlots(
-            InventoryKind kind,
-            ItemStack carriedItem,
-            int[] backingSlots
-    ) {
+        if (kind == InventoryKind.ENDER_CHEST) {
+            return insertIntoSlots(kind, carriedItem, ENDER_SLOTS);
+        }
         ItemStack remainder = cloneItem(carriedItem);
         if (remainder == null) {
             return new InsertionResult(this, null);
         }
 
         InventorySnapshot changed = this;
-        for (int backingSlot : backingSlots) {
-            ItemStack existing = changed.itemAt(kind, backingSlot);
+        int equipmentSlot = preferredEquipmentSlot(remainder);
+        if (equipmentSlot != NO_EQUIPMENT_SLOT
+                && changed.itemAt(InventoryKind.PLAYER, equipmentSlot) == null) {
+            changed = changed.withBackingSlot(
+                    InventoryKind.PLAYER,
+                    equipmentSlot,
+                    withAmount(remainder, 1)
+            );
+            remainder = withAmount(remainder, remainder.getAmount() - 1);
+        }
+        return remainder == null
+                ? new InsertionResult(changed, null)
+                : changed.insertIntoSlots(InventoryKind.PLAYER, remainder, PLAYER_SHIFT_SLOTS);
+    }
+
+    private InsertionResult insertIntoSlots(
+            InventoryKind kind,
+            ItemStack carriedItem,
+            int[] slots
+    ) {
+        ItemStack remainder = cloneItem(carriedItem);
+        if (remainder == null) {
+            return new InsertionResult(this, null);
+        }
+        InventorySnapshot changed = this;
+
+        for (int slot : slots) {
+            ItemStack existing = changed.itemAt(kind, slot);
             if (existing == null || !existing.isSimilar(remainder)) {
                 continue;
             }
-            int capacity = existing.getMaxStackSize() - existing.getAmount();
-            if (capacity <= 0) {
+            int transferred = Math.min(
+                    existing.getMaxStackSize() - existing.getAmount(),
+                    remainder.getAmount()
+            );
+            if (transferred <= 0) {
                 continue;
             }
-            int transferred = Math.min(capacity, remainder.getAmount());
             changed = changed.withBackingSlot(
                     kind,
-                    backingSlot,
+                    slot,
                     withAmount(existing, existing.getAmount() + transferred)
             );
             remainder = withAmount(remainder, remainder.getAmount() - transferred);
@@ -226,13 +209,12 @@ public final class InventorySnapshot {
             }
         }
 
-        for (int backingSlot : backingSlots) {
-            if (changed.itemAt(kind, backingSlot) != null
-                    || !allowsItemInSlot(kind, backingSlot, remainder)) {
+        for (int slot : slots) {
+            if (changed.itemAt(kind, slot) != null || !allowsItemInSlot(kind, slot, remainder)) {
                 continue;
             }
             int transferred = Math.min(remainder.getMaxStackSize(), remainder.getAmount());
-            changed = changed.withBackingSlot(kind, backingSlot, withAmount(remainder, transferred));
+            changed = changed.withBackingSlot(kind, slot, withAmount(remainder, transferred));
             remainder = withAmount(remainder, remainder.getAmount() - transferred);
             if (remainder == null) {
                 return new InsertionResult(changed, null);
@@ -269,16 +251,38 @@ public final class InventorySnapshot {
         return cloneArray(enderChest, ENDER_CHEST_SIZE, "enderChest");
     }
 
-    private static ItemStack[] cloneArray(ItemStack[] source, int expectedSize, String name) {
+    private static InventorySnapshot copy(
+            ItemStack[] storage,
+            ItemStack helmet,
+            ItemStack chestplate,
+            ItemStack leggings,
+            ItemStack boots,
+            ItemStack offHand,
+            ItemStack[] enderChest
+    ) {
+        return new InventorySnapshot(
+                storage,
+                helmet,
+                chestplate,
+                leggings,
+                boots,
+                offHand,
+                enderChest
+        );
+    }
+
+    private static ItemStack[] cloneArray(ItemStack[] source, int size, String name) {
         Objects.requireNonNull(source, name);
-        if (source.length != expectedSize) {
-            throw new IllegalArgumentException(name + " must contain " + expectedSize + " slots");
+        if (source.length != size) {
+            throw new IllegalArgumentException(name + " must contain " + size + " slots");
         }
         return Arrays.stream(source).map(InventorySnapshot::cloneItem).toArray(ItemStack[]::new);
     }
 
     private static ItemStack cloneItem(ItemStack item) {
-        return item == null || item.getType().isAir() || item.getAmount() <= 0 ? null : item.clone();
+        return item == null || item.getType().isAir() || item.getAmount() <= 0
+                ? null
+                : item.clone();
     }
 
     private static boolean sameItem(ItemStack first, ItemStack second) {
@@ -288,22 +292,36 @@ public final class InventorySnapshot {
         return first.getAmount() == second.getAmount() && first.isSimilar(second);
     }
 
-    private static boolean allowsItemInSlot(InventoryKind kind, int backingSlot, ItemStack item) {
+    private static boolean allowsItemInSlot(InventoryKind kind, int slot, ItemStack item) {
         if (kind != InventoryKind.PLAYER || item == null) {
             return true;
         }
-        EquipmentSlot expected = switch (backingSlot) {
-            case BOOTS_SLOT -> EquipmentSlot.FEET;
-            case LEGGINGS_SLOT -> EquipmentSlot.LEGS;
-            case CHESTPLATE_SLOT -> EquipmentSlot.CHEST;
+        EquipmentSlot required = switch (slot) {
             case HELMET_SLOT -> EquipmentSlot.HEAD;
+            case CHESTPLATE_SLOT -> EquipmentSlot.CHEST;
+            case LEGGINGS_SLOT -> EquipmentSlot.LEGS;
+            case BOOTS_SLOT -> EquipmentSlot.FEET;
             default -> null;
         };
-        return expected == null || item.getType().getEquipmentSlot() == expected;
+        return required == null || item.getType().getEquipmentSlot() == required;
+    }
+
+    private static int preferredEquipmentSlot(ItemStack item) {
+        EquipmentSlot equipmentSlot = item.getType().getEquipmentSlot();
+        if (equipmentSlot == null) {
+            return NO_EQUIPMENT_SLOT;
+        }
+        return switch (equipmentSlot) {
+            case HEAD -> HELMET_SLOT;
+            case CHEST -> CHESTPLATE_SLOT;
+            case LEGS -> LEGGINGS_SLOT;
+            case FEET -> BOOTS_SLOT;
+            default -> NO_EQUIPMENT_SLOT;
+        };
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {
-        if (amount <= 0) {
+        if (item == null || amount <= 0) {
             return null;
         }
         ItemStack changed = item.clone();
@@ -311,7 +329,7 @@ public final class InventorySnapshot {
         return changed;
     }
 
-    private static int[] createPlayerBackingSlots() {
+    private static int[] playerBackingSlots() {
         int[] slots = new int[STORAGE_SIZE + 5];
         for (int slot = 0; slot < STORAGE_SIZE; slot++) {
             slots[slot] = slot;
@@ -324,7 +342,7 @@ public final class InventorySnapshot {
         return slots;
     }
 
-    private static int[] createPlayerShiftInsertionSlots() {
+    private static int[] playerShiftSlots() {
         int[] slots = new int[STORAGE_SIZE];
         int index = 0;
         for (int slot = 9; slot < STORAGE_SIZE; slot++) {
@@ -336,16 +354,16 @@ public final class InventorySnapshot {
         return slots;
     }
 
-    private static int[] createEnderBackingSlots() {
-        int[] slots = new int[ENDER_CHEST_SIZE];
-        for (int slot = 0; slot < ENDER_CHEST_SIZE; slot++) {
+    private static int[] sequentialSlots(int size) {
+        int[] slots = new int[size];
+        for (int slot = 0; slot < size; slot++) {
             slots[slot] = slot;
         }
         return slots;
     }
 
-    private static void requireRange(int value, int minimum, int maximumExclusive, String name) {
-        if (value < minimum || value >= maximumExclusive) {
+    private static void requireRange(int value, int maximumExclusive, String name) {
+        if (value < 0 || value >= maximumExclusive) {
             throw new IllegalArgumentException(name + " is out of bounds: " + value);
         }
     }

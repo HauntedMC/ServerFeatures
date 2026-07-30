@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.invtools.service;
 import de.tr7zw.changeme.nbtapi.utils.DataFixerUtil;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.migration.PlayerDataMigrationCoordinator;
+import nl.hauntedmc.serverfeatures.features.invtools.persistence.CoordinatedOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.ManagedOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.NbtOfflinePlayerDataStore;
 import nl.hauntedmc.serverfeatures.features.invtools.persistence.PaperPlayerDataConverter;
@@ -35,8 +36,15 @@ public final class InvToolsServiceFactory {
                 feature.getPlugin().getDataFolder().toPath(),
                 migrationCoordinator
         );
+        RecoverableOfflinePlayerDataStore recoverableStore =
+                new RecoverableOfflinePlayerDataStore(playerDataStore, levelDirectory);
+        CoordinatedOfflinePlayerDataStore coordinatedStore =
+                new CoordinatedOfflinePlayerDataStore(
+                        recoverableStore,
+                        migrationCoordinator
+                );
         ManagedOfflinePlayerDataStore managedStore = new ManagedOfflinePlayerDataStore(
-                new RecoverableOfflinePlayerDataStore(playerDataStore, levelDirectory)
+                coordinatedStore
         );
         migrationCoordinator.attachShutdownBarrier(managedStore::closeAndAwait);
 

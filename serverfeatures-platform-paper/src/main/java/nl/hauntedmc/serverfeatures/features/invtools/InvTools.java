@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.invtools.command.InvToolsCommand;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsListener;
+import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsOfflineInteractionListener;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferAbortListener;
 import nl.hauntedmc.serverfeatures.features.invtools.listener.InvToolsTransferListener;
 import nl.hauntedmc.serverfeatures.features.invtools.meta.Meta;
@@ -70,6 +71,14 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
                 "&cJe InvTools-weergave is gesloten omdat je bewerkingstoegang is ingetrokken.");
         messages.add("invtools.cursor_not_empty",
                 "&cMaak eerst je cursor leeg voordat je offline spelerdata bewerkt.");
+        messages.add("invtools.cursor_finish_first",
+                "&ePlaats eerst de stack op je cursor voordat je shift-click gebruikt.");
+        messages.add("invtools.cursor_cross_stack",
+                "&ePlaats eerst de cursorstack voordat je die combineert met dezelfde items uit de andere inventaris.");
+        messages.add("invtools.drag_one_inventory",
+                "&eSleep binnen één inventaris tegelijk; gebruik klikken of shift-click tussen beide inventarissen.");
+        messages.add("invtools.interaction_failed",
+                "&cDe inventarisactie kon niet veilig worden afgerond; de offline wijzigingen zijn verworpen.");
         messages.add("invtools.open_failed",
                 "&cDe opslag van &e{player}&c kon niet veilig worden geopend.");
         messages.add("invtools.save_conflict",
@@ -158,6 +167,8 @@ public final class InvTools extends BukkitBaseFeature<Meta> {
         );
         getLifecycleManager().getListenerManager()
                 .registerListener(new InvToolsTransferAbortListener());
+        getLifecycleManager().getListenerManager()
+                .registerListener(new InvToolsOfflineInteractionListener(this));
         getLifecycleManager().getListenerManager()
                 .registerListener(new InvToolsTransferListener(this));
         getLifecycleManager().getListenerManager()
