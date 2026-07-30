@@ -40,6 +40,13 @@ public final class NametagAttachmentIndex {
         }
     }
 
+    public boolean isVisible(int ownerEntityId, int nametagEntityId, UUID viewerId) {
+        Attachment attachment = attachments.get(ownerEntityId);
+        return attachment != null
+                && attachment.nametagEntityId == nametagEntityId
+                && attachment.visibleViewers.contains(viewerId);
+    }
+
     public int[] appendNametagPassenger(UUID viewerId, int ownerEntityId, int[] passengers) {
         Attachment attachment = visibleAttachment(viewerId, ownerEntityId);
         if (attachment == null || contains(passengers, attachment.nametagEntityId)) {
