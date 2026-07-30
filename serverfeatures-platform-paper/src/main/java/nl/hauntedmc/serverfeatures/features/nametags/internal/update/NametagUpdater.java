@@ -50,9 +50,16 @@ public class NametagUpdater {
     }
 
     private void ownerOnlyUpdate(Nametag nametag, long delay) {
-        List<Player> viewers = List.of(nametag.getNametagOwner());
+        Player owner = nametag.getNametagOwner();
+        if (owner == null) {
+            return;
+        }
+
+        List<Player> viewers = List.of(owner);
         removeNametagEntity(nametag, viewers);
-        createNametagEntity(nametag, viewers, delay);
+        if (owner.isOnline() && nametagManager.isSelfViewAllowedNow(owner)) {
+            createNametagEntity(nametag, viewers, delay);
+        }
     }
 
     private void updateViewers(Nametag nametag, long delay) {
