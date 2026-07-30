@@ -8,6 +8,7 @@ import nl.hauntedmc.proxyfeatures.contracts.messaging.CommandRelayMessage;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
 import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
+import nl.hauntedmc.serverfeatures.features.commandrelay.audit.CommandRelayAuditLogService;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
@@ -25,14 +26,26 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class EventBusHandlerTest {
 
+    private static final String STREAM = "survival.commandrelay.command";
+    private static final String CONSUMER_GROUP = "serverfeatures.commandrelay.survival";
+
     @Test
-    void validDeliveryDispatchesThenPersistsAndAcknowledges() {
+    void validDeliveryDispatchesThenPersistsAcknowledgesAndAudits() {
         DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
         CommandRelay feature = featureWithWhitelist(List.of("say"));
         runTasksImmediately(feature);
@@ -47,7 +60,7 @@ class EventBusHandlerTest {
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getServer).thenReturn(server);
-            handler.consume("survival.commandrelay.command", "serverfeatures.commandrelay.survival");
+            handler.consume(STREAM, CONSUMER_GROUP);
 
             CommandRelayMessage message = new CommandRelayMessage(
                     "/say hello",
@@ -60,16 +73,24 @@ class EventBusHandlerTest {
             verify(server).dispatchCommand(console, "say hello");
             verify(store).put(eq(message.getOperationId()), any());
             verify(delivery).acknowledge();
+            verify(feature.getAuditLogService()).logEvent(
+                    "executed",
+                    STREAM,
+                    "proxy",
+                    "say",
+                    "say hello",
+                    null
+            );
         }
     }
 
     @Test
-    void malformedAndForbiddenDeliveriesAreAcknowledgedWithoutScheduling() {
+    void malformedAndForbiddenDeliveriesAreAcknowledgedAndAuditedWithoutScheduling() {
         DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
         CommandRelay feature = featureWithWhitelist(List.of("say"));
         Consumer<DurableDelivery<CommandRelayMessage>> consumer = installConsumer(redis);
         EventBusHandler handler = handler(feature, redis, emptyStore());
-        handler.consume("survival.commandrelay.command", "serverfeatures.commandrelay.survival");
+        handler.consume(STREAM, CONSUMER_GROUP);
 
         CommandRelayMessage mismatched = new CommandRelayMessage(
                 "/say hello",
@@ -98,10 +119,26 @@ class EventBusHandlerTest {
         verify(feature.getLifecycleManager().getTaskManager(), never())
                 .scheduleOneTimeTask(any(Runnable.class));
         verify(feature.getLogger()).warning(contains("forbidden"));
+        verify(feature.getAuditLogService()).logEvent(
+                "invalid_payload",
+                STREAM,
+                "proxy",
+                null,
+                "/say hello",
+                "operation_id_mismatch"
+        );
+        verify(feature.getAuditLogService()).logEvent(
+                "forbidden_command",
+                STREAM,
+                "proxy",
+                "stop",
+                "stop now",
+                null
+        );
     }
 
     @Test
-    void completedReplayIsAcknowledgedWithoutDispatch() {
+    void completedReplayIsAcknowledgedAndAuditedWithoutDispatch() {
         DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
         CommandRelay feature = featureWithWhitelist(List.of("say"));
         FileCacheStore store = mock(FileCacheStore.class);
@@ -111,7 +148,7 @@ class EventBusHandlerTest {
         ));
         Consumer<DurableDelivery<CommandRelayMessage>> consumer = installConsumer(redis);
         EventBusHandler handler = handler(feature, redis, store);
-        handler.consume("survival.commandrelay.command", "serverfeatures.commandrelay.survival");
+        handler.consume(STREAM, CONSUMER_GROUP);
 
         CommandRelayMessage message = new CommandRelayMessage("/say hello", "proxy", "command.done");
         DurableDelivery<CommandRelayMessage> delivery = delivery(message, "command.done");
@@ -120,10 +157,57 @@ class EventBusHandlerTest {
         verify(delivery).acknowledge();
         verify(feature.getLifecycleManager().getTaskManager(), never())
                 .scheduleOneTimeTask(any(Runnable.class));
+        verify(feature.getAuditLogService()).logEvent(
+                "replay_ignored",
+                STREAM,
+                "proxy",
+                null,
+                "/say hello",
+                "operation_id=command.done"
+        );
     }
 
     @Test
-    void dispatchFailureRemainsUnacknowledgedForRetry() {
+    void rejectedDispatchIsPersistedAcknowledgedAndAudited() {
+        DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
+        CommandRelay feature = featureWithWhitelist(List.of("say"));
+        runTasksImmediately(feature);
+        FileCacheStore store = emptyStore();
+        Consumer<DurableDelivery<CommandRelayMessage>> consumer = installConsumer(redis);
+        EventBusHandler handler = handler(feature, redis, store);
+
+        Server server = mock(Server.class);
+        ConsoleCommandSender console = mock(ConsoleCommandSender.class);
+        when(server.getConsoleSender()).thenReturn(console);
+        when(server.dispatchCommand(console, "say hello")).thenReturn(false);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getServer).thenReturn(server);
+            handler.consume(STREAM, CONSUMER_GROUP);
+
+            CommandRelayMessage message = new CommandRelayMessage(
+                    "/say hello",
+                    "proxy",
+                    "command.rejected"
+            );
+            DurableDelivery<CommandRelayMessage> delivery = delivery(message, message.getOperationId());
+            consumer.accept(delivery);
+
+            verify(store).put(eq(message.getOperationId()), any());
+            verify(delivery).acknowledge();
+            verify(feature.getAuditLogService()).logEvent(
+                    "dispatch_rejected",
+                    STREAM,
+                    "proxy",
+                    "say",
+                    "say hello",
+                    "success=false"
+            );
+        }
+    }
+
+    @Test
+    void dispatchFailureRemainsUnacknowledgedForRetryAndIsAudited() {
         DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
         CommandRelay feature = featureWithWhitelist(List.of("say"));
         runTasksImmediately(feature);
@@ -137,7 +221,7 @@ class EventBusHandlerTest {
 
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
             bukkit.when(Bukkit::getServer).thenReturn(server);
-            handler.consume("survival.commandrelay.command", "serverfeatures.commandrelay.survival");
+            handler.consume(STREAM, CONSUMER_GROUP);
 
             CommandRelayMessage message = new CommandRelayMessage(
                     "/say hello",
@@ -149,6 +233,14 @@ class EventBusHandlerTest {
 
             verify(delivery, never()).acknowledge();
             verify(feature.getLogger()).warning(contains("dispatch failed"));
+            verify(feature.getAuditLogService()).logEvent(
+                    "dispatch_error",
+                    STREAM,
+                    "proxy",
+                    "say",
+                    "say hello",
+                    "boom"
+            );
         }
     }
 
@@ -189,7 +281,7 @@ class EventBusHandlerTest {
         )).thenReturn(subscription);
 
         EventBusHandler handler = handler(feature, redis, emptyStore());
-        handler.consume("survival.commandrelay.command", "serverfeatures.commandrelay.survival");
+        handler.consume(STREAM, CONSUMER_GROUP);
         handler.disable();
         handler.disable();
 
@@ -212,10 +304,7 @@ class EventBusHandlerTest {
         EventBusHandler handler = handler(feature, redis, emptyStore());
         assertThrows(
                 IllegalStateException.class,
-                () -> handler.consume(
-                        "survival.commandrelay.command",
-                        "serverfeatures.commandrelay.survival"
-                )
+                () -> handler.consume(STREAM, CONSUMER_GROUP)
         );
 
         verify(feature.getLogger()).severe(contains("failed to consume"));
@@ -226,7 +315,12 @@ class EventBusHandlerTest {
             DurableMessagingDataAccess redis,
             FileCacheStore store
     ) {
-        return new EventBusHandler(feature, redis, new ProcessedCommandLedger(store, 60_000L));
+        return new EventBusHandler(
+                feature,
+                redis,
+                new ProcessedCommandLedger(store, 60_000L),
+                feature.getAuditLogService()
+        );
     }
 
     private static FileCacheStore emptyStore() {
@@ -259,8 +353,8 @@ class EventBusHandlerTest {
                 ArgumentCaptor.forClass(Consumer.class);
         DurableSubscription subscription = subscription();
         when(redis.consume(
-                eq("survival.commandrelay.command"),
-                eq("serverfeatures.commandrelay.survival"),
+                eq(STREAM),
+                eq(CONSUMER_GROUP),
                 anyString(),
                 eq(CommandRelayMessage.TYPE),
                 eq(CommandRelayMessage.class),
@@ -293,10 +387,12 @@ class EventBusHandlerTest {
         FeatureLogger logger = mock(FeatureLogger.class);
         FeatureLifecycleManager lifecycle = mock(FeatureLifecycleManager.class);
         FeatureTaskManager tasks = mock(FeatureTaskManager.class);
+        CommandRelayAuditLogService auditLogService = mock(CommandRelayAuditLogService.class);
 
         when(feature.getConfigHandler()).thenReturn(config);
         when(feature.getLogger()).thenReturn(logger);
         when(feature.getLifecycleManager()).thenReturn(lifecycle);
+        when(feature.getAuditLogService()).thenReturn(auditLogService);
         when(lifecycle.getTaskManager()).thenReturn(tasks);
         when(config.get("command_whitelist")).thenReturn(whitelist);
         when(config.getGlobalSetting("server_name", String.class, "server")).thenReturn("survival");
