@@ -96,10 +96,8 @@ public final class RestartLifecyclePublisher {
                 playerIds
         );
         feature.getLogger().info(
-                "Publishing restart PREPARE {} for '{}' with {} player(s).",
-                restartId,
-                serverName,
-                playerIds.size()
+                "Publishing restart PREPARE " + restartId + " for '" + serverName
+                        + "' with " + playerIds.size() + " player(s)."
         );
         return publish(message);
     }
@@ -147,9 +145,8 @@ public final class RestartLifecyclePublisher {
         publish(message).whenComplete((published, throwable) -> {
             if (throwable == null) {
                 feature.getLogger().info(
-                        "Published restart READY {} for '{}' after full server load.",
-                        marker.restartId(),
-                        marker.serverName()
+                        "Published restart READY " + marker.restartId() + " for '"
+                                + marker.serverName() + "' after full server load."
                 );
                 deleteMarker("published READY");
                 readyPublishing.set(false);
