@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.invtools.listener;
 
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.InvToolsView;
-import nl.hauntedmc.serverfeatures.features.invtools.gui.InventoryClickMutation;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.InventorySlotLayout;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.OfflineCursorTransaction;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.PlayerStorageTransfer;
@@ -15,17 +14,13 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
@@ -36,11 +31,14 @@ public final class InvToolsOfflineInteractionListener implements Listener {
 
     private final InvTools feature;
     private final boolean auditEdits;
-    private final Map<UUID, SessionState> sessions = new ConcurrentHashMap<>();
 
     public InvToolsOfflineInteractionListener(InvTools feature) {
         this.feature = Objects.requireNonNull(feature, "feature");
-        this.auditEdits = feature.getConfigHandler().get("audit_edits", Boolean.class, true);
+        this.auditEdits = feature.getConfigHandler().get(
+                "audit_edits",
+                Boolean.class,
+                true
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -53,10 +51,9 @@ public final class InvToolsOfflineInteractionListener implements Listener {
             return;
         }
 
-        SessionState state = stateFor(viewer, view, event.getCursor());
-        if (!sameItem(state.cursor().cursor(), event.getCursor())) {
+        if (!sameItem(view.cursor(), event.getCursor())) {
             event.setCancelled(true);
-            synchronizeCursor(viewer, state);
+            synchronizeCursor(viewer, view);
             feature.getLogger().warning(
                     "Corrected an unexpected cursor change in offline InvTools view for "
                             + viewer.getUniqueId()
@@ -65,7 +62,7 @@ public final class InvToolsOfflineInteractionListener implements Listener {
         }
 
         if (event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY) {
-            if (state.cursor().hasCursor()) {
+            if (!isEmpty(view.cursor())) {
                 event.setCancelled(true);
                 send(viewer, "invtools.cursor_finish_first");
             }
@@ -77,7 +74,7 @@ public final class InvToolsOfflineInteractionListener implements Listener {
 
         if (event.getClickedInventory() == viewer.getInventory()
                 && isHotbarSwap(event.getAction())) {
-            handleViewerHotbarSwap(event, viewer, state);
+            handleViewerHotbarSwap(event, viewer, view);
             return;
         }
 
@@ -90,13 +87,15 @@ public final class InvToolsOfflineInteractionListener implements Listener {
             return;
         }
 
+        InventorySnapshot beforeTarget = view.snapshot();
+        ItemStack[] beforeViewer = viewer.getInventory().getStorageContents();
         ItemStack current = target.side() == OfflineCursorTransaction.Side.TARGET
-                ? view.snapshot().itemAt(view.kind(), target.slot())
-                : viewer.getInventory().getStorageContents()[target.slot()];
-        var planned = state.cursor().plan(target.side(), event.getAction(), current);
+                ? beforeTarget.itemAt(view.kind(), target.slot())
+                : cloneOrNull(beforeViewer[target.slot()]);
+        var planned = view.planOfflineCursor(target.side(), event.getAction(), current);
         if (planned.isEmpty()) {
-            if (state.cursor().hasCursor()
-                    && state.cursor().owner() != target.side()
+            if (!isEmpty(view.cursor())
+                    && view.cursorOwner() != target.side()
                     && isPickup(event.getAction())) {
                 send(viewer, "invtools.cursor_cross_stack");
             }
@@ -109,32 +108,29 @@ public final class InvToolsOfflineInteractionListener implements Listener {
             return;
         }
 
-        InventorySnapshot beforeTarget = view.snapshot();
         InventorySnapshot changedTarget = target.side() == OfflineCursorTransaction.Side.TARGET
-                ? beforeTarget.withBackingSlot(view.kind(), target.slot(), plan.result().slotItem())
+                ? beforeTarget.withBackingSlot(
+                        view.kind(),
+                        target.slot(),
+                        plan.result().slotItem()
+                )
                 : beforeTarget;
-        ItemStack[] beforeViewer = viewer.getInventory().getStorageContents();
         ItemStack[] changedViewer = PlayerStorageTransfer.copyStorage(beforeViewer);
         if (target.side() == OfflineCursorTransaction.Side.VIEWER) {
             changedViewer[target.slot()] = cloneOrNull(plan.result().slotItem());
         }
 
         try {
-            boolean applied = applyPlan(
-                    viewer,
-                    view,
-                    target,
+            if (!view.applyOfflineCursorMutation(
                     plan,
+                    changedTarget,
                     beforeViewer,
-                    changedViewer,
-                    changedTarget
-            );
-            if (!applied) {
-                synchronizeCursor(viewer, state);
+                    changedViewer
+            )) {
+                synchronizeCursor(viewer, view);
                 return;
             }
-            state.cursor().commit(plan);
-            synchronizeCursor(viewer, state);
+            synchronizeCursor(viewer, view);
             auditChanges(viewer, view, beforeTarget, changedTarget);
         } catch (RuntimeException exception) {
             feature.getLogger().log(
@@ -143,9 +139,7 @@ public final class InvToolsOfflineInteractionListener implements Listener {
                             + viewer.getUniqueId() + " and target " + view.targetId(),
                     exception
             );
-            viewer.getInventory().setStorageContents(beforeViewer);
-            view.refresh(beforeTarget);
-            synchronizeCursor(viewer, state);
+            synchronizeCursor(viewer, view);
         }
     }
 
@@ -159,106 +153,72 @@ public final class InvToolsOfflineInteractionListener implements Listener {
             return;
         }
 
-        SessionState state = stateFor(viewer, view, event.getOldCursor());
         event.setCancelled(true);
-        if (!state.cursor().hasCursor()
-                || !sameItem(state.cursor().cursor(), event.getOldCursor())) {
-            synchronizeCursor(viewer, state);
+        if (isEmpty(view.cursor()) || !sameItem(view.cursor(), event.getOldCursor())) {
+            synchronizeCursor(viewer, view);
             return;
         }
 
         DragTarget dragTarget = dragTarget(event, view);
-        if (dragTarget == null) {
+        if (dragTarget == null || view.cursorOwner() != dragTarget.side()) {
             send(viewer, "invtools.drag_one_inventory");
-            return;
-        }
-        if (state.cursor().owner() != dragTarget.side()) {
-            send(viewer, "invtools.drag_one_inventory");
+            synchronizeCursor(viewer, view);
             return;
         }
 
+        InventorySnapshot beforeTarget = view.snapshot();
+        InventorySnapshot changedTarget = beforeTarget;
+        ItemStack[] beforeViewer = viewer.getInventory().getStorageContents();
+        ItemStack[] changedViewer = PlayerStorageTransfer.copyStorage(beforeViewer);
         if (dragTarget.side() == OfflineCursorTransaction.Side.VIEWER) {
-            ItemStack[] changed = viewer.getInventory().getStorageContents();
             for (Map.Entry<Integer, ItemStack> entry : dragTarget.items().entrySet()) {
-                changed[entry.getKey()] = cloneOrNull(entry.getValue());
+                changedViewer[entry.getKey()] = cloneOrNull(entry.getValue());
             }
-            viewer.getInventory().setStorageContents(changed);
         } else {
-            InventorySnapshot before = view.snapshot();
-            InventorySnapshot changed = before;
             for (Map.Entry<Integer, ItemStack> entry : dragTarget.items().entrySet()) {
                 if (!allowsItemInSlot(view.kind(), entry.getKey(), entry.getValue())) {
-                    synchronizeCursor(viewer, state);
+                    synchronizeCursor(viewer, view);
                     return;
                 }
-                changed = changed.withBackingSlot(view.kind(), entry.getKey(), entry.getValue());
+                changedTarget = changedTarget.withBackingSlot(
+                        view.kind(),
+                        entry.getKey(),
+                        entry.getValue()
+                );
             }
-            for (int backingSlot : before.changedBackingSlots(view.kind(), changed)) {
-                if (!view.updateBackingSlot(
-                        backingSlot,
-                        changed.itemAt(view.kind(), backingSlot),
-                        null
-                )) {
-                    synchronizeCursor(viewer, state);
-                    return;
-                }
-            }
-            auditChanges(viewer, view, before, changed);
         }
 
-        state.cursor().replaceAfterSameSideDrag(event.getCursor(), dragTarget.side());
-        synchronizeCursor(viewer, state);
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player viewer)) {
-            return;
-        }
-        InvToolsView view = holder(event.getView().getTopInventory());
-        settleAndRemove(viewer, view);
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player viewer = event.getPlayer();
-        InvToolsView view = holder(viewer.getOpenInventory().getTopInventory());
-        settleAndRemove(viewer, view);
-    }
-
-    private boolean applyPlan(
-            Player viewer,
-            InvToolsView view,
-            SlotTarget target,
-            OfflineCursorTransaction.Plan plan,
-            ItemStack[] beforeViewer,
-            ItemStack[] changedViewer,
-            InventorySnapshot changedTarget
-    ) {
-        OfflineCursorTransaction.Transfer transfer = plan.transfer();
-        if (transfer != null) {
-            return view.applyOfflineShiftTransfer(
+        try {
+            if (!view.applyOfflineSameSideDrag(
                     changedTarget,
                     beforeViewer,
                     changedViewer,
-                    transfer.item(),
-                    transfer.addedToViewer()
+                    event.getCursor(),
+                    dragTarget.side()
+            )) {
+                synchronizeCursor(viewer, view);
+                return;
+            }
+            synchronizeCursor(viewer, view);
+            auditChanges(viewer, view, beforeTarget, changedTarget);
+        } catch (RuntimeException exception) {
+            feature.getLogger().log(
+                    Level.WARNING,
+                    "Offline InvTools drag failed for viewer " + viewer.getUniqueId()
+                            + " and target " + view.targetId(),
+                    exception
             );
+            synchronizeCursor(viewer, view);
         }
-        if (target.side() == OfflineCursorTransaction.Side.TARGET) {
-            return view.updateBackingSlot(target.slot(), plan.result().slotItem(), null);
-        }
-        viewer.getInventory().setStorageContents(changedViewer);
-        return true;
     }
 
     private void handleViewerHotbarSwap(
             InventoryClickEvent event,
             Player viewer,
-            SessionState state
+            InvToolsView view
     ) {
         event.setCancelled(true);
-        if (state.cursor().hasCursor()) {
+        if (!isEmpty(view.cursor())) {
             send(viewer, "invtools.cursor_finish_first");
             return;
         }
@@ -276,80 +236,11 @@ public final class InvToolsOfflineInteractionListener implements Listener {
         viewer.updateInventory();
     }
 
-    private void settleAndRemove(Player viewer, InvToolsView view) {
-        SessionState state = sessions.remove(viewer.getUniqueId());
-        if (state == null || view == null || state.view() != view || !state.cursor().hasCursor()) {
-            return;
-        }
-
-        ItemStack cursor = state.cursor().cursor();
-        try {
-            if (state.cursor().owner() == OfflineCursorTransaction.Side.VIEWER) {
-                PlayerStorageTransfer.InsertionResult insertion = PlayerStorageTransfer.insert(
-                        viewer.getInventory().getStorageContents(),
-                        cursor
-                );
-                if (insertion.remainder() != null) {
-                    throw new IllegalStateException("Viewer cursor no longer fits its source inventory");
-                }
-                viewer.getInventory().setStorageContents(insertion.storage());
-            } else {
-                InventorySnapshot before = view.snapshot();
-                InventorySnapshot.InsertionResult insertion = before.insert(view.kind(), cursor);
-                if (insertion.remainder() != null) {
-                    throw new IllegalStateException("Target cursor no longer fits its source inventory");
-                }
-                InventorySnapshot changed = insertion.snapshot();
-                for (int backingSlot : before.changedBackingSlots(view.kind(), changed)) {
-                    if (!view.updateBackingSlot(
-                            backingSlot,
-                            changed.itemAt(view.kind(), backingSlot),
-                            null
-                    )) {
-                        throw new IllegalStateException("Offline view stopped accepting cursor settlement");
-                    }
-                }
-                auditChanges(viewer, view, before, changed);
-            }
-            state.cursor().clear();
-            viewer.setItemOnCursor(null);
-            viewer.updateInventory();
-        } catch (RuntimeException exception) {
-            feature.getLogger().log(
-                    Level.SEVERE,
-                    "Could not settle offline InvTools cursor for viewer " + viewer.getUniqueId()
-                            + " and target " + view.targetId() + "; discarding the target session",
-                    exception
-            );
-            if (state.cursor().owner() == OfflineCursorTransaction.Side.VIEWER) {
-                Map<Integer, ItemStack> remainder = viewer.getInventory().addItem(cursor);
-                for (ItemStack item : remainder.values()) {
-                    viewer.getWorld().dropItemNaturally(viewer.getLocation(), item);
-                }
-            }
-            state.cursor().clear();
-            viewer.setItemOnCursor(null);
-            view.closeWithoutSaving();
-            send(viewer, "invtools.interaction_failed");
-        }
-    }
-
-    private SessionState stateFor(Player viewer, InvToolsView view, ItemStack actualCursor) {
-        return sessions.compute(viewer.getUniqueId(), (ignored, existing) -> {
-            if (existing != null && existing.view() == view) {
-                return existing;
-            }
-            OfflineCursorTransaction cursor = isEmpty(actualCursor)
-                    ? new OfflineCursorTransaction()
-                    : new OfflineCursorTransaction(
-                            actualCursor,
-                            OfflineCursorTransaction.Side.VIEWER
-                    );
-            return new SessionState(view, cursor);
-        });
-    }
-
-    private SlotTarget slotTarget(InventoryClickEvent event, Player viewer, InvToolsView view) {
+    private SlotTarget slotTarget(
+            InventoryClickEvent event,
+            Player viewer,
+            InvToolsView view
+    ) {
         if (view.owns(event.getClickedInventory())) {
             var backingSlot = InventorySlotLayout.backingSlot(view.kind(), event.getSlot());
             return backingSlot.isEmpty()
@@ -362,7 +253,10 @@ public final class InvToolsOfflineInteractionListener implements Listener {
         if (event.getClickedInventory() == viewer.getInventory()
                 && event.getSlot() >= 0
                 && event.getSlot() < InventorySnapshot.STORAGE_SIZE) {
-            return new SlotTarget(OfflineCursorTransaction.Side.VIEWER, event.getSlot());
+            return new SlotTarget(
+                    OfflineCursorTransaction.Side.VIEWER,
+                    event.getSlot()
+            );
         }
         return null;
     }
@@ -406,8 +300,8 @@ public final class InvToolsOfflineInteractionListener implements Listener {
                 && viewer.hasPermission(InvToolsService.openEditPermission(view.kind()));
     }
 
-    private void synchronizeCursor(Player viewer, SessionState state) {
-        viewer.setItemOnCursor(state.cursor().cursor());
+    private void synchronizeCursor(Player viewer, InvToolsView view) {
+        viewer.setItemOnCursor(view.cursor());
         viewer.updateInventory();
     }
 
@@ -504,13 +398,6 @@ public final class InvToolsOfflineInteractionListener implements Listener {
 
     private static ItemStack cloneOrNull(ItemStack item) {
         return isEmpty(item) ? null : item.clone();
-    }
-
-    private record SessionState(InvToolsView view, OfflineCursorTransaction cursor) {
-        private SessionState {
-            Objects.requireNonNull(view, "view");
-            Objects.requireNonNull(cursor, "cursor");
-        }
     }
 
     private record SlotTarget(OfflineCursorTransaction.Side side, int slot) {
