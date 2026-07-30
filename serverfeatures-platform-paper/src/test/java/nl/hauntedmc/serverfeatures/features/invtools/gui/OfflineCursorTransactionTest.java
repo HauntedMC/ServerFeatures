@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.invtools.gui;
 
+import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.bukkit.Material;
 import org.bukkit.event.inventory.InventoryAction;
 import org.junit.jupiter.api.Test;
@@ -75,13 +76,13 @@ class OfflineCursorTransactionTest {
     }
 
     @Test
-    void pickupAndPartialPlacementPreserveThePreferredReturnSlot() {
+    void partialSameSidePlacementPreservesThePreferredReturnSlot() {
         OfflineCursorTransaction transaction = new OfflineCursorTransaction();
         OfflineCursorTransaction.Plan pickup = transaction.plan(
                 OfflineCursorTransaction.Side.TARGET,
                 InventorySnapshot.HELMET_SLOT,
                 InventoryAction.PICKUP_ALL,
-                item(Material.DIAMOND_HELMET)
+                item(Material.CARVED_PUMPKIN, 3)
         ).orElseThrow();
         transaction.commit(pickup);
 
@@ -95,7 +96,8 @@ class OfflineCursorTransactionTest {
         ).orElseThrow();
         transaction.commit(placement);
 
-        assertNull(transaction.preferredReturnSlot());
+        assertEquals(2, transaction.cursor().getAmount());
+        assertEquals(InventorySnapshot.HELMET_SLOT, transaction.preferredReturnSlot());
     }
 
     @Test
