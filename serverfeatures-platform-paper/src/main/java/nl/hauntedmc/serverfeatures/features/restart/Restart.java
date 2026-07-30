@@ -1,21 +1,31 @@
 package nl.hauntedmc.serverfeatures.features.restart;
 
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
+import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
+import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.restart.command.RestartCommand;
 import nl.hauntedmc.serverfeatures.features.restart.internal.AutoRestartScheduler;
 import nl.hauntedmc.serverfeatures.features.restart.internal.CommandOverride;
 import nl.hauntedmc.serverfeatures.features.restart.internal.RestartService;
+import nl.hauntedmc.serverfeatures.features.restart.listener.RestartServerLoadListener;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartLifecyclePublisher;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartMarkerStore;
 import nl.hauntedmc.serverfeatures.features.restart.meta.Meta;
 
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 public class Restart extends BukkitBaseFeature<Meta> {
 
+    private static final String DEFAULT_RESTART_STREAM = "server.restart.lifecycle";
+
     private RestartService service;
     private AutoRestartScheduler auto;
+    private RestartLifecyclePublisher lifecyclePublisher;
 
     public Restart(FeatureContext<Meta> context) {
         super(context);
@@ -39,6 +49,17 @@ public class Restart extends BukkitBaseFeature<Meta> {
         c.put("auto.time", "05:00"); // HH:mm (server timezone)
         c.put("auto.wait_after_now_seconds", 5); // seconds to wait after the "now" message
 
+        // Optional proxy-side reconnect after this backend has fully restarted.
+        c.put("autoreconnect.enabled", false);
+        c.put("autoreconnect.stream", DEFAULT_RESTART_STREAM);
+        c.put("autoreconnect.wait_after_ready_seconds", 5);
+        c.put("autoreconnect.player_interval_millis", 250);
+        c.put("autoreconnect.prepare_publish_timeout_millis", 3000);
+        c.put("autoreconnect.prepare_settle_millis", 500);
+        c.put("autoreconnect.session_ttl_seconds", 600);
+        c.put("autoreconnect.ready_publish_attempts", 12);
+        c.put("autoreconnect.ready_retry_seconds", 5);
+
         return c;
     }
 
@@ -60,8 +81,8 @@ public class Restart extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-
-        this.service = new RestartService(this);
+        initializeAutoreconnect();
+        this.service = new RestartService(this, lifecyclePublisher);
 
         RestartCommand restartCmd = new RestartCommand(this, service);
 
@@ -80,7 +101,6 @@ public class Restart extends BukkitBaseFeature<Meta> {
             this.auto = new AutoRestartScheduler(this, service, time);
             this.auto.scheduleNext();
         }
-
     }
 
     @Override
@@ -93,6 +113,43 @@ public class Restart extends BukkitBaseFeature<Meta> {
             service.cancelIfRunning();
             service = null;
         }
+        if (lifecyclePublisher != null) {
+            lifecyclePublisher.close();
+            lifecyclePublisher = null;
+        }
+    }
+
+    private void initializeAutoreconnect() {
+        if (!getBoolean("autoreconnect.enabled", false)) {
+            return;
+        }
+        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+        Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
+                .getDataManager()
+                .registerRedisMessagingProvider("restart-autoreconnect-redis", "hauntedmc");
+        if (redisProvider.isEmpty()) {
+            getLogger().warning("Restart autoreconnect is disabled because Redis messaging is unavailable.");
+            return;
+        }
+
+        DurableMessagingDataAccess messaging = redisProvider.get().getDurableDataAccess();
+        String stream = getString("autoreconnect.stream", DEFAULT_RESTART_STREAM);
+        String serverName = getConfigHandler().getGlobalSetting("server_name", String.class, "server");
+        Path markerPath = getPlugin().getDataFolder()
+                .toPath()
+                .resolve("restart")
+                .resolve("autoreconnect.properties");
+        this.lifecyclePublisher = new RestartLifecyclePublisher(
+                this,
+                messaging,
+                new RestartMarkerStore(markerPath),
+                stream,
+                serverName
+        );
+        getLifecycleManager().getListenerManager().registerListener(
+                new RestartServerLoadListener(lifecyclePublisher)
+        );
+        getLogger().info("Restart autoreconnect lifecycle messaging enabled for backend '" + serverName + "'.");
     }
 
     /* small helpers */
@@ -109,6 +166,26 @@ public class Restart extends BukkitBaseFeature<Meta> {
         } catch (Throwable ignored) {
         }
         return def;
+    }
+
+    public long getLong(String key, long def) {
+        Object v = getConfigHandler().get(key);
+        if (v instanceof Number n) return n.longValue();
+        try {
+            return Long.parseLong(String.valueOf(v));
+        } catch (Throwable ignored) {
+        }
+        return def;
+    }
+
+    public int getPositiveInt(String key, int def) {
+        int value = getInt(key, def);
+        return value > 0 ? value : def;
+    }
+
+    public long getPositiveLong(String key, long def) {
+        long value = getLong(key, def);
+        return value > 0L ? value : def;
     }
 
     public String getString(String key, String def) {
