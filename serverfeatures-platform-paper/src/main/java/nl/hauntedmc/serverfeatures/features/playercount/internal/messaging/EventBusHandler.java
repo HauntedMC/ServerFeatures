@@ -9,6 +9,7 @@ import nl.hauntedmc.serverfeatures.features.playercount.messaging.PlayerCountSna
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Owns the logical Redis subscription for player-count snapshots.
@@ -16,10 +17,12 @@ import java.util.concurrent.TimeoutException;
 public final class EventBusHandler {
 
     private static final long UNSUBSCRIBE_TIMEOUT_SECONDS = 5L;
+    private static final long INVALID_WARNING_INTERVAL_MILLIS = 60_000L;
 
     private final PlayerCount feature;
     private final MessagingDataAccess redisBus;
     private final PlayerCountSnapshotStore store;
+    private final AtomicLong lastInvalidWarningAt = new AtomicLong();
     private Subscription subscription;
 
     public EventBusHandler(
@@ -60,9 +63,24 @@ public final class EventBusHandler {
     }
 
     private void handleIncoming(PlayerCountSnapshotMessage message) {
-        PlayerCountSnapshotStore.ApplyResult result = store.apply(message, System.currentTimeMillis());
-        if (result == PlayerCountSnapshotStore.ApplyResult.INVALID) {
-            feature.getLogger().warning("Ignored an invalid player-count snapshot.");
+        long now = System.currentTimeMillis();
+        PlayerCountSnapshotStore.ApplyResult result = store.apply(message, now);
+        if (result == PlayerCountSnapshotStore.ApplyResult.INVALID && claimInvalidWarning(now)) {
+            feature.getLogger().warning(
+                    "Ignored an invalid player-count snapshot; repeated warnings are rate-limited."
+            );
+        }
+    }
+
+    private boolean claimInvalidWarning(long nowEpochMillis) {
+        while (true) {
+            long previous = lastInvalidWarningAt.get();
+            if (previous > 0L && nowEpochMillis - previous < INVALID_WARNING_INTERVAL_MILLIS) {
+                return false;
+            }
+            if (lastInvalidWarningAt.compareAndSet(previous, nowEpochMillis)) {
+                return true;
+            }
         }
     }
 
