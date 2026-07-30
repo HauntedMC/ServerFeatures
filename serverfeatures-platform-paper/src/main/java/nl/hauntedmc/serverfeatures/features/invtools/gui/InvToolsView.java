@@ -11,6 +11,7 @@ import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -21,6 +22,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,9 +42,9 @@ public final class InvToolsView implements InventoryHolder {
     private final OfflinePlayerData originalOfflineData;
     private final Inventory inventory;
     private final List<ViewerTransfer> viewerTransfers = new ArrayList<>();
+    private final OfflineCursorTransaction offlineCursor = new OfflineCursorTransaction();
 
     private InventorySnapshot snapshot;
-    private ItemStack cursor;
     private State state = State.ACTIVE;
     private boolean dirty;
     private boolean saveOutcomeAudited;
@@ -73,7 +75,9 @@ public final class InvToolsView implements InventoryHolder {
         this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
         this.originalOfflineData = originalOfflineData;
         if (onlineSession == (originalOfflineData != null)) {
-            throw new IllegalArgumentException("Exactly one online/offline backing source is required");
+            throw new IllegalArgumentException(
+                    "Exactly one online/offline backing source is required"
+            );
         }
 
         this.inventory = Bukkit.createInventory(
@@ -93,11 +97,135 @@ public final class InvToolsView implements InventoryHolder {
             return false;
         }
         snapshot = snapshot.withBackingSlot(kind, backingSlot, item);
-        cursor = cloneOrNull(cursorItem);
+        if (!onlineSession && editable) {
+            offlineCursor.replaceAfterSameSideDrag(
+                    cursorItem,
+                    OfflineCursorTransaction.Side.TARGET
+            );
+        }
         dirty = true;
         InventorySlotLayout.guiSlot(kind, backingSlot)
-                .ifPresent(guiSlot -> inventory.setItem(guiSlot, snapshot.itemAt(kind, backingSlot)));
+                .ifPresent(guiSlot -> inventory.setItem(
+                        guiSlot,
+                        snapshot.itemAt(kind, backingSlot)
+                ));
         return true;
+    }
+
+    public synchronized Optional<OfflineCursorTransaction.Plan> planOfflineCursor(
+            OfflineCursorTransaction.Side side,
+            InventoryAction action,
+            ItemStack slotItem
+    ) {
+        if (onlineSession || !editable || state != State.ACTIVE) {
+            return Optional.empty();
+        }
+        return offlineCursor.plan(side, action, slotItem);
+    }
+
+    /**
+     * Applies one direct cursor mutation across the detached target snapshot and staff storage.
+     * Cross-inventory movement is added to the same inverse journal used by shift-click.
+     */
+    public synchronized boolean applyOfflineCursorMutation(
+            OfflineCursorTransaction.Plan plan,
+            InventorySnapshot changedSnapshot,
+            ItemStack[] expectedViewerStorage,
+            ItemStack[] changedViewerStorage
+    ) {
+        if (onlineSession || !editable || state != State.ACTIVE) {
+            return false;
+        }
+        OfflineCursorTransaction.Plan checkedPlan = Objects.requireNonNull(plan, "plan");
+        InventorySnapshot replacement = Objects.requireNonNull(
+                changedSnapshot,
+                "changedSnapshot"
+        );
+        ItemStack[] actualStorage = viewer.getInventory().getStorageContents();
+        if (!PlayerStorageTransfer.sameContents(actualStorage, expectedViewerStorage)) {
+            return false;
+        }
+
+        InventorySnapshot previousSnapshot = snapshot;
+        boolean previousDirty = dirty;
+        int previousTransferCount = viewerTransfers.size();
+        try {
+            viewer.getInventory().setStorageContents(
+                    PlayerStorageTransfer.copyStorage(changedViewerStorage)
+            );
+            snapshot = replacement;
+            if (previousSnapshot.changedBackingSlots(kind, replacement).length != 0) {
+                dirty = true;
+            }
+            OfflineCursorTransaction.Transfer transfer = checkedPlan.transfer();
+            if (transfer != null) {
+                viewerTransfers.add(new ViewerTransfer(
+                        transfer.item(),
+                        transfer.addedToViewer()
+                ));
+            }
+            offlineCursor.commit(checkedPlan);
+            renderChangedMappedItems(previousSnapshot, replacement);
+            viewer.updateInventory();
+            return true;
+        } catch (RuntimeException exception) {
+            snapshot = previousSnapshot;
+            dirty = previousDirty;
+            while (viewerTransfers.size() > previousTransferCount) {
+                viewerTransfers.removeLast();
+            }
+            viewer.getInventory().setStorageContents(actualStorage);
+            renderMappedItems();
+            viewer.updateInventory();
+            throw exception;
+        }
+    }
+
+    /** Applies a drag that remains wholly within the cursor's current persistence domain. */
+    public synchronized boolean applyOfflineSameSideDrag(
+            InventorySnapshot changedSnapshot,
+            ItemStack[] expectedViewerStorage,
+            ItemStack[] changedViewerStorage,
+            ItemStack changedCursor,
+            OfflineCursorTransaction.Side side
+    ) {
+        if (onlineSession || !editable || state != State.ACTIVE
+                || offlineCursor.owner() != side) {
+            return false;
+        }
+        InventorySnapshot replacement = Objects.requireNonNull(
+                changedSnapshot,
+                "changedSnapshot"
+        );
+        ItemStack[] actualStorage = viewer.getInventory().getStorageContents();
+        if (!PlayerStorageTransfer.sameContents(actualStorage, expectedViewerStorage)) {
+            return false;
+        }
+
+        InventorySnapshot previousSnapshot = snapshot;
+        boolean previousDirty = dirty;
+        ItemStack previousCursor = offlineCursor.cursor();
+        try {
+            viewer.getInventory().setStorageContents(
+                    PlayerStorageTransfer.copyStorage(changedViewerStorage)
+            );
+            snapshot = replacement;
+            if (previousSnapshot.changedBackingSlots(kind, replacement).length != 0) {
+                dirty = true;
+            }
+            offlineCursor.replaceAfterSameSideDrag(changedCursor, side);
+            renderChangedMappedItems(previousSnapshot, replacement);
+            viewer.updateInventory();
+            return true;
+        } catch (RuntimeException exception) {
+            snapshot = previousSnapshot;
+            dirty = previousDirty;
+            offlineCursor.replaceAfterSameSideDrag(previousCursor, side);
+            viewer.getInventory().setStorageContents(actualStorage);
+            renderMappedItems();
+            viewer.updateInventory();
+            throw exception;
+        }
     }
 
     /**
@@ -113,10 +241,14 @@ public final class InvToolsView implements InventoryHolder {
             ItemStack transferredItem,
             boolean addedToViewer
     ) {
-        if (onlineSession || !editable || state != State.ACTIVE) {
+        if (onlineSession || !editable || state != State.ACTIVE
+                || offlineCursor.hasCursor()) {
             return false;
         }
-        InventorySnapshot replacement = Objects.requireNonNull(changedSnapshot, "changedSnapshot");
+        InventorySnapshot replacement = Objects.requireNonNull(
+                changedSnapshot,
+                "changedSnapshot"
+        );
         ItemStack transferred = cloneOrNull(transferredItem);
         if (transferred == null) {
             return false;
@@ -151,14 +283,19 @@ public final class InvToolsView implements InventoryHolder {
         if (state != State.ACTIVE) {
             return;
         }
-        InventorySnapshot replacement = Objects.requireNonNull(changedSnapshot, "changedSnapshot");
+        InventorySnapshot replacement = Objects.requireNonNull(
+                changedSnapshot,
+                "changedSnapshot"
+        );
         renderChangedMappedItems(snapshot, replacement);
         snapshot = replacement;
     }
 
     public synchronized OfflineSavePlan beginOfflineSave() {
         if (onlineSession) {
-            throw new IllegalStateException("Online sessions cannot be persisted through playerdata");
+            throw new IllegalStateException(
+                    "Online sessions cannot be persisted through playerdata"
+            );
         }
         if (state == State.SAVING) {
             return new OfflineSavePlan(
@@ -196,6 +333,7 @@ public final class InvToolsView implements InventoryHolder {
         if (state == State.CLOSED || state == State.SETTLING) {
             return;
         }
+        discardOfflineCursor();
         if (viewerTransfers.isEmpty()) {
             state = State.CLOSED;
             completeSaveIfPending(SaveResult.DISCARDED);
@@ -222,17 +360,16 @@ public final class InvToolsView implements InventoryHolder {
         scheduleViewerTransferRollback(checkedResult);
     }
 
-    /**
-     * Discards an offline transfer session before the staff member's own logout save begins.
-     */
+    /** Discards an offline transfer session before the staff member's logout save begins. */
     public synchronized boolean abortOfflineTransfersForDisconnect() {
-        if (onlineSession || viewerTransfers.isEmpty()
+        if (onlineSession
+                || (viewerTransfers.isEmpty() && !offlineCursor.hasCursor())
                 || (state != State.ACTIVE && state != State.FROZEN)) {
             return false;
         }
+        discardOfflineCursor();
         rollbackViewerTransfers();
         snapshot = originalOfflineData.snapshot();
-        cursor = null;
         dirty = false;
         renderMappedItems();
         viewer.updateInventory();
@@ -261,7 +398,11 @@ public final class InvToolsView implements InventoryHolder {
     }
 
     public synchronized ItemStack cursor() {
-        return cloneOrNull(cursor);
+        return offlineCursor.cursor();
+    }
+
+    public synchronized OfflineCursorTransaction.Side cursorOwner() {
+        return offlineCursor.owner();
     }
 
     public UUID viewerId() {
@@ -347,7 +488,9 @@ public final class InvToolsView implements InventoryHolder {
         ));
         inventory.setItem(modeSlot, menuItem(
                 editable ? Material.REDSTONE_TORCH : Material.SPYGLASS,
-                message(editable ? "invtools.gui.mode.edit.name" : "invtools.gui.mode.inspect.name"),
+                message(editable
+                        ? "invtools.gui.mode.edit.name"
+                        : "invtools.gui.mode.inspect.name"),
                 List.of(message(editable
                         ? "invtools.gui.mode.edit.lore"
                         : "invtools.gui.mode.inspect.lore"))
@@ -402,18 +545,62 @@ public final class InvToolsView implements InventoryHolder {
     }
 
     private void settleOfflineCursor() {
-        if (cursor == null) {
+        ItemStack carried = offlineCursor.cursor();
+        if (carried == null) {
             return;
         }
-        InventorySnapshot.InsertionResult insertion = snapshot.insert(kind, cursor);
-        if (insertion.remainder() != null) {
+        if (offlineCursor.owner() == OfflineCursorTransaction.Side.VIEWER) {
+            returnCursorToViewer(carried, false);
+        } else {
+            InventorySnapshot.InsertionResult insertion = snapshot.insert(kind, carried);
+            if (insertion.remainder() != null) {
+                throw new IllegalStateException(
+                        "The offline target cursor no longer fits its source inventory"
+                );
+            }
+            InventorySnapshot previousSnapshot = snapshot;
+            snapshot = insertion.snapshot();
+            dirty = true;
+            renderChangedMappedItems(previousSnapshot, snapshot);
+        }
+        offlineCursor.clear();
+        viewer.setItemOnCursor(null);
+        viewer.updateInventory();
+    }
+
+    private void discardOfflineCursor() {
+        ItemStack carried = offlineCursor.cursor();
+        if (carried == null) {
+            return;
+        }
+        if (offlineCursor.owner() == OfflineCursorTransaction.Side.VIEWER) {
+            returnCursorToViewer(carried, true);
+        }
+        offlineCursor.clear();
+        viewer.setItemOnCursor(null);
+        viewer.updateInventory();
+    }
+
+    private void returnCursorToViewer(ItemStack carried, boolean dropRemainder) {
+        PlayerStorageTransfer.InsertionResult insertion = PlayerStorageTransfer.insert(
+                viewer.getInventory().getStorageContents(),
+                carried
+        );
+        viewer.getInventory().setStorageContents(insertion.storage());
+        ItemStack remainder = insertion.remainder();
+        if (remainder != null && !dropRemainder) {
             throw new IllegalStateException(
-                    "The isolated offline editor cursor no longer fits in the target inventory"
+                    "The staff cursor no longer fits its source inventory"
             );
         }
-        snapshot = insertion.snapshot();
-        cursor = null;
-        dirty = true;
+        if (remainder != null) {
+            viewer.getWorld().dropItemNaturally(viewer.getLocation(), remainder);
+            Bukkit.getLogger().warning(
+                    "[ServerFeatures] [InvTools] Returned an offline editor cursor beside viewer "
+                            + viewerId + " because their inventory was full: "
+                            + describeItem(remainder)
+            );
+        }
     }
 
     private void scheduleViewerTransferRollback(SaveResult result) {
@@ -458,7 +645,8 @@ public final class InvToolsView implements InventoryHolder {
                     viewer.getWorld().dropItemNaturally(viewer.getLocation(), remainder);
                     Bukkit.getLogger().warning(
                             "[ServerFeatures] [InvTools] Returned a rolled-back offline transfer "
-                                    + "beside viewer " + viewerId + " because their inventory was full: "
+                                    + "beside viewer " + viewerId
+                                    + " because their inventory was full: "
                                     + describeItem(remainder)
                     );
                 }
@@ -483,7 +671,11 @@ public final class InvToolsView implements InventoryHolder {
         return menuItem(material, name, List.of());
     }
 
-    private static ItemStack menuItem(Material material, Component name, List<Component> lore) {
+    private static ItemStack menuItem(
+            Material material,
+            Component name,
+            List<Component> lore
+    ) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(name.decoration(TextDecoration.ITALIC, false));
