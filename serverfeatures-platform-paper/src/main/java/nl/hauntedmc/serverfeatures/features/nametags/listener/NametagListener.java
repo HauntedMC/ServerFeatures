@@ -30,16 +30,25 @@ public class NametagListener implements Listener {
         DataRegistryIdentityGate.runWhenReady(
                 feature,
                 player,
-                readyPlayer -> feature.getNametagManager().preloadSelfView(readyPlayer),
+                readyPlayer -> feature.getNametagManager().preloadSelfView(
+                        readyPlayer,
+                        () -> scheduleInitialNametag(readyPlayer)
+                ),
                 "nametag self-view preload"
         );
-        // Delay the creation of nametags for new players since the client might not have loaded all the entities yet.
+    }
+
+    private void scheduleInitialNametag(Player player) {
+        // Delay the creation of nametags for joining players since the client might not have loaded all entities yet.
         this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
                 () -> {
                     if (!player.isOnline()) {
                         return;
                     }
-                    this.feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().build());
+                    this.feature.getNametagManager().updateNametag(
+                            player,
+                            new UpdateProperties.Builder().build()
+                    );
                 },
                 BukkitTime.ticks(10L)
         );
