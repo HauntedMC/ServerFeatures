@@ -14,12 +14,11 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureVersion() {
-        return "1.3.0";
+        return "1.3.1";
     }
 
     @Override
     public List<String> getPluginDependencies() {
         return List.of(PACKET_EVENTS, DATA_PROVIDER, DATA_REGISTRY);
     }
-
 }
