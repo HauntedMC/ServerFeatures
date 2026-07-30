@@ -19,6 +19,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -225,7 +227,7 @@ class InvToolsViewOfflineCursorTest {
             return null;
         }).when(viewerInventory).setStorageContents(any(ItemStack[].class));
         when(topInventory.getSize()).thenReturn(54);
-        when(localization.getMessage(any())).thenReturn(message);
+        when(localization.getMessage(anyString())).thenReturn(message);
         when(message.forAudience(viewer)).thenReturn(message);
         when(message.build()).thenReturn(Component.empty());
 
