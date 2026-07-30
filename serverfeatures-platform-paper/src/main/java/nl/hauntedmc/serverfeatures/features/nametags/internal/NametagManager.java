@@ -676,7 +676,8 @@ public final class NametagManager {
                 return;
             }
             invalidateViewerState(nametag, viewerId, state);
-            state = nametag.getOrCreateViewerState(viewerId);
+            ensureShown(nametag, viewer, delayTicks);
+            return;
         }
         if (state.hasPendingSpawn()) {
             return;
