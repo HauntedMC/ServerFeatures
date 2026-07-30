@@ -123,18 +123,37 @@ public class Restart extends BukkitBaseFeature<Meta> {
         if (!getBoolean("autoreconnect.enabled", false)) {
             return;
         }
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
-        Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
-                .getDataManager()
-                .registerRedisMessagingProvider("restart-autoreconnect-redis", "hauntedmc");
+
+        Optional<MessagingDatabaseProvider> redisProvider;
+        try {
+            getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
+            redisProvider = getLifecycleManager()
+                    .getDataManager()
+                    .registerRedisMessagingProvider("restart-autoreconnect-redis", "hauntedmc");
+        } catch (RuntimeException exception) {
+            getLogger().warning(
+                    "Restart autoreconnect is disabled because Redis messaging initialization failed: "
+                            + rootMessage(exception)
+            );
+            return;
+        }
         if (redisProvider.isEmpty()) {
-            getLogger().warning("Restart autoreconnect is disabled because Redis messaging is unavailable.");
+            getLogger().warning(
+                    "Restart autoreconnect is disabled because Redis messaging is unavailable."
+            );
             return;
         }
 
         DurableMessagingDataAccess messaging = redisProvider.get().getDurableDataAccess();
-        String stream = getString("autoreconnect.stream", DEFAULT_RESTART_STREAM);
-        String serverName = getConfigHandler().getGlobalSetting("server_name", String.class, "server");
+        String configuredStream = getString("autoreconnect.stream", DEFAULT_RESTART_STREAM);
+        String stream = configuredStream == null || configuredStream.isBlank()
+                ? DEFAULT_RESTART_STREAM
+                : configuredStream.trim();
+        String serverName = getConfigHandler().getGlobalSetting(
+                "server_name",
+                String.class,
+                "server"
+        );
         Path markerPath = getPlugin().getDataFolder()
                 .toPath()
                 .resolve("restart")
@@ -149,7 +168,9 @@ public class Restart extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getListenerManager().registerListener(
                 new RestartServerLoadListener(lifecyclePublisher)
         );
-        getLogger().info("Restart autoreconnect lifecycle messaging enabled for backend '" + serverName + "'.");
+        getLogger().info(
+                "Restart autoreconnect lifecycle messaging enabled for backend '" + serverName + "'."
+        );
     }
 
     /* small helpers */
@@ -191,5 +212,16 @@ public class Restart extends BukkitBaseFeature<Meta> {
     public String getString(String key, String def) {
         Object v = getConfigHandler().get(key);
         return v == null ? def : String.valueOf(v);
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank()
+                ? current.getClass().getSimpleName()
+                : message;
     }
 }
