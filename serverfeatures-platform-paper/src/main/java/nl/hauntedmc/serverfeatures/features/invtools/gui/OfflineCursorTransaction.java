@@ -107,6 +107,17 @@ public final class OfflineCursorTransaction {
         }
     }
 
+    StateSnapshot snapshotState() {
+        return new StateSnapshot(cursor, owner, preferredReturnSlot);
+    }
+
+    void restoreState(StateSnapshot stateSnapshot) {
+        StateSnapshot checked = Objects.requireNonNull(stateSnapshot, "stateSnapshot");
+        cursor = checked.cursor();
+        owner = cursor == null ? null : checked.owner();
+        preferredReturnSlot = cursor == null ? null : checked.preferredReturnSlot();
+    }
+
     public ItemStack cursor() {
         return cloneOrNull(cursor);
     }
@@ -205,6 +216,23 @@ public final class OfflineCursorTransaction {
             if (result.cursorItem() != null) {
                 Objects.requireNonNull(nextOwner, "nextOwner");
             }
+        }
+    }
+
+    record StateSnapshot(ItemStack cursor, Side owner, Integer preferredReturnSlot) {
+        StateSnapshot {
+            cursor = cloneOrNull(cursor);
+            if (cursor == null) {
+                owner = null;
+                preferredReturnSlot = null;
+            } else {
+                Objects.requireNonNull(owner, "owner");
+            }
+        }
+
+        @Override
+        public ItemStack cursor() {
+            return cloneOrNull(cursor);
         }
     }
 
