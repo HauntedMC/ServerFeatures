@@ -237,7 +237,7 @@ class InvToolsViewOfflineCursorTest {
                 REVISION
         );
         try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
-             MockedConstruction<ItemStack> ignored = mockConstruction(
+             MockedConstruction<ItemStack> itemStacks = mockConstruction(
                      ItemStack.class,
                      (constructed, context) -> when(constructed.getItemMeta()).thenReturn(itemMeta)
              )) {
@@ -259,6 +259,7 @@ class InvToolsViewOfflineCursorTest {
                     targetSnapshot,
                     original
             );
+            assertFalse(itemStacks.constructed().isEmpty());
             assertion.accept(new Fixture(view, storage));
         }
     }
