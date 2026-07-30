@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import io.papermc.paper.event.player.PlayerTrackEntityEvent;
+import io.papermc.paper.event.player.PlayerUntrackEntityEvent;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
 import org.bukkit.entity.Entity;
@@ -11,13 +11,22 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.*;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerResourcePackStatusEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.jetbrains.annotations.NotNull;
 
-public class NametagListener implements Listener {
-
+/**
+ * Bukkit/Paper lifecycle bridge for the nametag manager.
+ */
+public final class NametagListener implements Listener {
     private final Nametags feature;
 
     public NametagListener(Nametags feature) {
@@ -30,90 +39,95 @@ public class NametagListener implements Listener {
         DataRegistryIdentityGate.runWhenReady(
                 feature,
                 player,
-                readyPlayer -> feature.getNametagManager().preloadSelfView(
-                        readyPlayer,
-                        () -> scheduleInitialNametag(readyPlayer)
-                ),
-                "nametag self-view preload"
+                readyPlayer -> feature.getNametagManager().handleJoin(readyPlayer),
+                "nametag player initialization"
         );
     }
 
-    private void scheduleInitialNametag(Player player) {
-        // Delay the creation of nametags for joining players since the client might not have loaded all entities yet.
-        this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                () -> {
-                    if (!player.isOnline()) {
-                        return;
-                    }
-                    this.feature.getNametagManager().updateNametag(
-                            player,
-                            new UpdateProperties.Builder().build()
-                    );
-                },
-                BukkitTime.ticks(10L)
-        );
-    }
-
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(@NotNull PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        this.feature.getNametagManager().removeNametag(player);
+        feature.getNametagManager().handleQuit(event.getPlayer());
     }
 
-    @EventHandler
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(),
-                new UpdateProperties.Builder().forced(true).delay(10L).build());
-    }
-
-    @EventHandler
-    public void onEntityDismount(EntityDismountEvent event) {
-        if (event.getDismounted() instanceof Player player) {
-            this.feature.getNametagManager().updateNametag(player,
-                    new UpdateProperties.Builder().forced(true).delay(10L).build());
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerTracksEntity(PlayerTrackEntityEvent event) {
+        if (event.getEntity() instanceof Player owner) {
+            feature.getNametagManager().onViewerTracks(event.getPlayer(), owner);
         }
     }
 
-    @EventHandler
-    public void onSkinUpdate(SkinUpdateEvent event) {
-        this.feature.getNametagManager().updateNametag(event.getPlayer(),
-                new UpdateProperties.Builder().forced(true).delay(10L).build());
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerUntracksEntity(PlayerUntrackEntityEvent event) {
+        if (event.getEntity() instanceof Player owner) {
+            feature.getNametagManager().onViewerUntracks(event.getPlayer(), owner);
+        }
     }
 
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        feature.getNametagManager().updateNametag(event.getPlayer(),
-                new UpdateProperties.Builder().forced(true).build());
-    }
-
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
-        if (event.getFrom().getWorld() != event.getTo().getWorld()) return;
-
-        double distance = event.getFrom().distance(event.getTo());
-
-        if (distance > 80) {
-            this.feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                    () -> this.feature.getNametagManager().updateNametag(event.getPlayer(),
-                            new UpdateProperties.Builder().ownerOnly(true).build()),
-                    BukkitTime.ticks(5L)
-            );
+        if (event.getFrom().getWorld() != event.getTo().getWorld()) {
+            return;
+        }
+        if (feature.getNametagManager().requiresTeleportRebuild(event.getFrom(), event.getTo())) {
+            feature.getNametagManager().beginPlayerTransition(event.getPlayer());
         }
     }
 
-    @EventHandler
-    public void onResourcePackSend(PlayerResourcePackStatusEvent event) {
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        feature.getNametagManager().beginPlayerTransition(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        feature.getNametagManager().suspendForDeath(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        feature.getNametagManager().handleRespawn(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onSkinUpdate(SkinUpdateEvent event) {
+        feature.getNametagManager().rebuildOwner(event.getPlayer(), 10, false);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onResourcePackLoaded(PlayerResourcePackStatusEvent event) {
         if (event.getStatus() == PlayerResourcePackStatusEvent.Status.SUCCESSFULLY_LOADED) {
-            feature.getNametagManager().updateNametag(event.getPlayer(),
-                    new UpdateProperties.Builder().forced(true).build());
+            feature.getNametagManager().refreshViewer(event.getPlayer());
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        feature.getNametagManager().handleGameModeChange(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityMount(EntityMountEvent event) {
+        refreshPassengerOwners(event.getEntity(), event.getMount());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDismount(EntityDismountEvent event) {
+        refreshPassengerOwners(event.getEntity(), event.getDismounted());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerToggleGlide(EntityToggleGlideEvent event) {
-        Entity entity = event.getEntity();
-        if (entity instanceof Player p) {
-            feature.getNametagManager().setGlideSuppressed(p, event.isGliding());
+        if (event.getEntity() instanceof Player player) {
+            feature.getNametagManager().setGlideSuppressed(player, event.isGliding());
+        }
+    }
+
+    private void refreshPassengerOwners(Entity first, Entity second) {
+        if (first instanceof Player player) {
+            feature.getNametagManager().handlePassengerMutation(player);
+        }
+        if (second instanceof Player player && second != first) {
+            feature.getNametagManager().handlePassengerMutation(player);
         }
     }
 }
