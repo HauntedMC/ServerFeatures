@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.invtools.listener;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.features.invtools.InvTools;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.InvToolsView;
 import nl.hauntedmc.serverfeatures.features.invtools.gui.OfflineCursorTransaction;
@@ -7,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.invtools.model.InventoryKind;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import nl.hauntedmc.serverfeatures.features.invtools.service.InvToolsService;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
+import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;
@@ -27,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -58,6 +61,15 @@ class InvToolsOfflineInteractionListenerTest {
         inventoryView = mock(InventoryView.class);
         event = mock(InventoryClickEvent.class);
         view = mock(InvToolsView.class);
+
+        LocalizationHandler localization = mock(LocalizationHandler.class);
+        LocalizationHandler.MessageBuilder message = mock(
+                LocalizationHandler.MessageBuilder.class
+        );
+        when(feature.getLocalizationHandler()).thenReturn(localization);
+        when(localization.getMessage(anyString())).thenReturn(message);
+        when(message.forAudience(viewer)).thenReturn(message);
+        when(message.build()).thenReturn(Component.empty());
 
         when(viewer.getUniqueId()).thenReturn(viewerId);
         when(viewer.getInventory()).thenReturn(viewerInventory);
