@@ -102,6 +102,32 @@ class OfflineCursorTransactionTest {
     }
 
     @Test
+    void stateCheckpointRestoresCursorOwnerAndPreferredReturnSlot() {
+        OfflineCursorTransaction transaction = new OfflineCursorTransaction();
+        transaction.commit(transaction.plan(
+                OfflineCursorTransaction.Side.TARGET,
+                InventorySnapshot.HELMET_SLOT,
+                InventoryAction.PICKUP_ALL,
+                item(Material.CARVED_PUMPKIN, 3)
+        ).orElseThrow());
+        OfflineCursorTransaction.StateSnapshot checkpoint = transaction.snapshotState();
+
+        transaction.commit(transaction.plan(
+                OfflineCursorTransaction.Side.TARGET,
+                9,
+                InventoryAction.PLACE_ALL,
+                null
+        ).orElseThrow());
+        assertFalse(transaction.hasCursor());
+
+        transaction.restoreState(checkpoint);
+
+        assertEquals(3, transaction.cursor().getAmount());
+        assertEquals(OfflineCursorTransaction.Side.TARGET, transaction.owner());
+        assertEquals(InventorySnapshot.HELMET_SLOT, transaction.preferredReturnSlot());
+    }
+
+    @Test
     void crossInventorySwapTransfersThePlacedStackAndChangesCursorCustody() {
         ItemStack viewerStack = item(Material.DIAMOND, 2);
         ItemStack targetStack = item(Material.EMERALD, 5);
