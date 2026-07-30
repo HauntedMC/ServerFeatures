@@ -23,7 +23,7 @@ public final class OfflineCursorTransaction {
         this(null, null);
     }
 
-    OfflineCursorTransaction(ItemStack cursor, Side owner) {
+    public OfflineCursorTransaction(ItemStack cursor, Side owner) {
         this.cursor = cloneOrNull(cursor);
         this.owner = this.cursor == null ? null : Objects.requireNonNull(owner, "owner");
     }
