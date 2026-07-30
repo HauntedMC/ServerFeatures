@@ -11,11 +11,13 @@ import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
 import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
 import nl.hauntedmc.serverfeatures.api.util.type.CastUtils;
 import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
+import nl.hauntedmc.serverfeatures.features.commandrelay.audit.CommandRelayAuditLogService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.ConsoleCommandSender;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -31,6 +33,7 @@ public class EventBusHandler {
 
     private final DurableMessagingDataAccess redisBus;
     private final CommandRelay feature;
+    private final CommandRelayAuditLogService auditLogService;
     private final ProcessedCommandLedger processedCommands;
     private final Set<String> activeOperations = ConcurrentHashMap.newKeySet();
     private DurableSubscription subscription;
@@ -40,17 +43,24 @@ public class EventBusHandler {
             DurableMessagingDataAccess redisBus,
             long processedCommandTtlMillis
     ) {
-        this(feature, redisBus, createLedger(feature, processedCommandTtlMillis));
+        this(
+                feature,
+                redisBus,
+                createLedger(feature, processedCommandTtlMillis),
+                feature.getAuditLogService()
+        );
     }
 
     EventBusHandler(
             CommandRelay feature,
             DurableMessagingDataAccess redisBus,
-            ProcessedCommandLedger processedCommands
+            ProcessedCommandLedger processedCommands,
+            CommandRelayAuditLogService auditLogService
     ) {
-        this.feature = feature;
-        this.redisBus = redisBus;
-        this.processedCommands = processedCommands;
+        this.feature = Objects.requireNonNull(feature, "feature");
+        this.redisBus = Objects.requireNonNull(redisBus, "redisBus");
+        this.processedCommands = Objects.requireNonNull(processedCommands, "processedCommands");
+        this.auditLogService = Objects.requireNonNull(auditLogService, "auditLogService");
     }
 
     /**
@@ -65,7 +75,7 @@ public class EventBusHandler {
                     consumer,
                     CommandRelayMessage.TYPE,
                     CommandRelayMessage.class,
-                    this::handleIncoming
+                    delivery -> handleIncoming(stream, delivery)
             );
             this.subscription.completion().whenComplete((ignored, throwable) -> {
                 if (throwable != null) {
@@ -82,11 +92,12 @@ public class EventBusHandler {
         }
     }
 
-    private void handleIncoming(DurableDelivery<CommandRelayMessage> delivery) {
-        CommandRelayMessage message = delivery.event().payload();
+    private void handleIncoming(String stream, DurableDelivery<CommandRelayMessage> delivery) {
         String processingKey = delivery.event().processingKey();
+        CommandRelayMessage message = delivery.event().payload();
         if (message == null) {
             feature.getLogger().warning("CommandRelay: discarded null durable payload.");
+            auditLogService.logEvent("invalid_payload", stream, null, null, null, "message=null");
             acknowledge(delivery);
             return;
         }
@@ -98,12 +109,28 @@ public class EventBusHandler {
             feature.getLogger().warning(
                     "CommandRelay: discarded invalid durable command " + processingKey + "."
             );
+            auditLogService.logEvent(
+                    "invalid_payload",
+                    stream,
+                    origin,
+                    null,
+                    full,
+                    invalidDetails(operationId, processingKey, origin, full)
+            );
             acknowledge(delivery);
             return;
         }
 
         if (processedCommands.isProcessed(processingKey)) {
             feature.getLogger().fine("CommandRelay: ignored completed replay " + processingKey + ".");
+            auditLogService.logEvent(
+                    "replay_ignored",
+                    stream,
+                    origin,
+                    null,
+                    full,
+                    "operation_id=" + operationId
+            );
             acknowledge(delivery);
             return;
         }
@@ -115,6 +142,14 @@ public class EventBusHandler {
             full = full.substring(1);
         }
         if (full.isBlank()) {
+            auditLogService.logEvent(
+                    "invalid_payload",
+                    stream,
+                    origin,
+                    null,
+                    null,
+                    "missing=command_alias"
+            );
             activeOperations.remove(processingKey);
             acknowledge(delivery);
             return;
@@ -136,12 +171,14 @@ public class EventBusHandler {
             feature.getLogger().warning(
                     "CommandRelay: received forbidden “" + main + "” from " + origin + " – ignoring"
             );
+            auditLogService.logEvent("forbidden_command", stream, origin, main, full, null);
             activeOperations.remove(processingKey);
             acknowledge(delivery);
             return;
         }
 
         String sendingCommand = full;
+        String commandAlias = main;
         try {
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                 try {
@@ -151,6 +188,25 @@ public class EventBusHandler {
                             "CommandRelay: dispatched “/" + sendingCommand + "” from " + origin
                                     + ": success=" + dispatched
                     );
+                    if (dispatched) {
+                        auditLogService.logEvent(
+                                "executed",
+                                stream,
+                                origin,
+                                commandAlias,
+                                sendingCommand,
+                                null
+                        );
+                    } else {
+                        auditLogService.logEvent(
+                                "dispatch_rejected",
+                                stream,
+                                origin,
+                                commandAlias,
+                                sendingCommand,
+                                "success=false"
+                        );
+                    }
                     persistAndAcknowledge(delivery, processingKey);
                 } catch (RuntimeException exception) {
                     activeOperations.remove(processingKey);
@@ -158,12 +214,28 @@ public class EventBusHandler {
                             "CommandRelay: dispatch failed for " + processingKey + ": "
                                     + rootMessage(exception)
                     );
+                    auditLogService.logEvent(
+                            "dispatch_error",
+                            stream,
+                            origin,
+                            commandAlias,
+                            sendingCommand,
+                            rootMessage(exception)
+                    );
                 }
             });
         } catch (RuntimeException exception) {
             activeOperations.remove(processingKey);
             feature.getLogger().warning(
                     "CommandRelay: could not schedule " + processingKey + ": " + rootMessage(exception)
+            );
+            auditLogService.logEvent(
+                    "dispatch_error",
+                    stream,
+                    origin,
+                    commandAlias,
+                    sendingCommand,
+                    "schedule: " + rootMessage(exception)
             );
         }
     }
@@ -259,6 +331,24 @@ public class EventBusHandler {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String invalidDetails(
+            String operationId,
+            String processingKey,
+            String origin,
+            String command
+    ) {
+        if (operationId == null) {
+            return "missing=operation_id";
+        }
+        if (!operationId.equals(processingKey)) {
+            return "operation_id_mismatch";
+        }
+        if (origin == null && command == null) {
+            return "missing=command,origin_server";
+        }
+        return origin == null ? "missing=origin_server" : "missing=command";
     }
 
     private static String rootMessage(Throwable throwable) {
