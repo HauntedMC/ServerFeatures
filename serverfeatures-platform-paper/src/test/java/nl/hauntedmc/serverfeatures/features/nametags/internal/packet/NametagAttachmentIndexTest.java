@@ -5,9 +5,26 @@ import org.junit.jupiter.api.Test;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NametagAttachmentIndexTest {
+
+    @Test
+    void exposesCurrentPacketVisibilityForReconciliation() {
+        NametagAttachmentIndex index = new NametagAttachmentIndex();
+        UUID viewerId = UUID.randomUUID();
+        index.register(10, 99);
+
+        assertFalse(index.isVisible(10, 99, viewerId));
+        index.markVisible(10, viewerId);
+        assertTrue(index.isVisible(10, 99, viewerId));
+        assertFalse(index.isVisible(10, 98, viewerId));
+
+        index.appendDestroyedNametags(viewerId, new int[]{10});
+        assertFalse(index.isVisible(10, 99, viewerId));
+    }
 
     @Test
     void visibleNametagIsAppendedAfterRealPassengers() {
