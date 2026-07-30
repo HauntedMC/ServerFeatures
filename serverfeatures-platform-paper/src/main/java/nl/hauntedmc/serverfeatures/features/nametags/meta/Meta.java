@@ -4,7 +4,6 @@ import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
 import java.util.List;
 
-
 public class Meta implements BaseMeta {
 
     @Override
@@ -14,7 +13,7 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureVersion() {
-        return "1.3.1";
+        return "2.0.0";
     }
 
     @Override
