@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -115,7 +116,10 @@ class InvToolsOfflineInteractionListenerTest {
                 viewerStorage[4]
         )).thenReturn(Optional.of(plan));
         when(view.applyOfflineCursorMutation(any(), any(), any(), any())).thenReturn(true);
-        when(view.cursor()).thenReturn(null, plan.result().cursorItem());
+        doReturn(null)
+                .doReturn(plan.result().cursorItem())
+                .when(view)
+                .cursor();
 
         listener.onInventoryClick(event);
 
@@ -153,7 +157,10 @@ class InvToolsOfflineInteractionListenerTest {
         when(event.getSlot()).thenReturn(9);
         when(event.getAction()).thenReturn(InventoryAction.PLACE_ALL);
         when(event.getCursor()).thenReturn(carried);
-        when(view.cursor()).thenReturn(carried, null);
+        doReturn(carried)
+                .doReturn(null)
+                .when(view)
+                .cursor();
         when(view.cursorOwner()).thenReturn(OfflineCursorTransaction.Side.VIEWER);
         when(view.planOfflineCursor(
                 OfflineCursorTransaction.Side.TARGET,
