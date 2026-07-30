@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.invtools.gui;
 import nl.hauntedmc.serverfeatures.features.invtools.model.InventorySnapshot;
 import org.bukkit.Material;
 import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.Test;
 
 import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
@@ -102,8 +103,10 @@ class OfflineCursorTransactionTest {
 
     @Test
     void crossInventorySwapTransfersThePlacedStackAndChangesCursorCustody() {
+        ItemStack viewerStack = item(Material.DIAMOND, 2);
+        ItemStack targetStack = item(Material.EMERALD, 5);
         OfflineCursorTransaction transaction = new OfflineCursorTransaction(
-                item(Material.DIAMOND, 2),
+                viewerStack,
                 OfflineCursorTransaction.Side.VIEWER
         );
 
@@ -111,14 +114,14 @@ class OfflineCursorTransactionTest {
                 OfflineCursorTransaction.Side.TARGET,
                 14,
                 InventoryAction.SWAP_WITH_CURSOR,
-                item(Material.EMERALD, 5)
+                targetStack
         ).orElseThrow();
 
         assertFalse(swap.transfer().addedToViewer());
-        assertEquals(Material.DIAMOND, swap.transfer().item().getType());
+        assertTrue(swap.transfer().item().isSimilar(viewerStack));
         assertEquals(OfflineCursorTransaction.Side.TARGET, swap.nextOwner());
         assertEquals(14, swap.nextReturnSlot());
-        assertEquals(Material.EMERALD, swap.result().cursorItem().getType());
+        assertTrue(swap.result().cursorItem().isSimilar(targetStack));
     }
 
     @Test
