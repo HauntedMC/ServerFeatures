@@ -81,7 +81,7 @@ class PlayerCountSnapshotStoreTest {
     }
 
     @Test
-    void rejectsUnexpectedPublisherAndRetiredEpochs() {
+    void rejectsUnexpectedPublisherMissingSchemaAndRetiredEpochs() {
         PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
                 "survival",
                 5_000L,
@@ -90,6 +90,24 @@ class PlayerCountSnapshotStoreTest {
         assertEquals(
                 PlayerCountSnapshotStore.ApplyResult.INVALID,
                 store.apply(message("proxy-2", "epoch-x", 1L, 10_000L, 1, 0, Map.of()), 20_000L)
+        );
+        PlayerCountSnapshotMessage missingSchema = new Gson().fromJson(
+                """
+                        {
+                          "publisherId": "proxy-1",
+                          "publisherEpoch": "epoch-x",
+                          "sequence": 1,
+                          "publishedAtEpochMillis": 10000,
+                          "networkOnline": 1,
+                          "networkVanished": 0,
+                          "servers": {}
+                        }
+                        """,
+                PlayerCountSnapshotMessage.class
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.INVALID,
+                store.apply(missingSchema, 20_001L)
         );
         assertEquals(
                 PlayerCountSnapshotStore.ApplyResult.APPLIED,
@@ -102,6 +120,32 @@ class PlayerCountSnapshotStoreTest {
         assertEquals(
                 PlayerCountSnapshotStore.ApplyResult.STALE,
                 store.apply(message("proxy-1", "epoch-1", 6L, 22_000L, 5, 0, Map.of()), 30_002L)
+        );
+        assertEquals("epoch-2", store.current().orElseThrow().publisherEpoch());
+    }
+
+    @Test
+    void acceptsNewEpochAfterExistingSnapshotExpiresDespiteOlderPublisherClock() {
+        PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
+                "survival",
+                5_000L,
+                "proxy-1"
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.APPLIED,
+                store.apply(message("proxy-1", "epoch-1", 8L, 50_000L, 4, 0, Map.of()), 60_000L)
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.STALE,
+                store.apply(message("proxy-1", "epoch-2", 1L, 49_000L, 3, 0, Map.of()), 64_000L)
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.APPLIED,
+                store.apply(message("proxy-1", "epoch-2", 2L, 49_500L, 3, 0, Map.of()), 65_001L)
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.STALE,
+                store.apply(message("proxy-1", "epoch-1", 9L, 51_000L, 5, 0, Map.of()), 65_002L)
         );
         assertEquals("epoch-2", store.current().orElseThrow().publisherEpoch());
     }
