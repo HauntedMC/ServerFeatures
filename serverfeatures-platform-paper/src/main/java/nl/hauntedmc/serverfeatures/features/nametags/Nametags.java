@@ -100,20 +100,40 @@ public class Nametags extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        if (luckPermsHook != null) {
-            luckPermsHook.close();
-            luckPermsHook = null;
-        }
-        if (passengerPacketListener != null) {
-            PacketEvents.getAPI().getEventManager().unregisterListener(passengerPacketListener);
-            passengerPacketListener = null;
-        }
-        if (nametagManager != null) {
-            nametagManager.removeAllNametags();
-        }
-        if (placeholderHook != null) {
-            placeholderHook.close();
-            placeholderHook = null;
+        Throwable failure = null;
+
+        LuckPermsHook currentLuckPermsHook = luckPermsHook;
+        luckPermsHook = null;
+        failure = cleanup(failure, () -> {
+            if (currentLuckPermsHook != null) {
+                currentLuckPermsHook.close();
+            }
+        });
+
+        NametagPassengerPacketListener currentPacketListener = passengerPacketListener;
+        passengerPacketListener = null;
+        failure = cleanup(failure, () -> {
+            if (currentPacketListener != null) {
+                PacketEvents.getAPI().getEventManager().unregisterListener(currentPacketListener);
+            }
+        });
+
+        failure = cleanup(failure, () -> {
+            if (nametagManager != null) {
+                nametagManager.removeAllNametags();
+            }
+        });
+
+        PlaceholderHook currentPlaceholderHook = placeholderHook;
+        placeholderHook = null;
+        failure = cleanup(failure, () -> {
+            if (currentPlaceholderHook != null) {
+                currentPlaceholderHook.close();
+            }
+        });
+
+        if (failure != null) {
+            throwUnchecked(failure);
         }
     }
 
@@ -127,5 +147,23 @@ public class Nametags extends BukkitBaseFeature<Meta> {
 
     public ORMContext getOrmContext() {
         return ormContext;
+    }
+
+    private static Throwable cleanup(Throwable existing, Runnable action) {
+        try {
+            action.run();
+            return existing;
+        } catch (Throwable throwable) {
+            if (existing == null) {
+                return throwable;
+            }
+            existing.addSuppressed(throwable);
+            return existing;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <E extends Throwable> void throwUnchecked(Throwable throwable) throws E {
+        throw (E) throwable;
     }
 }
