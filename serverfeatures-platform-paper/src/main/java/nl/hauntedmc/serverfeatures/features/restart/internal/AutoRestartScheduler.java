@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class AutoRestartScheduler {
@@ -14,66 +15,83 @@ public class AutoRestartScheduler {
     private final Restart feature;
     private final RestartService service;
     private final String hhmm;
+    private final ZoneId zone;
+    private final AtomicLong scheduleToken = new AtomicLong(0L);
 
-    private final AtomicLong scheduleToken = new AtomicLong(0);
+    private volatile ZonedDateTime nextRunAt;
 
     public AutoRestartScheduler(Restart feature, RestartService service, String hhmm) {
-        this.feature = feature;
-        this.service = service;
+        this(feature, service, hhmm, ZoneId.systemDefault());
+    }
+
+    public AutoRestartScheduler(
+            Restart feature,
+            RestartService service,
+            String hhmm,
+            ZoneId zone
+    ) {
+        this.feature = Objects.requireNonNull(feature, "feature");
+        this.service = Objects.requireNonNull(service, "service");
         this.hhmm = hhmm;
+        this.zone = Objects.requireNonNull(zone, "zone");
     }
 
     public void scheduleNext() {
         cancel();
         long token = scheduleToken.incrementAndGet();
+        ZonedDateTime runAt = nextRunAt(ZonedDateTime.now(zone), hhmm);
+        nextRunAt = runAt;
 
-        long ticksDelay = computeDelayTicks(hhmm);
-        feature.getLifecycleManager().getTaskManager()
-                .scheduleDelayedTask(() -> {
-                    if (scheduleToken.get() != token) return;
-                    feature.getLogger().info("Automatic restart trigger reached (" + hhmm + ").");
-                    service.startAutomatic();
-                }, BukkitTime.ticks(ticksDelay));
+        long seconds = Math.max(1L, Duration.between(ZonedDateTime.now(zone), runAt).getSeconds());
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (scheduleToken.get() != token) {
+                return;
+            }
 
-        feature.getLogger().info("Automatic restart scheduled for " + nextRunHuman(hhmm) + ".");
+            feature.getLogger().info("Automatic restart trigger reached (" + hhmm + ").");
+            // Schedule tomorrow before starting today's operation. Cancelling or skipping today's
+            // restart must never silently disable the recurring daily schedule.
+            scheduleNext();
+            service.startAutomatic();
+        }, BukkitTime.ticks(seconds * 20L));
+
+        feature.getLogger().info("Automatic restart scheduled for " + runAt + ".");
     }
 
     public void cancel() {
         scheduleToken.incrementAndGet();
+        nextRunAt = null;
     }
 
-    private long computeDelayTicks(String raw) {
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
-        ZonedDateTime runAt = nextRunAt(now, raw);
-        long seconds = Duration.between(now, runAt).getSeconds();
-        return Math.max(1, seconds) * 20L;
+    public ZonedDateTime getNextRunAt() {
+        return nextRunAt;
     }
 
-    private String nextRunHuman(String raw) {
-        ZonedDateTime runAt = nextRunAt(ZonedDateTime.now(ZoneId.systemDefault()), raw);
-        return runAt.toString();
-    }
-
-    private ZonedDateTime nextRunAt(ZonedDateTime now, String raw) {
+    ZonedDateTime nextRunAt(ZonedDateTime now, String raw) {
         try {
             LocalTime target = parseStrictHHmm(raw);
             ZonedDateTime runAt = now.with(target);
-            if (!runAt.isAfter(now)) runAt = runAt.plusDays(1);
+            if (!runAt.isAfter(now)) {
+                runAt = runAt.plusDays(1);
+            }
             return runAt;
-        } catch (Throwable t) {
-            feature.getLogger().warning("Invalid auto.time '" + raw + "', expected HH:mm (00:00–23:59). Defaulting to 04:00.");
+        } catch (RuntimeException exception) {
+            feature.getLogger().warning(
+                    "Invalid auto.time '" + raw
+                            + "', expected HH:mm (00:00-23:59). Defaulting to 04:00."
+            );
             return nextRunAt(now, "04:00");
         }
     }
 
     static LocalTime parseStrictHHmm(String raw) {
-        String s = String.valueOf(raw).trim();
-        // Only accept exactly HH:mm where HH=00..23 and mm=00..59
-        if (!s.matches("^(?:[01]\\d|2[0-3]):[0-5]\\d$")) {
+        String value = String.valueOf(raw).trim();
+        if (!value.matches("^(?:[01]\\d|2[0-3]):[0-5]\\d$")) {
             throw new IllegalArgumentException("Not HH:mm");
         }
-        int h = Integer.parseInt(s.substring(0, 2));
-        int m = Integer.parseInt(s.substring(3, 5));
-        return LocalTime.of(h, m);
+        return LocalTime.of(
+                Integer.parseInt(value.substring(0, 2)),
+                Integer.parseInt(value.substring(3, 5))
+        );
     }
 }
