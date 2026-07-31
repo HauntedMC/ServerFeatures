@@ -28,8 +28,8 @@ public class NametagRegistry {
         registry.remove(ownerId);
     }
 
-    public void unregister(Nametag tag) {
-        unregister(tag.getNametagOwnerId());
+    public boolean unregister(Nametag tag) {
+        return registry.remove(tag.getNametagOwnerId(), tag);
     }
 
     public Optional<Nametag> getNametagByEntityId(int entityId) {
@@ -37,5 +37,4 @@ public class NametagRegistry {
                 .filter(nametag -> nametag.getEntityId() == entityId)
                 .findFirst();
     }
-
 }

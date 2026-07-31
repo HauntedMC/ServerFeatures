@@ -2,55 +2,49 @@ package nl.hauntedmc.serverfeatures.features.nametags.internal.hook;
 
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.event.EventBus;
-import net.luckperms.api.event.log.LogReceiveEvent;
-import net.luckperms.api.event.node.NodeMutateEvent;
+import net.luckperms.api.event.EventSubscription;
+import net.luckperms.api.event.user.UserDataRecalculateEvent;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
-import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
-import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.Optional;
-import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-public class LuckPermsHook {
+/**
+ * Refreshes visible metadata after LuckPerms recalculates a user's cached prefix/suffix data.
+ *
+ * <p>The subscription is explicitly closed when the feature is disabled. LuckPerms otherwise owns
+ * the listener for the lifetime of the complete ServerFeatures plugin, which would retain old
+ * Nametags instances and duplicate refreshes after a feature reload.</p>
+ */
+public final class LuckPermsHook implements AutoCloseable {
+    private final EventSubscription<UserDataRecalculateEvent> subscription;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
-    public static void subscribeLuckPermsHook(Nametags feature) {
-        RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        LuckPerms api = null;
-
-        if (provider != null) {
-            api = provider.getProvider();
-
-        }
-
-        if (api != null) {
-            EventBus eventBus = api.getEventBus();
-
-            eventBus.subscribe(feature.getPlugin(), LogReceiveEvent.class, e -> {
-                @NonNull Optional<UUID> uuid = e.getEntry().getTarget().getUniqueId();
-                if (uuid.isEmpty()) {
-                    return;
-                }
-                Player player = Bukkit.getPlayer(uuid.get());
-                if (player != null) {
-                    if (feature.getNametagManager().getRegisteredPlayers().contains(player)) {
-                        feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).updateText(true).delay(20L).build());
-                    }
-                }
-
-            });
-            eventBus.subscribe(feature.getPlugin(), NodeMutateEvent.class, e -> {
-                Player player = Bukkit.getPlayer(e.getTarget().getFriendlyName());
-                if (player != null) {
-                    if (feature.getNametagManager().getRegisteredPlayers().contains(player)) {
-                        feature.getNametagManager().updateNametag(player, new UpdateProperties.Builder().forced(true).updateText(true).build());
-                    }
-                }
-            });
-
-        }
+    private LuckPermsHook(EventSubscription<UserDataRecalculateEvent> subscription) {
+        this.subscription = subscription;
     }
 
+    public static LuckPermsHook subscribe(Nametags feature) {
+        RegisteredServiceProvider<LuckPerms> registration =
+                Bukkit.getServicesManager().getRegistration(LuckPerms.class);
+        if (registration == null) {
+            return new LuckPermsHook(null);
+        }
+
+        EventBus eventBus = registration.getProvider().getEventBus();
+        EventSubscription<UserDataRecalculateEvent> subscription = eventBus.subscribe(
+                feature.getPlugin(),
+                UserDataRecalculateEvent.class,
+                event -> feature.getNametagManager().refreshText(event.getUser().getUniqueId(), 1)
+        );
+        return new LuckPermsHook(subscription);
+    }
+
+    @Override
+    public void close() {
+        if (subscription != null && closed.compareAndSet(false, true)) {
+            subscription.close();
+        }
+    }
 }
