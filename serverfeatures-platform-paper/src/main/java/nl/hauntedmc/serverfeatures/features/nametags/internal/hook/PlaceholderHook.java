@@ -26,28 +26,45 @@ public final class PlaceholderHook {
     }
 
     public Component getNametagText(Player player) {
-        Component prefix = feature.getLocalizationHandler()
-                .getMessage("nametags.prefix")
-                .forAudience(player)
-                .build();
-        Component suffix = feature.getLocalizationHandler()
-                .getMessage("nametags.suffix")
-                .forAudience(player)
-                .build();
-        Component playerName = feature.getLocalizationHandler()
-                .getMessage("nametags.playername")
-                .forAudience(player)
-                .build();
+        try {
+            Component prefix = feature.getLocalizationHandler()
+                    .getMessage("nametags.prefix")
+                    .forAudience(player)
+                    .build();
+            Component suffix = feature.getLocalizationHandler()
+                    .getMessage("nametags.suffix")
+                    .forAudience(player)
+                    .build();
+            Component playerName = feature.getLocalizationHandler()
+                    .getMessage("nametags.playername")
+                    .forAudience(player)
+                    .build();
 
-        return Component.empty()
-                .append(prefix)
-                .append(playerName)
-                .append(suffix);
+            return Component.empty()
+                    .append(prefix)
+                    .append(playerName)
+                    .append(suffix);
+        } catch (RuntimeException | LinkageError exception) {
+            feature.getLogger().warning(
+                    "Kon nametag placeholders niet verwerken voor " + player.getName()
+                            + "; de spelersnaam wordt als fallback gebruikt: " + rootMessage(exception)
+            );
+            return Component.text(player.getName());
+        }
     }
 
     public void close() {
         if (instance == this) {
             instance = null;
         }
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 }
