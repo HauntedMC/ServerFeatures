@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.playercount.PlayerCount;
 import nl.hauntedmc.serverfeatures.features.playercount.internal.PlayerCountSnapshotStore;
 import nl.hauntedmc.serverfeatures.features.playercount.messaging.PlayerCountSnapshotMessage;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -31,9 +32,9 @@ public final class EventBusHandler {
             MessagingDataAccess redisBus,
             PlayerCountSnapshotStore store
     ) {
-        this.feature = java.util.Objects.requireNonNull(feature, "feature");
-        this.redisBus = java.util.Objects.requireNonNull(redisBus, "redisBus");
-        this.store = java.util.Objects.requireNonNull(store, "store");
+        this.feature = Objects.requireNonNull(feature, "feature");
+        this.redisBus = Objects.requireNonNull(redisBus, "redisBus");
+        this.store = Objects.requireNonNull(store, "store");
     }
 
     public synchronized void subscribe(String channel) {
@@ -43,11 +44,14 @@ public final class EventBusHandler {
         if (subscription != null) {
             throw new IllegalStateException("player-count event bus handler is already subscribed");
         }
-        Subscription created = redisBus.subscribe(
-                channel,
-                PlayerCountSnapshotMessage.TYPE,
-                PlayerCountSnapshotMessage.class,
-                this::handleIncoming
+        Subscription created = Objects.requireNonNull(
+                redisBus.subscribe(
+                        channel,
+                        PlayerCountSnapshotMessage.TYPE,
+                        PlayerCountSnapshotMessage.class,
+                        this::handleIncoming
+                ),
+                "Redis subscribe returned no subscription handle"
         );
         if (closed.get()) {
             created.unsubscribe();
