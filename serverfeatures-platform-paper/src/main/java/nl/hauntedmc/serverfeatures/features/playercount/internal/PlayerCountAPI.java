@@ -33,6 +33,14 @@ public final class PlayerCountAPI {
         return store.isAvailable(System.currentTimeMillis());
     }
 
+    public boolean isLocalServerAvailable() {
+        return store.isLocalServerAvailable(System.currentTimeMillis());
+    }
+
+    public boolean isServerAvailable(String serverName) {
+        return store.isServerAvailable(serverName, System.currentTimeMillis());
+    }
+
     public boolean isStale() {
         return store.isStale(System.currentTimeMillis());
     }
