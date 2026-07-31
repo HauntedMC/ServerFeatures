@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -114,8 +115,20 @@ class EventBusHandlerTest {
         );
         consumer.accept(forbiddenDelivery);
 
+        CommandRelayMessage missingAlias = new CommandRelayMessage(
+                "/   ",
+                "proxy",
+                "command.missing-alias"
+        );
+        DurableDelivery<CommandRelayMessage> missingAliasDelivery = delivery(
+                missingAlias,
+                missingAlias.getOperationId()
+        );
+        consumer.accept(missingAliasDelivery);
+
         verify(mismatchedDelivery).acknowledge();
         verify(forbiddenDelivery).acknowledge();
+        verify(missingAliasDelivery).acknowledge();
         verify(feature.getLifecycleManager().getTaskManager(), never())
                 .scheduleOneTimeTask(any(Runnable.class));
         verify(feature.getLogger()).warning(contains("forbidden"));
@@ -134,6 +147,14 @@ class EventBusHandlerTest {
                 "stop",
                 "stop now",
                 null
+        );
+        verify(feature.getAuditLogService()).logEvent(
+                "invalid_payload",
+                STREAM,
+                "proxy",
+                null,
+                null,
+                "missing=command_alias"
         );
     }
 
@@ -264,6 +285,42 @@ class EventBusHandlerTest {
         assertEquals(event.getValue().eventId(), event.getValue().payload().getOperationId());
         assertTrue(publication.isCompletedExceptionally());
         verify(feature.getLogger()).severe(contains("failed to publish"));
+    }
+
+    @Test
+    void synchronousPublishFailureBecomesFailedFutureAndIsLogged() {
+        DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
+        CommandRelay feature = featureWithWhitelist(List.of("say"));
+        when(redis.publish(eq("proxy.commandrelay.command"), any()))
+                .thenThrow(new IllegalStateException("synchronous down"));
+
+        CompletableFuture<?> publication = assertDoesNotThrow(() ->
+                handler(feature, redis, emptyStore())
+                        .publish("proxy.commandrelay.command", "/say hello")
+        );
+
+        assertTrue(publication.isCompletedExceptionally());
+        verify(feature.getLogger()).severe(contains("synchronous down"));
+    }
+
+    @Test
+    void synchronousAcknowledgementFailureIsContainedAndLogged() {
+        DurableMessagingDataAccess redis = mock(DurableMessagingDataAccess.class);
+        CommandRelay feature = featureWithWhitelist(List.of("say"));
+        Consumer<DurableDelivery<CommandRelayMessage>> consumer = installConsumer(redis);
+        EventBusHandler handler = handler(feature, redis, emptyStore());
+        handler.consume(STREAM, CONSUMER_GROUP);
+
+        CommandRelayMessage message = new CommandRelayMessage(
+                "/say hello",
+                "proxy",
+                "command.payload"
+        );
+        DurableDelivery<CommandRelayMessage> delivery = delivery(message, "command.envelope");
+        when(delivery.acknowledge()).thenThrow(new IllegalStateException("ack down"));
+
+        assertDoesNotThrow(() -> consumer.accept(delivery));
+        verify(feature.getLogger()).warning(contains("ack down"));
     }
 
     @Test
