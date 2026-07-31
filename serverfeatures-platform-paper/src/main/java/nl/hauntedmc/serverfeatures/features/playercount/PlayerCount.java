@@ -73,8 +73,15 @@ public final class PlayerCount extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getApiManager().registerService(PlayerCountAPI.class, api);
 
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            placeholder = new PlayerCountPlaceholder(api);
-            placeholder.register();
+            PlayerCountPlaceholder candidate = new PlayerCountPlaceholder(api);
+            if (candidate.register()) {
+                placeholder = candidate;
+            } else {
+                getLogger().warning(
+                        "Could not register the 'playercount' PlaceholderAPI expansion; "
+                                + "another expansion may already use that identifier."
+                );
+            }
         }
 
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
@@ -89,11 +96,12 @@ public final class PlayerCount extends BukkitBaseFeature<Meta> {
         }
 
         String channel = textSetting("channel", DEFAULT_CHANNEL);
-        eventBusHandler = new EventBusHandler(this, redisBus.get(), store);
+        EventBusHandler handler = new EventBusHandler(this, redisBus.get(), store);
         try {
-            eventBusHandler.subscribe(channel);
+            handler.subscribe(channel);
+            eventBusHandler = handler;
         } catch (RuntimeException exception) {
-            eventBusHandler = null;
+            handler.disable();
             getLogger().warning(
                     "Could not subscribe to player-count snapshots on '" + channel + "': "
                             + rootMessage(exception)
