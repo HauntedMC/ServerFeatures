@@ -5,6 +5,7 @@ import net.kyori.adventure.title.Title;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartLifecyclePublisher;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartMarker;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -15,7 +16,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -82,6 +82,7 @@ public class RestartService {
     private volatile ZonedDateTime lastAnnouncedHourStart;
     private volatile int remainingSeconds;
     private volatile boolean joinsClosed;
+    private volatile RestartMarker preparedMarker;
 
     private List<UUID> drainQueue = List.of();
     private int drainCursor;
@@ -176,21 +177,19 @@ public class RestartService {
     }
 
     public void forceImmediate(CommandSender initiator) {
-        boolean cancelPrepared;
+        RestartMarker markerToCancel;
         long token;
         synchronized (this) {
             if (phase == Phase.SHUTTING_DOWN) {
                 return;
             }
-            cancelPrepared = shutdownCommitted.get();
+            markerToCancel = preparedMarker;
             invalidateAndResetLocked();
             token = sequenceToken.incrementAndGet();
             phase = Phase.FINAL_DELAY;
         }
 
-        if (cancelPrepared) {
-            publishCancelSafely();
-        }
+        publishCancelSafely(markerToCancel);
         feature.getLogger().warning(
                 "Forced restart initiated by " + (initiator == null ? "system" : initiator.getName())
         );
@@ -222,7 +221,7 @@ public class RestartService {
 
     public CancelResult cancelRestart() {
         CancelResult result;
-        boolean cancelPrepared;
+        RestartMarker markerToCancel;
 
         synchronized (this) {
             result = switch (phase) {
@@ -238,28 +237,24 @@ public class RestartService {
                 return result;
             }
 
-            cancelPrepared = shutdownCommitted.get();
+            markerToCancel = preparedMarker;
             invalidateAndResetLocked();
         }
 
-        if (cancelPrepared) {
-            publishCancelSafely();
-        }
+        publishCancelSafely(markerToCancel);
         return result;
     }
 
     public void shutdown() {
-        boolean cancelPrepared;
+        RestartMarker markerToCancel;
         synchronized (this) {
             if (phase == Phase.SHUTTING_DOWN || shutdownStarted.get()) {
                 return;
             }
-            cancelPrepared = shutdownCommitted.get();
+            markerToCancel = preparedMarker;
             invalidateAndResetLocked();
         }
-        if (cancelPrepared) {
-            publishCancelSafely();
-        }
+        publishCancelSafely(markerToCancel);
     }
 
     public void cancelIfRunning() {
@@ -305,6 +300,7 @@ public class RestartService {
         lastAnnouncedHourStart = null;
         remainingSeconds = scheduleDesc.getFirst();
         joinsClosed = false;
+        preparedMarker = null;
         shutdownCommitted.set(false);
         shutdownStarted.set(false);
         return token;
@@ -431,20 +427,23 @@ public class RestartService {
             return;
         }
 
-        lifecyclePublisher.publishPrepare(players)
+        RestartLifecyclePublisher.Preparation preparation = lifecyclePublisher.prepare(players);
+        synchronized (this) {
+            if (!isCurrentLocked(token, Phase.PREPARING)) {
+                publishCancelSafely(preparation.marker());
+                return;
+            }
+            preparedMarker = preparation.marker();
+        }
+
+        preparation.publication()
                 .orTimeout(preparePublishTimeoutMillis, TimeUnit.MILLISECONDS)
                 .whenComplete((published, throwable) -> {
-                    boolean current;
                     synchronized (RestartService.this) {
-                        current = isCurrentLocked(token, Phase.PREPARING)
-                                && shutdownCommitted.get();
-                    }
-
-                    if (!current) {
-                        if (throwable == null) {
-                            publishCancelSafely();
+                        if (!isCurrentLocked(token, Phase.PREPARING)
+                                || !shutdownCommitted.get()) {
+                            return;
                         }
-                        return;
                     }
 
                     long settleMillis = 0L;
@@ -477,21 +476,7 @@ public class RestartService {
     }
 
     private void drainTick(long token) {
-        Player next = null;
-        synchronized (this) {
-            if (!isCurrentLocked(token, Phase.DRAINING)) {
-                return;
-            }
-
-            while (drainCursor < drainQueue.size() && next == null) {
-                UUID playerId = drainQueue.get(drainCursor++);
-                Player candidate = feature.getPlugin().getServer().getPlayer(playerId);
-                if (candidate != null && candidate.isOnline()) {
-                    next = candidate;
-                }
-            }
-        }
-
+        Player next = nextQueuedPlayer(token);
         if (next != null) {
             kickForRestart(next);
             scheduleMillis(drainPlayerIntervalMillis, () -> drainTick(token));
@@ -499,6 +484,23 @@ public class RestartService {
         }
 
         scheduleMillis(drainEmptyGraceMillis, () -> verifyDrain(token));
+    }
+
+    private Player nextQueuedPlayer(long token) {
+        synchronized (this) {
+            if (!isCurrentLocked(token, Phase.DRAINING)) {
+                return null;
+            }
+
+            while (drainCursor < drainQueue.size()) {
+                UUID playerId = drainQueue.get(drainCursor++);
+                Player player = feature.getPlugin().getServer().getPlayer(playerId);
+                if (player != null && player.isOnline()) {
+                    return player;
+                }
+            }
+            return null;
+        }
     }
 
     private void verifyDrain(long token) {
@@ -509,14 +511,10 @@ public class RestartService {
                 return;
             }
             remaining = onlinePlayerIds();
-            if (remaining.isEmpty()) {
-                timedOut = false;
-            } else {
-                timedOut = System.nanoTime() >= drainDeadlineNanos;
-                if (!timedOut) {
-                    drainQueue = remaining;
-                    drainCursor = 0;
-                }
+            timedOut = !remaining.isEmpty() && System.nanoTime() >= drainDeadlineNanos;
+            if (!remaining.isEmpty()) {
+                drainQueue = remaining;
+                drainCursor = 0;
             }
         }
 
@@ -532,13 +530,17 @@ public class RestartService {
 
         feature.getLogger().warning(
                 "Restart player drain timed out with " + remaining.size()
-                        + " player(s) still connected; applying the final fail-safe kick."
+                        + " player(s) still connected; applying a final staggered kick pass."
         );
-        for (UUID playerId : remaining) {
-            Player player = feature.getPlugin().getServer().getPlayer(playerId);
-            if (player != null && player.isOnline()) {
-                kickForRestart(player);
-            }
+        finalDrainTick(token);
+    }
+
+    private void finalDrainTick(long token) {
+        Player next = nextQueuedPlayer(token);
+        if (next != null) {
+            kickForRestart(next);
+            scheduleMillis(drainPlayerIntervalMillis, () -> finalDrainTick(token));
+            return;
         }
         scheduleMillis(Math.max(500L, drainEmptyGraceMillis), () -> shutdownServer(token));
     }
@@ -558,7 +560,7 @@ public class RestartService {
 
         if (remaining > 0) {
             feature.getLogger().warning(
-                    "Proceeding with shutdown after the drain fail-safe; " + remaining
+                    "Proceeding with shutdown after the bounded drain fail-safe; " + remaining
                             + " player(s) are still reported online."
             );
         }
@@ -629,7 +631,7 @@ public class RestartService {
         }
     }
 
-    private synchronized boolean isCurrentLocked(long token, Phase expected) {
+    private boolean isCurrentLocked(long token, Phase expected) {
         return sequenceToken.get() == token && phase == expected;
     }
 
@@ -640,6 +642,7 @@ public class RestartService {
         lastAnnouncedHourStart = null;
         remainingSeconds = 0;
         joinsClosed = false;
+        preparedMarker = null;
         drainQueue = List.of();
         drainCursor = 0;
         drainDeadlineNanos = 0L;
@@ -667,12 +670,12 @@ public class RestartService {
         }
     }
 
-    private void publishCancelSafely() {
-        if (lifecyclePublisher == null) {
+    private void publishCancelSafely(RestartMarker marker) {
+        if (lifecyclePublisher == null || marker == null) {
             return;
         }
         try {
-            lifecyclePublisher.publishCancelCurrent().exceptionally(throwable -> {
+            lifecyclePublisher.publishCancel(marker).exceptionally(throwable -> {
                 feature.getLogger().warning(
                         "Failed to publish restart CANCEL: " + rootMessage(throwable)
                 );
@@ -720,7 +723,9 @@ public class RestartService {
     }
 
     private ZoneId readZone(String configured) {
-        if (configured == null || configured.isBlank() || "system".equalsIgnoreCase(configured.trim())) {
+        if (configured == null
+                || configured.isBlank()
+                || "system".equalsIgnoreCase(configured.trim())) {
             return ZoneId.systemDefault();
         }
         try {
