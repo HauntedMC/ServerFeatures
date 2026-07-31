@@ -27,6 +27,7 @@ public final class PlayerCountSnapshotStore {
     private final long staleAfterMillis;
     private final String expectedPublisherId;
     private final AtomicReference<PlayerCountSnapshot> current = new AtomicReference<>();
+    private final AtomicReference<PlayerCountSnapshot> invalidated = new AtomicReference<>();
     private final Set<String> retiredPublisherEpochs = new LinkedHashSet<>();
 
     public PlayerCountSnapshotStore(
@@ -61,7 +62,7 @@ public final class PlayerCountSnapshotStore {
             }
             if (!sameEpoch
                     && candidate.publishedAtEpochMillis() <= existing.publishedAtEpochMillis()
-                    && !isStale(existing, receivedAtEpochMillis)) {
+                    && !isStaleSnapshot(existing, receivedAtEpochMillis)) {
                 return ApplyResult.STALE;
             }
             if (!sameEpoch) {
@@ -69,6 +70,7 @@ public final class PlayerCountSnapshotStore {
             }
         }
         current.set(candidate);
+        invalidated.set(null);
         return ApplyResult.APPLIED;
     }
 
@@ -78,7 +80,11 @@ public final class PlayerCountSnapshotStore {
 
     public Optional<PlayerCountSnapshot> currentFresh(long nowEpochMillis) {
         PlayerCountSnapshot snapshot = current.get();
-        if (snapshot == null || isStale(snapshot, nowEpochMillis)) {
+        if (snapshot == null) {
+            return Optional.empty();
+        }
+        if (isStaleSnapshot(snapshot, nowEpochMillis)) {
+            invalidate(snapshot);
             return Optional.empty();
         }
         return Optional.of(snapshot);
@@ -115,7 +121,14 @@ public final class PlayerCountSnapshotStore {
 
     public boolean isStale(long nowEpochMillis) {
         PlayerCountSnapshot snapshot = current.get();
-        return snapshot != null && isStale(snapshot, nowEpochMillis);
+        if (snapshot == null) {
+            return false;
+        }
+        if (isStaleSnapshot(snapshot, nowEpochMillis)) {
+            invalidate(snapshot);
+            return true;
+        }
+        return false;
     }
 
     public long ageMillis(long nowEpochMillis) {
@@ -128,6 +141,7 @@ public final class PlayerCountSnapshotStore {
 
     public synchronized void clear() {
         current.set(null);
+        invalidated.set(null);
         retiredPublisherEpochs.clear();
     }
 
@@ -139,9 +153,18 @@ public final class PlayerCountSnapshotStore {
         return expectedPublisherId;
     }
 
-    private boolean isStale(PlayerCountSnapshot snapshot, long nowEpochMillis) {
+    private boolean isStaleSnapshot(PlayerCountSnapshot snapshot, long nowEpochMillis) {
+        if (invalidated.get() == snapshot) {
+            return true;
+        }
         long receivedAt = snapshot.receivedAtEpochMillis();
         return nowEpochMillis < receivedAt || nowEpochMillis - receivedAt > staleAfterMillis;
+    }
+
+    private void invalidate(PlayerCountSnapshot snapshot) {
+        if (current.get() == snapshot) {
+            invalidated.set(snapshot);
+        }
     }
 
     private void retireEpoch(String publisherEpoch) {
