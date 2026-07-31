@@ -2,7 +2,9 @@ package nl.hauntedmc.serverfeatures.features.nametags.listener;
 
 import io.papermc.paper.event.player.PlayerTrackEntityEvent;
 import io.papermc.paper.event.player.PlayerUntrackEntityEvent;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.nametags.Nametags;
+import nl.hauntedmc.serverfeatures.features.nametags.internal.update.UpdateProperties;
 import nl.hauntedmc.serverfeatures.features.skins.event.SkinUpdateEvent;
 import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
 import org.bukkit.entity.Entity;
@@ -124,10 +126,25 @@ public final class NametagListener implements Listener {
 
     private void refreshPassengerOwners(Entity first, Entity second) {
         if (first instanceof Player player) {
-            feature.getNametagManager().handlePassengerMutation(player);
+            refreshPassengerOwner(player);
         }
         if (second instanceof Player player && second != first) {
-            feature.getNametagManager().handlePassengerMutation(player);
+            refreshPassengerOwner(player);
         }
+    }
+
+    private void refreshPassengerOwner(Player player) {
+        feature.getNametagManager().handlePassengerMutation(player);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> {
+                    if (player.isOnline()) {
+                        feature.getNametagManager().updateNametag(
+                                player,
+                                new UpdateProperties.Builder().build()
+                        );
+                    }
+                },
+                BukkitTime.ticks(1L)
+        );
     }
 }
