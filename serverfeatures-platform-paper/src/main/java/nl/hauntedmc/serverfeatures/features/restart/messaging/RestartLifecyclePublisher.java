@@ -139,15 +139,9 @@ public final class RestartLifecyclePublisher {
             return CompletableFuture.completedFuture(null);
         }
 
-        boolean deleteCurrent = false;
+        boolean deleteCurrent;
         try {
-            synchronized (markerLock) {
-                RestartMarker current = markerStore.load().orElse(null);
-                if (current != null && current.restartId().equals(marker.restartId())) {
-                    markerStore.delete();
-                    deleteCurrent = true;
-                }
-            }
+            deleteCurrent = deleteMarkerIfCurrent(marker);
         } catch (IOException exception) {
             return CompletableFuture.failedFuture(exception);
         }
@@ -163,7 +157,6 @@ public final class RestartLifecyclePublisher {
                         new IllegalStateException("Restart lifecycle publisher is closed")
                 )
                 : publish(message);
-        boolean markerDeleted = deleteCurrent;
         result.whenComplete((published, throwable) -> {
             if (throwable == null) {
                 feature.getLogger().info(
@@ -176,7 +169,7 @@ public final class RestartLifecyclePublisher {
                                 + rootMessage(throwable)
                 );
             }
-            if (!markerDeleted) {
+            if (!deleteCurrent) {
                 feature.getLogger().fine(
                         "Restart CANCEL " + marker.restartId()
                                 + " did not delete a newer or absent local marker."
@@ -224,7 +217,7 @@ public final class RestartLifecyclePublisher {
         }
         if (marker.expiresAtEpochMillis() <= System.currentTimeMillis()) {
             readyPublishing.set(false);
-            deleteMarker("expired restart marker");
+            deleteMarkerIfCurrentSafely(marker, "expired restart marker");
             return;
         }
         publishReadyAttempt(marker, 1);
@@ -251,13 +244,16 @@ public final class RestartLifecyclePublisher {
                         "Published restart READY " + marker.restartId() + " for '"
                                 + marker.serverName() + "' after full server load."
                 );
-                deleteMarker("published READY");
+                deleteMarkerIfCurrentSafely(marker, "published READY");
                 readyPublishing.set(false);
                 return;
             }
             if (closed || marker.expiresAtEpochMillis() <= System.currentTimeMillis()) {
                 readyPublishing.set(false);
-                deleteMarker("expired after READY publication failure");
+                deleteMarkerIfCurrentSafely(
+                        marker,
+                        "expired after READY publication failure"
+                );
                 return;
             }
             if (attempt >= readyPublishAttempts) {
@@ -311,10 +307,25 @@ public final class RestartLifecyclePublisher {
         );
     }
 
-    private void deleteMarker(String reason) {
+    private boolean deleteMarkerIfCurrent(RestartMarker expected) throws IOException {
+        synchronized (markerLock) {
+            RestartMarker current = markerStore.load().orElse(null);
+            if (current == null || !current.restartId().equals(expected.restartId())) {
+                return false;
+            }
+            markerStore.delete();
+            return true;
+        }
+    }
+
+    private void deleteMarkerIfCurrentSafely(RestartMarker expected, String reason) {
         try {
-            synchronized (markerLock) {
-                markerStore.delete();
+            boolean deleted = deleteMarkerIfCurrent(expected);
+            if (!deleted) {
+                feature.getLogger().fine(
+                        "Did not delete restart marker after " + reason
+                                + " because it was already absent or replaced."
+                );
             }
         } catch (IOException exception) {
             feature.getLogger().warning(
