@@ -6,9 +6,9 @@ import nl.hauntedmc.serverfeatures.features.playercount.PlayerCount;
 import nl.hauntedmc.serverfeatures.features.playercount.internal.PlayerCountSnapshotStore;
 import nl.hauntedmc.serverfeatures.features.playercount.messaging.PlayerCountSnapshotMessage;
 
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -23,6 +23,7 @@ public final class EventBusHandler {
     private final MessagingDataAccess redisBus;
     private final PlayerCountSnapshotStore store;
     private final AtomicLong lastInvalidWarningAt = new AtomicLong();
+    private final AtomicBoolean closed = new AtomicBoolean();
     private Subscription subscription;
 
     public EventBusHandler(
@@ -35,36 +36,72 @@ public final class EventBusHandler {
         this.store = java.util.Objects.requireNonNull(store, "store");
     }
 
-    public void subscribe(String channel) {
-        subscription = redisBus.subscribe(
+    public synchronized void subscribe(String channel) {
+        if (closed.get()) {
+            throw new IllegalStateException("player-count event bus handler is closed");
+        }
+        if (subscription != null) {
+            throw new IllegalStateException("player-count event bus handler is already subscribed");
+        }
+        Subscription created = redisBus.subscribe(
                 channel,
                 PlayerCountSnapshotMessage.TYPE,
                 PlayerCountSnapshotMessage.class,
                 this::handleIncoming
         );
+        if (closed.get()) {
+            created.unsubscribe();
+            throw new IllegalStateException("player-count event bus handler closed while subscribing");
+        }
+        subscription = created;
     }
 
     public void disable() {
-        Subscription current = subscription;
-        subscription = null;
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
+        Subscription current;
+        synchronized (this) {
+            current = subscription;
+            subscription = null;
+        }
         if (current == null) {
             return;
         }
         try {
-            current.unsubscribe().get(UNSUBSCRIBE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException exception) {
-            Thread.currentThread().interrupt();
-            feature.getLogger().warning("Interrupted while unsubscribing from player-count snapshots.");
-        } catch (ExecutionException | TimeoutException | RuntimeException exception) {
+            CompletableFuture<Void> shutdown = current.unsubscribe();
+            if (shutdown == null) {
+                feature.getLogger().warning(
+                        "Player-count subscription returned no shutdown future."
+                );
+                return;
+            }
+            shutdown.orTimeout(UNSUBSCRIBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .whenComplete((ignored, throwable) -> {
+                        if (throwable != null) {
+                            feature.getLogger().warning(
+                                    "Could not confirm player-count subscription shutdown: "
+                                            + rootMessage(throwable)
+                            );
+                        }
+                    });
+        } catch (RuntimeException exception) {
             feature.getLogger().warning(
-                    "Could not confirm player-count subscription shutdown: " + rootMessage(exception)
+                    "Could not start player-count subscription shutdown: " + rootMessage(exception)
             );
         }
     }
 
     private void handleIncoming(PlayerCountSnapshotMessage message) {
+        if (closed.get()) {
+            return;
+        }
         long now = System.currentTimeMillis();
         PlayerCountSnapshotStore.ApplyResult result = store.apply(message, now);
+        if (closed.get()) {
+            store.clear();
+            return;
+        }
         if (result == PlayerCountSnapshotStore.ApplyResult.INVALID && claimInvalidWarning(now)) {
             feature.getLogger().warning(
                     "Ignored an invalid player-count snapshot; repeated warnings are rate-limited."
@@ -75,7 +112,9 @@ public final class EventBusHandler {
     private boolean claimInvalidWarning(long nowEpochMillis) {
         while (true) {
             long previous = lastInvalidWarningAt.get();
-            if (previous > 0L && nowEpochMillis - previous < INVALID_WARNING_INTERVAL_MILLIS) {
+            if (previous > 0L
+                    && nowEpochMillis >= previous
+                    && nowEpochMillis - previous < INVALID_WARNING_INTERVAL_MILLIS) {
                 return false;
             }
             if (lastInvalidWarningAt.compareAndSet(previous, nowEpochMillis)) {
