@@ -68,6 +68,20 @@ class EventBusHandlerTest {
         assertThrows(IllegalStateException.class, () -> fixture.handler().subscribe("counts"));
     }
 
+    @Test
+    void rejectsMissingSubscriptionHandles() {
+        PlayerCount feature = mock(PlayerCount.class);
+        MessagingDataAccess redisBus = mock(MessagingDataAccess.class);
+        PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
+                "survival",
+                10_000L,
+                "proxy-1"
+        );
+        EventBusHandler handler = new EventBusHandler(feature, redisBus, store);
+
+        assertThrows(NullPointerException.class, () -> handler.subscribe("counts"));
+    }
+
     private static Fixture fixture() {
         PlayerCount feature = mock(PlayerCount.class);
         MessagingDataAccess redisBus = mock(MessagingDataAccess.class);
