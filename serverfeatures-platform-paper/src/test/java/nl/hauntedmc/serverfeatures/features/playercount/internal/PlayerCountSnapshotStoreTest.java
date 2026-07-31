@@ -44,6 +44,68 @@ class PlayerCountSnapshotStoreTest {
     }
 
     @Test
+    void failsClosedAfterReceiverClockMovesBackward() {
+        PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
+                "survival",
+                5_000L,
+                "proxy-1"
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.APPLIED,
+                store.apply(
+                        message(
+                                "proxy-1",
+                                "epoch-1",
+                                1L,
+                                10_000L,
+                                1,
+                                0,
+                                Map.of("survival", new Counts(1, 0))
+                        ),
+                        20_000L
+                )
+        );
+
+        assertFalse(store.isAvailable(19_999L));
+        assertTrue(store.isStale(19_999L));
+        assertEquals(-1L, store.ageMillis(19_999L));
+        assertTrue(store.localServer(19_999L).isEmpty());
+    }
+
+    @Test
+    void distinguishesKnownZeroPlayerServersFromUnknownServers() {
+        PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
+                "creative",
+                5_000L,
+                "proxy-1"
+        );
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.APPLIED,
+                store.apply(
+                        message(
+                                "proxy-1",
+                                "epoch-1",
+                                1L,
+                                10_000L,
+                                0,
+                                0,
+                                Map.of("creative", new Counts(0, 0))
+                        ),
+                        20_000L
+                )
+        );
+
+        assertTrue(store.isLocalServerAvailable(20_001L));
+        assertTrue(store.isServerAvailable("CREATIVE", 20_001L));
+        assertEquals(
+                PlayerCountSnapshot.Counts.empty(),
+                store.server("creative", 20_001L).orElseThrow()
+        );
+        assertFalse(store.isServerAvailable("missing", 20_001L));
+        assertTrue(store.server("missing", 20_001L).isEmpty());
+    }
+
+    @Test
     void rejectsOlderDuplicateAndCorruptSnapshots() {
         PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
                 "survival",
