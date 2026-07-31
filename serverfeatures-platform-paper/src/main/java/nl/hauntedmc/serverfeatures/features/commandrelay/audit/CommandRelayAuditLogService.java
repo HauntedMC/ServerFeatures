@@ -5,6 +5,8 @@ import nl.hauntedmc.serverfeatures.features.commandrelay.CommandRelay;
 import org.hibernate.Session;
 
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
 
 public final class CommandRelayAuditLogService {
 
@@ -38,33 +40,41 @@ public final class CommandRelayAuditLogService {
         String normalizedDetails = normalize(details, 512);
         String persistedEventType = normalizedEventType;
 
+        CompletableFuture<Void> write;
         try {
-            feature.getLifecycleManager().getTaskManager().scheduleAsyncTask(() -> {
-                try {
-                    orm.runInTransaction(session -> {
-                        persist(
-                                session,
-                                persistedEventType,
-                                normalizedRelayChannel,
-                                normalizedOriginServer,
-                                normalizedCommandAlias,
-                                normalizedCommandText,
-                                normalizedDetails,
-                                createdAt
-                        );
-                        return null;
-                    });
-                } catch (RuntimeException exception) {
-                    feature.getLogger().warning(
-                            "Failed to persist command relay audit log: " + rootMessage(exception)
-                    );
-                }
-            });
+            write = Objects.requireNonNull(
+                    feature.getLifecycleManager().getTaskManager().runAsync(() ->
+                            orm.runInTransaction(session -> {
+                                persist(
+                                        session,
+                                        persistedEventType,
+                                        normalizedRelayChannel,
+                                        normalizedOriginServer,
+                                        normalizedCommandAlias,
+                                        normalizedCommandText,
+                                        normalizedDetails,
+                                        createdAt
+                                );
+                                return null;
+                            })
+                    ),
+                    "Audit task future cannot be null."
+            );
         } catch (RuntimeException exception) {
             feature.getLogger().warning(
                     "Could not schedule command relay audit log write: " + rootMessage(exception)
             );
+            return;
         }
+
+        write.exceptionally(throwable -> {
+            if (!isCancellation(throwable)) {
+                feature.getLogger().warning(
+                        "Failed to persist command relay audit log: " + rootMessage(throwable)
+                );
+            }
+            return null;
+        });
     }
 
     void persist(Session session,
@@ -99,6 +109,14 @@ public final class CommandRelayAuditLogService {
             return normalized;
         }
         return normalized.substring(0, maxLength);
+    }
+
+    private static boolean isCancellation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current instanceof CancellationException;
     }
 
     private static String rootMessage(Throwable throwable) {
