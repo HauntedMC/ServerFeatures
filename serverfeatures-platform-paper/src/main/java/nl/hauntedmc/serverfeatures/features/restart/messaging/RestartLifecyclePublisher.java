@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,6 +21,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Publishes restart lifecycle state and persists the restart identity across the Paper reboot.
  */
 public final class RestartLifecyclePublisher {
+
+    public record Preparation(
+            RestartMarker marker,
+            CompletableFuture<PublishedDurableEvent> publication
+    ) {
+        public Preparation {
+            Objects.requireNonNull(marker, "marker");
+            Objects.requireNonNull(publication, "publication");
+        }
+    }
 
     private final Restart feature;
     private final DurableMessagingDataAccess messaging;
@@ -32,6 +43,7 @@ public final class RestartLifecyclePublisher {
     private final int readyPublishAttempts;
     private final int readyRetrySeconds;
     private final AtomicBoolean readyPublishing = new AtomicBoolean(false);
+    private final Object markerLock = new Object();
     private volatile boolean closed;
 
     public RestartLifecyclePublisher(
@@ -62,24 +74,32 @@ public final class RestartLifecyclePublisher {
         this.readyRetrySeconds = feature.getPositiveInt("autoreconnect.ready_retry_seconds", 5);
     }
 
-    public CompletableFuture<PublishedDurableEvent> publishPrepare(Collection<? extends Player> players) {
-        if (closed) {
-            return CompletableFuture.failedFuture(new IllegalStateException("Restart lifecycle publisher is closed"));
-        }
+    public Preparation prepare(Collection<? extends Player> players) {
         long now = System.currentTimeMillis();
-        String restartId = UUID.randomUUID().toString();
         RestartMarker marker = new RestartMarker(
-                restartId,
+                UUID.randomUUID().toString(),
                 serverName,
                 now,
                 now + sessionTtlMillis,
                 reconnectDelayMillis,
                 playerIntervalMillis
         );
+
+        if (closed) {
+            return new Preparation(
+                    marker,
+                    CompletableFuture.failedFuture(
+                            new IllegalStateException("Restart lifecycle publisher is closed")
+                    )
+            );
+        }
+
         try {
-            markerStore.save(marker);
+            synchronized (markerLock) {
+                markerStore.save(marker);
+            }
         } catch (IOException exception) {
-            return CompletableFuture.failedFuture(exception);
+            return new Preparation(marker, CompletableFuture.failedFuture(exception));
         }
 
         List<String> playerIds = players == null
@@ -96,27 +116,40 @@ public final class RestartLifecyclePublisher {
                 playerIds
         );
         feature.getLogger().info(
-                "Publishing restart PREPARE " + restartId + " for '" + serverName
+                "Publishing restart PREPARE " + marker.restartId() + " for '" + serverName
                         + "' with " + playerIds.size() + " player(s)."
         );
-        return publish(message);
+        return new Preparation(marker, publish(message));
+    }
+
+    public CompletableFuture<PublishedDurableEvent> publishPrepare(
+            Collection<? extends Player> players
+    ) {
+        return prepare(players).publication();
     }
 
     /**
-     * Publishes CANCEL for the currently persisted restart, then removes its local marker.
+     * Publishes CANCEL for a specific restart identity.
      *
-     * <p>The marker is removed even when Redis is unavailable so a later unrelated startup can
-     * never publish a false READY. A missed CANCEL remains safe because proxy sessions expire.</p>
+     * <p>Deleting the persisted marker is compare-by-id fenced, so a late completion from an old
+     * restart can never remove the marker belonging to a replacement restart.</p>
      */
-    public CompletableFuture<PublishedDurableEvent> publishCancelCurrent() {
-        RestartMarker marker;
-        try {
-            marker = markerStore.load().orElse(null);
-        } catch (IOException exception) {
-            return CompletableFuture.failedFuture(exception);
-        }
+    public CompletableFuture<PublishedDurableEvent> publishCancel(RestartMarker marker) {
         if (marker == null) {
             return CompletableFuture.completedFuture(null);
+        }
+
+        boolean deleteCurrent = false;
+        try {
+            synchronized (markerLock) {
+                RestartMarker current = markerStore.load().orElse(null);
+                if (current != null && current.restartId().equals(marker.restartId())) {
+                    markerStore.delete();
+                    deleteCurrent = true;
+                }
+            }
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
         }
 
         RestartLifecycleMessage message = message(
@@ -126,9 +159,11 @@ public final class RestartLifecyclePublisher {
                 List.of()
         );
         CompletableFuture<PublishedDurableEvent> result = closed
-                ? CompletableFuture.failedFuture(new IllegalStateException("Restart lifecycle publisher is closed"))
+                ? CompletableFuture.failedFuture(
+                        new IllegalStateException("Restart lifecycle publisher is closed")
+                )
                 : publish(message);
-        deleteMarker("cancelled restart");
+        boolean markerDeleted = deleteCurrent;
         result.whenComplete((published, throwable) -> {
             if (throwable == null) {
                 feature.getLogger().info(
@@ -141,8 +176,29 @@ public final class RestartLifecyclePublisher {
                                 + rootMessage(throwable)
                 );
             }
+            if (!markerDeleted) {
+                feature.getLogger().fine(
+                        "Restart CANCEL " + marker.restartId()
+                                + " did not delete a newer or absent local marker."
+                );
+            }
         });
         return result;
+    }
+
+    /**
+     * Publishes CANCEL for the currently persisted restart, then removes its local marker.
+     */
+    public CompletableFuture<PublishedDurableEvent> publishCancelCurrent() {
+        RestartMarker marker;
+        try {
+            synchronized (markerLock) {
+                marker = markerStore.load().orElse(null);
+            }
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        return publishCancel(marker);
     }
 
     /** Called only after Paper has fully loaded worlds and plugins. */
@@ -152,10 +208,14 @@ public final class RestartLifecyclePublisher {
         }
         RestartMarker marker;
         try {
-            marker = markerStore.load().orElse(null);
+            synchronized (markerLock) {
+                marker = markerStore.load().orElse(null);
+            }
         } catch (IOException exception) {
             readyPublishing.set(false);
-            feature.getLogger().warning("Could not read restart autoreconnect marker: " + exception.getMessage());
+            feature.getLogger().warning(
+                    "Could not read restart autoreconnect marker: " + exception.getMessage()
+            );
             return;
         }
         if (marker == null) {
@@ -203,12 +263,14 @@ public final class RestartLifecyclePublisher {
             if (attempt >= readyPublishAttempts) {
                 readyPublishing.set(false);
                 feature.getLogger().severe(
-                        "Could not publish restart READY after " + attempt + " attempts: " + rootMessage(throwable)
+                        "Could not publish restart READY after " + attempt + " attempts: "
+                                + rootMessage(throwable)
                 );
                 return;
             }
             feature.getLogger().warning(
-                    "Restart READY publication attempt " + attempt + " failed; retrying: " + rootMessage(throwable)
+                    "Restart READY publication attempt " + attempt + " failed; retrying: "
+                            + rootMessage(throwable)
             );
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
                     () -> publishReadyAttempt(marker, attempt + 1),
@@ -251,10 +313,13 @@ public final class RestartLifecyclePublisher {
 
     private void deleteMarker(String reason) {
         try {
-            markerStore.delete();
+            synchronized (markerLock) {
+                markerStore.delete();
+            }
         } catch (IOException exception) {
             feature.getLogger().warning(
-                    "Could not delete restart autoreconnect marker after " + reason + ": " + exception.getMessage()
+                    "Could not delete restart autoreconnect marker after " + reason + ": "
+                            + exception.getMessage()
             );
         }
     }
@@ -262,7 +327,9 @@ public final class RestartLifecyclePublisher {
     private static String normalizeServerName(String value) {
         String normalized = value == null ? "server" : value.trim().toLowerCase(Locale.ROOT);
         normalized = normalized.replaceAll("[^a-z0-9_.:-]", "_").replaceAll("_+", "_");
-        return normalized.isBlank() ? "server" : normalized.substring(0, Math.min(normalized.length(), 150));
+        return normalized.isBlank()
+                ? "server"
+                : normalized.substring(0, Math.min(normalized.length(), 150));
     }
 
     private static long secondsToMillis(int seconds) {
@@ -275,6 +342,8 @@ public final class RestartLifecyclePublisher {
             current = current.getCause();
         }
         String message = current.getMessage();
-        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
+        return message == null || message.isBlank()
+                ? current.getClass().getSimpleName()
+                : message;
     }
 }
