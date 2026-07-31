@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.restart.internal;
 
 import nl.hauntedmc.serverfeatures.features.restart.Restart;
 import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartLifecyclePublisher;
+import nl.hauntedmc.serverfeatures.features.restart.messaging.RestartMarker;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import org.junit.jupiter.api.Test;
 
@@ -9,9 +10,14 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -21,86 +27,125 @@ import static org.mockito.Mockito.when;
 class RestartServiceTest {
 
     @Test
-    void usesSafeDefaultScheduleWhenConfigurationIsAbsent() throws ReflectiveOperationException {
+    void usesSafeDefaultsWhenConfigurationIsAbsent() throws ReflectiveOperationException {
         RestartService service = serviceWithSchedule(null);
 
         assertEquals(List.of(60, 30, 0), schedule(service));
         assertEquals(5, intField(service, "waitAfterNowSeconds"));
+        assertEquals(150L, longFieldValue(service, "drainPlayerIntervalMillis"));
+        assertEquals(20_000L, longFieldValue(service, "drainMaxWaitMillis"));
+        assertTrue(service.isAcceptingJoins());
+        assertEquals(RestartService.Phase.IDLE, service.getPhase());
     }
 
     @Test
     void sortsDeduplicatesAndParsesMixedScheduleValues() throws ReflectiveOperationException {
-        RestartService service = serviceWithSchedule(List.of(30, " 90 ", 30L, "invalid", -5, 10.9, "0"));
+        RestartService service = serviceWithSchedule(
+                List.of(30, " 90 ", 30L, "invalid", -5, 10.9, "0")
+        );
 
         assertEquals(List.of(90, 30, 10, 0), schedule(service));
     }
 
     @Test
     void appendsFinalZeroAnnouncementWhenOmitted() throws ReflectiveOperationException {
-        RestartService service = serviceWithSchedule(List.of(120, 60, 15));
-
-        assertEquals(List.of(120, 60, 15, 0), schedule(service));
+        assertEquals(
+                List.of(120, 60, 15, 0),
+                schedule(serviceWithSchedule(List.of(120, 60, 15)))
+        );
     }
 
     @Test
-    void emptyOrEntirelyInvalidScheduleStillProducesImmediateRestartStep() throws ReflectiveOperationException {
-        assertEquals(List.of(0), schedule(serviceWithSchedule(List.of())));
-        assertEquals(List.of(0), schedule(serviceWithSchedule(List.of("bad", -1, -20L))));
-    }
-
-    @Test
-    void preservesConfiguredPostCountdownWait() throws ReflectiveOperationException {
-        Restart feature = baseFeature();
-        FeatureConfigHandler config = mock(FeatureConfigHandler.class);
-        when(config.get("announce.schedule")).thenReturn(List.of(0));
-        when(feature.getConfigHandler()).thenReturn(config);
-        when(feature.getInt("auto.wait_after_now_seconds", 5)).thenReturn(17);
-
-        RestartService service = new RestartService(feature);
-
-        assertEquals(17, intField(service, "waitAfterNowSeconds"));
-    }
-
-    @Test
-    void cancellationInvalidatesSequenceAndAllowsAnotherCommandedRestart()
+    void entirelyInvalidScheduleStillProducesImmediateRestartStep()
             throws ReflectiveOperationException {
+        assertEquals(List.of(0), schedule(serviceWithSchedule(List.of())));
+        assertEquals(
+                List.of(0),
+                schedule(serviceWithSchedule(List.of("bad", -1, -20L)))
+        );
+    }
+
+    @Test
+    void cancelRestoresIdleStateAndReopensJoins() throws ReflectiveOperationException {
         RestartService service = serviceWithSchedule(List.of(0));
-        long initialToken = longField(service, "sequenceToken");
+        setField(service, "phase", RestartService.Phase.PREPARING);
+        setField(service, "joinsClosed", true);
+        long initialToken = atomicLong(service, "sequenceToken").get();
 
-        service.cancelIfRunning();
+        RestartService.CancelResult result = service.cancelRestart();
 
-        assertEquals(initialToken + 1, longField(service, "sequenceToken"));
-        assertEquals(false, booleanField(service, "inProgress"));
+        assertEquals(RestartService.CancelResult.PREPARING, result);
+        assertEquals(RestartService.Phase.IDLE, service.getPhase());
+        assertTrue(service.isAcceptingJoins());
+        assertEquals(initialToken + 1L, atomicLong(service, "sequenceToken").get());
     }
 
     @Test
-    void cancellingPreparedRestartPublishesCancel() throws ReflectiveOperationException {
+    void cancellingPreparedRestartPublishesCancelForExactMarker()
+            throws ReflectiveOperationException {
         Restart feature = featureWithSchedule(List.of(0));
         RestartLifecyclePublisher publisher = mock(RestartLifecyclePublisher.class);
-        when(publisher.publishCancelCurrent()).thenReturn(CompletableFuture.completedFuture(null));
+        RestartMarker marker = new RestartMarker(
+                "restart-one",
+                "survival",
+                1L,
+                2L,
+                3L,
+                4L
+        );
+        when(publisher.publishCancel(marker)).thenReturn(CompletableFuture.completedFuture(null));
         RestartService service = new RestartService(feature, publisher);
-        setBooleanField(service, "shutdownCommitted", true);
+        setField(service, "phase", RestartService.Phase.PREPARING);
+        setField(service, "joinsClosed", true);
+        setField(service, "preparedMarker", marker);
+        atomicBoolean(service, "shutdownCommitted").set(true);
 
-        service.cancelIfRunning();
+        assertEquals(RestartService.CancelResult.PREPARING, service.cancelRestart());
 
-        verify(publisher).publishCancelCurrent();
-        assertEquals(false, booleanField(service, "shutdownCommitted"));
+        verify(publisher).publishCancel(marker);
+        assertFalse(atomicBoolean(service, "shutdownCommitted").get());
+        assertEquals(null, field(service, "preparedMarker"));
     }
 
     @Test
-    void disableDuringActualShutdownPreservesReadyMarker() throws ReflectiveOperationException {
+    void cancellationIsRejectedAfterPlayerDrainStarts() throws ReflectiveOperationException {
+        RestartService service = serviceWithSchedule(List.of(0));
+        setField(service, "phase", RestartService.Phase.DRAINING);
+        setField(service, "joinsClosed", true);
+        long token = atomicLong(service, "sequenceToken").get();
+
+        assertEquals(RestartService.CancelResult.TOO_LATE, service.cancelRestart());
+        assertEquals(RestartService.Phase.DRAINING, service.getPhase());
+        assertFalse(service.isAcceptingJoins());
+        assertEquals(token, atomicLong(service, "sequenceToken").get());
+    }
+
+    @Test
+    void featureDisableDuringActualShutdownPreservesReadyMarker()
+            throws ReflectiveOperationException {
         Restart feature = featureWithSchedule(List.of(0));
         RestartLifecyclePublisher publisher = mock(RestartLifecyclePublisher.class);
+        RestartMarker marker = new RestartMarker(
+                "restart-shutdown",
+                "survival",
+                1L,
+                2L,
+                3L,
+                4L
+        );
         RestartService service = new RestartService(feature, publisher);
-        setBooleanField(service, "shutdownCommitted", true);
-        setBooleanField(service, "shutdownStarted", true);
-        long initialToken = longField(service, "sequenceToken");
+        setField(service, "phase", RestartService.Phase.SHUTTING_DOWN);
+        setField(service, "preparedMarker", marker);
+        atomicBoolean(service, "shutdownCommitted").set(true);
+        atomicBoolean(service, "shutdownStarted").set(true);
+        long initialToken = atomicLong(service, "sequenceToken").get();
 
-        service.cancelIfRunning();
+        service.shutdown();
 
-        verify(publisher, never()).publishCancelCurrent();
-        assertEquals(initialToken, longField(service, "sequenceToken"));
-        assertEquals(true, booleanField(service, "shutdownCommitted"));
+        verify(publisher, never()).publishCancel(marker);
+        assertEquals(initialToken, atomicLong(service, "sequenceToken").get());
+        assertTrue(atomicBoolean(service, "shutdownCommitted").get());
+        assertEquals(RestartService.Phase.SHUTTING_DOWN, service.getPhase());
     }
 
     private static RestartService serviceWithSchedule(Object schedule) {
@@ -108,16 +153,20 @@ class RestartServiceTest {
     }
 
     private static Restart featureWithSchedule(Object schedule) {
-        Restart feature = baseFeature();
+        Restart feature = mock(Restart.class);
         FeatureConfigHandler config = mock(FeatureConfigHandler.class);
         when(config.get("announce.schedule")).thenReturn(schedule);
         when(feature.getConfigHandler()).thenReturn(config);
-        return feature;
-    }
-
-    private static Restart baseFeature() {
-        Restart feature = mock(Restart.class);
         when(feature.getInt(anyString(), anyInt())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(feature.getLong(anyString(), anyLong())).thenAnswer(invocation -> invocation.getArgument(1));
+        when(feature.getPositiveInt(anyString(), anyInt()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        when(feature.getPositiveLong(anyString(), anyLong()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        when(feature.getBoolean(anyString(), anyBoolean()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
+        when(feature.getString(anyString(), anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
         return feature;
     }
 
@@ -126,28 +175,35 @@ class RestartServiceTest {
         return (List<Integer>) field(service, "scheduleDesc");
     }
 
-    private static int intField(RestartService service, String name) throws ReflectiveOperationException {
+    private static int intField(RestartService service, String name)
+            throws ReflectiveOperationException {
         return (int) field(service, name);
     }
 
-    private static long longField(RestartService service, String name) throws ReflectiveOperationException {
-        Object atomic = field(service, name);
-        return ((java.util.concurrent.atomic.AtomicLong) atomic).get();
-    }
-
-    private static boolean booleanField(RestartService service, String name)
+    private static long longFieldValue(RestartService service, String name)
             throws ReflectiveOperationException {
-        Object atomic = field(service, name);
-        return ((AtomicBoolean) atomic).get();
+        return (long) field(service, name);
     }
 
-    private static void setBooleanField(RestartService service, String name, boolean value)
+    private static AtomicLong atomicLong(RestartService service, String name)
             throws ReflectiveOperationException {
-        Object atomic = field(service, name);
-        ((AtomicBoolean) atomic).set(value);
+        return (AtomicLong) field(service, name);
     }
 
-    private static Object field(RestartService service, String name) throws ReflectiveOperationException {
+    private static AtomicBoolean atomicBoolean(RestartService service, String name)
+            throws ReflectiveOperationException {
+        return (AtomicBoolean) field(service, name);
+    }
+
+    private static void setField(RestartService service, String name, Object value)
+            throws ReflectiveOperationException {
+        Field field = RestartService.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(service, value);
+    }
+
+    private static Object field(RestartService service, String name)
+            throws ReflectiveOperationException {
         Field field = RestartService.class.getDeclaredField(name);
         field.setAccessible(true);
         return field.get(service);
