@@ -44,7 +44,7 @@ class PlayerCountSnapshotStoreTest {
     }
 
     @Test
-    void failsClosedAfterReceiverClockMovesBackward() {
+    void failsClosedAfterReceiverClockMovesBackwardUntilANewSnapshotArrives() {
         PlayerCountSnapshotStore store = new PlayerCountSnapshotStore(
                 "survival",
                 5_000L,
@@ -70,6 +70,26 @@ class PlayerCountSnapshotStoreTest {
         assertTrue(store.isStale(19_999L));
         assertEquals(-1L, store.ageMillis(19_999L));
         assertTrue(store.localServer(19_999L).isEmpty());
+
+        assertFalse(store.isAvailable(20_001L));
+        assertTrue(store.isStale(20_001L));
+        assertEquals(
+                PlayerCountSnapshotStore.ApplyResult.APPLIED,
+                store.apply(
+                        message(
+                                "proxy-1",
+                                "epoch-1",
+                                2L,
+                                10_001L,
+                                2,
+                                0,
+                                Map.of("survival", new Counts(2, 0))
+                        ),
+                        20_002L
+                )
+        );
+        assertTrue(store.isAvailable(20_003L));
+        assertEquals(2, store.localServer(20_003L).orElseThrow().online());
     }
 
     @Test
