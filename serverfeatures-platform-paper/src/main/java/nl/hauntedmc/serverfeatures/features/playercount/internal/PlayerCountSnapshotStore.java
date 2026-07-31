@@ -97,11 +97,20 @@ public final class PlayerCountSnapshotStore {
         if (normalized.isEmpty()) {
             return Optional.empty();
         }
-        return currentFresh(nowEpochMillis).map(snapshot -> snapshot.server(normalized));
+        return currentFresh(nowEpochMillis)
+                .flatMap(snapshot -> snapshot.findServer(normalized));
     }
 
     public boolean isAvailable(long nowEpochMillis) {
         return currentFresh(nowEpochMillis).isPresent();
+    }
+
+    public boolean isLocalServerAvailable(long nowEpochMillis) {
+        return localServer(nowEpochMillis).isPresent();
+    }
+
+    public boolean isServerAvailable(String serverName, long nowEpochMillis) {
+        return server(serverName, nowEpochMillis).isPresent();
     }
 
     public boolean isStale(long nowEpochMillis) {
@@ -111,10 +120,10 @@ public final class PlayerCountSnapshotStore {
 
     public long ageMillis(long nowEpochMillis) {
         PlayerCountSnapshot snapshot = current.get();
-        if (snapshot == null) {
+        if (snapshot == null || nowEpochMillis < snapshot.receivedAtEpochMillis()) {
             return -1L;
         }
-        return Math.max(0L, nowEpochMillis - snapshot.receivedAtEpochMillis());
+        return nowEpochMillis - snapshot.receivedAtEpochMillis();
     }
 
     public synchronized void clear() {
@@ -131,7 +140,8 @@ public final class PlayerCountSnapshotStore {
     }
 
     private boolean isStale(PlayerCountSnapshot snapshot, long nowEpochMillis) {
-        return nowEpochMillis - snapshot.receivedAtEpochMillis() > staleAfterMillis;
+        long receivedAt = snapshot.receivedAtEpochMillis();
+        return nowEpochMillis < receivedAt || nowEpochMillis - receivedAt > staleAfterMillis;
     }
 
     private void retireEpoch(String publisherEpoch) {
