@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.logging.Logger;
 
 /**
  * Main-thread packet delivery for nametag lifecycle operations.
@@ -21,49 +22,66 @@ import java.util.List;
  * packet transaction for the state the manager has already validated.</p>
  */
 public final class NametagUpdater {
+    private static final Logger LOGGER = Logger.getLogger("ServerFeatures-Nametags");
 
     public void spawn(Nametag nametag, Player viewer) {
         Player owner = nametag.getNametagOwner();
         if (owner == null || viewer == null || !owner.isOnline() || !viewer.isOnline()) {
-            return;
+            throw new IllegalStateException("Cannot spawn a nametag for an offline owner or viewer.");
         }
 
         CreateNametagEntityPacket createPacket = new CreateNametagEntityPacket(
                 owner,
                 nametag.getEntityId(),
-                nametag.getEntityUuid(),
-                nametag.snapshotMetadata()
+                nametag.getEntityUuid()
         );
         MountNametagEntityPacket mountPacket = new MountNametagEntityPacket(
                 owner,
                 passengerList(owner, nametag.getEntityId())
         );
-
-        PacketManager.sendUnicast(
-                viewer,
-                new BundleDelimiterPacket(),
-                createPacket,
-                mountPacket,
-                new BundleDelimiterPacket()
+        UpdateNametagMetadataPacket metadataPacket = new UpdateNametagMetadataPacket(
+                nametag.getEntityId(),
+                nametag.snapshotMetadata()
         );
+
+        RuntimeException failure = null;
+        boolean bundleOpened = false;
+        try {
+            PacketManager.sendUnicast(viewer, new BundleDelimiterPacket());
+            bundleOpened = true;
+            PacketManager.sendUnicast(viewer, createPacket, mountPacket, metadataPacket);
+        } catch (RuntimeException exception) {
+            failure = exception;
+        } finally {
+            if (bundleOpened) {
+                try {
+                    PacketManager.sendUnicast(viewer, new BundleDelimiterPacket());
+                } catch (RuntimeException closeFailure) {
+                    if (failure == null) {
+                        failure = closeFailure;
+                    } else {
+                        failure.addSuppressed(closeFailure);
+                    }
+                }
+            }
+        }
+
+        if (failure != null) {
+            safeDestroy(nametag.getEntityId(), viewer, "partial spawn cleanup");
+            throw failure;
+        }
     }
 
     public void destroy(int entityId, Player viewer) {
-        if (viewer == null || !viewer.isOnline()) {
-            return;
-        }
-        PacketManager.sendUnicast(viewer, new RemoveNametagEntityPacket(entityId));
+        safeDestroy(entityId, viewer, "destroy");
     }
 
     public void destroy(int entityId, Collection<? extends Player> viewers) {
         if (viewers == null || viewers.isEmpty()) {
             return;
         }
-        RemoveNametagEntityPacket removePacket = new RemoveNametagEntityPacket(entityId);
         for (Player viewer : viewers) {
-            if (viewer != null && viewer.isOnline()) {
-                PacketManager.sendUnicast(viewer, removePacket);
-            }
+            safeDestroy(entityId, viewer, "multicast destroy");
         }
     }
 
@@ -72,10 +90,14 @@ public final class NametagUpdater {
         if (owner == null || viewer == null || !owner.isOnline() || !viewer.isOnline()) {
             return;
         }
-        PacketManager.sendUnicast(
-                viewer,
-                new MountNametagEntityPacket(owner, passengerList(owner, nametag.getEntityId()))
-        );
+        try {
+            PacketManager.sendUnicast(
+                    viewer,
+                    new MountNametagEntityPacket(owner, passengerList(owner, nametag.getEntityId()))
+            );
+        } catch (RuntimeException exception) {
+            logPacketFailure("remount", nametag.getEntityId(), viewer, exception);
+        }
     }
 
     public void updateMetadata(Nametag nametag, Collection<? extends Player> viewers) {
@@ -88,10 +110,42 @@ public final class NametagUpdater {
                 nametag.snapshotMetadata()
         );
         for (Player viewer : viewers) {
-            if (viewer != null && viewer.isOnline()) {
+            if (viewer == null || !viewer.isOnline()) {
+                continue;
+            }
+            try {
                 PacketManager.sendUnicast(viewer, packet);
+            } catch (RuntimeException exception) {
+                logPacketFailure("metadata update", nametag.getEntityId(), viewer, exception);
             }
         }
+    }
+
+    private void safeDestroy(int entityId, Player viewer, String operation) {
+        if (viewer == null || !viewer.isOnline()) {
+            return;
+        }
+        try {
+            PacketManager.sendUnicast(viewer, new RemoveNametagEntityPacket(entityId));
+        } catch (RuntimeException exception) {
+            logPacketFailure(operation, entityId, viewer, exception);
+        }
+    }
+
+    private void logPacketFailure(String operation, int entityId, Player viewer, RuntimeException exception) {
+        LOGGER.warning(
+                "[ServerFeatures] [Nametags] Failed to " + operation + " entity " + entityId
+                        + " for " + viewer.getName() + ": " + rootMessage(exception)
+        );
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
     private int[] passengerList(Player owner, int nametagEntityId) {
