@@ -125,10 +125,20 @@ public final class NametagUpdater {
         if (viewer == null || !viewer.isOnline()) {
             return;
         }
+
+        RuntimeException firstFailure;
         try {
             PacketManager.sendUnicast(viewer, new RemoveNametagEntityPacket(entityId));
+            return;
         } catch (RuntimeException exception) {
-            logPacketFailure(operation, entityId, viewer, exception);
+            firstFailure = exception;
+        }
+
+        try {
+            PacketManager.sendUnicast(viewer, new RemoveNametagEntityPacket(entityId));
+        } catch (RuntimeException retryFailure) {
+            firstFailure.addSuppressed(retryFailure);
+            logPacketFailure(operation, entityId, viewer, firstFailure);
         }
     }
 
