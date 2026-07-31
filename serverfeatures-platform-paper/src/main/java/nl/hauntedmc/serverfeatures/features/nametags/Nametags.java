@@ -23,6 +23,7 @@ public class Nametags extends BukkitBaseFeature<Meta> {
     private NametagDBService repository;
     private ORMContext ormContext;
     private PlaceholderHook placeholderHook;
+    private LuckPermsHook luckPermsHook;
     private NametagPassengerPacketListener passengerPacketListener;
 
     public Nametags(FeatureContext<Meta> context) {
@@ -43,13 +44,6 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         defaults.put("reconciliation.interval_ticks", 10);
         defaults.put("repair.remount_enabled", true);
         defaults.put("repair.remount_interval_ticks", 100);
-
-        // Retained so existing installations do not lose documented settings during migration.
-        defaults.put("update_interval_ticks", 2);
-        defaults.put("viewer_update_delay_ticks", 10);
-        defaults.put("remount_fix.enabled", true);
-        defaults.put("remount_fix.interval_ticks", 10);
-        defaults.put("debounce_update_ticks", 5);
 
         return defaults;
     }
@@ -98,7 +92,7 @@ public class Nametags extends BukkitBaseFeature<Meta> {
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new NametagCommand(this));
 
         if (Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
-            LuckPermsHook.subscribeLuckPermsHook(this);
+            this.luckPermsHook = LuckPermsHook.subscribe(this);
         }
 
         this.nametagManager.initializeOnlinePlayers();
@@ -106,6 +100,10 @@ public class Nametags extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
+        if (luckPermsHook != null) {
+            luckPermsHook.close();
+            luckPermsHook = null;
+        }
         if (passengerPacketListener != null) {
             PacketEvents.getAPI().getEventManager().unregisterListener(passengerPacketListener);
             passengerPacketListener = null;
