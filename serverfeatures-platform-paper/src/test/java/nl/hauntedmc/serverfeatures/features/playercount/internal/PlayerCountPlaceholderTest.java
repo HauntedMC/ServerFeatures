@@ -23,9 +23,13 @@ class PlayerCountPlaceholderTest {
         assertEquals("10", placeholder.onRequest(null, "network_online"));
         assertEquals("7", placeholder.onRequest(null, "network_visible"));
         assertEquals("3", placeholder.onRequest(null, "network_vanished"));
+        assertEquals("true", placeholder.onRequest(null, "server_available"));
         assertEquals("6", placeholder.onRequest(null, "server_online"));
         assertEquals("4", placeholder.onRequest(null, "server_visible"));
+        assertEquals("true", placeholder.onRequest(null, "server_lobby_1_available"));
         assertEquals("1", placeholder.onRequest(null, "server_lobby_1_vanished"));
+        assertEquals("false", placeholder.onRequest(null, "server_missing_available"));
+        assertEquals("0", placeholder.onRequest(null, "server_missing_online"));
         assertEquals("true", placeholder.onRequest(null, "available"));
         assertEquals("false", placeholder.onRequest(null, "stale"));
         assertNull(placeholder.onRequest(null, "unknown"));
@@ -42,6 +46,8 @@ class PlayerCountPlaceholderTest {
 
         assertEquals("0", placeholder.onRequest(null, "network_online"));
         assertEquals("0", placeholder.onRequest(null, "server_survival_visible"));
+        assertEquals("false", placeholder.onRequest(null, "server_available"));
+        assertEquals("false", placeholder.onRequest(null, "server_survival_available"));
         assertEquals("false", placeholder.onRequest(null, "available"));
         assertEquals("-1", placeholder.onRequest(null, "age_seconds"));
     }
