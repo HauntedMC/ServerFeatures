@@ -61,16 +61,17 @@ public class CommandRelay extends BukkitBaseFeature<Meta> {
         FeatureDataManager dataManager = getLifecycleManager().getDataManager();
         dataManager.initDataProvider(getFeatureName());
 
-        ORMContext auditOrm = dataManager.registerConnection(
-                        AUDIT_DATABASE_IDENTIFIER,
-                        DatabaseType.MYSQL,
-                        AUDIT_DATABASE_CONNECTION
-                )
-                .flatMap(unused -> dataManager.createORMContext(
+        boolean auditConnectionAvailable = dataManager.registerConnection(
+                AUDIT_DATABASE_IDENTIFIER,
+                DatabaseType.MYSQL,
+                AUDIT_DATABASE_CONNECTION
+        ).isPresent();
+        ORMContext auditOrm = auditConnectionAvailable
+                ? dataManager.createORMContext(
                         AUDIT_DATABASE_IDENTIFIER,
                         CommandRelayAuditLogEntity.class
-                ))
-                .orElse(null);
+                ).orElse(null)
+                : null;
         if (auditOrm == null) {
             getLogger().warning(
                     "CommandRelay database audit logging is disabled because the system ORM context is unavailable."
