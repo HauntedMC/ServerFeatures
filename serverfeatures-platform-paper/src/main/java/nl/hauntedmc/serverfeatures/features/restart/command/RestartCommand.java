@@ -68,6 +68,15 @@ public class RestartCommand extends FeatureCommand {
             sendNoPermission(sender);
             return;
         }
+
+        RestartService.Phase phase = service.getPhase();
+        if (phase == RestartService.Phase.PREPARING
+                || phase == RestartService.Phase.DRAINING
+                || phase == RestartService.Phase.SHUTTING_DOWN) {
+            send(sender, "restart.in_progress");
+            return;
+        }
+
         send(sender, "restart.forced");
         service.forceImmediate(sender);
     }
