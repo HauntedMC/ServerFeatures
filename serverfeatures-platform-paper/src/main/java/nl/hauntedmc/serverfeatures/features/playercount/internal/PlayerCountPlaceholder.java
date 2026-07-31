@@ -52,14 +52,15 @@ public final class PlayerCountPlaceholder extends PlaceholderExpansion {
             case "network_online" -> metric(api.network(), Metric.ONLINE);
             case "network_visible" -> metric(api.network(), Metric.VISIBLE);
             case "network_vanished" -> metric(api.network(), Metric.VANISHED);
+            case "server_available" -> Boolean.toString(api.isLocalServerAvailable());
             case "server_online" -> metric(api.localServer(), Metric.ONLINE);
             case "server_visible" -> metric(api.localServer(), Metric.VISIBLE);
             case "server_vanished" -> metric(api.localServer(), Metric.VANISHED);
-            default -> namedServerMetric(normalized);
+            default -> namedServerValue(normalized);
         };
     }
 
-    private String namedServerMetric(String params) {
+    private String namedServerValue(String params) {
         if (!params.startsWith(SERVER_PREFIX)) {
             return null;
         }
@@ -69,7 +70,11 @@ public final class PlayerCountPlaceholder extends PlaceholderExpansion {
             return null;
         }
         String serverName = remainder.substring(0, separator);
-        Metric metric = Metric.from(remainder.substring(separator + 1));
+        String suffix = remainder.substring(separator + 1);
+        if (suffix.equals("available")) {
+            return Boolean.toString(api.isServerAvailable(serverName));
+        }
+        Metric metric = Metric.from(suffix);
         if (metric == null) {
             return null;
         }
