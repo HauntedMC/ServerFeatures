@@ -21,14 +21,8 @@ class VotifierTest {
 
     @Test
     void consumerGroupDefaultsToAStablePerServerName() {
-        assertEquals(
-                "serverfeatures.votifier.survival_eu",
-                Votifier.resolveConsumerGroup("", " Survival EU ")
-        );
-        assertEquals(
-                "custom_votes",
-                Votifier.resolveConsumerGroup(" Custom Votes ", "ignored")
-        );
+        assertEquals("serverfeatures.votifier.survival_eu", Votifier.resolveConsumerGroup("", " Survival EU "));
+        assertEquals("custom_votes", Votifier.resolveConsumerGroup(" Custom Votes ", "ignored"));
     }
 
     @Test
@@ -120,10 +114,13 @@ class VotifierTest {
     }
 
     @Test
-    void deliveryModeParsingIsBackwardCompatible() {
+    void deliveryModeParsingIsStrictAndBackwardCompatible() {
         assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode(null));
-        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode("unknown"));
+        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode(""));
+        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode("legacy"));
         assertEquals(Votifier.DeliveryMode.TARGETED, Votifier.parseDeliveryMode("targeted"));
         assertEquals(Votifier.DeliveryMode.TARGETED, Votifier.parseDeliveryMode("per_server"));
+        assertThrows(IllegalArgumentException.class, () -> Votifier.parseDeliveryMode("targetted"));
+        assertThrows(IllegalArgumentException.class, () -> Votifier.parseDeliveryMode("unknown"));
     }
 }
