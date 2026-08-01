@@ -36,9 +36,6 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         cfg.put("enabled", false);
         cfg.put("channel", DEFAULT_STREAM);
         cfg.put("consumer_group", "");
-
-        // LEGACY consumes `channel` exactly as before. TARGETED derives a private
-        // stream from the global server_name and must match ProxyFeatures Votifier.
         cfg.put("delivery.mode", DeliveryMode.LEGACY.name());
         cfg.put("delivery.stream_pattern", DEFAULT_STREAM_PATTERN);
         return cfg;
@@ -115,7 +112,6 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         if (configuredChannel == null) {
             return DEFAULT_STREAM;
         }
-
         String channel = configuredChannel.trim();
         return channel.isEmpty() ? DEFAULT_STREAM : channel;
     }
@@ -125,8 +121,12 @@ public class Votifier extends BukkitBaseFeature<Meta> {
                 ? ""
                 : configuredMode.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
+            case "", "LEGACY" -> DeliveryMode.LEGACY;
             case "TARGETED", "PER_SERVER", "PER-SERVER" -> DeliveryMode.TARGETED;
-            default -> DeliveryMode.LEGACY;
+            default -> throw new IllegalArgumentException(
+                    "Unknown Votifier delivery.mode \"" + configuredMode
+                            + "\". Expected LEGACY or TARGETED."
+            );
         };
     }
 
