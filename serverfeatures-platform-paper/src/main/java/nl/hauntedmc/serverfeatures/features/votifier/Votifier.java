@@ -86,7 +86,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         String configuredGroup = getConfigHandler().get("consumer_group", String.class, "");
         String consumerGroup = resolveConsumerGroup(configuredGroup, serverName);
         if ((configuredGroup == null || configuredGroup.isBlank())
-                && DEFAULT_SERVER_NAME.equalsIgnoreCase(normalizeServerName(serverName))) {
+                && DEFAULT_SERVER_NAME.equalsIgnoreCase(normalizeTargetServerName(serverName))) {
             getLogger().warning(
                     "Votifier is using the default durable consumer group. Configure a unique global "
                             + "'server_name' or feature 'consumer_group' for every backend that must receive votes."
@@ -98,7 +98,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
 
         getLogger().info(
                 "Votifier delivery mode=" + deliveryMode
-                        + ", server_name=\"" + normalizeServerName(serverName) + "\""
+                        + ", server_name=\"" + normalizeTargetServerName(serverName) + "\""
                         + ", stream=\"" + stream + "\"."
         );
     }
@@ -141,7 +141,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
             return resolvedBase;
         }
 
-        String normalizedServer = normalizeServerName(serverName);
+        String normalizedServer = normalizeTargetServerName(serverName);
         if (DEFAULT_SERVER_NAME.equals(normalizedServer)) {
             throw new IllegalStateException(
                     "Targeted Votifier delivery requires a unique global 'server_name'; "
@@ -162,15 +162,21 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         if (configuredGroup != null && !configuredGroup.isBlank()) {
             return normalizeConsumerKey(configuredGroup, "serverfeatures.votifier.server");
         }
-        String normalizedServer = normalizeServerName(serverName);
+        String normalizedServer = normalizeConsumerKey(serverName, DEFAULT_SERVER_NAME);
         return normalizeConsumerKey(
                 "serverfeatures.votifier." + normalizedServer,
                 "serverfeatures.votifier.server"
         );
     }
 
-    static String normalizeServerName(String value) {
-        return normalizeConsumerKey(value, DEFAULT_SERVER_NAME);
+    static String normalizeTargetServerName(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+        normalized = normalized.replaceAll("[^a-z0-9_.-]", "_");
+        normalized = normalized.replaceAll("_+", "_");
+        if (normalized.isBlank()) {
+            normalized = DEFAULT_SERVER_NAME;
+        }
+        return normalized.substring(0, Math.min(normalized.length(), 64));
     }
 
     private static String normalizeConsumerKey(String value, String fallback) {
