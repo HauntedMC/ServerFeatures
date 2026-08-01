@@ -58,6 +58,20 @@ class VotifierTest {
     }
 
     @Test
+    void targetedStreamNormalizationMatchesProxyTargets() {
+        assertEquals("survival_eu-2", Votifier.normalizeTargetServerName(" Survival:EU-2 "));
+        assertEquals(
+                "proxy.votifier.vote.survival_eu-2",
+                Votifier.resolveDeliveryStream(
+                        "proxy.votifier.vote",
+                        Votifier.DeliveryMode.TARGETED,
+                        "{channel}.{server}",
+                        " Survival:EU-2 "
+                )
+        );
+    }
+
+    @Test
     void targetedModeSupportsCustomPattern() {
         assertEquals(
                 "votes:skyblock:proxy.votifier.vote",
