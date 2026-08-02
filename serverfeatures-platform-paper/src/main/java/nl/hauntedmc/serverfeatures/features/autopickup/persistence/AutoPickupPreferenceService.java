@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.autopickup.config.AutoPickupSettings
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState;
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState.CommandIntent;
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState.LoadState;
+import nl.hauntedmc.serverfeatures.features.autopickup.persistence.AutoPickupPreferenceRepository.StoredPreference;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -31,6 +32,7 @@ public final class AutoPickupPreferenceService {
     private final AutoPickupSettings settings;
     private final AutoPickupPreferenceRepository repository;
     private final PlayerIdentityResolver identityResolver;
+    private final AutoPickupWriteRevisionClock revisionClock = new AutoPickupWriteRevisionClock();
     private final Map<UUID, AutoPickupPlayerState> states = new HashMap<>();
     private final Map<UUID, WriteSlot> writes = new HashMap<>();
     private final Set<CompletableFuture<?>> activeAttempts = ConcurrentHashMap.newKeySet();
@@ -71,7 +73,7 @@ public final class AutoPickupPreferenceService {
         return state != null
                 && state.loadState() == LoadState.READY
                 && state.enabled()
-                && player.hasPermission(AutoPickup.USE_PERMISSION);
+                && (!settings.requireUsePermission() || player.hasPermission(AutoPickup.USE_PERMISSION));
     }
 
     public void handleCommand(Player player, CommandIntent intent) {
@@ -118,8 +120,9 @@ public final class AutoPickupPreferenceService {
         if (partialInsertion && !notification.notifyOnPartial()) {
             return false;
         }
-        long elapsed = nowNanos - state.lastFullNoticeNanos();
-        if (state.lastFullNoticeNanos() != Long.MIN_VALUE && elapsed < notification.cooldownNanos()) {
+        long previousNotice = state.lastFullNoticeNanos();
+        if (previousNotice != Long.MIN_VALUE
+                && nowNanos - previousNotice < notification.cooldownNanos()) {
             return false;
         }
         state.lastFullNoticeNanos(nowNanos);
@@ -131,6 +134,7 @@ public final class AutoPickupPreferenceService {
         if (state != null) {
             state.enabled(false);
             state.persisted(false);
+            state.nextGeneration();
         }
     }
 
@@ -187,11 +191,10 @@ public final class AutoPickupPreferenceService {
 
         current.playerId(identity.get().playerId());
         WriteSlot existingWrite = writes.get(uuid);
-        if (existingWrite != null && existingWrite.inFlight) {
-            boolean effective = existingWrite.queuedValue != null
-                    ? existingWrite.queuedValue
-                    : existingWrite.activeValue;
-            finishLoad(uuid, current, effective, false);
+        WriteRequest newestLocalRequest = existingWrite == null ? null : existingWrite.newestRequest();
+        if (newestLocalRequest != null) {
+            revisionClock.observe(newestLocalRequest.writeRevision());
+            finishLoad(uuid, current, newestLocalRequest.enabled(), false);
             return;
         }
         load(uuid, state, generation, current.playerId());
@@ -201,7 +204,7 @@ public final class AutoPickupPreferenceService {
                       AutoPickupPlayerState state,
                       long generation,
                       long playerId) {
-        CompletableFuture<Optional<Boolean>> future = feature.getLifecycleManager()
+        CompletableFuture<Optional<StoredPreference>> future = feature.getLifecycleManager()
                 .getTaskManager()
                 .supplyAsync(() -> repository.load(playerId));
         track(future);
@@ -233,7 +236,13 @@ public final class AutoPickupPreferenceService {
                 return;
             }
 
-            finishLoad(uuid, current, loaded.orElse(settings.defaultEnabled()), true);
+            StoredPreference stored = loaded.orElse(null);
+            if (stored == null) {
+                finishLoad(uuid, current, settings.defaultEnabled(), true);
+            } else {
+                revisionClock.observe(stored.writeRevision());
+                finishLoad(uuid, current, stored.enabled(), true);
+            }
         }));
     }
 
@@ -292,84 +301,111 @@ public final class AutoPickupPreferenceService {
         }
         WriteSlot slot = writes.computeIfAbsent(uuid, ignored -> new WriteSlot(playerId));
         slot.playerId = playerId;
-        slot.queuedValue = desired;
+        slot.queuedRequest = new WriteRequest(desired, revisionClock.next());
         if (!slot.inFlight) {
             startNextWrite(uuid, slot);
         }
     }
 
     private void startNextWrite(UUID uuid, WriteSlot slot) {
-        if (closed.get() || slot.queuedValue == null) {
+        if (closed.get() || slot.queuedRequest == null) {
             writes.remove(uuid, slot);
             return;
         }
-        boolean value = slot.queuedValue;
-        slot.queuedValue = null;
+        WriteRequest request = slot.queuedRequest;
+        slot.queuedRequest = null;
         slot.inFlight = true;
-        slot.activeValue = value;
-        attemptWrite(uuid, slot, value, 1);
+        slot.activeRequest = request;
+        attemptWrite(uuid, slot, request, 1);
     }
 
-    private void attemptWrite(UUID uuid, WriteSlot slot, boolean value, int attempt) {
+    private void attemptWrite(UUID uuid, WriteSlot slot, WriteRequest request, int attempt) {
         if (closed.get()) {
             slot.inFlight = false;
             return;
         }
-        CompletableFuture<Void> future = feature.getLifecycleManager().getTaskManager().runAsync(
-                () -> repository.upsert(slot.playerId, value)
+        CompletableFuture<StoredPreference> future = feature.getLifecycleManager().getTaskManager().supplyAsync(
+                () -> repository.upsert(slot.playerId, request.enabled(), request.writeRevision())
         );
         track(future);
-        future.whenComplete((ignored, throwable) -> {
+        future.whenComplete((stored, throwable) -> {
             if (throwable == null) {
-                scheduleMain(() -> completeWrite(uuid, slot, value));
+                scheduleMain(() -> completeWrite(uuid, slot, request, stored));
                 return;
             }
             if (attempt < settings.retry().attempts() && !closed.get()) {
                 long delay = settings.retry().delayForAttempt(attempt - 1);
                 try {
                     feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                            () -> attemptWrite(uuid, slot, value, attempt + 1),
+                            () -> attemptWrite(uuid, slot, request, attempt + 1),
                             BukkitTime.milliseconds(delay)
                     );
                 } catch (RuntimeException schedulingFailure) {
                     throwable.addSuppressed(schedulingFailure);
-                    scheduleMain(() -> failWrite(uuid, slot, value, throwable));
+                    scheduleMain(() -> failWrite(uuid, slot, request, throwable));
                 }
             } else {
-                scheduleMain(() -> failWrite(uuid, slot, value, throwable));
+                scheduleMain(() -> failWrite(uuid, slot, request, throwable));
             }
         });
     }
 
-    private void completeWrite(UUID uuid, WriteSlot slot, boolean value) {
+    private void completeWrite(UUID uuid,
+                               WriteSlot slot,
+                               WriteRequest request,
+                               StoredPreference stored) {
         if (writes.get(uuid) != slot) {
             return;
         }
         slot.inFlight = false;
+        slot.activeRequest = null;
+        revisionClock.observe(stored.writeRevision());
+
+        boolean accepted = stored.writeRevision() == request.writeRevision()
+                && stored.enabled() == request.enabled();
         AutoPickupPlayerState state = states.get(uuid);
-        if (state != null && state.enabled() == value
-                && (slot.queuedValue == null || slot.queuedValue == value)) {
+        if (accepted) {
+            if (state != null && state.enabled() == request.enabled() && slot.queuedRequest == null) {
+                state.persisted(true);
+            }
+        } else if (slot.queuedRequest == null
+                && state != null
+                && state.loadState() == LoadState.READY
+                && state.enabled() == request.enabled()) {
+            boolean changed = state.enabled() != stored.enabled();
+            state.enabled(stored.enabled());
             state.persisted(true);
+            state.nextGeneration();
+            Player player = Bukkit.getPlayer(uuid);
+            if (changed && player != null && player.isOnline()) {
+                send(player, stored.enabled()
+                        ? "autopickup.remote_enabled"
+                        : "autopickup.remote_disabled");
+            }
         }
-        if (slot.queuedValue != null && slot.queuedValue != value) {
+
+        if (slot.queuedRequest != null) {
             startNextWrite(uuid, slot);
         } else {
-            slot.queuedValue = null;
             writes.remove(uuid, slot);
         }
     }
 
-    private void failWrite(UUID uuid, WriteSlot slot, boolean value, Throwable throwable) {
+    private void failWrite(UUID uuid,
+                           WriteSlot slot,
+                           WriteRequest request,
+                           Throwable throwable) {
         if (writes.get(uuid) != slot) {
             return;
         }
         slot.inFlight = false;
+        slot.activeRequest = null;
         feature.getLogger().log(
                 Level.WARNING,
-                "Failed to persist AutoPickup=" + value + " for player " + uuid,
+                "Failed to persist AutoPickup=" + request.enabled() + " for player " + uuid,
                 throwable
         );
-        if (slot.queuedValue != null && slot.queuedValue != value) {
+        if (slot.queuedRequest != null) {
             startNextWrite(uuid, slot);
             return;
         }
@@ -423,14 +459,26 @@ public final class AutoPickupPreferenceService {
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
+    private record WriteRequest(boolean enabled, long writeRevision) {
+        private WriteRequest {
+            if (writeRevision <= 0L) {
+                throw new IllegalArgumentException("writeRevision must be positive");
+            }
+        }
+    }
+
     private static final class WriteSlot {
         private long playerId;
         private boolean inFlight;
-        private boolean activeValue;
-        private Boolean queuedValue;
+        private WriteRequest activeRequest;
+        private WriteRequest queuedRequest;
 
         private WriteSlot(long playerId) {
             this.playerId = playerId;
+        }
+
+        private WriteRequest newestRequest() {
+            return queuedRequest != null ? queuedRequest : activeRequest;
         }
     }
 }
