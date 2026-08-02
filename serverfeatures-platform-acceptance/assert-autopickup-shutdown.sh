@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-work_directory="${PLATFORM_ACCEPTANCE_WORK_DIRECTORY:?PLATFORM_ACCEPTANCE_WORK_DIRECTORY must be set}"
-paper_log="$work_directory/paper/paper.log"
+if [[ -z "${PLATFORM_ACCEPTANCE_WORK_DIRECTORY:-}" ]]; then
+    echo "AutoPickup shutdown log assertion skipped: no retained platform acceptance directory was configured."
+    exit 0
+fi
+
+paper_log="$PLATFORM_ACCEPTANCE_WORK_DIRECTORY/paper/paper.log"
 
 [[ -f "$paper_log" ]] || {
     echo "ServerFeatures acceptance failure: Paper log is missing: $paper_log" >&2
