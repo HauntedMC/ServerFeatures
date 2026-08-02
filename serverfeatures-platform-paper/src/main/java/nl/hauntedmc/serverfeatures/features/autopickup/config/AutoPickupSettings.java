@@ -24,10 +24,12 @@ public record AutoPickupSettings(
         NotificationSettings notification,
         PickupSoundSettings pickupSound,
         RetrySettings retry,
+        long joinRecheckDelayMillis,
         long shutdownDrainTimeoutMillis,
         long diagnosticWarningCooldownNanos
 ) {
 
+    private static final long MAX_JOIN_RECHECK_DELAY_MILLIS = 60_000L;
     private static final long MAX_SHUTDOWN_DRAIN_TIMEOUT_MILLIS = 10_000L;
 
     public AutoPickupSettings {
@@ -119,6 +121,16 @@ public record AutoPickupSettings(
             );
         }
 
+        long joinRecheckDelay = nonNegative(
+                config.get("persistence.join-recheck-delay-millis", Long.class, 3000L),
+                "persistence.join-recheck-delay-millis"
+        );
+        if (joinRecheckDelay > MAX_JOIN_RECHECK_DELAY_MILLIS) {
+            throw new IllegalArgumentException(
+                    "persistence.join-recheck-delay-millis cannot exceed "
+                            + MAX_JOIN_RECHECK_DELAY_MILLIS
+            );
+        }
         long drainTimeout = nonNegative(
                 config.get("persistence.shutdown-drain-timeout-millis", Long.class, 1000L),
                 "persistence.shutdown-drain-timeout-millis"
@@ -155,6 +167,7 @@ public record AutoPickupSettings(
                         pickupSoundPitch
                 ),
                 new RetrySettings(attempts, initialDelay, maximumDelay),
+                joinRecheckDelay,
                 drainTimeout,
                 millisecondsToNanos(diagnosticCooldownMillis, "diagnostics.warning-cooldown-millis")
         );
