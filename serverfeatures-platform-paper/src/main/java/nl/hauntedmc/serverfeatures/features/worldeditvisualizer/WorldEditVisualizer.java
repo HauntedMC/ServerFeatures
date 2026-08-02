@@ -51,6 +51,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         messages.add("worldeditvisualizer.no_selection", "&eGeen volledige WorldEdit cuboid-selectie gevonden.");
         messages.add("worldeditvisualizer.not_cuboid", "&eAlleen cuboid-selecties worden ondersteund.");
         messages.add("worldeditvisualizer.render_failed", "&cDe selectie kon niet worden weergegeven. Probeer het opnieuw.");
+        messages.add("worldeditvisualizer.usage", "&eGebruik: /wevis [toggle]");
         return messages;
     }
 
