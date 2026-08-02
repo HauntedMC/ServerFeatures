@@ -14,34 +14,45 @@ class CuboidOutlineSamplerTest {
     void samplesAllEdgesOfSmallCuboidWithoutDuplicates() {
         CuboidBounds bounds = new CuboidBounds(0, 0, 0, 2, 2, 2);
 
-        Set<BlockPoint> points = CuboidOutlineSampler.sample(
-                bounds, new BlockPoint(1, 1, 1), 16, 1, 1000);
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(1.5, 1.5, 1.5), 16, 1.0, 1000);
 
         assertEquals(20, points.size());
         assertTrue(points.containsAll(bounds.corners()));
-        assertFalse(points.contains(new BlockPoint(1, 1, 1)));
+        assertFalse(points.contains(VisualPoint.of(1.5, 1.5, 1.5)));
+    }
+
+    @Test
+    void supportsStableFractionalEdgeSpacing() {
+        CuboidBounds bounds = new CuboidBounds(0, 0, 0, 1, 1, 1);
+
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(1, 1, 1), 16, 0.25, 1000);
+
+        assertTrue(points.contains(VisualPoint.of(0.75, 0.5, 0.5)));
+        assertTrue(points.contains(VisualPoint.of(1.25, 1.5, 1.5)));
     }
 
     @Test
     void onlySamplesVisibleEdgeSegments() {
         CuboidBounds bounds = new CuboidBounds(-10_000, 0, 0, 10_000, 10, 10);
 
-        Set<BlockPoint> points = CuboidOutlineSampler.sample(
-                bounds, new BlockPoint(0, 0, 0), 32, 1, 1000);
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(0.5, 0.5, 0.5), 32, 0.25, 1000);
 
-        assertTrue(points.stream().allMatch(point -> Math.abs(point.x()) <= 32));
-        assertTrue(points.size() < 400);
+        assertTrue(points.stream().allMatch(point -> Math.abs(point.x() - 0.5) <= 32.01));
+        assertTrue(points.size() <= 1000);
     }
 
     @Test
-    void increasesSamplingStepToRespectBlockBudget() {
+    void increasesSamplingStepToRespectEntityBudget() {
         CuboidBounds bounds = new CuboidBounds(-1000, -1000, -1000, 1000, 1000, 1000);
 
-        Set<BlockPoint> points = CuboidOutlineSampler.sample(
-                bounds, new BlockPoint(1000, 1000, 1000), 512, 1, 64);
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(1000.5, 1000.5, 1000.5), 512, 0.05, 64);
 
         assertTrue(points.size() <= 64);
-        assertTrue(points.contains(new BlockPoint(1000, 1000, 1000)));
+        assertTrue(points.contains(VisualPoint.of(1000.5, 1000.5, 1000.5)));
     }
 
     @Test
@@ -57,10 +68,10 @@ class CuboidOutlineSamplerTest {
     }
 
     @Test
-    void visibilityUsesBoundedAxisDistancesWithoutOverflow() {
+    void visibilityHandlesExtremeCoordinatesWithoutOverflow() {
         assertFalse(CuboidOutlineSampler.isVisible(
-                new BlockPoint(Integer.MIN_VALUE, 0, 0),
-                new BlockPoint(Integer.MAX_VALUE, 0, 0),
+                VisualPoint.blockCenter(Integer.MIN_VALUE, 0, 0),
+                VisualPoint.blockCenter(Integer.MAX_VALUE, 0, 0),
                 128
         ));
     }
@@ -70,18 +81,18 @@ class CuboidOutlineSamplerTest {
         CuboidBounds bounds = new CuboidBounds(
                 Integer.MIN_VALUE, 0, 0, Integer.MAX_VALUE, 0, 0);
 
-        Set<BlockPoint> points = CuboidOutlineSampler.sample(
-                bounds, new BlockPoint(Integer.MAX_VALUE, 0, 0), 16, 3, 64);
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.blockCenter(Integer.MAX_VALUE, 0, 0), 16, 0.25, 64);
 
         assertTrue(points.size() <= 64);
     }
 
     @Test
-    void defensiveCapTerminatesWhenMandatoryEndpointsExceedBudget() {
+    void defensiveCapTerminatesWithTinyBudget() {
         CuboidBounds bounds = new CuboidBounds(-100, -100, -100, 100, 100, 100);
 
-        Set<BlockPoint> points = CuboidOutlineSampler.sample(
-                bounds, new BlockPoint(100, 100, 100), 100, 1, 1);
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(100.5, 100.5, 100.5), 100, 0.05, 1);
 
         assertEquals(1, points.size());
     }
