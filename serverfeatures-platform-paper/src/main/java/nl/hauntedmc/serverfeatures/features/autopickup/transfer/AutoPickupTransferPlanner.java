@@ -21,7 +21,8 @@ public final class AutoPickupTransferPlanner {
             throw new IllegalArgumentException("inventoryMaxStackSize must be positive");
         }
 
-        ItemStack[] changedStorage = cloneArray(currentStorage);
+        ItemStack[] initialStorage = cloneArray(currentStorage);
+        ItemStack[] changedStorage = cloneArray(initialStorage);
         List<DropResult> results = new ArrayList<>(offeredDrops.size());
         int totalInserted = 0;
         int totalRemaining = 0;
@@ -47,7 +48,7 @@ public final class AutoPickupTransferPlanner {
             totalRemaining = Math.addExact(totalRemaining, remaining);
         }
 
-        return new TransferPlan(changedStorage, results, totalInserted, totalRemaining);
+        return new TransferPlan(initialStorage, changedStorage, results, totalInserted, totalRemaining);
     }
 
     private ItemStack mergeIntoExisting(ItemStack[] storage,
@@ -86,11 +87,19 @@ public final class AutoPickupTransferPlanner {
     }
 
     public static ItemStack[] cloneArray(ItemStack[] source) {
+        Objects.requireNonNull(source, "source");
         return Arrays.stream(source).map(AutoPickupTransferPlanner::cloneOrNull).toArray(ItemStack[]::new);
     }
 
     public static ItemStack cloneOrNull(ItemStack item) {
         return item == null || item.getType().isAir() || item.getAmount() <= 0 ? null : item.clone();
+    }
+
+    static boolean sameStack(ItemStack first, ItemStack second) {
+        if (first == null || second == null) {
+            return first == second;
+        }
+        return first.getAmount() == second.getAmount() && first.isSimilar(second);
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {
@@ -114,6 +123,9 @@ public final class AutoPickupTransferPlanner {
             if (insertedAmount + remainingAmount != originalAmount) {
                 throw new IllegalArgumentException("DropResult violates item conservation");
             }
+            if (remainder != null && (original == null || !remainder.isSimilar(original))) {
+                throw new IllegalArgumentException("DropResult remainder must match the original item");
+            }
         }
 
         @Override
@@ -132,17 +144,36 @@ public final class AutoPickupTransferPlanner {
     }
 
     public record TransferPlan(
+            ItemStack[] initialStorage,
             ItemStack[] finalStorage,
             List<DropResult> drops,
             int totalInserted,
             int totalRemaining
     ) {
         public TransferPlan {
+            initialStorage = cloneArray(initialStorage);
             finalStorage = cloneArray(finalStorage);
             drops = List.copyOf(drops);
+            if (initialStorage.length != finalStorage.length) {
+                throw new IllegalArgumentException("Initial and final storage lengths must match");
+            }
             if (totalInserted < 0 || totalRemaining < 0) {
                 throw new IllegalArgumentException("Transfer totals cannot be negative");
             }
+            int calculatedInserted = 0;
+            int calculatedRemaining = 0;
+            for (DropResult drop : drops) {
+                calculatedInserted = Math.addExact(calculatedInserted, drop.insertedAmount());
+                calculatedRemaining = Math.addExact(calculatedRemaining, drop.remainingAmount());
+            }
+            if (calculatedInserted != totalInserted || calculatedRemaining != totalRemaining) {
+                throw new IllegalArgumentException("Transfer totals do not match the per-drop results");
+            }
+        }
+
+        @Override
+        public ItemStack[] initialStorage() {
+            return cloneArray(initialStorage);
         }
 
         @Override
