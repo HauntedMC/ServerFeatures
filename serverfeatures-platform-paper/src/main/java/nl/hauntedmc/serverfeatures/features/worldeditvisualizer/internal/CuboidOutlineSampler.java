@@ -73,23 +73,26 @@ final class CuboidOutlineSampler {
         double maxY = bounds.maxY() + 0.5;
         double maxZ = bounds.maxZ() + 0.5;
         double estimate = 0.0;
+        double[] xs = endpoints(minX, maxX);
+        double[] ys = endpoints(minY, maxY);
+        double[] zs = endpoints(minZ, maxZ);
 
-        for (double y : new double[]{minY, maxY}) {
-            for (double z : new double[]{minZ, maxZ}) {
+        for (double y : ys) {
+            for (double z : zs) {
                 if (within(y, viewer.y(), distance) && within(z, viewer.z(), distance)) {
                     estimate += estimateRange(minX, maxX, viewer.x(), distance, step);
                 }
             }
         }
-        for (double x : new double[]{minX, maxX}) {
-            for (double z : new double[]{minZ, maxZ}) {
+        for (double x : xs) {
+            for (double z : zs) {
                 if (within(x, viewer.x(), distance) && within(z, viewer.z(), distance)) {
                     estimate += estimateRange(minY, maxY, viewer.y(), distance, step);
                 }
             }
         }
-        for (double x : new double[]{minX, maxX}) {
-            for (double y : new double[]{minY, maxY}) {
+        for (double x : xs) {
+            for (double y : ys) {
                 if (within(x, viewer.x(), distance) && within(y, viewer.y(), distance)) {
                     estimate += estimateRange(minZ, maxZ, viewer.z(), distance, step);
                 }
@@ -126,9 +129,9 @@ final class CuboidOutlineSampler {
         double maxX = bounds.maxX() + 0.5;
         double maxY = bounds.maxY() + 0.5;
         double maxZ = bounds.maxZ() + 0.5;
-        double[] xs = {minX, maxX};
-        double[] ys = {minY, maxY};
-        double[] zs = {minZ, maxZ};
+        double[] xs = endpoints(minX, maxX);
+        double[] ys = endpoints(minY, maxY);
+        double[] zs = endpoints(minZ, maxZ);
 
         for (double y : ys) {
             for (double z : zs) {
@@ -244,6 +247,12 @@ final class CuboidOutlineSampler {
         }
     }
 
+    private static double[] endpoints(double minimum, double maximum) {
+        return Double.compare(minimum, maximum) == 0
+                ? new double[]{minimum}
+                : new double[]{minimum, maximum};
+    }
+
     private static boolean within(double value, double center, double distance) {
         return Math.abs(value - center) <= distance;
     }
@@ -275,85 +284,5 @@ final class CuboidOutlineSampler {
     @FunctionalInterface
     private interface PointFactory {
         VisualPoint create(double value);
-    }
-}
-
-record VisualPoint(long xUnits, long yUnits, long zUnits) {
-
-    private static final double UNITS_PER_BLOCK = 4096.0;
-
-    static VisualPoint of(double x, double y, double z) {
-        return new VisualPoint(quantize(x), quantize(y), quantize(z));
-    }
-
-    static VisualPoint blockCenter(int x, int y, int z) {
-        return of(x + 0.5, y + 0.5, z + 0.5);
-    }
-
-    double x() {
-        return xUnits / UNITS_PER_BLOCK;
-    }
-
-    double y() {
-        return yUnits / UNITS_PER_BLOCK;
-    }
-
-    double z() {
-        return zUnits / UNITS_PER_BLOCK;
-    }
-
-    VisualPoint offset(double x, double y, double z) {
-        return of(x() + x, y() + y, z() + z);
-    }
-
-    private static long quantize(double value) {
-        if (!Double.isFinite(value)) {
-            throw new IllegalArgumentException("Visual coordinates must be finite");
-        }
-        double scaled = value * UNITS_PER_BLOCK;
-        if (scaled >= Long.MAX_VALUE || scaled <= Long.MIN_VALUE) {
-            throw new IllegalArgumentException("Visual coordinate is outside the supported range");
-        }
-        return Math.round(scaled);
-    }
-}
-
-record BlockPoint(int x, int y, int z) {
-
-    VisualPoint center() {
-        return VisualPoint.blockCenter(x, y, z);
-    }
-}
-
-record CuboidBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
-
-    CuboidBounds {
-        int lowerX = Math.min(minX, maxX);
-        int upperX = Math.max(minX, maxX);
-        int lowerY = Math.min(minY, maxY);
-        int upperY = Math.max(minY, maxY);
-        int lowerZ = Math.min(minZ, maxZ);
-        int upperZ = Math.max(minZ, maxZ);
-        minX = lowerX;
-        maxX = upperX;
-        minY = lowerY;
-        maxY = upperY;
-        minZ = lowerZ;
-        maxZ = upperZ;
-    }
-
-    Set<VisualPoint> corners() {
-        LinkedHashSet<VisualPoint> corners = new LinkedHashSet<>(8);
-        int[] xs = {minX, maxX};
-        int[] ys = {minY, maxY};
-        int[] zs = {minZ, maxZ};
-        for (int x : xs) {
-            for (int y : ys) {
-                for (int z : zs) {
-                    corners.add(VisualPoint.blockCenter(x, y, z));
-                }
-            }
-        }
-        return Collections.unmodifiableSet(corners);
     }
 }
