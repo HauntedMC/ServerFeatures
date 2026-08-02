@@ -83,6 +83,7 @@ public final class AutoPickupBlockDropListener implements Listener {
                 }
                 return;
             }
+            feature.playPickupSound(player);
         }
 
         if (plan.totalRemaining() > 0) {
