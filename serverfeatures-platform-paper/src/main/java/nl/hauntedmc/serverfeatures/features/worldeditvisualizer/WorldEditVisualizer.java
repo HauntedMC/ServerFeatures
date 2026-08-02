@@ -11,7 +11,16 @@ import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerL
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta;
 import org.bukkit.entity.Player;
 
+import java.util.List;
+
 public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
+
+    private static final List<String> OBSOLETE_CONFIG_KEYS = List.of(
+            "glow",
+            "label",
+            "edge.scale",
+            "corner.scale"
+    );
 
     private VisualizationService service;
 
@@ -52,6 +61,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        removeObsoleteConfig();
         service = new VisualizationService(this);
 
         getLifecycleManager().getCommandManager()
@@ -80,6 +90,19 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
             service.shutdown();
             service = null;
         }
+    }
+
+    private void removeObsoleteConfig() {
+        List<String> present = OBSOLETE_CONFIG_KEYS.stream()
+                .filter(key -> getConfigHandler().get(key) != null)
+                .toList();
+        if (present.isEmpty()) {
+            return;
+        }
+        getConfigHandler().batch(batch -> present.forEach(batch::remove));
+        getPlugin().getLogger().info(
+                "[WorldEditVisualizer] Removed obsolete config keys: " + String.join(", ", present)
+        );
     }
 
     public boolean getBoolean(String key, boolean fallback) {
