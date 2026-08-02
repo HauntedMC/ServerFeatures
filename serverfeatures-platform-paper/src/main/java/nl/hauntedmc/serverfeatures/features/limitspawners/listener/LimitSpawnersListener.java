@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.listener;
 
 import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
-import io.papermc.paper.event.entity.EntityMoveEvent;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
@@ -61,16 +60,6 @@ public final class LimitSpawnersListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveFromWorldEvent event) {
         handler.scheduleRemovalCheck(event.getEntity().getUniqueId());
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onEntityMove(EntityMoveEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        if ((from.getBlockX() >> 4) != (to.getBlockX() >> 4)
-                || (from.getBlockZ() >> 4) != (to.getBlockZ() >> 4)) {
-            handler.updateTrackedLocation(event.getEntity(), to);
-        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
