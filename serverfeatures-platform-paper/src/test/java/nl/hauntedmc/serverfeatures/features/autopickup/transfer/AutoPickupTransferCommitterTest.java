@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
@@ -94,12 +95,65 @@ class AutoPickupTransferCommitterTest {
         assertEquals(3, dropped.stack().get().getAmount());
     }
 
+    @Test
+    void storageChangeAfterPlanningRejectsBeforeAnyMutation() {
+        InventoryHarness inventory = inventory(new ItemStack[36]);
+        ItemHarness dropped = droppedItem(item(Material.DIAMOND, 3));
+        List<Item> eventItems = new ArrayList<>(List.of(dropped.entity()));
+        BlockDropItemEvent event = event(eventItems);
+        var plan = planner.plan(
+                inventory.inventory().getStorageContents(),
+                List.of(dropped.entity().getItemStack()),
+                64
+        );
+        ItemStack[] changedStorage = new ItemStack[36];
+        changedStorage[0] = item(Material.STONE, 1);
+        inventory.contents().set(changedStorage);
+
+        AutoPickupCommitException failure = assertThrows(
+                AutoPickupCommitException.class,
+                () -> committer.commit(inventory.inventory(), event, List.of(dropped.entity()), plan)
+        );
+
+        assertFalse(failure.rollbackFailed());
+        assertEquals(1, inventory.contents().get()[0].getAmount());
+        assertTrue(inventory.contents().get()[0].isSimilar(item(Material.STONE)));
+        assertEquals(1, eventItems.size());
+        assertEquals(3, dropped.stack().get().getAmount());
+    }
+
+    @Test
+    void silentRemainderCorruptionIsDetectedAndRolledBack() {
+        ItemStack[] initial = fullStorage(Material.STONE, 64);
+        initial[4] = item(Material.DIAMOND, 63);
+        InventoryHarness inventory = inventory(initial);
+        ItemHarness dropped = firstStackMutationCorrupted(item(Material.DIAMOND, 3));
+        List<Item> eventItems = new ArrayList<>(List.of(dropped.entity()));
+        BlockDropItemEvent event = event(eventItems);
+        var plan = planner.plan(
+                inventory.inventory().getStorageContents(),
+                List.of(dropped.entity().getItemStack()),
+                64
+        );
+
+        AutoPickupCommitException failure = assertThrows(
+                AutoPickupCommitException.class,
+                () -> committer.commit(inventory.inventory(), event, List.of(dropped.entity()), plan)
+        );
+
+        assertFalse(failure.rollbackFailed());
+        assertEquals(63, inventory.contents().get()[4].getAmount());
+        assertEquals(1, eventItems.size());
+        assertSame(dropped.entity(), eventItems.getFirst());
+        assertEquals(3, dropped.stack().get().getAmount());
+    }
+
     private static InventoryHarness inventory(ItemStack[] initial) {
         PlayerInventory inventory = mock(PlayerInventory.class);
         AtomicReference<ItemStack[]> contents = new AtomicReference<>(
                 AutoPickupTransferPlanner.cloneArray(initial)
         );
-        when(inventory.getStorageContents()).thenAnswer(ignored ->
+        when(inventory.getStorageContents()).thenAnswer(unused ->
                 AutoPickupTransferPlanner.cloneArray(contents.get())
         );
         doAnswer(invocation -> {
@@ -111,11 +165,24 @@ class AutoPickupTransferCommitterTest {
     }
 
     private static ItemHarness droppedItem(ItemStack initial) {
+        return droppedItem(initial, false);
+    }
+
+    private static ItemHarness firstStackMutationCorrupted(ItemStack initial) {
+        return droppedItem(initial, true);
+    }
+
+    private static ItemHarness droppedItem(ItemStack initial, boolean corruptFirstMutation) {
         Item entity = mock(Item.class);
         AtomicReference<ItemStack> stack = new AtomicReference<>(initial.clone());
-        when(entity.getItemStack()).thenAnswer(ignored -> stack.get().clone());
+        AtomicBoolean corrupt = new AtomicBoolean(corruptFirstMutation);
+        when(entity.getItemStack()).thenAnswer(unused -> stack.get().clone());
         doAnswer(invocation -> {
-            stack.set(((ItemStack) invocation.getArgument(0)).clone());
+            ItemStack replacement = ((ItemStack) invocation.getArgument(0)).clone();
+            if (corrupt.compareAndSet(true, false)) {
+                replacement.setAmount(replacement.getAmount() + 1);
+            }
+            stack.set(replacement);
             return null;
         }).when(entity).setItemStack(any(ItemStack.class));
         return new ItemHarness(entity, stack);
@@ -157,12 +224,12 @@ class AutoPickupTransferCommitterTest {
         private boolean fail = true;
 
         @Override
-        public boolean remove(Object object) {
+        public Item remove(int index) {
             if (fail) {
                 fail = false;
                 throw new IllegalStateException("simulated event-list mutation failure");
             }
-            return super.remove(object);
+            return super.remove(index);
         }
     }
 }
