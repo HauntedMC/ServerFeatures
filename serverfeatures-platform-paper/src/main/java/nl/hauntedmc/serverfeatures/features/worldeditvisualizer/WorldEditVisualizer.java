@@ -27,10 +27,17 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         config.put("corner.material", "LIME_STAINED_GLASS");
         config.put("corner.pos1_material", "BLUE_STAINED_GLASS");
         config.put("corner.pos2_material", "RED_STAINED_GLASS");
-        config.put("edge.step_blocks", 1);
-        config.put("render.max_blocks", 2048);
-        config.put("render.max_distance_blocks", 192);
-        config.put("render.resend_interval_ticks", 100);
+        config.put("glow.edge_color", "aqua");
+        config.put("glow.corner_color", "aqua");
+        config.put("glow.pos1_color", "blue");
+        config.put("glow.pos2_color", "red");
+        config.put("edge.scale", 0.12d);
+        config.put("corner.scale", 0.35d);
+        config.put("label.enabled", true);
+        config.put("label.y_offset", 0.7d);
+        config.put("label.scale", 1.0d);
+        config.put("label.show_prefix_hash", false);
+        config.put("render.view_range", 4.0d);
         config.put("poll.interval_ticks", 10);
         return config;
     }
@@ -42,6 +49,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         messages.add("worldeditvisualizer.disabled", "&7Visualizer uitgeschakeld en gewist.");
         messages.add("worldeditvisualizer.no_selection", "&eGeen volledige WorldEdit cuboid-selectie gevonden.");
         messages.add("worldeditvisualizer.not_cuboid", "&eAlleen cuboid-selecties worden ondersteund.");
+        messages.add("worldeditvisualizer.render_failed", "&cDe selectie kon niet worden weergegeven. Probeer het opnieuw.");
         return messages;
     }
 
@@ -74,6 +82,11 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
     }
 
+    public boolean getBoolean(String key, boolean fallback) {
+        Object value = getConfigHandler().get(key);
+        return value instanceof Boolean bool ? bool : fallback;
+    }
+
     public int getInt(String key, int fallback) {
         Object value = getConfigHandler().get(key);
         if (value instanceof Number number) {
@@ -81,6 +94,18 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
         try {
             return Integer.parseInt(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
+    public double getDouble(String key, double fallback) {
+        Object value = getConfigHandler().get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
         } catch (RuntimeException ignored) {
             return fallback;
         }
