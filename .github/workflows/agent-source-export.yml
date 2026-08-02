@@ -18,22 +18,18 @@ jobs:
           ref: agent/graveyard-feature
           fetch-depth: 0
       - name: Apply pending update patch
-        if: ${{ hashFiles('.agent/update.patch.gz.b64') != '' }}
+        if: ${{ hashFiles('.agent/update.patch.ready') != '' }}
         run: |
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          wc -c .agent/update.patch.gz.b64
-          sha256sum .agent/update.patch.gz.b64
-          python - <<'PY'
-          import base64
-          from pathlib import Path
-          source = Path('.agent/update.patch.gz.b64').read_text()
-          filtered = ''.join(character for character in source if character.isalnum() or character in '+/=')
-          Path('/tmp/graveyard-update.patch.gz').write_bytes(base64.b64decode(filtered))
-          PY
-          gzip --decompress --stdout /tmp/graveyard-update.patch.gz > /tmp/graveyard-update.patch
+          cat .agent/update.patch.part-* > /tmp/graveyard-update.patch.gz.b64
+          wc -c /tmp/graveyard-update.patch.gz.b64
+          sha256sum /tmp/graveyard-update.patch.gz.b64
+          base64 --decode /tmp/graveyard-update.patch.gz.b64 \
+            | gzip --decompress \
+            > /tmp/graveyard-update.patch
           git apply --binary /tmp/graveyard-update.patch
-          rm .agent/update.patch.gz.b64
+          rm .agent/update.patch.ready .agent/update.patch.part-*
           git add -A
           git commit -m "Fix Graveyard implementation"
           git push origin HEAD:agent/graveyard-feature
