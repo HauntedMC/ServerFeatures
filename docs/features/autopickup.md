@@ -16,7 +16,7 @@ original amount = inserted amount + amount left on the ground
 
 When only part of a stack fits, the original event item entity remains in place with the exact remainder. Its position, velocity, pickup delay, ownership, persistent data and other entity state are retained. AutoPickup never removes an item and spawns a replacement remainder.
 
-Experience is unaffected and follows normal Paper block-break behavior. A configurable pickup sound is played once per successful block-drop event, not once per item entity.
+Experience is unaffected and follows normal Paper block-break behavior. A configurable pickup sound is played once per successful block-drop event, not once per item entity. Optional sound or actionbar failures are rate-limited and isolated after the item transaction, so they cannot undo or disrupt a completed transfer.
 
 ## Command and permission
 
@@ -38,7 +38,7 @@ The permission always controls command access. With `drop-policy.require-use-per
 
 The command is player-only and uses Paper's Brigadier command tree. There are no aliases or staff-targeting forms.
 
-A command submitted while the database preference is loading is retained as the latest pending intent. Explicit `on` or `off` can recover from a preference-load failure; an ambiguous toggle is rejected when the previous value could not be established. Repeating explicit `on` or `off` after a failed save retries persistence instead of only reporting that the state was already selected.
+Commands submitted while the database preference is loading are composed in order: explicit `on` or `off` supersedes older relative intent, while repeated toggles preserve their real parity. Explicit `on` or `off` can recover from a preference-load failure; an ambiguous toggle is rejected when the previous value could not be established. Repeating explicit `on` or `off` after a failed save retries persistence instead of only reporting that the state was already selected.
 
 ## Direct-break ownership
 
@@ -90,7 +90,7 @@ After mutation it verifies both the final inventory and the exact event membersh
 - the original event-list membership and order;
 - each original item entity stack.
 
-A successful rollback leaves normal ground drops. If rollback itself fails, the player's AutoPickup is disabled for the current session and a severe diagnostic path is surfaced rather than continuing to risk corruption. Fatal JVM errors are not swallowed by the transaction wrapper.
+A successful rollback leaves normal ground drops. If inventory restoration itself fails but the exact planned inventory survived, AutoPickup completes the matching event-side commit instead of restoring duplicate ground items. Any rollback that cannot be fully confirmed disables AutoPickup for the player's current session and surfaces a severe diagnostic. Fatal JVM errors are not swallowed by the transaction wrapper.
 
 No native pickup event is fabricated. Plugins listening for physical entity pickup should not treat AutoPickup as a normal collision pickup.
 
@@ -114,20 +114,20 @@ plugins/ServerFeatures/features/AutoPickup/config.yml
 | `notification.inventory-full.enabled` | `true` | Enables the targeted overflow actionbar. |
 | `notification.inventory-full.notify-on-partial` | `true` | Also notify when some, but not all, eligible items fitted. |
 | `notification.inventory-full.cooldown-millis` | `3000` | Per-player monotonic warning cooldown. |
-| `notification.inventory-full.duration-seconds` | `2` | Targeted ActionBars override duration. |
+| `notification.inventory-full.duration-seconds` | `2` | Targeted ActionBars override duration, from `0` through `60`. |
 | `effects.pickup-sound.enabled` | `true` | Plays a sound after a successful transfer. |
 | `effects.pickup-sound.sound` | `minecraft:entity.item.pickup` | Namespaced sound key; custom resource-pack keys are allowed. |
 | `effects.pickup-sound.category` | `PLAYERS` | Bukkit `SoundCategory`. |
-| `effects.pickup-sound.volume` | `0.2` | Finite, non-negative volume. |
+| `effects.pickup-sound.volume` | `0.2` | Finite volume from `0` through `16`. |
 | `effects.pickup-sound.pitch` | `1.0` | Finite pitch from `0.5` through `2.0`. |
-| `persistence.retry.attempts` | `3` | Total write attempts, at least one. |
-| `persistence.retry.initial-delay-millis` | `250` | First retry delay. |
-| `persistence.retry.maximum-delay-millis` | `2000` | Backoff cap; cannot be below the initial delay. |
+| `persistence.retry.attempts` | `3` | Total write attempts, from `1` through `10`. |
+| `persistence.retry.initial-delay-millis` | `250` | First retry delay, from `0` through `60000`. |
+| `persistence.retry.maximum-delay-millis` | `2000` | Backoff cap, from `0` through `60000` and not below the initial delay. |
 | `persistence.join-recheck-delay-millis` | `3000` | One delayed, generation-fenced read after login to catch a write finishing on the previous backend. `0` disables it; maximum `60000`. |
 | `persistence.shutdown-drain-timeout-millis` | `1000` | Bounded wait for already-running ORM attempts during feature shutdown; maximum `10000`. |
-| `diagnostics.warning-cooldown-millis` | `30000` | Per-player transfer-error log cooldown. |
+| `diagnostics.warning-cooldown-millis` | `30000` | Per-player transfer/feedback error log cooldown. |
 
-Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values, timing overflow and unsafe timeout ranges fail feature startup rather than producing partial runtime behavior. Feature reload is required to apply changes.
+Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values, timing overflow and unsafe scheduler or timeout ranges fail feature startup rather than producing partial runtime behavior. Feature reload is required to apply changes.
 
 ## Inventory-full feedback
 
@@ -198,7 +198,7 @@ Quit, relog, feature reload, local writes and newer commands invalidate stale co
 
 ### Write ordering
 
-Runtime state changes immediately after a valid command. Each request receives a globally comparable, process-monotonic revision. Per-player writes are serialized and rapid changes are coalesced to the newest unsaved request. The MySQL upsert changes the stored preference only when the incoming revision is newer; an old backend can therefore finish late without overwriting a newer command from another backend.
+Runtime state changes immediately after a valid command. Each request captures the canonical player ID and receives a globally comparable, process-monotonic revision at request time. Per-player writes are serialized and rapid changes are coalesced to the newest unsaved request. The MySQL upsert changes the stored preference only when the incoming revision is newer; an old backend can therefore finish late without overwriting a newer command from another backend.
 
 The write path reads back the authoritative row in the same transaction after clearing Hibernate's managed state. If another backend won, the local runtime reconciles to that newer value. Bounded retries use exponential backoff. A final failure keeps the chosen setting active for the current session, marks it unconfirmed and tells the player it could not be stored.
 
@@ -218,14 +218,14 @@ Initialization:
 
 Quit removes runtime preference and notification/diagnostic state while immutable in-flight writes may finish. A fast relog on the same backend carries the newest local in-flight request into the replacement session rather than reloading stale database state.
 
-Disable closes new preference activity, performs a bounded drain of already-running attempts, clears runtime maps and allows framework cleanup to unregister listeners, commands, delayed rechecks, ORM and DataProvider scopes.
+Disable closes new preference activity, performs an interrupt-safe bounded drain of already-running attempts, clears runtime maps and allows framework cleanup to unregister listeners, commands, delayed rechecks, ORM and DataProvider scopes.
 
 ## Compatibility boundaries
 
 - **Protection plugins:** cancellation before AutoPickup's `HIGHEST` listener prevents collection. Same-priority ordering remains registration-order dependent.
 - **Custom loot plugins:** items added or changed before AutoPickup are processed; items added later remain ground drops.
 - **SilkSpawners:** its current direct `BlockBreakEvent` inventory grant is separate and is not intercepted or duplicated.
-- **Old Drop2Inventory plugin:** must be removed or fully disabled before deployment. Running both implementations is unsupported.
+- **Old Drop2Inventory plugin:** must be removed or fully disabled before deployment. Running both implementations simultaneously is unsupported.
 - **Pickup listeners/statistics:** AutoPickup does not synthesize physical pickup events or pickup statistics.
 
 ## Tests and operational verification
@@ -237,8 +237,10 @@ Automated coverage includes:
 - defensive cloning and randomized per-drop/aggregate conservation;
 - inventory changes between planning and commit;
 - silent event-stack corruption detection;
-- complete inventory/event/stack rollback;
+- complete inventory/event/stack rollback and conservation-preserving rollback fallback;
 - strict direct, bisected and bed-origin classification;
+- composed command intent while preference loading;
+- scheduler-facing configuration bounds and retry backoff;
 - monotonic and observed cross-backend write revisions;
 - backward-compatible targeted ActionBar defaults;
 - a bundled Paper/MySQL acceptance boot with AutoPickup enabled, scoped DataProvider access and the production table pre-provisioned.
