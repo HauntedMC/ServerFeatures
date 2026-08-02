@@ -91,7 +91,15 @@ public final class AutoPickupTransferCommitter {
             return false;
         }
         for (int slot = 0; slot < first.length; slot++) {
-            if (!Objects.equals(first[slot], second[slot])) {
+            ItemStack left = first[slot];
+            ItemStack right = second[slot];
+            if (left == null || right == null) {
+                if (left != null || right != null) {
+                    return false;
+                }
+                continue;
+            }
+            if (left.getAmount() != right.getAmount() || !left.isSimilar(right)) {
                 return false;
             }
         }
