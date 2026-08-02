@@ -5,26 +5,15 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDe
 import org.bukkit.entity.Player;
 
 import java.util.Arrays;
-import java.util.UUID;
 
 /** Lifecycle handle for one viewer's client-only display entities. */
 final class PacketVisualHandle {
 
-    private final UUID worldId;
     private final int[] entityIds;
     private boolean cleared;
 
-    PacketVisualHandle(UUID worldId, int[] entityIds) {
-        this.worldId = worldId;
+    PacketVisualHandle(int[] entityIds) {
         this.entityIds = Arrays.copyOf(entityIds, entityIds.length);
-    }
-
-    UUID worldId() {
-        return worldId;
-    }
-
-    int entityCount() {
-        return entityIds.length;
     }
 
     void clear(Player viewer) {
