@@ -45,6 +45,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         messages.add("worldeditvisualizer.refreshed", "&aWorldEdit-selectie opnieuw weergegeven.");
         messages.add("worldeditvisualizer.no_selection", "&eGeen complete WorldEdit-selectie gevonden.");
         messages.add("worldeditvisualizer.not_cuboid", "&eAlleen cuboid-selecties worden ondersteund.");
+        messages.add("worldeditvisualizer.failed", "&cDe visualisatie kon niet worden bijgewerkt. Zie de console.");
         messages.add("worldeditvisualizer.usage", "&eGebruik: /wevis [toggle|on|off|refresh]");
         return messages;
     }
