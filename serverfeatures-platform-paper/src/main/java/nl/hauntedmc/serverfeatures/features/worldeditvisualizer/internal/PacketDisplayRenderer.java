@@ -62,8 +62,14 @@ final class PacketDisplayRenderer {
 
         Map<VisualKey, VisualKind> desired = buildDesired(player, selection);
         LinkedHashMap<VisualKey, VirtualEntity> active = new LinkedHashMap<>();
-        if (!force && previous != null && previous.worldId().equals(world.getUID())) {
-            active.putAll(previous.entities());
+        Map<VisualKey, VirtualEntity> reusable = Map.of();
+        if (previous != null && previous.worldId().equals(world.getUID())) {
+            if (force) {
+                reusable = previous.entities();
+                clear(player, previous);
+            } else {
+                active.putAll(previous.entities());
+            }
         } else {
             clear(player, previous);
         }
@@ -87,7 +93,8 @@ final class PacketDisplayRenderer {
                         player,
                         entry.getKey(),
                         entry.getValue(),
-                        metadataByKind.get(entry.getValue())
+                        metadataByKind.get(entry.getValue()),
+                        reusable.get(entry.getKey())
                 );
                 active.put(entry.getKey(), entity);
             }
@@ -304,9 +311,12 @@ final class PacketDisplayRenderer {
             Player player,
             VisualKey key,
             VisualKind kind,
-            List<EntityData<?>> entityMetadata
+            List<EntityData<?>> entityMetadata,
+            VirtualEntity reusable
     ) {
-        int entityId = SpigotReflectionUtil.generateEntityId(player.getWorld());
+        int entityId = reusable == null
+                ? SpigotReflectionUtil.generateEntityId(player.getWorld())
+                : reusable.entityId();
         UUID playerId = player.getUniqueId();
         long unsignedEntityId = Integer.toUnsignedLong(entityId);
         UUID uuid = new UUID(
