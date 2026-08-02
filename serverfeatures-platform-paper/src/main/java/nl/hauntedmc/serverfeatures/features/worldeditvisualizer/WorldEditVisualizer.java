@@ -7,7 +7,7 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.command.WorldEditVisualizerCommand;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.internal.VisualizationService;
-import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerJoinListener;
+import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerLifecycleListener;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta;
 import org.bukkit.entity.Player;
 
@@ -60,7 +60,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
         getLifecycleManager().getCommandManager()
                 .registerFeatureCommand(new WorldEditVisualizerCommand(this, service));
-        getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(service));
+        getLifecycleManager().getListenerManager().registerListener(new PlayerLifecycleListener(service));
 
         for (Player player : getPlugin().getServer().getOnlinePlayers()) {
             if (player.hasPermission("serverfeatures.feature.worldeditvisualizer.use")) {
