@@ -298,6 +298,62 @@ public final class GraveRepository {
         }));
     }
 
+    public CompletionStage<Boolean> purge(Grave grave, UUID actorUuid) {
+        return async(() -> orm.runInTransaction(session -> {
+            GraveMetadataEntity metadata = session.find(
+                    GraveMetadataEntity.class,
+                    grave.graveId().toString(),
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+            if (metadata == null || metadata.getOperationToken() != null) {
+                return false;
+            }
+            GraveStatus oldStatus = GraveStatus.valueOf(metadata.getState());
+            if (!EnumSet.of(
+                    GraveStatus.EXPIRED,
+                    GraveStatus.CORRUPT,
+                    GraveStatus.ADMIN_RECOVERED
+            ).contains(oldStatus)) {
+                return false;
+            }
+
+            GravePayloadEntity payload = session.find(
+                    GravePayloadEntity.class,
+                    grave.graveId().toString(),
+                    LockModeType.PESSIMISTIC_WRITE
+            );
+            if (payload != null) {
+                session.remove(payload);
+            }
+
+            int itemsBefore = metadata.getItemEntryCount();
+            int experienceBefore = metadata.getRemainingExperience();
+            long now = System.currentTimeMillis();
+            metadata.setState(GraveStatus.PURGED.name());
+            metadata.setItemEntryCount(0);
+            metadata.setRemainingExperience(0);
+            metadata.setPayloadRevision(Math.addExact(metadata.getPayloadRevision(), 1L));
+            metadata.setPayloadChecksum("PURGED");
+            metadata.setCompletedAt(now);
+            metadata.setUpdatedAt(now);
+            persistAudit(
+                    session,
+                    grave,
+                    null,
+                    "PURGED",
+                    actorUuid,
+                    oldStatus,
+                    GraveStatus.PURGED,
+                    itemsBefore,
+                    0,
+                    experienceBefore,
+                    0,
+                    "payloadDeleted=true"
+            );
+            return true;
+        }));
+    }
+
     public CompletionStage<Boolean> pauseForState(
             Grave grave,
             Set<GraveStatus> expectedStates,

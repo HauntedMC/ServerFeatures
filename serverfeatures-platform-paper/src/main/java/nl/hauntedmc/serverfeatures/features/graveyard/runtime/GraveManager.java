@@ -346,13 +346,25 @@ public final class GraveManager implements GraveyardService {
     }
 
     public CompletionStage<Boolean> purge(Player actor, Grave grave) {
-        return transitionAndApply(
-                actor,
-                grave,
-                EnumSet.of(GraveStatus.EXPIRED, GraveStatus.CORRUPT, GraveStatus.ADMIN_RECOVERED),
-                GraveStatus.PURGED,
-                "PURGED"
-        );
+        CompletableFuture<Boolean> result = new CompletableFuture<>();
+        repository.purge(grave, actor == null ? null : actor.getUniqueId())
+                .whenComplete((success, failure) -> runMain(() -> {
+                    if (failure != null || !Boolean.TRUE.equals(success)) {
+                        if (failure != null) {
+                            feature.getLogger().log(
+                                    Level.SEVERE,
+                                    "Could not permanently purge grave " + grave.graveId(),
+                                    failure
+                            );
+                        }
+                        result.complete(false);
+                        return;
+                    }
+                    grave.setStatus(GraveStatus.PURGED);
+                    removeRuntimeGrave(grave);
+                    result.complete(true);
+                }));
+        return result;
     }
 
     public boolean track(Player player, Grave grave) {
@@ -808,12 +820,66 @@ public final class GraveManager implements GraveyardService {
             CompletableFuture<GraveClaimResult> result,
             Throwable failure
     ) {
-        repository.releaseOperation(grave.graveId(), operationToken);
-        activeOperations.remove(grave.graveId());
+        boolean corruptPayload = isCorruptPayloadFailure(failure);
+        repository.releaseOperation(grave.graveId(), operationToken)
+                .whenComplete((released, releaseFailure) -> {
+                    activeOperations.remove(grave.graveId());
+                    if (releaseFailure != null) {
+                        feature.getLogger().log(
+                                Level.SEVERE,
+                                "Could not release failed grave operation " + operationToken,
+                                releaseFailure
+                        );
+                    }
+                    if (corruptPayload && releaseFailure == null && Boolean.TRUE.equals(released)) {
+                        quarantineCorruptPayload(grave, failure);
+                    }
+                });
         if (failure != null) {
             feature.getLogger().log(Level.SEVERE, "Could not load grave payload " + grave.graveId(), failure);
         }
         completeClaim(result, grave, GraveClaimOutcome.FAILED, 0, grave.itemEntryCount(), 0, "Claim failed");
+    }
+
+    private void quarantineCorruptPayload(Grave grave, Throwable failure) {
+        repository.transitionState(
+                grave,
+                CLAIMABLE_STATES,
+                GraveStatus.CORRUPT,
+                null,
+                "PAYLOAD_CORRUPT",
+                failure == null ? null : failure.getMessage()
+        ).whenComplete((success, transitionFailure) -> runMain(() -> {
+            if (transitionFailure != null || !Boolean.TRUE.equals(success)) {
+                feature.getLogger().log(
+                        Level.SEVERE,
+                        "Could not quarantine corrupt grave payload " + grave.graveId(),
+                        transitionFailure
+                );
+                return;
+            }
+            grave.setStatus(GraveStatus.CORRUPT);
+            payloadCache.remove(grave.graveId());
+            hideGrave(grave.graveId());
+            spatialIndex.remove(grave.graveId());
+        }));
+    }
+
+    private boolean isCorruptPayloadFailure(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            if (current instanceof IOException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null
+                    && (message.startsWith("Corrupt payload")
+                    || message.startsWith("Missing payload"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void completeClaim(
@@ -1085,6 +1151,23 @@ public final class GraveManager implements GraveyardService {
         packetIdentities.clear();
         viewerStates.clear();
         interactionEntities.clear();
+    }
+
+    private void removeRuntimeGrave(Grave grave) {
+        hideGrave(grave.graveId());
+        spatialIndex.remove(grave.graveId());
+        payloadCache.remove(grave.graveId());
+        graves.remove(grave.graveId(), grave);
+        shortIds.remove(normalizeShortId(grave.shortId()), grave.graveId());
+        Set<UUID> ownerGraves = ownerIndex.get(grave.ownerUuid());
+        if (ownerGraves != null) {
+            ownerGraves.remove(grave.graveId());
+            if (ownerGraves.isEmpty()) {
+                ownerIndex.remove(grave.ownerUuid(), ownerGraves);
+            }
+        }
+        trackedGraves.values().removeIf(grave.graveId()::equals);
+        activeOperations.remove(grave.graveId());
     }
 
     private void activate(Grave grave) {

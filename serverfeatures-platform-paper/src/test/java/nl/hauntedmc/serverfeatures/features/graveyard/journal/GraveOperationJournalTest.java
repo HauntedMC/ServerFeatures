@@ -28,7 +28,7 @@ class GraveOperationJournalTest {
         GraveLocation location = new GraveLocation(UUID.randomUUID(), "minecraft:world", 12.5, 64, -7.5, 90);
         Grave grave = new Grave(
                 graveId, "ABC123", UUID.randomUUID(), "Player", "survival-1", "survival",
-                location, location, GravePlacementType.EXACT, GraveStatus.ACTIVE,
+                location, location, GravePlacementType.DEATH_LOCATION, GraveStatus.ACTIVE,
                 10L, 20L, 30L, null, 2, 7, 0L, "checksum", "minecraft:fall", false
         );
         EncodedGravePayload payload = new EncodedGravePayload(new byte[]{1, 2, 3, 4}, "encoded");
