@@ -9,44 +9,99 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Locale;
 
 public class WorldEditVisualizerCommand extends FeatureCommand {
+
+    private static final List<String> ACTIONS = List.of("toggle", "on", "off", "refresh");
 
     private final WorldEditVisualizer feature;
     private final VisualizationService service;
 
     public WorldEditVisualizerCommand(WorldEditVisualizer feature, VisualizationService service) {
         super(new CommandMeta.Builder("worldeditvisualizer")
-                .description("Toggle the WorldEdit selection visualizer")
-                .usage("/wevis toggle")
+                .description("Toggle the packet-only WorldEdit selection visualizer")
+                .usage("/wevis [toggle|on|off|refresh]")
                 .aliases(List.of("wevis"))
-                .permission("serverfeatures.feature.worldeditvisualizer.use")
+                .permission(VisualizationService.USE_PERMISSION)
                 .build());
         this.feature = feature;
         this.service = service;
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String @NotNull [] args) {
-        if (!(sender instanceof Player p)) return true;
-
-        if (!p.hasPermission("serverfeatures.feature.worldeditvisualizer.use")) {
-            p.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(p).build());
+    public boolean execute(
+            @NotNull CommandSender sender,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
+    ) {
+        if (!(sender instanceof Player player)) {
+            return true;
+        }
+        if (!player.hasPermission(VisualizationService.USE_PERMISSION)) {
+            send(player, "general.no_permission");
             return true;
         }
 
-        // Toggle and message based on resulting state (true = enabled, false = disabled)
-        boolean nowEnabled = service.toggle(p);
-
-        p.sendMessage(feature.getLocalizationHandler()
-                .getMessage(nowEnabled ? "worldeditvisualizer.enabled" : "worldeditvisualizer.disabled")
-                .forAudience(p).build());
-
+        String action = args.length == 0 ? "toggle" : args[0].toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "toggle" -> toggle(player);
+            case "on", "enable" -> enable(player);
+            case "off", "disable" -> disable(player);
+            case "refresh" -> refresh(player);
+            default -> send(player, "worldeditvisualizer.usage");
+        }
         return true;
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
-        return List.of("toggle");
+    public @NotNull List<String> tabComplete(
+            @NotNull CommandSender sender,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
+    ) {
+        if (args.length != 1) {
+            return List.of();
+        }
+        String prefix = args[0].toLowerCase(Locale.ROOT);
+        return ACTIONS.stream().filter(action -> action.startsWith(prefix)).toList();
+    }
+
+    private void toggle(Player player) {
+        VisualizationService.ToggleResult result = service.toggle(player);
+        send(player, result.enabled()
+                ? "worldeditvisualizer.enabled"
+                : "worldeditvisualizer.disabled");
+        if (result.enabled() && result.refreshResult() != VisualizationService.RefreshResult.RENDERED) {
+            send(player, result.refreshResult().messageKey());
+        }
+    }
+
+    private void enable(Player player) {
+        VisualizationService.RefreshResult result = service.enable(player);
+        send(player, "worldeditvisualizer.enabled");
+        if (result != VisualizationService.RefreshResult.RENDERED) {
+            send(player, result.messageKey());
+        }
+    }
+
+    private void disable(Player player) {
+        service.disable(player, true);
+        send(player, "worldeditvisualizer.disabled");
+    }
+
+    private void refresh(Player player) {
+        VisualizationService.RefreshResult result;
+        if (service.isEnabled(player)) {
+            result = service.refreshNow(player);
+        } else {
+            result = service.enable(player);
+            send(player, "worldeditvisualizer.enabled");
+        }
+        send(player, result.messageKey());
+    }
+
+    private void send(Player player, String key) {
+        player.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(player).build());
     }
 }
