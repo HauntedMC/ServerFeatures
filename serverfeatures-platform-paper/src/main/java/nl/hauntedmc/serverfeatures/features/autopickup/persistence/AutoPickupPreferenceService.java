@@ -194,7 +194,14 @@ public final class AutoPickupPreferenceService {
         WriteRequest newestLocalRequest = existingWrite == null ? null : existingWrite.newestRequest();
         if (newestLocalRequest != null) {
             revisionClock.observe(newestLocalRequest.writeRevision());
-            finishLoad(uuid, current, newestLocalRequest.enabled(), false);
+            finishLoad(
+                    uuid,
+                    current,
+                    newestLocalRequest.enabled(),
+                    false,
+                    newestLocalRequest.writeRevision(),
+                    false
+            );
             return;
         }
         load(uuid, state, generation, current.playerId());
@@ -238,10 +245,10 @@ public final class AutoPickupPreferenceService {
 
             StoredPreference stored = loaded.orElse(null);
             if (stored == null) {
-                finishLoad(uuid, current, settings.defaultEnabled(), true);
+                finishLoad(uuid, current, settings.defaultEnabled(), true, 0L, true);
             } else {
                 revisionClock.observe(stored.writeRevision());
-                finishLoad(uuid, current, stored.enabled(), true);
+                finishLoad(uuid, current, stored.enabled(), true, stored.writeRevision(), true);
             }
         }));
     }
@@ -249,15 +256,101 @@ public final class AutoPickupPreferenceService {
     private void finishLoad(UUID uuid,
                             AutoPickupPlayerState state,
                             boolean enabled,
-                            boolean persisted) {
+                            boolean persisted,
+                            long writeRevision,
+                            boolean scheduleRecheck) {
         state.enabled(enabled);
         state.persisted(persisted);
+        state.writeRevision(writeRevision);
         state.loadState(LoadState.READY);
         CommandIntent pending = state.pendingCommand();
         state.pendingCommand(null);
         Player player = Bukkit.getPlayer(uuid);
         if (pending != null && player != null && player.isOnline()) {
             apply(player, state, pending);
+        }
+        if (scheduleRecheck && settings.joinRecheckDelayMillis() > 0L) {
+            schedulePreferenceRecheck(uuid, state, state.generation());
+        }
+    }
+
+    private void schedulePreferenceRecheck(UUID uuid,
+                                           AutoPickupPlayerState state,
+                                           long generation) {
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                    () -> beginPreferenceRecheck(uuid, state, generation),
+                    BukkitTime.milliseconds(settings.joinRecheckDelayMillis())
+            );
+        } catch (RuntimeException exception) {
+            if (!closed.get()) {
+                feature.getLogger().warning(
+                        "Could not schedule AutoPickup backend-switch recheck: " + rootMessage(exception)
+                );
+            }
+        }
+    }
+
+    private void beginPreferenceRecheck(UUID uuid,
+                                        AutoPickupPlayerState state,
+                                        long generation) {
+        Player player = Bukkit.getPlayer(uuid);
+        if (closed.get()
+                || states.get(uuid) != state
+                || state.generation() != generation
+                || state.loadState() != LoadState.READY
+                || writes.containsKey(uuid)
+                || player == null
+                || !player.isOnline()) {
+            return;
+        }
+
+        CompletableFuture<Optional<StoredPreference>> future = feature.getLifecycleManager()
+                .getTaskManager()
+                .supplyAsync(() -> repository.load(state.playerId()));
+        track(future);
+        future.whenComplete((loaded, throwable) -> scheduleMain(
+                () -> completePreferenceRecheck(uuid, state, generation, loaded, throwable)
+        ));
+    }
+
+    private void completePreferenceRecheck(UUID uuid,
+                                           AutoPickupPlayerState state,
+                                           long generation,
+                                           Optional<StoredPreference> loaded,
+                                           Throwable throwable) {
+        if (closed.get()
+                || states.get(uuid) != state
+                || state.generation() != generation
+                || state.loadState() != LoadState.READY
+                || writes.containsKey(uuid)) {
+            return;
+        }
+        if (throwable != null) {
+            feature.getLogger().log(
+                    Level.FINE,
+                    "AutoPickup backend-switch preference recheck failed for " + uuid,
+                    throwable
+            );
+            return;
+        }
+
+        StoredPreference stored = loaded == null ? null : loaded.orElse(null);
+        if (stored == null || stored.writeRevision() <= state.writeRevision()) {
+            return;
+        }
+
+        revisionClock.observe(stored.writeRevision());
+        boolean changed = state.enabled() != stored.enabled();
+        state.enabled(stored.enabled());
+        state.persisted(true);
+        state.writeRevision(stored.writeRevision());
+        state.nextGeneration();
+        Player player = Bukkit.getPlayer(uuid);
+        if (changed && player != null && player.isOnline()) {
+            send(player, stored.enabled()
+                    ? "autopickup.remote_enabled"
+                    : "autopickup.remote_disabled");
         }
     }
 
@@ -364,6 +457,9 @@ public final class AutoPickupPreferenceService {
         boolean accepted = stored.writeRevision() == request.writeRevision()
                 && stored.enabled() == request.enabled();
         AutoPickupPlayerState state = states.get(uuid);
+        if (state != null) {
+            state.writeRevision(Math.max(state.writeRevision(), stored.writeRevision()));
+        }
         if (accepted) {
             if (state != null && state.enabled() == request.enabled() && slot.queuedRequest == null) {
                 state.persisted(true);
