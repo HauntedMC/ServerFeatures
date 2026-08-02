@@ -23,7 +23,7 @@ final class GraveDisplayMetadataFactory {
     ) {
         List<EntityData<?>> metadata = displayBase(translation, scale, glowRgb, (byte) 0);
         WrappedBlockState blockState = SpigotConversionUtil.fromBukkitBlockData(material.createBlockData());
-        metadata.add(new EntityData<>(23, EntityDataTypes.BLOCK_STATE, blockState));
+        metadata.add(new EntityData<>(23, EntityDataTypes.BLOCK_STATE, blockState.getGlobalId()));
         return List.copyOf(metadata);
     }
 
