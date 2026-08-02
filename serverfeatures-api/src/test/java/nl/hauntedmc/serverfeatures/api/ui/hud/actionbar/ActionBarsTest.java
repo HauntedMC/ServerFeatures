@@ -58,6 +58,14 @@ class ActionBarsTest {
         }
 
         @Override
+        public void sendOnce(Player player, Component component) {
+        }
+
+        @Override
+        public void send(Player player, Component component, int seconds, PauseMode pauseMode) {
+        }
+
+        @Override
         public void sendOnceBroadcast(Component component) {
         }
 
