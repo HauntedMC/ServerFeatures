@@ -64,4 +64,25 @@ class CuboidOutlineSamplerTest {
                 128
         ));
     }
+
+    @Test
+    void extremeCoordinatesRemainBounded() {
+        CuboidBounds bounds = new CuboidBounds(
+                Integer.MIN_VALUE, 0, 0, Integer.MAX_VALUE, 0, 0);
+
+        Set<BlockPoint> points = CuboidOutlineSampler.sample(
+                bounds, new BlockPoint(Integer.MAX_VALUE, 0, 0), 16, 3, 64);
+
+        assertTrue(points.size() <= 64);
+    }
+
+    @Test
+    void defensiveCapTerminatesWhenMandatoryEndpointsExceedBudget() {
+        CuboidBounds bounds = new CuboidBounds(-100, -100, -100, 100, 100, 100);
+
+        Set<BlockPoint> points = CuboidOutlineSampler.sample(
+                bounds, new BlockPoint(100, 100, 100), 100, 1, 1);
+
+        assertEquals(1, points.size());
+    }
 }
