@@ -5,7 +5,7 @@ on:
     branches:
       - agent/graveyard-feature
     paths:
-      - .agent/graveyard.patch
+      - .agent/graveyard.patch.gz.b64
 
 permissions:
   contents: write
@@ -21,8 +21,9 @@ jobs:
         run: |
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git apply --binary .agent/graveyard.patch
-          rm .agent/graveyard.patch
+          base64 --decode .agent/graveyard.patch.gz.b64 | gzip --decompress > /tmp/graveyard.patch
+          git apply --binary /tmp/graveyard.patch
+          rm .agent/graveyard.patch.gz.b64
           git add -A
           git commit -m "Implement Graveyard death recovery"
           git push origin HEAD:agent/graveyard-feature
