@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -364,9 +365,21 @@ public final class LimitSpawnersHandler {
         }
 
         List<TrackedSpawnerMob> snapshot = registry.snapshot();
-        CompletableFuture<Void> future = feature.getLifecycleManager()
-                .getTaskManager()
-                .runAsync(() -> store.save(snapshot));
+        CompletableFuture<Void> future;
+        try {
+            future = feature.getLifecycleManager()
+                    .getTaskManager()
+                    .runAsync(() -> store.save(snapshot));
+        } catch (RuntimeException exception) {
+            saveInProgress.set(false);
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Could not schedule tracked mob registry save; the next interval will retry.",
+                    exception
+            );
+            return;
+        }
+
         saveFuture = future;
         future.whenComplete((ignored, throwable) -> {
             try {
@@ -388,8 +401,8 @@ public final class LimitSpawnersHandler {
     private void awaitPendingSave() {
         try {
             saveFuture.join();
-        } catch (CompletionException ignored) {
-            // The completion callback already logged the failure. The synchronous flush below retries.
+        } catch (CompletionException | CancellationException ignored) {
+            // The completion callback already logged failures. The synchronous flush below retries.
         }
     }
 
