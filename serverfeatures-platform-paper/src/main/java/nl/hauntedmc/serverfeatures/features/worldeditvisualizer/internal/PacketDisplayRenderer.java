@@ -80,20 +80,30 @@ final class PacketDisplayRenderer {
         }
 
         Map<VisualKind, List<EntityData<?>>> metadataByKind = metadata(world);
-        for (Map.Entry<VisualKey, VisualKind> entry : desired.entrySet()) {
-            if (active.containsKey(entry.getKey())) {
-                continue;
+        try {
+            for (Map.Entry<VisualKey, VisualKind> entry : desired.entrySet()) {
+                if (active.containsKey(entry.getKey())) {
+                    continue;
+                }
+                VirtualEntity entity = spawn(
+                        player,
+                        entry.getKey(),
+                        entry.getValue(),
+                        metadataByKind.get(entry.getValue())
+                );
+                active.put(entry.getKey(), entity);
             }
-            VirtualEntity entity = spawn(
-                    player,
-                    entry.getKey(),
-                    entry.getValue(),
-                    metadataByKind.get(entry.getValue())
-            );
-            active.put(entry.getKey(), entity);
+            return new RenderState(world.getUID(), Map.copyOf(active));
+        } catch (RuntimeException exception) {
+            try {
+                destroy(player, active.values().stream()
+                        .mapToInt(VirtualEntity::entityId)
+                        .toArray());
+            } catch (RuntimeException cleanupFailure) {
+                exception.addSuppressed(cleanupFailure);
+            }
+            throw exception;
         }
-
-        return new RenderState(world.getUID(), Map.copyOf(active));
     }
 
     void clear(Player player, RenderState state) {
@@ -309,19 +319,28 @@ final class PacketDisplayRenderer {
                 player.getWorld(), key.point().x(), key.point().y(), key.point().z());
         EntityType entityType = kind.isText() ? EntityTypes.TEXT_DISPLAY : EntityTypes.BLOCK_DISPLAY;
 
-        PacketEvents.getAPI().getPlayerManager().sendPacket(player,
-                new WrapperPlayServerSpawnEntity(
-                        entityId,
-                        uuid,
-                        entityType,
-                        SpigotConversionUtil.fromBukkitLocation(location),
-                        0.0f,
-                        0,
-                        null
-                ));
-        PacketEvents.getAPI().getPlayerManager().sendPacket(player,
-                new WrapperPlayServerEntityMetadata(entityId, entityMetadata));
-        return new VirtualEntity(entityId);
+        try {
+            PacketEvents.getAPI().getPlayerManager().sendPacket(player,
+                    new WrapperPlayServerSpawnEntity(
+                            entityId,
+                            uuid,
+                            entityType,
+                            SpigotConversionUtil.fromBukkitLocation(location),
+                            0.0f,
+                            0,
+                            null
+                    ));
+            PacketEvents.getAPI().getPlayerManager().sendPacket(player,
+                    new WrapperPlayServerEntityMetadata(entityId, entityMetadata));
+            return new VirtualEntity(entityId);
+        } catch (RuntimeException exception) {
+            try {
+                destroy(player, new int[]{entityId});
+            } catch (RuntimeException cleanupFailure) {
+                exception.addSuppressed(cleanupFailure);
+            }
+            throw exception;
+        }
     }
 
     private static void destroy(Player player, int[] entityIds) {
