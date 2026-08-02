@@ -34,6 +34,8 @@ public final class GraveCommand implements BrigadierCommand {
     private static final String P_TRACK = "serverfeatures.feature.graveyard.command.track";
     private static final String P_REMOTE_CLAIM = "serverfeatures.feature.graveyard.command.remoteclaim";
     private static final String P_ADMIN = "serverfeatures.feature.graveyard.admin";
+    private static final String P_ADMIN_LIST = P_ADMIN + ".list";
+    private static final String P_INSPECT = P_ADMIN + ".inspect";
     private static final String P_TELEPORT = P_ADMIN + ".teleport";
     private static final String P_RELOCATE = P_ADMIN + ".relocate";
     private static final String P_DELIVER = P_ADMIN + ".deliver";
@@ -68,8 +70,7 @@ public final class GraveCommand implements BrigadierCommand {
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
-                .requires(source -> source.getSender().hasPermission(BASE)
-                        || source.getSender().hasPermission(P_ADMIN))
+                .requires(source -> hasRootAccess(source.getSender()))
                 .executes(context -> showOwnGraves(context.getSource().getSender(), false));
 
         root.then(Commands.literal("list")
@@ -113,49 +114,57 @@ public final class GraveCommand implements BrigadierCommand {
 
     private LiteralArgumentBuilder<CommandSourceStack> adminTree() {
         return Commands.literal("admin")
-                .requires(source -> source.getSender().hasPermission(P_ADMIN))
+                .requires(source -> hasAdminAccess(source.getSender()))
+                .then(Commands.literal("list")
+                        .requires(source -> hasPermission(source.getSender(), P_ADMIN_LIST))
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .executes(context -> listPlayerGraves(
+                                        context.getSource().getSender(),
+                                        StringArgumentType.getString(context, "player")
+                                ))))
                 .then(Commands.literal("diagnostics")
-                        .requires(source -> source.getSender().hasPermission(P_DIAGNOSTICS))
+                        .requires(source -> hasPermission(source.getSender(), P_DIAGNOSTICS))
                         .executes(context -> diagnostics(context.getSource().getSender())))
                 .then(Commands.literal("info")
+                        .requires(source -> hasPermission(source.getSender(), P_INSPECT))
                         .then(graveArgument(true).executes(context -> showInfo(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("teleport")
-                        .requires(source -> source.getSender().hasPermission(P_TELEPORT))
+                        .requires(source -> hasPermission(source.getSender(), P_TELEPORT))
                         .then(graveArgument(true).executes(context -> teleport(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("relocate")
-                        .requires(source -> source.getSender().hasPermission(P_RELOCATE))
+                        .requires(source -> hasPermission(source.getSender(), P_RELOCATE))
                         .then(graveArgument(true).executes(context -> relocate(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("deliver")
-                        .requires(source -> source.getSender().hasPermission(P_DELIVER))
+                        .requires(source -> hasPermission(source.getSender(), P_DELIVER))
                         .then(graveArgument(true).executes(context -> deliver(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("expire")
-                        .requires(source -> source.getSender().hasPermission(P_EXPIRE))
+                        .requires(source -> hasPermission(source.getSender(), P_EXPIRE))
                         .then(graveArgument(true).executes(context -> transition(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id"),
                                 AdminAction.EXPIRE
                         ))))
                 .then(Commands.literal("restore")
-                        .requires(source -> source.getSender().hasPermission(P_RESTORE))
+                        .requires(source -> hasPermission(source.getSender(), P_RESTORE))
                         .then(graveArgument(true).executes(context -> transition(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id"),
                                 AdminAction.RESTORE
                         ))))
                 .then(Commands.literal("purge")
-                        .requires(source -> source.getSender().hasPermission(P_PURGE))
+                        .requires(source -> hasPermission(source.getSender(), P_PURGE))
                         .then(graveArgument(true)
                                 .then(Commands.literal("confirm").executes(context -> transition(
                                         context.getSource().getSender(),
@@ -202,8 +211,35 @@ public final class GraveCommand implements BrigadierCommand {
         return 1;
     }
 
+    private int listPlayerGraves(CommandSender sender, String playerIdentifier) {
+        List<GraveSnapshot> graves = manager.findByOwnerIdentifier(playerIdentifier);
+        if (graves.isEmpty()) {
+            send(sender, "graveyard.admin_list_empty");
+            return 1;
+        }
+        sender.sendMessage(feature.getLocalizationHandler()
+                .getMessage("graveyard.admin_list_header")
+                .with("player", graves.getFirst().ownerName())
+                .forAudience(sender)
+                .build());
+        for (GraveSnapshot grave : graves) {
+            sender.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("graveyard.list_entry")
+                    .with("grave_id", grave.shortId())
+                    .with("state", grave.status().name())
+                    .with("world", grave.worldKey())
+                    .with("x", coordinate(grave.x()))
+                    .with("y", coordinate(grave.y()))
+                    .with("z", coordinate(grave.z()))
+                    .with("remaining", formatDuration(grave.remainingActiveMillis()))
+                    .forAudience(sender)
+                    .build());
+        }
+        return 1;
+    }
+
     private int showInfo(CommandSender sender, String identifier) {
-        Grave grave = resolveAccessible(sender, identifier, sender.hasPermission(P_ADMIN));
+        Grave grave = resolveAccessible(sender, identifier, hasPermission(sender, P_INSPECT));
         if (grave == null) {
             return 1;
         }
@@ -337,26 +373,26 @@ public final class GraveCommand implements BrigadierCommand {
         manager.deliver(player, grave).thenAccept(result -> sendAdminResult(
                 player,
                 grave.shortId(),
-                result.outcome() != GraveClaimOutcome.FAILED
+                result.outcome() == GraveClaimOutcome.CLAIMED
+                        || result.outcome() == GraveClaimOutcome.PARTIAL
+                        || result.outcome() == GraveClaimOutcome.DELIVERY_QUEUED
+                        || result.outcome() == GraveClaimOutcome.RECOVERY_PENDING
         ));
         return 1;
     }
 
     private int transition(CommandSender sender, String identifier, AdminAction action) {
-        if (!(sender instanceof Player player)) {
-            send(sender, "general.player_command");
-            return 1;
-        }
         Grave grave = resolveAccessible(sender, identifier, true);
         if (grave == null) {
             return 1;
         }
+        Player actor = sender instanceof Player player ? player : null;
         CompletableFuture<Boolean> completion = switch (action) {
-            case EXPIRE -> manager.expire(player, grave).toCompletableFuture();
-            case RESTORE -> manager.restore(player, grave).toCompletableFuture();
-            case PURGE -> manager.purge(player, grave).toCompletableFuture();
+            case EXPIRE -> manager.expire(actor, grave).toCompletableFuture();
+            case RESTORE -> manager.restore(actor, grave).toCompletableFuture();
+            case PURGE -> manager.purge(actor, grave).toCompletableFuture();
         };
-        completion.thenAccept(success -> sendAdminResult(player, grave.shortId(), success));
+        completion.thenAccept(success -> sendAdminResult(sender, grave.shortId(), success));
         return 1;
     }
 
@@ -392,7 +428,7 @@ public final class GraveCommand implements BrigadierCommand {
         CommandSender sender = context.getSource().getSender();
         String prefix = builder.getRemaining().toUpperCase(Locale.ROOT);
         List<GraveSnapshot> candidates;
-        if (allGraves && sender.hasPermission(P_ADMIN)) {
+        if (allGraves && hasAdminAccess(sender)) {
             candidates = manager.allRuntimeGraves();
         } else if (sender instanceof Player player) {
             candidates = manager.findActiveByOwner(player.getUniqueId());
@@ -405,6 +441,27 @@ public final class GraveCommand implements BrigadierCommand {
             }
         }
         return builder.buildFuture();
+    }
+
+    private static boolean hasRootAccess(CommandSender sender) {
+        return sender.hasPermission(BASE) || hasAdminAccess(sender);
+    }
+
+    private static boolean hasPermission(CommandSender sender, String permission) {
+        return sender.hasPermission(P_ADMIN) || sender.hasPermission(permission);
+    }
+
+    private static boolean hasAdminAccess(CommandSender sender) {
+        return sender.hasPermission(P_ADMIN)
+                || sender.hasPermission(P_ADMIN_LIST)
+                || sender.hasPermission(P_INSPECT)
+                || sender.hasPermission(P_TELEPORT)
+                || sender.hasPermission(P_RELOCATE)
+                || sender.hasPermission(P_DELIVER)
+                || sender.hasPermission(P_EXPIRE)
+                || sender.hasPermission(P_RESTORE)
+                || sender.hasPermission(P_PURGE)
+                || sender.hasPermission(P_DIAGNOSTICS);
     }
 
     private void sendAdminResult(CommandSender sender, String graveId, boolean success) {

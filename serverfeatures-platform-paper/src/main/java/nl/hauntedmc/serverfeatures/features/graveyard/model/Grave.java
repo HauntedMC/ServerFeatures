@@ -187,16 +187,25 @@ public final class Grave {
     public synchronized void restore(long activeNow, long lifetimeMillis) {
         pausedRemainingMillis = null;
         expiresActiveMillis = Math.addExact(activeNow, lifetimeMillis);
-        status = GraveStatus.ACTIVE;
+        status = payloadRevision > 0L ? GraveStatus.PARTIAL : GraveStatus.ACTIVE;
     }
 
     public synchronized void resume(long activeNow) {
+        GraveStatus resumedStatus = payloadRevision > 0L ? GraveStatus.PARTIAL : GraveStatus.ACTIVE;
+        resume(activeNow, resumedStatus);
+    }
+
+    public synchronized void resume(long activeNow, GraveStatus resumedStatus) {
         long remaining = pausedRemainingMillis == null ? 0L : pausedRemainingMillis;
         pausedRemainingMillis = null;
         expiresActiveMillis = Math.addExact(activeNow, remaining);
         status = itemEntryCount == 0 && remainingExperience == 0
                 ? GraveStatus.CLAIMED
-                : GraveStatus.ACTIVE;
+                : Objects.requireNonNull(resumedStatus, "resumedStatus");
+    }
+
+    public synchronized void clearPause() {
+        pausedRemainingMillis = null;
     }
 
     public long remainingActiveMillis(long activeNow) {

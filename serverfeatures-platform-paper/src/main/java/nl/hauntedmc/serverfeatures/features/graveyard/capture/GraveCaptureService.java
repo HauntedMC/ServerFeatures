@@ -18,7 +18,6 @@ import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementRe
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
-import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
@@ -171,7 +170,6 @@ public final class GraveCaptureService {
                 grave,
                 encoded
         );
-        journal.writeCapture(record);
         return new PreparedCapture(record, payload);
     }
 
@@ -179,12 +177,13 @@ public final class GraveCaptureService {
             DeathInventorySnapshot snapshot,
             PlayerDeathEvent event,
             PreparedCapture prepared
-    ) {
+    ) throws IOException {
         Player player = event.getPlayer();
         EventState eventState = EventState.capture(event);
         PlayerInventoryState postDeath = postDeathInventoryBuilder.build(snapshot, event.getItemsToKeep());
         CaptureJournalRecord record = prepared.record();
-        boolean playerDataSaved = false;
+        journal.writeCapture(record);
+        boolean saveAttempted = false;
         try {
             receipts.putCapture(player, record.operationToken(), record.grave().graveId());
             postDeath.apply(player);
@@ -193,47 +192,67 @@ public final class GraveCaptureService {
             event.getDrops().clear();
             event.setKeepLevel(true);
             event.setDroppedExp(0);
+            saveAttempted = true;
             player.saveData();
-            playerDataSaved = true;
-
-            CaptureJournalRecord committed = record.withState(CaptureJournalState.COMMITTED);
-            journal.writeCapture(committed);
-            receipts.clearCapture(player);
-            saveReceiptCleanup(player);
-            manager.acceptCommittedCapture(committed, prepared.payload());
-            player.sendMessage(feature.getLocalizationHandler()
-                    .getMessage(record.grave().placementType().name().equals("REMOTE_ONLY")
-                            ? "graveyard.created_remote"
-                            : "graveyard.created")
-                    .with("grave_id", record.grave().shortId())
-                    .with("x", Integer.toString((int) Math.floor(record.grave().location().x())))
-                    .with("y", Integer.toString((int) Math.floor(record.grave().location().y())))
-                    .with("z", Integer.toString((int) Math.floor(record.grave().location().z())))
-                    .forAudience(player)
-                    .build());
-        } catch (IOException exception) {
-            if (!playerDataSaved) {
-                rollbackBeforeSave(snapshot, event, eventState, record, player, exception);
-                return;
-            }
-            feature.getLogger().log(
-                    Level.SEVERE,
-                    "Playerdata was saved for grave " + record.grave().graveId()
-                            + " but its COMMITTED journal transition failed. The capture receipt was retained.",
-                    exception
-            );
         } catch (RuntimeException exception) {
-            if (!playerDataSaved) {
+            if (!saveAttempted) {
                 rollbackBeforeSave(snapshot, event, eventState, record, player, exception);
                 return;
             }
+            retainAmbiguousCapture(record, player, exception);
+            return;
+        }
+
+        CaptureJournalRecord committed = record.withState(CaptureJournalState.COMMITTED);
+        try {
+            journal.writeCapture(committed);
+        } catch (IOException exception) {
+            retainAmbiguousCapture(record, player, exception);
+            return;
+        }
+
+        receipts.clearCapture(player);
+        saveReceiptCleanup(player);
+        try {
+            manager.acceptCommittedCapture(committed, prepared.payload());
+        } catch (RuntimeException exception) {
             feature.getLogger().log(
                     Level.SEVERE,
-                    "Graveyard capture failed after playerdata save for grave " + record.grave().graveId()
-                            + "; startup/join recovery will finish it.",
+                    "Committed grave " + record.grave().graveId()
+                            + " could not be activated immediately; journal recovery will retry it.",
                     exception
             );
         }
+        player.sendMessage(feature.getLocalizationHandler()
+                .getMessage(record.grave().placementType().name().equals("REMOTE_ONLY")
+                        ? "graveyard.created_remote"
+                        : "graveyard.created")
+                .with("grave_id", record.grave().shortId())
+                .with("x", Integer.toString((int) Math.floor(record.grave().location().x())))
+                .with("y", Integer.toString((int) Math.floor(record.grave().location().y())))
+                .with("z", Integer.toString((int) Math.floor(record.grave().location().z())))
+                .forAudience(player)
+                .build());
+    }
+
+    private void retainAmbiguousCapture(
+            CaptureJournalRecord record,
+            Player player,
+            Throwable failure
+    ) {
+        manager.acceptAmbiguousCapture(record);
+        feature.getLogger().log(
+                Level.SEVERE,
+                "Graveyard capture reached the playerdata-save boundary for grave "
+                        + record.grave().graveId() + "; the persisted receipt and PREPARED journal "
+                        + "will resolve the operation without rolling it back.",
+                failure
+        );
+        player.sendMessage(feature.getLocalizationHandler()
+                .getMessage("graveyard.capture_recovery_pending")
+                .with("grave_id", record.grave().shortId())
+                .forAudience(player)
+                .build());
     }
 
     private void rollbackBeforeSave(
@@ -244,10 +263,14 @@ public final class GraveCaptureService {
             Player player,
             Throwable failure
     ) {
-        snapshot.inventory().apply(player);
-        player.setExperienceLevelAndProgress(snapshot.totalExperience());
-        receipts.clearCapture(player);
-        eventState.restore(event);
+        try {
+            snapshot.inventory().apply(player);
+            player.setExperienceLevelAndProgress(snapshot.totalExperience());
+            receipts.clearCapture(player);
+            eventState.restore(event);
+        } catch (RuntimeException rollbackFailure) {
+            failure.addSuppressed(rollbackFailure);
+        }
         try {
             journal.writeCapture(record.withState(CaptureJournalState.ABORTED));
         } catch (IOException journalFailure) {
@@ -261,8 +284,18 @@ public final class GraveCaptureService {
     }
 
     private boolean eligible(Player player, PlayerDeathEvent event) {
-        if (settings.mode() == GraveyardMode.ACTIVE && !manager.canMutate()) {
+        if (event.getKeepInventory()) {
             return false;
+        }
+        String worldName = player.getWorld().getName().toLowerCase(Locale.ROOT);
+        String worldKey = player.getWorld().getKey().asString().toLowerCase(Locale.ROOT);
+        if (settings.disabledWorlds().contains(worldName)
+                || settings.disabledWorlds().contains(worldKey)
+                || settings.disabledGameModes().contains(player.getGameMode())) {
+            return false;
+        }
+        if (settings.mode() == GraveyardMode.OBSERVE) {
+            return true;
         }
         if (player.hasPermission(KEEP_INVENTORY_PERMISSION)) {
             event.setKeepInventory(true);
@@ -275,17 +308,7 @@ public final class GraveCaptureService {
                     .build());
             return false;
         }
-        if (event.getKeepInventory()) {
-            return false;
-        }
-        String worldName = player.getWorld().getName().toLowerCase(Locale.ROOT);
-        String worldKey = player.getWorld().getKey().asString().toLowerCase(Locale.ROOT);
-        if (settings.disabledWorlds().contains(worldName)
-                || settings.disabledWorlds().contains(worldKey)) {
-            return false;
-        }
-        GameMode gameMode = player.getGameMode();
-        return !settings.disabledGameModes().contains(gameMode);
+        return manager.canMutate();
     }
 
     private void saveReceiptCleanup(Player player) {
@@ -306,7 +329,7 @@ public final class GraveCaptureService {
     }
 
     private static String shortId(UUID graveId) {
-        return graveId.toString().replace("-", "").substring(0, 10).toUpperCase(Locale.ROOT);
+        return graveId.toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
     }
 
     private record PreparedCapture(CaptureJournalRecord record, GravePayload payload) {

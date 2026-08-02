@@ -70,6 +70,7 @@ public final class LastSafeLocationTracker {
                 && headBlock.isPassable()
                 && support.getType().isSolid()
                 && !isHazard(feetBlock.getType())
+                && !isHazard(headBlock.getType())
                 && !isHazard(support.getType());
     }
 

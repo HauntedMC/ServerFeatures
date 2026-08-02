@@ -19,8 +19,10 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -120,11 +122,40 @@ public final class GraveOperationJournal {
     }
 
     public synchronized void deleteCapture(UUID graveId) throws IOException {
-        Files.deleteIfExists(capturePath(graveId));
+        if (Files.deleteIfExists(capturePath(graveId))) {
+            forceDirectory(captureDirectory);
+        }
     }
 
     public synchronized void deleteClaim(UUID operationToken) throws IOException {
-        Files.deleteIfExists(claimPath(operationToken));
+        if (Files.deleteIfExists(claimPath(operationToken))) {
+            forceDirectory(claimDirectory);
+        }
+    }
+
+    /**
+     * Returns operation tokens whose claim journals were quarantined. These tokens must remain
+     * reserved in the database: clearing one without knowing whether playerdata was applied could
+     * make the same payload claimable again.
+     */
+    public synchronized Set<UUID> quarantinedClaimTokens() throws IOException {
+        Set<UUID> tokens = new HashSet<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(corruptDirectory)) {
+            for (Path path : stream) {
+                String name = path.getFileName().toString();
+                int suffix = name.indexOf(SUFFIX);
+                if (suffix <= 0) {
+                    continue;
+                }
+                try {
+                    tokens.add(UUID.fromString(name.substring(0, suffix)));
+                } catch (IllegalArgumentException ignored) {
+                    // Capture journals use grave ids; preserving those as operation tokens is safe
+                    // but unnecessary, so malformed or non-token filenames are ignored.
+                }
+            }
+        }
+        return Set.copyOf(tokens);
     }
 
     private CaptureJournalRecord readCapture(Path path) throws IOException {
@@ -209,11 +240,22 @@ public final class GraveOperationJournal {
         } catch (AtomicMoveNotSupportedException exception) {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
         }
+        forceDirectory(target.getParent());
+    }
+
+    private static void forceDirectory(Path directory) throws IOException {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (UnsupportedOperationException ignored) {
+            // Some filesystems do not expose directory fsync through FileChannel.
+        }
     }
 
     private void quarantine(Path path) throws IOException {
         Path target = corruptDirectory.resolve(path.getFileName() + "." + System.currentTimeMillis());
         Files.move(path, target, StandardCopyOption.REPLACE_EXISTING);
+        forceDirectory(path.getParent());
+        forceDirectory(corruptDirectory);
     }
 
     private Path capturePath(UUID graveId) {

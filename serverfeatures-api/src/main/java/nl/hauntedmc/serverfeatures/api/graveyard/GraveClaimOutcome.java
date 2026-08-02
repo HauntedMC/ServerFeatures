@@ -6,6 +6,8 @@ package nl.hauntedmc.serverfeatures.api.graveyard;
 public enum GraveClaimOutcome {
     CLAIMED,
     PARTIAL,
+    DELIVERY_QUEUED,
+    RECOVERY_PENDING,
     NOTHING_FIT,
     NOT_FOUND,
     NOT_OWNER,

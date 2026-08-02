@@ -43,7 +43,7 @@ public final class ServerActiveClock implements AutoCloseable {
                 .resolve("server-active-clock.bin");
     }
 
-    public void start() {
+    public synchronized void start() {
         if (sessionStartedNanos != 0L) {
             return;
         }
@@ -57,7 +57,7 @@ public final class ServerActiveClock implements AutoCloseable {
         );
     }
 
-    public long nowMillis() {
+    public synchronized long nowMillis() {
         long started = sessionStartedNanos;
         if (started == 0L) {
             return accumulatedMillis.get();
@@ -118,6 +118,15 @@ public final class ServerActiveClock implements AutoCloseable {
             );
         } catch (AtomicMoveNotSupportedException exception) {
             Files.move(temporary, checkpointPath, StandardCopyOption.REPLACE_EXISTING);
+        }
+        forceDirectory(checkpointPath.getParent());
+    }
+
+    private static void forceDirectory(Path directory) throws IOException {
+        try (FileChannel channel = FileChannel.open(directory, StandardOpenOption.READ)) {
+            channel.force(true);
+        } catch (UnsupportedOperationException ignored) {
+            // Some filesystems do not expose directory fsync through FileChannel.
         }
     }
 

@@ -55,14 +55,27 @@ public final class GraveyardSettings {
 
     private GraveyardSettings(Graveyard feature) {
         mode = enumSetting(feature, "mode", GraveyardMode.class, GraveyardMode.ACTIVE);
-        serverId = normalize(feature.getConfigHandler().getGlobalSetting("server_name", String.class, "server"));
-        inventoryScope = normalize(feature.getConfigHandler().get("identity.inventory_scope", String.class, serverId));
-        lifetimeMillis = duration(feature, "lifetime.duration", DEFAULT_LIFETIME_MILLIS);
-        leaseDurationMillis = duration(feature, "identity.lease_timeout", DEFAULT_LEASE_MILLIS);
-        leaseHeartbeatMillis = Math.min(
-                leaseDurationMillis / 2L,
-                duration(feature, "identity.lease_heartbeat", DEFAULT_LEASE_HEARTBEAT_MILLIS)
+        String globalServerId = normalize(
+                feature.getConfigHandler().getGlobalSetting("server_name", String.class, "server")
         );
+        serverId = normalizeOrFallback(
+                feature.getConfigHandler().get("identity.server_id", String.class, ""),
+                globalServerId
+        );
+        inventoryScope = normalizeOrFallback(
+                feature.getConfigHandler().get("identity.inventory_scope", String.class, ""),
+                serverId
+        );
+        lifetimeMillis = duration(feature, "lifetime.duration", DEFAULT_LIFETIME_MILLIS);
+        leaseDurationMillis = Math.max(5_000L, duration(
+                feature,
+                "identity.lease_timeout",
+                DEFAULT_LEASE_MILLIS
+        ));
+        leaseHeartbeatMillis = Math.max(1_000L, Math.min(
+                Math.max(1_000L, leaseDurationMillis / 2L),
+                duration(feature, "identity.lease_heartbeat", DEFAULT_LEASE_HEARTBEAT_MILLIS)
+        ));
         experiencePercentage = clamp(feature.getConfigHandler().get("experience.recovery_percentage", Integer.class, 50), 0, 100);
         horizontalSearchRadius = clamp(feature.getConfigHandler().get("placement.horizontal_search_radius", Integer.class, 8), 0, 32);
         verticalSearchBelow = clamp(feature.getConfigHandler().get("placement.vertical_search_below", Integer.class, 4), 0, 16);
@@ -199,6 +212,10 @@ public final class GraveyardSettings {
             }
         }
         return Set.copyOf(result);
+    }
+
+    private static String normalizeOrFallback(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : normalize(value);
     }
 
     private static String normalize(String value) {

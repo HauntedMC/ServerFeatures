@@ -53,10 +53,11 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("mode", "ACTIVE");
+        defaults.put("identity.server_id", "");
         defaults.put("identity.inventory_scope", "");
         defaults.put("identity.lease_heartbeat", "5s");
         defaults.put("identity.lease_timeout", "20s");
-        defaults.put("storage.journal.maximum_record_bytes", 8_388_608);
+        defaults.put("storage.journal.maximum_record_bytes", 12_000_000);
         defaults.put("storage.payload.maximum_entries", 64);
         defaults.put("storage.payload.maximum_item_bytes", 2_097_152);
         defaults.put("storage.payload.maximum_total_bytes", 8_388_608);
@@ -103,6 +104,14 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
                 "graveyard.storage_failed_vanilla_fallback",
                 "&cJe graf kon niet veilig worden opgeslagen; de normale death drops zijn gebruikt."
         );
+        messages.add(
+                "graveyard.capture_recovery_pending",
+                "&eGraf {grave_id} wordt veilig hersteld na een opslagfout. Je items worden niet dubbel uitgegeven."
+        );
+        messages.add(
+                "graveyard.claim_recovery_pending",
+                "&eDe claim van graf {grave_id} is opgeslagen en wordt veilig afgerond."
+        );
         messages.add("graveyard.keep_inventory", "&aJe inventory is behouden; er is geen graf gemaakt.");
         messages.add("graveyard.claimed", "&aGraf {grave_id} is volledig teruggehaald.");
         messages.add(
@@ -118,6 +127,8 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         messages.add("graveyard.not_found", "&cDat graf bestaat niet of is niet meer beschikbaar.");
         messages.add("graveyard.no_graves", "&7Je hebt geen actieve graven.");
         messages.add("graveyard.list_header", "&8--- &bJouw graven &8---");
+        messages.add("graveyard.admin_list_header", "&8--- &bGraven van {player} &8---");
+        messages.add("graveyard.admin_list_empty", "&7Geen bekende herstelbare graven voor deze speler.");
         messages.add(
                 "graveyard.list_entry",
                 "&b{grave_id} &7- {state} - &f{world} {x}, {y}, {z} &7- {remaining}"
@@ -161,13 +172,19 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
                 settings.maximumPayloadBytes()
         );
         try {
+            int configuredJournalBytes = getConfigHandler().get(
+                    "storage.journal.maximum_record_bytes",
+                    Integer.class,
+                    12_000_000
+            );
+            long encodedPayloadFloor = (settings.maximumPayloadBytes() * 4L + 2L) / 3L + 65_536L;
+            int maximumJournalBytes = (int) Math.min(
+                    Integer.MAX_VALUE,
+                    Math.max(Math.max(65_536L, configuredJournalBytes), encodedPayloadFloor)
+            );
             journal = new GraveOperationJournal(
                     getPlugin().getDataFolder().toPath().resolve("features").resolve(getFeatureName()),
-                    getConfigHandler().get(
-                            "storage.journal.maximum_record_bytes",
-                            Integer.class,
-                            8_388_608
-                    )
+                    maximumJournalBytes
             );
         } catch (IOException exception) {
             throw new IllegalStateException("Could not initialize the Graveyard operation journal.", exception);
@@ -185,7 +202,6 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
                 payloadCodec,
                 placementService
         );
-        manager.initialize();
 
         GraveCaptureService captureService = new GraveCaptureService(
                 this,
@@ -205,6 +221,7 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
 
         packetListener = new GraveInteractionPacketListener(this, manager);
         PacketEvents.getAPI().getEventManager().registerListener(packetListener);
+        manager.initialize();
     }
 
     @Override
