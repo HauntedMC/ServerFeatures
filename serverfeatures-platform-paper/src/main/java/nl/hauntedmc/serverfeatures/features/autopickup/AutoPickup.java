@@ -87,6 +87,10 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
                 "&cAutoPickup is voor deze sessie aangepast, maar de instelling kon niet worden opgeslagen."
         );
         messages.add(
+                "autopickup.session_disabled",
+                "&cAutoPickup is voor deze sessie uitgeschakeld door een onverwachte inventarisfout. Je items zijn zo veilig mogelijk hersteld."
+        );
+        messages.add(
                 "autopickup.inventory_full",
                 "&cJe inventaris zit vol. &7{remaining_amount} item(s) in {remaining_stacks} stack(s) liggen op de grond."
         );
@@ -174,6 +178,10 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
                 notification.durationSeconds(),
                 PauseMode.PAUSE_CYCLE
         );
+    }
+
+    public void clearPlayerDiagnostics(UUID playerId) {
+        diagnosticWarnings.remove(playerId);
     }
 
     public void reportTransferFailure(Player player, Throwable throwable) {
