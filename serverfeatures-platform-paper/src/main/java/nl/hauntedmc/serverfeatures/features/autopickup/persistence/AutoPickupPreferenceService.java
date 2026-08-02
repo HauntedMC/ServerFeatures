@@ -386,7 +386,13 @@ public final class AutoPickupPreferenceService {
 
     private void track(CompletableFuture<?> future) {
         activeAttempts.add(future);
-        future.whenComplete((ignored, throwable) -> activeAttempts.remove(future));
+        future.thenRun(() -> activeAttempts.remove(future));
+        future.exceptionally(failure -> {
+            if (failure != null) {
+                activeAttempts.remove(future);
+            }
+            return null;
+        });
     }
 
     private void scheduleMain(Runnable runnable) {
