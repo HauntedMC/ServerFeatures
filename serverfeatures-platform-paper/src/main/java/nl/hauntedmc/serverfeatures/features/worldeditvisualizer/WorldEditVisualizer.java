@@ -38,6 +38,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         config.put("label.scale", 1.0d);
         config.put("label.show_prefix_hash", false);
         config.put("render.view_range", 4.0d);
+        config.put("render.retry_interval_ticks", 200);
         config.put("poll.interval_ticks", 10);
         return config;
     }
