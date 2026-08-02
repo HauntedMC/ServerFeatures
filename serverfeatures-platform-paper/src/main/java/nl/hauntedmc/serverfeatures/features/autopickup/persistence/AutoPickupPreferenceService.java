@@ -270,7 +270,12 @@ public final class AutoPickupPreferenceService {
         };
 
         if (desired == state.enabled()) {
-            send(player, desired ? "autopickup.already_enabled" : "autopickup.already_disabled");
+            if (!state.persisted() && (intent == CommandIntent.ENABLE || intent == CommandIntent.DISABLE)) {
+                send(player, "autopickup.save_retry");
+                requestSave(player.getUniqueId(), state.playerId(), desired);
+            } else {
+                send(player, desired ? "autopickup.already_enabled" : "autopickup.already_disabled");
+            }
             return;
         }
 
