@@ -43,13 +43,11 @@ public final class LimitSpawnersListener implements Listener {
     }
 
     /**
-     * Roll back the slot reservation when another listener cancels after our HIGHEST check.
+     * Final validation is deferred one tick so cancellation by a later MONITOR listener is visible.
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSpawnerSpawnFinalState(SpawnerSpawnEvent event) {
-        if (event.isCancelled()) {
-            handler.rollbackCancelledSpawn(event.getEntity());
-        }
+        handler.scheduleSpawnFinalization(event.getEntity(), event::isCancelled);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
