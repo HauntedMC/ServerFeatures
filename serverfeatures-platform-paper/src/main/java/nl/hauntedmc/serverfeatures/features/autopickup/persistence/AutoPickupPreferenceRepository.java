@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.autopickup.persistence;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
-import nl.hauntedmc.serverfeatures.features.autopickup.entity.PlayerAutoPickupSettingEntity;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -31,15 +30,17 @@ public final class AutoPickupPreferenceRepository {
         if (playerId <= 0L) {
             throw new IllegalArgumentException("playerId must be positive");
         }
+        long updatedAt = System.currentTimeMillis();
         orm.runInTransaction(session -> {
-            PlayerAutoPickupSettingEntity setting = session.find(PlayerAutoPickupSettingEntity.class, playerId);
-            if (setting == null) {
-                setting = new PlayerAutoPickupSettingEntity();
-                setting.setPlayerId(playerId);
-                session.persist(setting);
-            }
-            setting.setEnabled(enabled);
-            setting.setUpdatedAt(System.currentTimeMillis());
+            session.createNativeMutationQuery(
+                            "INSERT INTO player_auto_pickup_settings (player_id, enabled, updated_at) "
+                                    + "VALUES (:playerId, :enabled, :updatedAt) "
+                                    + "ON DUPLICATE KEY UPDATE enabled = :enabled, updated_at = :updatedAt"
+                    )
+                    .setParameter("playerId", playerId)
+                    .setParameter("enabled", enabled)
+                    .setParameter("updatedAt", updatedAt)
+                    .executeUpdate();
             return null;
         });
     }
