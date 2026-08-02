@@ -61,7 +61,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        removeObsoleteConfig();
+        migrateLegacyConfig();
         service = new VisualizationService(this);
 
         getLifecycleManager().getCommandManager()
@@ -92,17 +92,48 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
     }
 
-    private void removeObsoleteConfig() {
-        List<String> present = OBSOLETE_CONFIG_KEYS.stream()
+    private void migrateLegacyConfig() {
+        List<String> obsolete = OBSOLETE_CONFIG_KEYS.stream()
                 .filter(key -> getConfigHandler().get(key) != null)
                 .toList();
-        if (present.isEmpty()) {
+        Integer migratedStep = normalizeStep(getConfigHandler().get("edge.step_blocks"));
+        if (obsolete.isEmpty() && migratedStep == null) {
             return;
         }
-        getConfigHandler().batch(batch -> present.forEach(batch::remove));
-        getPlugin().getLogger().info(
-                "[WorldEditVisualizer] Removed obsolete config keys: " + String.join(", ", present)
-        );
+
+        getConfigHandler().batch(batch -> {
+            obsolete.forEach(batch::remove);
+            if (migratedStep != null) {
+                batch.put("edge.step_blocks", migratedStep);
+            }
+        });
+        if (!obsolete.isEmpty()) {
+            getPlugin().getLogger().info(
+                    "[WorldEditVisualizer] Removed obsolete config keys: "
+                            + String.join(", ", obsolete)
+            );
+        }
+        if (migratedStep != null) {
+            getPlugin().getLogger().info(
+                    "[WorldEditVisualizer] Migrated edge.step_blocks to " + migratedStep
+            );
+        }
+    }
+
+    private static Integer normalizeStep(Object value) {
+        if (!(value instanceof Number number)) {
+            return null;
+        }
+        double configured = number.doubleValue();
+        int normalized;
+        if (!Double.isFinite(configured) || configured < 1.0) {
+            normalized = 1;
+        } else if (configured >= Integer.MAX_VALUE) {
+            normalized = Integer.MAX_VALUE;
+        } else {
+            normalized = (int) Math.ceil(configured);
+        }
+        return configured == normalized ? null : normalized;
     }
 
     public boolean getBoolean(String key, boolean fallback) {
