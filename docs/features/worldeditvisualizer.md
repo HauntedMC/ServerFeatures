@@ -152,7 +152,7 @@ nl.hauntedmc.serverfeatures.api.ui.world.display
 
 This includes `VisualHandle`, `Visualisation`, `DisplayVisualHandle`, `VisualOptions`, `RegionShape`, `CuboidRegionShape`, and `CubeRegionVisualisation`, plus their tests. External code that imported these classes must stop doing so; ServerFeatures no longer exposes a generic server-entity visualization API.
 
-The obsolete configuration keys below are no longer read and may be deleted from existing feature configs:
+On the first initialization of this version, the feature removes the obsolete configuration keys below from existing feature configs in one saved migration:
 
 ```text
 glow.*
