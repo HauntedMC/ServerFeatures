@@ -73,12 +73,18 @@ public final class LimitSpawnersHandler {
 
     public void start() {
         int persistedCount = registry.size();
-        for (World world : Bukkit.getWorlds()) {
-            for (Chunk chunk : world.getLoadedChunks()) {
-                handleChunkLoad(chunk);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            for (World world : Bukkit.getWorlds()) {
+                for (Chunk chunk : world.getLoadedChunks()) {
+                    handleChunkLoad(chunk);
+                }
             }
-        }
-        flushIfDirty();
+            flushIfDirty();
+            feature.getLogger().info(
+                    "Loaded " + persistedCount + " persisted tracked mobs; "
+                            + registry.size() + " remain after loaded-chunk reconciliation."
+            );
+        }, BukkitTime.ticks(1));
 
         feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 this::reconcileLoadedEntities,
@@ -89,11 +95,6 @@ public final class LimitSpawnersHandler {
                 this::flushIfDirty,
                 BukkitTime.ticks(saveIntervalTicks),
                 BukkitTime.ticks(saveIntervalTicks)
-        );
-
-        feature.getLogger().info(
-                "Loaded " + persistedCount + " persisted tracked mobs; "
-                        + registry.size() + " remain after loaded-chunk reconciliation."
         );
     }
 
