@@ -19,6 +19,9 @@ public class PlayerAutoPickupSettingEntity {
     @Column(name = "updated_at", nullable = false)
     private long updatedAt;
 
+    @Column(name = "write_revision", nullable = false)
+    private long writeRevision;
+
     public PlayerAutoPickupSettingEntity() {
     }
 
@@ -44,5 +47,13 @@ public class PlayerAutoPickupSettingEntity {
 
     public void setUpdatedAt(long updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public long getWriteRevision() {
+        return writeRevision;
+    }
+
+    public void setWriteRevision(long writeRevision) {
+        this.writeRevision = writeRevision;
     }
 }
