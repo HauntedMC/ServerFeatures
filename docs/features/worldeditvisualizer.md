@@ -13,7 +13,7 @@ The renderer has four hard guarantees:
 1. **No world mutation.** It uses Paper's per-player multi-block-change API only.
 2. **No server entities.** There is nothing that can remain in a world, tick, save into chunks, or be enumerated by entity-management plugins.
 3. **Bounded output.** Distance and block-count limits prevent large WorldEdit selections from producing unbounded work.
-4. **Authoritative restoration.** When a point leaves the visualization, the current live block data is read and sent back to the player. The renderer never restores an old cached block snapshot over a newer real block change.
+4. **Authoritative restoration.** When a point leaves the visualization, the current live block data is read and sent back to the player. Tile-entity data is re-sent after the block packet for chests, signs, spawners, and other `TileState` blocks. The renderer never restores an old cached block snapshot over a newer real block change.
 
 Only loaded chunks are read or visualized. Rendering does not load chunks.
 
@@ -112,8 +112,9 @@ For every enabled player, each poll:
 4. requires a complete cuboid selection;
 5. compares the selection and coarse player position with the last fingerprint;
 6. computes a bounded set of currently visible fake blocks;
-7. restores points removed since the previous render from live world data;
-8. sends the new fake block map only to that player.
+7. restores points removed since the previous render from live world block data;
+8. re-sends `TileState` data for restored block entities after the block packet;
+9. sends the new fake block map only to that player.
 
 If the selection is cleared, becomes incomplete, changes to an unsupported selector, or cannot be read, the previous visual is immediately restored. This fixes the former stale-selection behavior.
 
@@ -126,7 +127,7 @@ If the selection is cleared, becomes incomplete, changes to an unsupported selec
 - **Respawn:** invalidate the fingerprint; the poll recreates the visual for the new client state.
 - **Feature disable/reload:** restore all online viewers, clear every state map, then let lifecycle management cancel tasks/listeners.
 
-Packet sending and cleanup failures are isolated per player and logged. One broken selection or client cannot abort updates for other viewers.
+Packet sending and cleanup failures are isolated per player and logged. An unexpected update failure disables that player's visualization session after a best-effort restoration, preventing a poll-time exception loop from spamming logs. One broken selection or client cannot abort updates for other viewers.
 
 ## Performance characteristics
 
@@ -185,7 +186,8 @@ label.*
 9. Test a very large and very long selection; packet count and server work must remain bounded.
 10. Test selections partly outside world height and through unloaded chunks.
 11. Change a real block beneath a fake point, then clear/refresh; the latest real block must be shown.
-12. Test invalid/non-block material values and extreme budget/distance values; safe fallbacks/clamps must apply.
+12. Overlay a chest, sign, spawner, and other block entity, then clear; its client-side contents/text/state must restore correctly.
+13. Test invalid/non-block material values and extreme budget/distance values; safe fallbacks/clamps must apply.
 
 ## Source map
 
