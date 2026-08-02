@@ -1,17 +1,19 @@
 package nl.hauntedmc.serverfeatures.features.autopickup.persistence;
 
+import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.autopickup.AutoPickup;
 import nl.hauntedmc.serverfeatures.features.autopickup.config.AutoPickupSettings;
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState;
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState.CommandIntent;
 import nl.hauntedmc.serverfeatures.features.autopickup.model.AutoPickupPlayerState.LoadState;
-import nl.hauntedmc.serverfeatures.framework.persistence.DataRegistryIdentityGate;
+import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -28,6 +30,7 @@ public final class AutoPickupPreferenceService {
     private final AutoPickup feature;
     private final AutoPickupSettings settings;
     private final AutoPickupPreferenceRepository repository;
+    private final PlayerIdentityResolver identityResolver;
     private final Map<UUID, AutoPickupPlayerState> states = new HashMap<>();
     private final Map<UUID, WriteSlot> writes = new HashMap<>();
     private final Set<CompletableFuture<?>> activeAttempts = ConcurrentHashMap.newKeySet();
@@ -39,6 +42,8 @@ public final class AutoPickupPreferenceService {
         this.feature = feature;
         this.settings = settings;
         this.repository = repository;
+        this.identityResolver = new PlayerIdentityResolver(feature.getPlugin().getDataRegistry()
+                .orElseThrow(() -> new IllegalStateException("DataRegistry is required for AutoPickup.")));
     }
 
     public void initialize(Player player) {
@@ -50,19 +55,11 @@ public final class AutoPickupPreferenceService {
         long generation = state.nextGeneration();
         states.put(uuid, state);
 
-        DataRegistryIdentityGate.runWhenReady(
-                feature,
-                player,
-                (readyPlayer, identity) -> {
-                    AutoPickupPlayerState current = states.get(uuid);
-                    if (current != state || current.generation() != generation || closed.get()) {
-                        return;
-                    }
-                    current.playerId(identity.playerId());
-                    load(uuid, state, generation, identity.playerId());
-                },
-                "AutoPickup preference load"
-        );
+        CompletableFuture<Optional<PlayerIdentity>> identityFuture = identityResolver.whenReady(uuid);
+        track(identityFuture);
+        identityFuture.whenComplete((identity, throwable) -> scheduleMain(
+                () -> completeIdentity(uuid, state, generation, identity, throwable)
+        ));
     }
 
     public void remove(Player player) {
@@ -75,10 +72,6 @@ public final class AutoPickupPreferenceService {
                 && state.loadState() == LoadState.READY
                 && state.enabled()
                 && player.hasPermission(AutoPickup.USE_PERMISSION);
-    }
-
-    public AutoPickupPlayerState state(Player player) {
-        return states.get(player.getUniqueId());
     }
 
     public void handleCommand(Player player, CommandIntent intent) {
@@ -103,7 +96,8 @@ public final class AutoPickupPreferenceService {
         }
 
         if (state.loadState() == LoadState.FAILED) {
-            if (intent == CommandIntent.ENABLE || intent == CommandIntent.DISABLE) {
+            if (state.playerId() > 0L
+                    && (intent == CommandIntent.ENABLE || intent == CommandIntent.DISABLE)) {
                 state.loadState(LoadState.READY);
                 apply(player, state, intent);
             } else {
@@ -160,11 +154,54 @@ public final class AutoPickupPreferenceService {
         writes.clear();
     }
 
+    private void completeIdentity(UUID uuid,
+                                  AutoPickupPlayerState state,
+                                  long generation,
+                                  Optional<PlayerIdentity> identity,
+                                  Throwable throwable) {
+        AutoPickupPlayerState current = states.get(uuid);
+        if (closed.get() || current != state || current.generation() != generation) {
+            return;
+        }
+        if (throwable != null || identity == null || identity.isEmpty()) {
+            current.loadState(LoadState.FAILED);
+            current.enabled(false);
+            current.persisted(false);
+            CommandIntent pending = current.pendingCommand();
+            current.pendingCommand(null);
+            if (throwable != null) {
+                feature.getLogger().log(
+                        Level.WARNING,
+                        "Failed to resolve AutoPickup identity for " + uuid,
+                        throwable
+                );
+            } else {
+                feature.getLogger().warning("No canonical DataRegistry identity was available for " + uuid);
+            }
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null && player.isOnline() && pending != null) {
+                send(player, "autopickup.load_failed");
+            }
+            return;
+        }
+
+        current.playerId(identity.get().playerId());
+        WriteSlot existingWrite = writes.get(uuid);
+        if (existingWrite != null && existingWrite.inFlight) {
+            boolean effective = existingWrite.queuedValue != null
+                    ? existingWrite.queuedValue
+                    : existingWrite.activeValue;
+            finishLoad(uuid, current, effective, false);
+            return;
+        }
+        load(uuid, state, generation, current.playerId());
+    }
+
     private void load(UUID uuid,
                       AutoPickupPlayerState state,
                       long generation,
                       long playerId) {
-        CompletableFuture<java.util.Optional<Boolean>> future = feature.getLifecycleManager()
+        CompletableFuture<Optional<Boolean>> future = feature.getLifecycleManager()
                 .getTaskManager()
                 .supplyAsync(() -> repository.load(playerId));
         track(future);
@@ -173,7 +210,6 @@ public final class AutoPickupPreferenceService {
             if (closed.get() || current != state || current.generation() != generation) {
                 return;
             }
-            Player player = Bukkit.getPlayer(uuid);
             if (throwable != null) {
                 current.loadState(LoadState.FAILED);
                 current.enabled(false);
@@ -185,6 +221,7 @@ public final class AutoPickupPreferenceService {
                 );
                 CommandIntent pending = current.pendingCommand();
                 current.pendingCommand(null);
+                Player player = Bukkit.getPlayer(uuid);
                 if (player != null && player.isOnline()) {
                     if (pending == CommandIntent.ENABLE || pending == CommandIntent.DISABLE) {
                         current.loadState(LoadState.READY);
@@ -196,15 +233,23 @@ public final class AutoPickupPreferenceService {
                 return;
             }
 
-            current.enabled(loaded.orElse(settings.defaultEnabled()));
-            current.persisted(true);
-            current.loadState(LoadState.READY);
-            CommandIntent pending = current.pendingCommand();
-            current.pendingCommand(null);
-            if (pending != null && player != null && player.isOnline()) {
-                apply(player, current, pending);
-            }
+            finishLoad(uuid, current, loaded.orElse(settings.defaultEnabled()), true);
         }));
+    }
+
+    private void finishLoad(UUID uuid,
+                            AutoPickupPlayerState state,
+                            boolean enabled,
+                            boolean persisted) {
+        state.enabled(enabled);
+        state.persisted(persisted);
+        state.loadState(LoadState.READY);
+        CommandIntent pending = state.pendingCommand();
+        state.pendingCommand(null);
+        Player player = Bukkit.getPlayer(uuid);
+        if (pending != null && player != null && player.isOnline()) {
+            apply(player, state, pending);
+        }
     }
 
     private void apply(Player player, AutoPickupPlayerState state, CommandIntent intent) {
