@@ -49,18 +49,7 @@ public final class AutoPickupTransferCommitter {
         ItemStack[] plannedFinalStorage = plan.finalStorage();
         try {
             inventory.setStorageContents(plannedFinalStorage);
-            for (int index = 0; index < eligibleItems.size(); index++) {
-                Item item = eligibleItems.get(index);
-                AutoPickupTransferPlanner.DropResult result = plan.drops().get(index);
-                ItemStack remainder = result.remainder();
-                if (remainder == null) {
-                    if (!removeIdentity(event.getItems(), item)) {
-                        throw new IllegalStateException("AutoPickup drop disappeared before commit");
-                    }
-                } else {
-                    item.setItemStack(remainder);
-                }
-            }
+            applyPlannedEventMutations(event, eligibleItems, plan);
             verifyCommittedState(
                     inventory,
                     event,
@@ -72,7 +61,16 @@ public final class AutoPickupTransferCommitter {
             );
         } catch (RuntimeException commitFailure) {
             try {
-                rollback(inventory, event, originalStorage, originalEventItems, originalStacks);
+                rollback(
+                        inventory,
+                        event,
+                        eligibleItems,
+                        plan,
+                        originalStorage,
+                        originalEventItems,
+                        originalStacks,
+                        plannedFinalStorage
+                );
             } catch (RuntimeException rollbackFailure) {
                 commitFailure.addSuppressed(rollbackFailure);
                 throw new AutoPickupCommitException(
@@ -109,6 +107,22 @@ public final class AutoPickupTransferCommitter {
         }
     }
 
+    private void applyPlannedEventMutations(BlockDropItemEvent event,
+                                            List<Item> eligibleItems,
+                                            AutoPickupTransferPlanner.TransferPlan plan) {
+        for (int index = 0; index < eligibleItems.size(); index++) {
+            Item item = eligibleItems.get(index);
+            ItemStack remainder = plan.drops().get(index).remainder();
+            if (remainder == null) {
+                if (!removeIdentity(event.getItems(), item)) {
+                    throw new IllegalStateException("AutoPickup drop disappeared before commit");
+                }
+            } else {
+                item.setItemStack(remainder);
+            }
+        }
+    }
+
     private void verifyCommittedState(PlayerInventory inventory,
                                       BlockDropItemEvent event,
                                       List<Item> eligibleItems,
@@ -119,14 +133,96 @@ public final class AutoPickupTransferCommitter {
         if (!sameStorage(inventory.getStorageContents(), plannedFinalStorage)) {
             throw new IllegalStateException("Player inventory did not retain the planned AutoPickup state");
         }
+        ExpectedEventState expected = expectedCommittedEventState(
+                eligibleItems,
+                plan,
+                originalEventItems,
+                originalStacks
+        );
+        verifyEventState(event, expected, "AutoPickup event state did not match the plan");
+    }
 
-        List<Item> expectedEventItems = new ArrayList<>(originalEventItems);
+    private void rollback(PlayerInventory inventory,
+                          BlockDropItemEvent event,
+                          List<Item> eligibleItems,
+                          AutoPickupTransferPlanner.TransferPlan plan,
+                          ItemStack[] originalStorage,
+                          List<Item> originalEventItems,
+                          Map<Item, ItemStack> originalStacks,
+                          ItemStack[] plannedFinalStorage) {
+        RuntimeException inventoryRestoreFailure = null;
+        try {
+            inventory.setStorageContents(cloneExactArray(originalStorage));
+        } catch (RuntimeException exception) {
+            inventoryRestoreFailure = exception;
+        }
+
+        ItemStack[] liveStorage;
+        try {
+            liveStorage = inventory.getStorageContents();
+        } catch (RuntimeException exception) {
+            if (inventoryRestoreFailure != null) {
+                exception.addSuppressed(inventoryRestoreFailure);
+            }
+            throw new IllegalStateException(
+                    "AutoPickup could not inspect inventory state during rollback; event state was left unchanged",
+                    exception
+            );
+        }
+
+        if (sameStorage(liveStorage, originalStorage)) {
+            forceEventState(
+                    event,
+                    new ExpectedEventState(originalEventItems, originalStacks),
+                    "AutoPickup original event state could not be restored"
+            );
+            if (!sameStorage(inventory.getStorageContents(), originalStorage)) {
+                throw new IllegalStateException("AutoPickup inventory changed after successful rollback");
+            }
+            return;
+        }
+
+        if (sameStorage(liveStorage, plannedFinalStorage)) {
+            ExpectedEventState committedState = expectedCommittedEventState(
+                    eligibleItems,
+                    plan,
+                    originalEventItems,
+                    originalStacks
+            );
+            forceEventState(
+                    event,
+                    committedState,
+                    "AutoPickup could not finish the event side after inventory rollback failed"
+            );
+            IllegalStateException fallback = new IllegalStateException(
+                    "AutoPickup inventory rollback failed; the matching event commit was completed to preserve conservation"
+            );
+            if (inventoryRestoreFailure != null) {
+                fallback.addSuppressed(inventoryRestoreFailure);
+            }
+            throw fallback;
+        }
+
+        IllegalStateException unknownState = new IllegalStateException(
+                "AutoPickup inventory is neither the original nor planned state; event state was left unchanged"
+        );
+        if (inventoryRestoreFailure != null) {
+            unknownState.addSuppressed(inventoryRestoreFailure);
+        }
+        throw unknownState;
+    }
+
+    private ExpectedEventState expectedCommittedEventState(List<Item> eligibleItems,
+                                                           AutoPickupTransferPlanner.TransferPlan plan,
+                                                           List<Item> originalEventItems,
+                                                           Map<Item, ItemStack> originalStacks) {
+        List<Item> expectedItems = new ArrayList<>(originalEventItems);
         Map<Item, ItemStack> expectedStacks = new IdentityHashMap<>(originalStacks);
         for (int index = 0; index < eligibleItems.size(); index++) {
             Item item = eligibleItems.get(index);
             ItemStack remainder = plan.drops().get(index).remainder();
             if (remainder == null) {
-                if (!removeIdentity(expectedEventItems, item)) {
+                if (!removeIdentity(expectedItems, item)) {
                     throw new IllegalStateException("Eligible AutoPickup item was absent from the original event");
                 }
                 expectedStacks.remove(item);
@@ -134,67 +230,44 @@ public final class AutoPickupTransferCommitter {
                 expectedStacks.put(item, remainder);
             }
         }
-
-        if (!sameIdentityOrder(event.getItems(), expectedEventItems)) {
-            throw new IllegalStateException("AutoPickup event membership or item order did not match the plan");
-        }
-        verifyStacks(expectedEventItems, expectedStacks, "AutoPickup event stack did not match the plan");
+        return new ExpectedEventState(expectedItems, expectedStacks);
     }
 
-    private void rollback(PlayerInventory inventory,
-                          BlockDropItemEvent event,
-                          ItemStack[] originalStorage,
-                          List<Item> originalEventItems,
-                          Map<Item, ItemStack> originalStacks) {
-        RuntimeException failure = null;
-        try {
-            inventory.setStorageContents(cloneExactArray(originalStorage));
-        } catch (RuntimeException exception) {
-            failure = appendFailure(failure, exception);
-        }
-
+    private void forceEventState(BlockDropItemEvent event,
+                                 ExpectedEventState expected,
+                                 String failureMessage) {
+        RuntimeException operationFailure = null;
         try {
             event.getItems().clear();
-            event.getItems().addAll(originalEventItems);
+            event.getItems().addAll(expected.items());
         } catch (RuntimeException exception) {
-            failure = appendFailure(failure, exception);
+            operationFailure = appendFailure(operationFailure, exception);
         }
-
-        for (Item item : originalEventItems) {
+        for (Item item : expected.items()) {
             try {
-                item.setItemStack(cloneExact(originalStacks.get(item)));
+                item.setItemStack(cloneExact(expected.stacks().get(item)));
             } catch (RuntimeException exception) {
-                failure = appendFailure(failure, exception);
+                operationFailure = appendFailure(operationFailure, exception);
             }
         }
 
         try {
-            if (!sameStorage(inventory.getStorageContents(), originalStorage)) {
-                throw new IllegalStateException("AutoPickup inventory rollback verification failed");
+            verifyEventState(event, expected, failureMessage);
+        } catch (RuntimeException verificationFailure) {
+            if (operationFailure != null) {
+                verificationFailure.addSuppressed(operationFailure);
             }
-        } catch (RuntimeException exception) {
-            failure = appendFailure(failure, exception);
+            throw verificationFailure;
         }
-        try {
-            if (!sameIdentityOrder(event.getItems(), originalEventItems)) {
-                throw new IllegalStateException("AutoPickup event-list rollback verification failed");
-            }
-        } catch (RuntimeException exception) {
-            failure = appendFailure(failure, exception);
-        }
-        try {
-            verifyStacks(
-                    originalEventItems,
-                    originalStacks,
-                    "AutoPickup item-stack rollback verification failed"
-            );
-        } catch (RuntimeException exception) {
-            failure = appendFailure(failure, exception);
-        }
+    }
 
-        if (failure != null) {
-            throw new IllegalStateException("AutoPickup rollback was incomplete", failure);
+    private void verifyEventState(BlockDropItemEvent event,
+                                  ExpectedEventState expected,
+                                  String failureMessage) {
+        if (!sameIdentityOrder(event.getItems(), expected.items())) {
+            throw new IllegalStateException(failureMessage + ": membership or order mismatch");
         }
+        verifyStacks(expected.items(), expected.stacks(), failureMessage + ": stack mismatch");
     }
 
     private Map<Item, ItemStack> snapshotStacks(List<Item> items) {
@@ -279,6 +352,15 @@ public final class AutoPickupTransferCommitter {
 
     private static ItemStack cloneExact(ItemStack item) {
         return item == null ? null : item.clone();
+    }
+
+    private record ExpectedEventState(List<Item> items, Map<Item, ItemStack> stacks) {
+        private ExpectedEventState {
+            items = List.copyOf(items);
+            Map<Item, ItemStack> detachedStacks = new IdentityHashMap<>();
+            stacks.forEach((item, stack) -> detachedStacks.put(item, cloneExact(stack)));
+            stacks = detachedStacks;
+        }
     }
 
     public static final class AutoPickupCommitException extends RuntimeException {
