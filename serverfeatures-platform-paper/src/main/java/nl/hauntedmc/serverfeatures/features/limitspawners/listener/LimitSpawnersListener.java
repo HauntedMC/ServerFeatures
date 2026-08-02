@@ -13,14 +13,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.entity.SpawnerSpawnEvent;
+import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 
 public final class LimitSpawnersListener implements Listener {
 
-    private final LimitSpawnersHandler handler;
     private final LimitSpawners feature;
+    private final LimitSpawnersHandler handler;
 
     public LimitSpawnersListener(LimitSpawners feature, LimitSpawnersHandler handler) {
         this.feature = feature;
@@ -29,15 +31,24 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSpawnerSpawn(SpawnerSpawnEvent event) {
-        BlockState state = event.getSpawner();
-        if (state == null) return;
+        BlockState spawner = event.getSpawner();
+        if (spawner == null || !(event.getEntity() instanceof LivingEntity living)) {
+            return;
+        }
 
-        LivingEntity ent = (LivingEntity) event.getEntity();
-        Location loc = state.getLocation();
-        SpawnerKey key = SpawnerKey.of(loc);
-
-        if (!handler.tryRegisterSpawn(ent, key)) {
+        Location location = spawner.getLocation();
+        if (!handler.tryRegisterSpawn(living, SpawnerKey.of(location))) {
             event.setCancelled(true);
+        }
+    }
+
+    /**
+     * Roll back the slot reservation when another listener cancels after our HIGHEST check.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onSpawnerSpawnFinalState(SpawnerSpawnEvent event) {
+        if (event.isCancelled()) {
+            handler.rollbackCancelledSpawn(event.getEntity());
         }
     }
 
@@ -46,21 +57,33 @@ public final class LimitSpawnersListener implements Listener {
         handler.unregisterIfTracked(event.getEntity());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveFromWorldEvent event) {
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() ->
-                        handler.unregisterIfTracked(event.getEntity())
-                , BukkitTime.ticks(5));
+        handler.scheduleRemovalCheck(event.getEntity().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityTeleport(EntityTeleportEvent event) {
+        handler.updateTrackedLocation(event.getEntity());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkLoad(ChunkLoadEvent event) {
+        Chunk chunk = event.getChunk();
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (chunk.isLoaded()) {
+                handler.handleChunkLoad(chunk);
+            }
+        }, BukkitTime.ticks(1));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChunkUnload(ChunkUnloadEvent event) {
-        Chunk chunk = event.getChunk();
-        handler.handleChunkUnload(chunk);
+        handler.handleChunkUnload(event.getChunk());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onWorldUnload(WorldUnloadEvent event) {
-        handler.dropWorld(event.getWorld().getUID());
+        handler.handleWorldUnload(event.getWorld());
     }
 }
