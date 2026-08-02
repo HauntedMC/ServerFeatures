@@ -22,9 +22,16 @@ jobs:
         run: |
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          base64 --decode .agent/update.patch.gz.b64 \
-            | gzip --decompress \
-            > /tmp/graveyard-update.patch
+          wc -c .agent/update.patch.gz.b64
+          sha256sum .agent/update.patch.gz.b64
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          source = Path('.agent/update.patch.gz.b64').read_text()
+          filtered = ''.join(character for character in source if character.isalnum() or character in '+/=')
+          Path('/tmp/graveyard-update.patch.gz').write_bytes(base64.b64decode(filtered))
+          PY
+          gzip --decompress --stdout /tmp/graveyard-update.patch.gz > /tmp/graveyard-update.patch
           git apply --binary /tmp/graveyard-update.patch
           rm .agent/update.patch.gz.b64
           git add -A
