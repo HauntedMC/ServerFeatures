@@ -37,7 +37,7 @@ public final class PlayerLifecycleListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChangedWorld(PlayerChangedWorldEvent event) {
-        service.invalidate(event.getPlayer(), false);
+        service.invalidate(event.getPlayer(), true);
         if (service.isEnabled(event.getPlayer())) {
             service.refreshNow(event.getPlayer());
         }
@@ -45,6 +45,6 @@ public final class PlayerLifecycleListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRespawn(PlayerRespawnEvent event) {
-        service.invalidate(event.getPlayer(), false);
+        service.invalidate(event.getPlayer(), true);
     }
 }
