@@ -42,6 +42,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         config.put("render.max_distance_blocks", 128);
         config.put("render.max_entities", 1024);
         config.put("render.movement_refresh_blocks", 8);
+        config.put("render.full_refresh_interval_ticks", 600);
         config.put("poll.interval_ticks", 10);
         return config;
     }
