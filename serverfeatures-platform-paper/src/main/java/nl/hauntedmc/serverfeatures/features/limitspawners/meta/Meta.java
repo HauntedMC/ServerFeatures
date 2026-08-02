@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.meta;
 
-
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
 public class Meta implements BaseMeta {
@@ -12,7 +11,6 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureVersion() {
-        return "1.0.0";
+        return "2.0.0";
     }
-
 }
