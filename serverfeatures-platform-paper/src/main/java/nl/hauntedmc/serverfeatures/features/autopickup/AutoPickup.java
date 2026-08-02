@@ -20,6 +20,7 @@ import nl.hauntedmc.serverfeatures.features.autopickup.persistence.AutoPickupPre
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferCommitter;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferPlanner;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.DirectDropOriginClassifier;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -32,7 +33,8 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
 
     public static final String USE_PERMISSION = "serverfeatures.feature.autopickup.use";
 
-    private final Map<UUID, Long> diagnosticWarnings = new HashMap<>();
+    private final Map<UUID, Long> transferWarnings = new HashMap<>();
+    private final Map<UUID, Long> feedbackWarnings = new HashMap<>();
     private AutoPickupSettings settings;
     private ORMContext ormContext;
     private AutoPickupPreferenceService preferenceService;
@@ -155,7 +157,8 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
             preferenceService.close();
             preferenceService = null;
         }
-        diagnosticWarnings.clear();
+        transferWarnings.clear();
+        feedbackWarnings.clear();
         transferPlanner = null;
         transferCommitter = null;
         originClassifier = null;
@@ -183,18 +186,22 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
     }
 
     public void notifyInventoryFull(Player player, int remainingAmount, int remainingStacks) {
-        Component message = getLocalizationHandler().getMessage("autopickup.inventory_full")
-                .forAudience(player)
-                .with("remaining_amount", remainingAmount)
-                .with("remaining_stacks", remainingStacks)
-                .build();
-        AutoPickupSettings.NotificationSettings notification = settings.notification();
-        ActionBars.service().send(
-                player,
-                message,
-                notification.durationSeconds(),
-                PauseMode.PAUSE_CYCLE
-        );
+        try {
+            Component message = getLocalizationHandler().getMessage("autopickup.inventory_full")
+                    .forAudience(player)
+                    .with("remaining_amount", remainingAmount)
+                    .with("remaining_stacks", remainingStacks)
+                    .build();
+            AutoPickupSettings.NotificationSettings notification = settings.notification();
+            ActionBars.service().send(
+                    player,
+                    message,
+                    notification.durationSeconds(),
+                    PauseMode.PAUSE_CYCLE
+            );
+        } catch (RuntimeException exception) {
+            reportFeedbackFailure(player, "inventory-full actionbar", exception);
+        }
     }
 
     public void playPickupSound(Player player) {
@@ -202,33 +209,61 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         if (!sound.enabled()) {
             return;
         }
-        player.playSound(
-                player.getLocation(),
-                sound.soundKey(),
-                sound.category(),
-                sound.volume(),
-                sound.pitch()
-        );
+        try {
+            player.playSound(
+                    player.getLocation(),
+                    sound.soundKey(),
+                    sound.category(),
+                    sound.volume(),
+                    sound.pitch()
+            );
+        } catch (RuntimeException exception) {
+            reportFeedbackFailure(player, "pickup sound", exception);
+        }
     }
 
     public void clearPlayerDiagnostics(UUID playerId) {
-        diagnosticWarnings.remove(playerId);
+        transferWarnings.remove(playerId);
+        feedbackWarnings.remove(playerId);
     }
 
     public void reportTransferFailure(Player player, Throwable throwable) {
         long now = System.nanoTime();
-        long previous = diagnosticWarnings.getOrDefault(player.getUniqueId(), Long.MIN_VALUE);
-        if (previous == Long.MIN_VALUE || now - previous >= settings.diagnosticWarningCooldownNanos()) {
-            diagnosticWarnings.put(player.getUniqueId(), now);
-            getLogger().log(
-                    Level.WARNING,
-                    "AutoPickup transfer failed for " + player.getUniqueId()
-                            + " at " + player.getWorld().getName() + " "
-                            + player.getLocation().getBlockX() + ","
-                            + player.getLocation().getBlockY() + ","
-                            + player.getLocation().getBlockZ(),
-                    throwable
-            );
+        if (!shouldReport(transferWarnings, player.getUniqueId(), now)) {
+            return;
         }
+        Location location = player.getLocation();
+        getLogger().log(
+                Level.WARNING,
+                "AutoPickup transfer failed for " + player.getUniqueId()
+                        + " at " + player.getWorld().getName() + " "
+                        + location.getBlockX() + ","
+                        + location.getBlockY() + ","
+                        + location.getBlockZ(),
+                throwable
+        );
+    }
+
+    private void reportFeedbackFailure(Player player, String feedback, Throwable throwable) {
+        long now = System.nanoTime();
+        if (!shouldReport(feedbackWarnings, player.getUniqueId(), now)) {
+            return;
+        }
+        getLogger().log(
+                Level.WARNING,
+                "AutoPickup " + feedback + " failed for " + player.getUniqueId()
+                        + "; the completed item transfer was retained.",
+                throwable
+        );
+    }
+
+    private boolean shouldReport(Map<UUID, Long> warnings, UUID playerId, long nowNanos) {
+        long previous = warnings.getOrDefault(playerId, Long.MIN_VALUE);
+        if (previous != Long.MIN_VALUE
+                && nowNanos - previous < settings.diagnosticWarningCooldownNanos()) {
+            return false;
+        }
+        warnings.put(playerId, nowNanos);
+        return true;
     }
 }
