@@ -22,7 +22,7 @@ class GraveSpatialIndexTest {
         assertEquals(1, index.nearby(world, 0, 0, 0).size());
 
         grave.relocate(new GraveLocation(world, "minecraft:world", 48.0, 64.0, 48.0, 0.0f),
-                GravePlacementType.NEARBY_SAFE);
+                GravePlacementType.NEARBY);
         index.put(grave);
         assertTrue(index.nearby(world, 0, 0, 0).isEmpty());
         assertEquals(1, index.nearby(world, 3, 3, 0).size());
@@ -35,7 +35,7 @@ class GraveSpatialIndexTest {
         GraveLocation location = new GraveLocation(world, "minecraft:world", x, 64.0, z, 0.0f);
         return new Grave(
                 UUID.randomUUID(), "ABC123", UUID.randomUUID(), "Player", "survival-1", "survival",
-                location, location, GravePlacementType.EXACT, GraveStatus.ACTIVE,
+                location, location, GravePlacementType.DEATH_LOCATION, GraveStatus.ACTIVE,
                 1L, 1L, 60_001L, null, 1, 5, 0L, "checksum", "minecraft:generic", false
         );
     }
