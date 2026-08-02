@@ -15,7 +15,8 @@ The renderer has the following guarantees:
 3. **Per-player isolation.** Nearby players receive no packets and cannot see or interact with another player's selection.
 4. **Bounded output.** Distance clipping and a hard per-player entity budget prevent large selections from creating unbounded work or client load.
 5. **No chunk loading.** Selection geometry is calculated from coordinates only; the renderer never requests block data or loads chunks.
-6. **Deterministic cleanup.** Every active virtual entity ID is tracked per viewer and destroyed on disable, selection invalidation, teleport, permission loss, reload, or a guarded failure.
+6. **Deterministic cleanup.** Every active virtual entity ID is tracked per viewer and destroyed on disable, selection invalidation, teleport, world change, respawn, permission loss, reload, or a guarded failure.
+7. **Client-state self-healing.** A bounded periodic full rebuild repairs virtual displays if the client silently loses packet-only entities.
 
 Paper's `World#createEntity` is used only to construct short-lived, **unspawned** display templates. Their metadata is converted to PacketEvents data once and cached. The templates are never passed to `addEntity` or any spawn method.
 
@@ -81,6 +82,7 @@ render:
   max_distance_blocks: 128
   max_entities: 1024
   movement_refresh_blocks: 8
+  full_refresh_interval_ticks: 600
 
 poll:
   interval_ticks: 10
@@ -115,21 +117,24 @@ The four `glow.*` keys configure Bukkit display glow overrides. Common Minecraft
 
 Labels are centered, billboarded, see-through, shadowed, and rendered with a translucent background. They count toward the same per-player entity budget as block displays.
 
-### Rendering budgets
+### Rendering budgets and refresh
 
 | Key | Default | Runtime bounds | Behavior |
 |---|---:|---:|---|
 | `render.max_distance_blocks` | `128` | `1–512` | Axis-aligned distance around the viewer in which virtual displays may exist. |
 | `render.max_entities` | `1024` | `16–4096` | Hard maximum number of virtual displays owned by one viewer. |
 | `render.movement_refresh_blocks` | `8` | `1–32` | Size of movement cells used to recalculate distance-clipped geometry. |
+| `render.full_refresh_interval_ticks` | `600` | `0–72000` | Periodically destroy and rebuild the bounded client-only display set. `0` disables periodic full rebuilding. |
 
 The sampler first clips each of the twelve cuboid edges to the viewer's configured range. It never walks across the invisible middle of an enormous selection. If the requested `edge.step_blocks` would exceed the remaining entity budget, the effective step is increased adaptively. Corners, pos1, pos2, and labels are prioritized before ordinary edge points. A deterministic final cap remains as a defensive backstop.
 
 Coordinates are quantized to 1/4096 of a block for stable identity and packet diffing. This preserves fractional spacing without accumulating floating-point duplicates.
 
+The periodic full refresh is a resilience mechanism for client-only entities. Normal movement and selection updates remain differential; only the configured interval performs a complete destroy-and-recreate cycle. The default is 600 ticks (30 seconds), which bounds recovery time without rebuilding every poll.
+
 ### Polling
 
-`poll.interval_ticks` defaults to `10` and is clamped to at least one tick. Each poll checks only enabled players. An unchanged selection is skipped until the player enters a new movement cell, the selection changes, or `/wevis refresh` forces a rebuild.
+`poll.interval_ticks` defaults to `10` and is clamped to at least one tick. Each poll checks only enabled players. An unchanged selection is skipped until the player enters a new movement cell, the selection changes, the full-refresh deadline becomes due, or `/wevis refresh` forces a rebuild.
 
 ## Packet lifecycle
 
@@ -140,10 +145,11 @@ For each enabled player, reconciliation performs the following:
 3. read the selection in the player's current world;
 4. require a complete cuboid selection;
 5. compare the selection and movement-cell fingerprint;
-6. calculate the bounded desired virtual display set;
-7. send one destroy packet for virtual IDs no longer required;
-8. retain unchanged virtual displays without packet churn;
-9. send spawn and metadata packets only for newly required displays.
+6. decide whether differential reconciliation or a due full rebuild is required;
+7. calculate the bounded desired virtual display set;
+8. send one destroy packet for virtual IDs no longer required, or for the entire previous set during a full rebuild;
+9. retain unchanged virtual displays during differential reconciliation;
+10. send spawn and metadata packets only for newly required displays.
 
 `/wevis refresh` deliberately destroys and recreates the full set. Normal polling uses a diff so movement and point changes do not respawn the complete visualization.
 
@@ -154,8 +160,8 @@ If the selection is cleared, becomes incomplete, switches to an unsupported sele
 - **Join:** optionally enable and render when permitted.
 - **Quit:** forget in-memory state; the disconnected client no longer exists and no server entity can remain.
 - **Teleport:** destroy the old packet entities before a successful teleport is applied.
-- **World change:** discard old-dimension state and immediately build the destination-world selection.
-- **Respawn:** discard client-side entity state; the next poll recreates the visualization.
+- **World change:** best-effort destroy any tracked IDs, discard old-dimension state, and immediately build the destination-world selection.
+- **Respawn:** best-effort destroy tracked IDs and invalidate the client-side state; the next poll recreates the visualization.
 - **Permission loss:** disable and destroy the player's virtual entities.
 - **Feature disable/reload:** destroy all active virtual entities for online viewers and clear all state maps.
 
@@ -171,6 +177,8 @@ Changed-render work is bounded by:
 - at most `render.max_entities` desired keys;
 - one batched destroy packet for removed IDs;
 - two packets per newly spawned virtual display: spawn and metadata.
+
+A due full refresh performs the same bounded work for the complete current set. Operators with many simultaneous visualizer users can increase `render.full_refresh_interval_ticks`, reduce `render.max_entities`, or set the interval to `0` when periodic client-state repair is not desired.
 
 The metadata for the six display styles is generated once from unspawned templates and reused for all viewers until feature reload.
 
@@ -213,9 +221,10 @@ The feature's existing material, spacing, scale, glow, and label settings remain
 9. Disable/reload ServerFeatures with several active viewers.
 10. Test tiny, flat, line-like, very large, and extreme-coordinate selections.
 11. Configure very small spacing with a low entity budget; verify adaptive thinning and stable TPS/client FPS.
-12. Test invalid materials, colors, scales, distances, and budgets; safe fallbacks and clamps must apply.
+12. Test invalid materials, colors, scales, distances, budgets, and refresh intervals; safe fallbacks and clamps must apply.
 13. Toggle labels and both label naming modes.
 14. Run `/wevis refresh` repeatedly and verify entity IDs are replaced without duplicate visuals.
+15. Leave an unchanged visualization active beyond `render.full_refresh_interval_ticks`; verify it rebuilds once without leaving duplicates or world entities.
 
 ## Source map
 
