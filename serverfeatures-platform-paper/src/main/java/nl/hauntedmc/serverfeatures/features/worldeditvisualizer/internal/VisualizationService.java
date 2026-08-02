@@ -5,243 +5,278 @@ import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
-import net.kyori.adventure.text.format.NamedTextColor;
-import nl.hauntedmc.serverfeatures.api.ui.world.display.VisualHandle;
-import nl.hauntedmc.serverfeatures.api.ui.world.display.Visualisation;
-import nl.hauntedmc.serverfeatures.api.ui.world.display.options.VisualOptions;
-import nl.hauntedmc.serverfeatures.api.ui.world.display.shape.CuboidRegionShape;
-import nl.hauntedmc.serverfeatures.api.ui.world.display.visualisation.CubeRegionVisualisation;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
 
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 /**
- * Bridges WorldEdit selections to the visualisation API.
- * Converts a WE cuboid to a {@link CuboidRegionShape} and renders via {@link Visualisation}.
+ * Tracks per-player WorldEdit selections and owns their packet-only visual state.
  */
 public final class VisualizationService {
 
-    private final WorldEditVisualizer feature;
-    private final Visualisation visualiser;
+    public static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
 
-    // per-player
-    private final Set<UUID> enabled = ConcurrentHashMap.newKeySet();
-    private final Map<UUID, SelectionSnapshot> last = new ConcurrentHashMap<>();
-    private final Map<UUID, VisualHandle> shown = new ConcurrentHashMap<>();
+    private final WorldEditVisualizer feature;
+    private final PacketCuboidRenderer renderer;
+    private final Set<UUID> enabled = new HashSet<>();
+    private final Map<UUID, RenderState> rendered = new HashMap<>();
+    private final Map<UUID, RenderFingerprint> fingerprints = new HashMap<>();
+    private final Map<UUID, Long> nextRefreshNanos = new HashMap<>();
 
     public VisualizationService(WorldEditVisualizer feature) {
         this.feature = feature;
-        this.visualiser = new CubeRegionVisualisation(feature.getPlugin());
+        this.renderer = new PacketCuboidRenderer(feature);
     }
 
-    /* Public API */
-
-    public boolean isEnabled(Player p) {
-        return enabled.contains(p.getUniqueId());
+    public boolean isEnabled(Player player) {
+        return enabled.contains(player.getUniqueId());
     }
 
-    /**
-     * Active if enabled OR a visual handle exists (guards against leftover renders).
-     */
-    public boolean isActive(Player p) {
-        UUID id = p.getUniqueId();
-        return enabled.contains(id) || shown.containsKey(id);
+    public boolean shouldAutoEnable(Player player) {
+        return feature.getBoolean("auto_enable_on_join", true) && player.hasPermission(USE_PERMISSION);
     }
 
-    /**
-     * Idempotent toggle: if active -> disable+clear, else -> clear stale, enable+render once.
-     */
-    public boolean toggle(Player p) {
-        if (isActive(p)) {
-            disable(p, true);
-            return false; // now disabled
-        } else {
-            clear(p);
-            last.remove(p.getUniqueId());
-            enable(p);
-            return true; // now enabled
+    public ToggleResult toggle(Player player) {
+        if (isEnabled(player) || rendered.containsKey(player.getUniqueId())) {
+            disable(player, true);
+            return new ToggleResult(false, RefreshResult.DISABLED);
+        }
+        return new ToggleResult(true, enable(player));
+    }
+
+    public RefreshResult enable(Player player) {
+        enabled.add(player.getUniqueId());
+        invalidateFingerprint(player.getUniqueId());
+        return refreshNow(player);
+    }
+
+    public boolean disable(Player player, boolean restore) {
+        UUID uuid = player.getUniqueId();
+        boolean changed = enabled.remove(uuid);
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+        RenderState state = rendered.remove(uuid);
+        if (restore) {
+            renderer.clear(player, state);
+        }
+        return changed || state != null;
+    }
+
+    public RefreshResult refreshNow(Player player) {
+        if (!isEnabled(player)) {
+            return RefreshResult.DISABLED;
+        }
+        return updatePlayer(player, true);
+    }
+
+    public void invalidate(Player player, boolean restore) {
+        UUID uuid = player.getUniqueId();
+        invalidateFingerprint(uuid);
+        RenderState state = rendered.remove(uuid);
+        if (restore) {
+            renderer.clear(player, state);
         }
     }
 
-    /**
-     * Enable; always ensures only a single fresh render exists.
-     */
-    public boolean enable(Player p) {
-        clear(p);
-        last.remove(p.getUniqueId());
-        boolean changed = enabled.add(p.getUniqueId());
-        tryShowFromSelection(p, false);
-        return changed;
-    }
-
-    public boolean disable(Player p, boolean clearNow) {
-        boolean changed = enabled.remove(p.getUniqueId());
-        last.remove(p.getUniqueId());
-        if (clearNow) clear(p);
-        return changed;
-    }
-
-    public void clear(Player p) {
-        VisualHandle handle = shown.remove(p.getUniqueId());
-        if (handle != null) handle.clear();
+    public void forget(Player player) {
+        UUID uuid = player.getUniqueId();
+        enabled.remove(uuid);
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+        rendered.remove(uuid);
     }
 
     public void pollSelections() {
-        if (enabled.isEmpty()) return;
+        if (enabled.isEmpty()) {
+            return;
+        }
         for (UUID uuid : new ArrayList<>(enabled)) {
-            Player p = Bukkit.getPlayer(uuid);
-            if (p == null || !p.isOnline()) {
-                disableOffline(uuid);
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) {
+                forget(uuid);
                 continue;
             }
-            tryShowFromSelection(p, false);
+            if (!player.hasPermission(USE_PERMISSION)) {
+                disable(player, true);
+                continue;
+            }
+            try {
+                updatePlayer(player, false);
+            } catch (Throwable throwable) {
+                feature.getPlugin().getLogger().log(
+                        Level.WARNING,
+                        "Failed to update WorldEdit visualization for " + player.getName(),
+                        throwable
+                );
+                safeClear(player);
+            }
         }
     }
 
-    public void tryShowFromSelection(Player p, boolean feedback) {
-        var session = WorldEdit.getInstance().getSessionManager().getIfPresent(BukkitAdapter.adapt(p));
-        if (session == null) {
-            if (feedback) send(p, "worldeditvisualizer.no_selection");
-            return;
+    public void shutdown() {
+        for (Player player : feature.getPlugin().getServer().getOnlinePlayers()) {
+            RenderState state = rendered.remove(player.getUniqueId());
+            renderer.clear(player, state);
+        }
+        enabled.clear();
+        rendered.clear();
+        fingerprints.clear();
+        nextRefreshNanos.clear();
+    }
+
+    private RefreshResult updatePlayer(Player player, boolean force) {
+        SelectionRead selectionRead = readSelection(player);
+        if (selectionRead.result() != RefreshResult.RENDERED) {
+            clearStale(player);
+            return selectionRead.result();
         }
 
-        com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(p.getWorld());
+        CuboidSelection selection = selectionRead.selection();
+        RenderFingerprint fingerprint = new RenderFingerprint(
+                selection,
+                player.getLocation().getBlockX() >> 4,
+                player.getLocation().getBlockY() >> 4,
+                player.getLocation().getBlockZ() >> 4
+        );
+        UUID uuid = player.getUniqueId();
+        long now = System.nanoTime();
+        boolean refreshDue = now >= nextRefreshNanos.getOrDefault(uuid, 0L);
+        if (!force && fingerprint.equals(fingerprints.get(uuid)) && !refreshDue) {
+            return RefreshResult.RENDERED;
+        }
+
+        RenderState previous = rendered.get(uuid);
+        RenderState current = renderer.render(player, selection, previous);
+        rendered.put(uuid, current);
+        fingerprints.put(uuid, fingerprint);
+        scheduleRefresh(uuid, now);
+        return RefreshResult.RENDERED;
+    }
+
+    private SelectionRead readSelection(Player player) {
+        var actor = BukkitAdapter.adapt(player);
+        var session = WorldEdit.getInstance().getSessionManager().getIfPresent(actor);
+        if (session == null) {
+            return SelectionRead.noSelection();
+        }
+
         Region region;
         try {
-            region = session.getSelection(weWorld);
-        } catch (Exception ex) {
-            if (feedback) send(p, "worldeditvisualizer.no_selection");
-            return;
+            region = session.getSelection(BukkitAdapter.adapt(player.getWorld()));
+        } catch (Exception ignored) {
+            return SelectionRead.noSelection();
         }
         if (!(region instanceof CuboidRegion cuboid)) {
-            if (feedback) send(p, "worldeditvisualizer.not_cuboid");
-            return;
+            return SelectionRead.unsupported();
         }
 
-        // Build snapshot for diffing
         BlockVector3 min = cuboid.getMinimumPoint();
         BlockVector3 max = cuboid.getMaximumPoint();
-        BlockVector3 pos1 = cuboid.getPos1();
-        BlockVector3 pos2 = cuboid.getPos2();
-
-        SelectionSnapshot snap = new SelectionSnapshot(p.getWorld().getUID(), min, max, pos1, pos2);
-        SelectionSnapshot prev = last.get(p.getUniqueId());
-        if (snap.equals(prev)) return;
-
-        last.put(p.getUniqueId(), snap);
-
-        // Convert to RegionShape
-        Map<String, Vector> named = new LinkedHashMap<>();
-        named.put("pos1", new Vector(pos1.x() + 0.5, pos1.y() + 0.5, pos1.z() + 0.5));
-        named.put("pos2", new Vector(pos2.x() + 0.5, pos2.y() + 0.5, pos2.z() + 0.5));
-
-        CuboidRegionShape shape = new CuboidRegionShape(
-                min.x(), min.y(), min.z(),
-                max.x(), max.y(), max.z(),
-                named
+        CuboidSelection selection = new CuboidSelection(
+                player.getWorld().getUID(),
+                new CuboidBounds(min.x(), min.y(), min.z(), max.x(), max.y(), max.z()),
+                point(cuboid.getPos1()),
+                point(cuboid.getPos2())
         );
-
-        // Resolve VisualOptions from config
-        VisualOptions options = buildOptionsFromConfig();
-
-        // Clear old, render new (ensures single handle)
-        clear(p);
-        VisualHandle handle = visualiser.show(p, shape, options);
-        shown.put(p.getUniqueId(), handle);
+        return SelectionRead.ready(selection);
     }
 
-    /* Options mapping */
-
-    private VisualOptions buildOptionsFromConfig() {
-        // Materials
-        Material edgeMat = safeMaterial(feature.getString("edge.material", "WHITE_STAINED_GLASS"), Material.WHITE_STAINED_GLASS);
-        Material cornerMat = safeMaterial(feature.getString("corner.material", "LIME_STAINED_GLASS"), Material.LIME_STAINED_GLASS);
-        Material pos1Mat = safeMaterial(feature.getString("corner.pos1_material", "BLUE_STAINED_GLASS"), Material.BLUE_STAINED_GLASS);
-        Material pos2Mat = safeMaterial(feature.getString("corner.pos2_material", "RED_STAINED_GLASS"), Material.RED_STAINED_GLASS);
-
-        // Glow
-        NamedTextColor edgeGlow = parseNamedColor(feature.getString("glow.edge_color", "aqua"), NamedTextColor.AQUA);
-        NamedTextColor cornerGlow = parseNamedColor(feature.getString("glow.corner_color", "aqua"), NamedTextColor.AQUA);
-        NamedTextColor pos1Glow = parseNamedColor(feature.getString("glow.pos1_color", "blue"), NamedTextColor.BLUE);
-        NamedTextColor pos2Glow = parseNamedColor(feature.getString("glow.pos2_color", "red"), NamedTextColor.RED);
-
-        // Scales / step
-        double step = Math.max(0.25d, feature.getDouble("edge.step_blocks", 0.5d));
-        float edgeScale = (float) feature.getDouble("edge.scale", 0.18d);
-        float cornerScale = (float) feature.getDouble("corner.scale", 0.45d);
-
-        // Labels
-        boolean labelEnabled = feature.getBoolean("label.enabled", true);
-        double labelYOffset = feature.getDouble("label.y_offset", 0.7d);
-        float labelScale = (float) feature.getDouble("label.scale", 1.0d);
-        boolean showHash = feature.getBoolean("label.show_prefix_hash", false);
-
-        return VisualOptions.builder()
-                .edgeMaterial(edgeMat)
-                .cornerMaterial(cornerMat)
-                .namedPointMaterial("pos1", pos1Mat)
-                .namedPointMaterial("pos2", pos2Mat)
-                .edgeGlow(edgeGlow)
-                .cornerGlow(cornerGlow)
-                .namedPointGlow("pos1", pos1Glow)
-                .namedPointGlow("pos2", pos2Glow)
-                .edgeScale(edgeScale)
-                .cornerScale(cornerScale)
-                .edgeStepBlocks(step)
-                .labelsEnabled(labelEnabled)
-                .labelYOffset(labelYOffset)
-                .labelScale(labelScale)
-                .labelTextStrategy(showHash
-                        ? (key, idx) -> key.equalsIgnoreCase("pos1") ? "#1" : key.equalsIgnoreCase("pos2") ? "#2" : key
-                        : (key, idx) -> key)
-                .build();
+    private void clearStale(Player player) {
+        UUID uuid = player.getUniqueId();
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+        RenderState state = rendered.remove(uuid);
+        renderer.clear(player, state);
     }
 
-    /* Helpers */
-
-    private void send(Player p, String msgKey) {
-        p.sendMessage(feature.getLocalizationHandler().getMessage(msgKey).forAudience(p).build());
+    private void safeClear(Player player) {
+        try {
+            clearStale(player);
+        } catch (Throwable clearFailure) {
+            feature.getPlugin().getLogger().log(
+                    Level.WARNING,
+                    "Failed to clear WorldEdit visualization packets for " + player.getName(),
+                    clearFailure
+            );
+        }
     }
 
-    private void disableOffline(UUID uuid) {
+    private void scheduleRefresh(UUID uuid, long now) {
+        int ticks = Math.max(0, feature.getInt("render.refresh_interval_ticks", 100));
+        if (ticks == 0) {
+            nextRefreshNanos.put(uuid, Long.MAX_VALUE);
+            return;
+        }
+        long delay = TimeUnit.MILLISECONDS.toNanos(ticks * 50L);
+        nextRefreshNanos.put(uuid, saturatingAdd(now, delay));
+    }
+
+    private void invalidateFingerprint(UUID uuid) {
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+    }
+
+    private void forget(UUID uuid) {
         enabled.remove(uuid);
-        last.remove(uuid);
-        VisualHandle h = shown.remove(uuid);
-        if (h != null) h.clear();
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+        rendered.remove(uuid);
     }
 
-    private static Material safeMaterial(String name, Material def) {
-        Material m = Material.matchMaterial(Objects.toString(name, ""));
-        return m == null ? def : m;
+    private static BlockPoint point(BlockVector3 vector) {
+        return new BlockPoint(vector.x(), vector.y(), vector.z());
     }
 
-    private static NamedTextColor parseNamedColor(String s, NamedTextColor def) {
-        if (s == null) return def;
-        var parsed = NamedTextColor.NAMES.value(s);
-        return parsed == null ? def : parsed;
+    private static long saturatingAdd(long value, long amount) {
+        if (amount > 0 && value > Long.MAX_VALUE - amount) {
+            return Long.MAX_VALUE;
+        }
+        return value + amount;
     }
 
-    private record SelectionSnapshot(UUID world, BlockVector3 min, BlockVector3 max,
-                                     BlockVector3 pos1, BlockVector3 pos2) {
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof SelectionSnapshot(
-                    UUID world1, BlockVector3 min1, BlockVector3 max1, BlockVector3 pos3, BlockVector3 pos4
-            ))) return false;
-            return Objects.equals(world, world1) &&
-                    min.equals(min1) && max.equals(max1) &&
-                    pos1.equals(pos3) && pos2.equals(pos4);
+    public enum RefreshResult {
+        RENDERED,
+        NO_SELECTION,
+        UNSUPPORTED_SELECTION,
+        DISABLED;
+
+        public String messageKey() {
+            return switch (this) {
+                case NO_SELECTION -> "worldeditvisualizer.no_selection";
+                case UNSUPPORTED_SELECTION -> "worldeditvisualizer.not_cuboid";
+                case RENDERED -> "worldeditvisualizer.refreshed";
+                case DISABLED -> "worldeditvisualizer.disabled";
+            };
+        }
+    }
+
+    public record ToggleResult(boolean enabled, RefreshResult refreshResult) {
+    }
+
+    private record RenderFingerprint(CuboidSelection selection, int chunkX, int sectionY, int chunkZ) {
+    }
+
+    private record SelectionRead(RefreshResult result, CuboidSelection selection) {
+
+        static SelectionRead ready(CuboidSelection selection) {
+            return new SelectionRead(RefreshResult.RENDERED, selection);
         }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(world, min, max, pos1, pos2);
+        static SelectionRead noSelection() {
+            return new SelectionRead(RefreshResult.NO_SELECTION, null);
+        }
+
+        static SelectionRead unsupported() {
+            return new SelectionRead(RefreshResult.UNSUPPORTED_SELECTION, null);
         }
     }
 }
