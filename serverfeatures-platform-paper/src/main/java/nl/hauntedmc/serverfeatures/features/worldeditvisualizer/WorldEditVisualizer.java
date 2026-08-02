@@ -11,16 +11,7 @@ import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerL
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta;
 import org.bukkit.entity.Player;
 
-import java.util.List;
-
 public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
-
-    private static final List<String> OBSOLETE_CONFIG_KEYS = List.of(
-            "glow",
-            "label",
-            "edge.scale",
-            "corner.scale"
-    );
 
     private VisualizationService service;
 
@@ -34,13 +25,23 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         config.put("enabled", false);
         config.put("auto_enable_on_join", true);
         config.put("edge.material", "WHITE_STAINED_GLASS");
+        config.put("edge.step_blocks", 0.25);
+        config.put("edge.scale", 0.15);
         config.put("corner.material", "LIME_STAINED_GLASS");
         config.put("corner.pos1_material", "BLUE_STAINED_GLASS");
         config.put("corner.pos2_material", "RED_STAINED_GLASS");
-        config.put("edge.step_blocks", 1);
+        config.put("corner.scale", 1.0);
+        config.put("glow.edge_color", "aqua");
+        config.put("glow.corner_color", "lime");
+        config.put("glow.pos1_color", "blue");
+        config.put("glow.pos2_color", "red");
+        config.put("label.enabled", true);
+        config.put("label.show_prefix_hash", true);
+        config.put("label.scale", 0.8);
+        config.put("label.y_offset", 0.8);
         config.put("render.max_distance_blocks", 128);
-        config.put("render.max_blocks", 2048);
-        config.put("render.refresh_interval_ticks", 100);
+        config.put("render.max_entities", 1024);
+        config.put("render.movement_refresh_blocks", 8);
         config.put("poll.interval_ticks", 10);
         return config;
     }
@@ -61,7 +62,6 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        migrateLegacyConfig();
         service = new VisualizationService(this);
 
         getLifecycleManager().getCommandManager()
@@ -92,50 +92,6 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
     }
 
-    private void migrateLegacyConfig() {
-        List<String> obsolete = OBSOLETE_CONFIG_KEYS.stream()
-                .filter(key -> getConfigHandler().get(key) != null)
-                .toList();
-        Integer migratedStep = normalizeStep(getConfigHandler().get("edge.step_blocks"));
-        if (obsolete.isEmpty() && migratedStep == null) {
-            return;
-        }
-
-        getConfigHandler().batch(batch -> {
-            obsolete.forEach(batch::remove);
-            if (migratedStep != null) {
-                batch.put("edge.step_blocks", migratedStep);
-            }
-        });
-        if (!obsolete.isEmpty()) {
-            getPlugin().getLogger().info(
-                    "[WorldEditVisualizer] Removed obsolete config keys: "
-                            + String.join(", ", obsolete)
-            );
-        }
-        if (migratedStep != null) {
-            getPlugin().getLogger().info(
-                    "[WorldEditVisualizer] Migrated edge.step_blocks to " + migratedStep
-            );
-        }
-    }
-
-    static Integer normalizeStep(Object value) {
-        if (!(value instanceof Number number)) {
-            return null;
-        }
-        double configured = number.doubleValue();
-        int normalized;
-        if (!Double.isFinite(configured) || configured < 1.0) {
-            normalized = 1;
-        } else if (configured >= Integer.MAX_VALUE) {
-            normalized = Integer.MAX_VALUE;
-        } else {
-            normalized = (int) Math.ceil(configured);
-        }
-        return configured == normalized ? null : normalized;
-    }
-
     public boolean getBoolean(String key, boolean fallback) {
         Object value = getConfigHandler().get(key);
         return value instanceof Boolean configured ? configured : fallback;
@@ -148,6 +104,18 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
         try {
             return Integer.parseInt(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
+    public double getDouble(String key, double fallback) {
+        Object value = getConfigHandler().get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
         } catch (RuntimeException ignored) {
             return fallback;
         }
