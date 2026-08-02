@@ -69,6 +69,10 @@ public class WorldEditVisualizerCommand extends FeatureCommand {
 
     private void toggle(Player player) {
         VisualizationService.ToggleResult result = service.toggle(player);
+        if (result.refreshResult() == VisualizationService.RefreshResult.FAILED) {
+            send(player, result.refreshResult().messageKey());
+            return;
+        }
         send(player, result.enabled()
                 ? "worldeditvisualizer.enabled"
                 : "worldeditvisualizer.disabled");
@@ -79,6 +83,10 @@ public class WorldEditVisualizerCommand extends FeatureCommand {
 
     private void enable(Player player) {
         VisualizationService.RefreshResult result = service.enable(player);
+        if (result == VisualizationService.RefreshResult.FAILED) {
+            send(player, result.messageKey());
+            return;
+        }
         send(player, "worldeditvisualizer.enabled");
         if (result != VisualizationService.RefreshResult.RENDERED) {
             send(player, result.messageKey());
@@ -91,11 +99,15 @@ public class WorldEditVisualizerCommand extends FeatureCommand {
     }
 
     private void refresh(Player player) {
-        VisualizationService.RefreshResult result;
-        if (service.isEnabled(player)) {
-            result = service.refreshNow(player);
-        } else {
-            result = service.enable(player);
+        boolean wasEnabled = service.isEnabled(player);
+        VisualizationService.RefreshResult result = wasEnabled
+                ? service.refreshNow(player)
+                : service.enable(player);
+        if (result == VisualizationService.RefreshResult.FAILED) {
+            send(player, result.messageKey());
+            return;
+        }
+        if (!wasEnabled) {
             send(player, "worldeditvisualizer.enabled");
         }
         send(player, result.messageKey());
