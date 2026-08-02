@@ -22,6 +22,8 @@ jobs:
         run: |
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          sha256sum .agent/graveyard.patch.gz.b64.part-*
+          wc -c .agent/graveyard.patch.gz.b64.part-*
           cat .agent/graveyard.patch.gz.b64.part-* | base64 --decode | gzip --decompress > /tmp/graveyard.patch
           git apply --binary /tmp/graveyard.patch
           rm .agent/graveyard.patch.gz.b64.part-*
