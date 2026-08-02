@@ -80,6 +80,7 @@ public final class SpawnerMobStore {
                 try (BufferedWriter writer = Files.newBufferedWriter(
                         temporary,
                         StandardCharsets.UTF_8,
+                        StandardOpenOption.WRITE,
                         StandardOpenOption.TRUNCATE_EXISTING
                 )) {
                     gson.toJson(new Snapshot(SCHEMA_VERSION, List.copyOf(records)), writer);
@@ -96,10 +97,6 @@ public final class SpawnerMobStore {
         } catch (IOException exception) {
             throw new IllegalStateException("Could not persist LimitSpawners registry to " + file, exception);
         }
-    }
-
-    Path file() {
-        return file;
     }
 
     private void quarantineCorruptFile(Exception exception) {
