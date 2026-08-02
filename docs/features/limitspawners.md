@@ -30,7 +30,7 @@ reconcile_interval_ticks: 200
 |---|---:|---|
 | `enabled` | `false` | Enables source tagging, durable tracking, reconciliation, and spawn cancellation. |
 | `max_spawn` | `1` | Maximum surviving tracked mobs per exact spawner position. Values below zero are clamped to zero. |
-| `save_interval_ticks` | `100` | Maximum normal interval between atomic registry snapshots. Clamped to at least 20 ticks. Tracked chunk/world unloads and feature shutdown also flush immediately. |
+| `save_interval_ticks` | `100` | Maximum normal interval between asynchronous atomic registry snapshots. Clamped to at least 20 ticks. Tracked chunk/world unloads request an early snapshot; feature shutdown performs a final synchronous flush. |
 | `reconcile_interval_ticks` | `200` | Interval for validating loaded tracked entities and refreshing their last known chunk. Clamped to at least 20 ticks. |
 
 Settings are read when the feature initializes. Reload or re-enable the feature after changing them.
@@ -130,9 +130,9 @@ Initialization:
 3. reconcile every currently loaded chunk;
 4. start periodic loaded-entity reconciliation and snapshot tasks.
 
-Disable/reload reconciles loaded records and synchronously flushes the latest snapshot before the
-feature lifecycle cancels tasks and unregisters listeners. Existing entity markers are intentionally
-left intact so re-enable can recover them.
+Disable/reload reconciles loaded records, waits for the single in-flight asynchronous snapshot, and
+synchronously flushes any newer mutations before the feature lifecycle cancels tasks and unregisters
+listeners. Existing entity markers are intentionally left intact so re-enable can recover them.
 
 ## Performance
 
@@ -141,8 +141,9 @@ updates are also constant-time per entity. Periodic reconciliation iterates only
 server entities. Chunk load scans only that chunk's entities. Snapshot cost is linear in the number of
 tracked mobs and normally runs once per configured save interval.
 
-All Bukkit entity and chunk access stays on the server thread. Snapshot I/O is bounded, atomic, and is
-not performed for every spawn/death event.
+All Bukkit entity and chunk access stays on the server thread. Periodic snapshot I/O runs asynchronously
+with at most one write in flight; snapshots are immutable copies captured on the server thread. The
+only synchronous persistence is the final shutdown flush after any in-flight write has completed.
 
 ## Operational verification
 
