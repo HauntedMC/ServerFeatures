@@ -93,7 +93,11 @@ final class PacketVisualizationRenderer {
             return new PacketVisualHandle(ids);
         } catch (RuntimeException exception) {
             int[] ids = entityIds.stream().mapToInt(Integer::intValue).toArray();
-            new PacketVisualHandle(ids).clear(viewer);
+            try {
+                new PacketVisualHandle(ids).clear(viewer);
+            } catch (RuntimeException cleanupFailure) {
+                exception.addSuppressed(cleanupFailure);
+            }
             throw exception;
         }
     }
@@ -216,6 +220,9 @@ final class PacketVisualizationRenderer {
         display.setGlowing(true);
         display.setGlowColorOverride(glow);
         display.setBrightness(new Display.Brightness(15, 15));
+        display.setInterpolationDelay(0);
+        display.setInterpolationDuration(0);
+        display.setTeleportDuration(0);
         display.setShadowRadius(0.0f);
         display.setViewRange(viewRange);
     }
@@ -226,29 +233,30 @@ final class PacketVisualizationRenderer {
             EntityType entityType,
             List<Integer> entityIds
     ) {
+        if (display.isInWorld()) {
+            display.remove();
+            throw new IllegalStateException("Packet-only display was unexpectedly added to the world");
+        }
+
         int entityId = display.getEntityId();
-        entityIds.add(entityId);
         com.github.retrooper.packetevents.protocol.world.Location location =
                 SpigotConversionUtil.fromBukkitLocation(display.getLocation());
-        PacketEvents.getAPI().getPlayerManager().sendPacket(
-                viewer,
-                new WrapperPlayServerSpawnEntity(
-                        entityId,
-                        display.getUniqueId(),
-                        entityType,
-                        location,
-                        location.getYaw(),
-                        0,
-                        null
-                )
+        var metadata = List.copyOf(SpigotConversionUtil.getEntityMetadata(display));
+        WrapperPlayServerSpawnEntity spawnPacket = new WrapperPlayServerSpawnEntity(
+                entityId,
+                display.getUniqueId(),
+                entityType,
+                location,
+                location.getYaw(),
+                0,
+                null
         );
-        PacketEvents.getAPI().getPlayerManager().sendPacket(
-                viewer,
-                new WrapperPlayServerEntityMetadata(
-                        entityId,
-                        List.copyOf(SpigotConversionUtil.getEntityMetadata(display))
-                )
-        );
+        WrapperPlayServerEntityMetadata metadataPacket =
+                new WrapperPlayServerEntityMetadata(entityId, metadata);
+
+        entityIds.add(entityId);
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, spawnPacket);
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, metadataPacket);
     }
 
     private RenderSettings settings() {
@@ -264,7 +272,7 @@ final class PacketVisualizationRenderer {
                 clampFloat(feature.getDouble("edge.scale", 0.12d), 0.02f, 1.0f),
                 clampFloat(feature.getDouble("corner.scale", 0.35d), 0.05f, 2.0f),
                 feature.getBoolean("label.enabled", true),
-                feature.getDouble("label.y_offset", 0.7d),
+                clampDouble(feature.getDouble("label.y_offset", 0.7d), -64.0d, 64.0d),
                 clampFloat(feature.getDouble("label.scale", 1.0d), 0.1f, 4.0f),
                 feature.getBoolean("label.show_prefix_hash", false),
                 clampFloat(feature.getDouble("render.view_range", 4.0d), 0.1f, 64.0f)
@@ -307,6 +315,13 @@ final class PacketVisualizationRenderer {
             return minimum;
         }
         return (float) Math.max(minimum, Math.min(maximum, value));
+    }
+
+    private static double clampDouble(double value, double minimum, double maximum) {
+        if (!Double.isFinite(value)) {
+            return minimum;
+        }
+        return Math.max(minimum, Math.min(maximum, value));
     }
 
     private record RenderSettings(
