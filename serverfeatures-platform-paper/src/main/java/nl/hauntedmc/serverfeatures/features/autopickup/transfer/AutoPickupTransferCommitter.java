@@ -70,28 +70,16 @@ public final class AutoPickupTransferCommitter {
                     originalStacks,
                     plannedFinalStorage
             );
-        } catch (Throwable commitFailure) {
+        } catch (RuntimeException commitFailure) {
             try {
                 rollback(inventory, event, originalStorage, originalEventItems, originalStacks);
-            } catch (Throwable rollbackFailure) {
+            } catch (RuntimeException rollbackFailure) {
                 commitFailure.addSuppressed(rollbackFailure);
-                if (commitFailure instanceof VirtualMachineError fatal) {
-                    throw fatal;
-                }
-                if (commitFailure instanceof ThreadDeath threadDeath) {
-                    throw threadDeath;
-                }
                 throw new AutoPickupCommitException(
                         "AutoPickup commit and rollback both failed",
                         commitFailure,
                         true
                 );
-            }
-            if (commitFailure instanceof VirtualMachineError fatal) {
-                throw fatal;
-            }
-            if (commitFailure instanceof ThreadDeath threadDeath) {
-                throw threadDeath;
             }
             throw new AutoPickupCommitException("AutoPickup commit failed and was rolled back", commitFailure, false);
         }
