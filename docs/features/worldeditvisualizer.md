@@ -169,6 +169,7 @@ label.*
 | `worldeditvisualizer.refreshed` | Forced refresh succeeded. |
 | `worldeditvisualizer.no_selection` | No complete selection exists in the current world. |
 | `worldeditvisualizer.not_cuboid` | Current selection type is unsupported. |
+| `worldeditvisualizer.failed` | A guarded render/update failed and details were logged. |
 | `worldeditvisualizer.usage` | Invalid command argument. |
 
 ## Verification checklist
