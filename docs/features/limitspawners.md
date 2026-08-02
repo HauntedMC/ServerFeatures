@@ -83,11 +83,19 @@ LimitSpawners checks and reserves a slot at `HIGHEST`, with `ignoreCancelled=tru
 2. compare its durable count with `max_spawn`;
 3. cancel the spawn when the cap is full;
 4. otherwise tag and register the entity immediately so another spawn in the same tick sees the
-   reservation.
+   reservation;
+5. record that this exact entity UUID owns a pending reservation.
 
-A `MONITOR` handler observes the final cancellation state and rolls back the reservation when another
-plugin cancelled after the initial check. This prevents same-tick over-spawning without retaining
-cancelled entities in the count.
+The `MONITOR` listener does not finalize the reservation immediately. It schedules validation one tick
+later and reads the same event's final cancellation state after every listener has returned. This also
+covers non-standard plugins that cancel from a later `MONITOR` listener. A cancelled, invalid, dead, or
+otherwise failed spawn is rolled back; a valid living entity keeps the slot. Only UUIDs reserved by this
+feature can be rolled back, so a pre-cancelled or duplicate event cannot unregister an unrelated tracked
+mob.
+
+During feature initialization, new spawner output is blocked for the single delayed reconciliation
+pass. This prevents a loaded PDC-marked mob from being missed during the short interval before Paper has
+fully exposed loaded chunk entities.
 
 ## Death, removal, movement, unload, and transformation
 
@@ -135,13 +143,19 @@ Initialization:
 
 1. load the durable registry;
 2. register spawn/removal/teleport/transform/chunk/world listeners;
-3. reconcile every currently loaded chunk;
-4. start periodic loaded-entity reconciliation and snapshot tasks.
+3. temporarily reject direct spawner output;
+4. one tick later, reconcile every currently loaded chunk;
+5. permit spawner output only after that pass completed successfully;
+6. start periodic loaded-entity reconciliation and snapshot tasks.
 
-Disable/reload reconciles loaded records and waits up to five seconds for the single in-flight
-asynchronous snapshot. A queued or timed-out save is cancelled without interruption; store writes are
-serialized so an already-running older snapshot must finish before the newest state is synchronously
-flushed. Existing entity markers are intentionally left intact so re-enable can recover them.
+If initial reconciliation throws, the feature logs the failure and remains fail-closed instead of
+allowing unverified spawner output.
+
+Disable/reload first blocks new spawner output, reconciles loaded records, and waits up to five seconds
+for the single in-flight asynchronous snapshot. A queued or timed-out save is cancelled without
+interruption; store writes are serialized so an already-running older snapshot must finish before the
+newest state is synchronously flushed. Existing entity markers are intentionally left intact so
+re-enable can recover them.
 
 ## Performance
 
@@ -169,14 +183,15 @@ only synchronous persistence is the final shutdown flush after pending write coo
    reset and no mobs are deleted by the feature.
 6. Unload and reload the source-spawner chunk; confirm the cap remains unchanged.
 7. Restart the server with tracked mobs in loaded and unloaded chunks; confirm both still count.
-8. Reload/disable/re-enable only the feature and confirm loaded marked mobs are reconstructed.
+8. Reload/disable/re-enable only the feature and confirm loaded marked mobs are reconstructed. Direct
+   spawner output may be rejected during the first reconciliation tick and must work normally after it.
 9. Test death, normal distance despawn, `/kill`, and plugin removal; each must release exactly one slot.
 10. Teleport a tracked mob across chunks/worlds and confirm it remains attached to its original spawner.
 11. Convert a tracked villager/zombie or another transformable mob and confirm the replacement remains
     counted.
 12. Set `max_spawn: 0` and confirm all direct spawner spawns are cancelled without registry growth.
-13. Have another plugin cancel `SpawnerSpawnEvent` after LimitSpawners' check and confirm no phantom slot
-    remains reserved.
+13. Have another plugin cancel `SpawnerSpawnEvent` after LimitSpawners' `HIGHEST` check, including from
+    a later `MONITOR` listener, and confirm no phantom slot remains reserved on the next tick.
 14. Inspect the JSON snapshot after activity and verify no `.tmp` files remain after a clean save.
 15. Restart immediately after a tracked mob crossed a chunk boundary and confirm its source spawner
     never receives an early extra slot before the mob's destination chunk loads.
@@ -185,6 +200,8 @@ only synchronous persistence is the final shutdown flush after pending write coo
 
 - **More mobs exist immediately after upgrading:** old unmarked mobs cannot be attributed safely. Kill
   them once or wait for natural cleanup; all newly spawned mobs are tracked exactly.
+- **Spawner briefly rejects output after enable/reload:** intended; direct spawner output stays blocked
+  until the one-tick loaded-chunk reconciliation completed.
 - **Spawner remains blocked after mobs leave the area:** intended; the cap follows surviving source
   mobs, not nearby mobs.
 - **Spawner remains blocked while a mob chunk is unloaded:** intended; unloaded entities are still
