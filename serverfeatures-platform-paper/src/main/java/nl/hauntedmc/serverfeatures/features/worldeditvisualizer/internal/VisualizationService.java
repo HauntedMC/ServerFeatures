@@ -86,7 +86,10 @@ public final class VisualizationService {
     }
 
     public void forget(Player player) {
-        UUID uuid = player.getUniqueId();
+        forget(player.getUniqueId());
+    }
+
+    private void forget(UUID uuid) {
         enabled.remove(uuid);
         fingerprints.remove(uuid);
         rendered.remove(uuid);
