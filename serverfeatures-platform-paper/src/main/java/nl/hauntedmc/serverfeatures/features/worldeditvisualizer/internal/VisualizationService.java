@@ -15,26 +15,24 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
- * Tracks per-player WorldEdit selections and owns their packet-only visual state.
+ * Tracks per-player WorldEdit selections and owns their virtual display state.
  */
 public final class VisualizationService {
 
     public static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
 
     private final WorldEditVisualizer feature;
-    private final PacketCuboidRenderer renderer;
+    private final PacketDisplayRenderer renderer;
     private final Set<UUID> enabled = new HashSet<>();
     private final Map<UUID, RenderState> rendered = new HashMap<>();
     private final Map<UUID, RenderFingerprint> fingerprints = new HashMap<>();
-    private final Map<UUID, Long> nextRefreshNanos = new HashMap<>();
 
     public VisualizationService(WorldEditVisualizer feature) {
         this.feature = feature;
-        this.renderer = new PacketCuboidRenderer(feature);
+        this.renderer = new PacketDisplayRenderer(feature);
     }
 
     public boolean isEnabled(Player player) {
@@ -56,18 +54,17 @@ public final class VisualizationService {
 
     public RefreshResult enable(Player player) {
         enabled.add(player.getUniqueId());
-        invalidateFingerprint(player.getUniqueId());
+        fingerprints.remove(player.getUniqueId());
         return refreshNow(player);
     }
 
-    public boolean disable(Player player, boolean restore) {
+    public boolean disable(Player player, boolean destroy) {
         UUID uuid = player.getUniqueId();
         boolean changed = enabled.remove(uuid);
         fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
-        if (restore) {
-            restore(player, state);
+        if (destroy) {
+            destroy(player, state);
         }
         return changed || state != null;
     }
@@ -79,12 +76,12 @@ public final class VisualizationService {
         return updateSafely(player, true);
     }
 
-    public void invalidate(Player player, boolean restore) {
+    public void invalidate(Player player, boolean destroy) {
         UUID uuid = player.getUniqueId();
-        invalidateFingerprint(uuid);
+        fingerprints.remove(uuid);
         RenderState state = rendered.remove(uuid);
-        if (restore) {
-            restore(player, state);
+        if (destroy) {
+            destroy(player, state);
         }
     }
 
@@ -92,7 +89,6 @@ public final class VisualizationService {
         UUID uuid = player.getUniqueId();
         enabled.remove(uuid);
         fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
         rendered.remove(uuid);
     }
 
@@ -117,12 +113,11 @@ public final class VisualizationService {
     public void shutdown() {
         for (Player player : feature.getPlugin().getServer().getOnlinePlayers()) {
             RenderState state = rendered.remove(player.getUniqueId());
-            restore(player, state);
+            destroy(player, state);
         }
         enabled.clear();
         rendered.clear();
         fingerprints.clear();
-        nextRefreshNanos.clear();
     }
 
     private RefreshResult updateSafely(Player player, boolean force) {
@@ -147,24 +142,22 @@ public final class VisualizationService {
         }
 
         CuboidSelection selection = selectionRead.selection();
+        int movementCell = clamp(feature.getInt("render.movement_refresh_blocks", 8), 1, 32);
         RenderFingerprint fingerprint = new RenderFingerprint(
                 selection,
-                player.getLocation().getBlockX() >> 4,
-                player.getLocation().getBlockY() >> 4,
-                player.getLocation().getBlockZ() >> 4
+                Math.floorDiv(player.getLocation().getBlockX(), movementCell),
+                Math.floorDiv(player.getLocation().getBlockY(), movementCell),
+                Math.floorDiv(player.getLocation().getBlockZ(), movementCell)
         );
         UUID uuid = player.getUniqueId();
-        long now = System.nanoTime();
-        boolean refreshDue = now >= nextRefreshNanos.getOrDefault(uuid, 0L);
-        if (!force && fingerprint.equals(fingerprints.get(uuid)) && !refreshDue) {
+        if (!force && fingerprint.equals(fingerprints.get(uuid))) {
             return RefreshResult.RENDERED;
         }
 
         RenderState previous = rendered.get(uuid);
-        RenderState current = renderer.render(player, selection, previous);
+        RenderState current = renderer.render(player, selection, previous, force);
         rendered.put(uuid, current);
         fingerprints.put(uuid, fingerprint);
-        scheduleRefresh(uuid, now);
         return RefreshResult.RENDERED;
     }
 
@@ -200,62 +193,35 @@ public final class VisualizationService {
         UUID uuid = player.getUniqueId();
         enabled.remove(uuid);
         fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
-        restore(player, state);
+        destroy(player, state);
     }
 
     private void clearStale(Player player) {
         UUID uuid = player.getUniqueId();
         fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
-        restore(player, state);
+        destroy(player, state);
     }
 
-    private void restore(Player player, RenderState state) {
+    private void destroy(Player player, RenderState state) {
         try {
             renderer.clear(player, state);
         } catch (RuntimeException exception) {
             feature.getPlugin().getLogger().log(
                     Level.WARNING,
-                    "Failed to restore WorldEdit visualization for " + player.getName(),
+                    "Failed to destroy WorldEdit visualization for " + player.getName(),
                     exception
             );
         }
-    }
-
-    private void scheduleRefresh(UUID uuid, long now) {
-        int ticks = Math.max(0, feature.getInt("render.refresh_interval_ticks", 100));
-        if (ticks == 0) {
-            nextRefreshNanos.put(uuid, Long.MAX_VALUE);
-            return;
-        }
-        long delay = TimeUnit.MILLISECONDS.toNanos(ticks * 50L);
-        nextRefreshNanos.put(uuid, saturatingAdd(now, delay));
-    }
-
-    private void invalidateFingerprint(UUID uuid) {
-        fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
-    }
-
-    private void forget(UUID uuid) {
-        enabled.remove(uuid);
-        fingerprints.remove(uuid);
-        nextRefreshNanos.remove(uuid);
-        rendered.remove(uuid);
     }
 
     private static BlockPoint point(BlockVector3 vector) {
         return new BlockPoint(vector.x(), vector.y(), vector.z());
     }
 
-    private static long saturatingAdd(long value, long amount) {
-        if (amount > 0 && value > Long.MAX_VALUE - amount) {
-            return Long.MAX_VALUE;
-        }
-        return value + amount;
+    private static int clamp(int value, int minimum, int maximum) {
+        return Math.max(minimum, Math.min(maximum, value));
     }
 
     public enum RefreshResult {
@@ -279,7 +245,7 @@ public final class VisualizationService {
     public record ToggleResult(boolean enabled, RefreshResult refreshResult) {
     }
 
-    private record RenderFingerprint(CuboidSelection selection, int chunkX, int sectionY, int chunkZ) {
+    private record RenderFingerprint(CuboidSelection selection, int cellX, int cellY, int cellZ) {
     }
 
     private record SelectionRead(RefreshResult result, CuboidSelection selection) {
