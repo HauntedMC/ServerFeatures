@@ -1,14 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.graveyard.command;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.graveyard.ClaimReason;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveClaimOutcome;
@@ -16,7 +15,6 @@ import nl.hauntedmc.serverfeatures.api.graveyard.GraveSnapshot;
 import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
-import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;

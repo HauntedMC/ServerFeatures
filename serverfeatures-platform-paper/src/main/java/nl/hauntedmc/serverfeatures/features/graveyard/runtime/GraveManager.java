@@ -95,6 +95,7 @@ public final class GraveManager implements GraveyardService {
     private final Map<UUID, CaptureJournalRecord> unprojectedCaptures = new ConcurrentHashMap<>();
     private final Map<UUID, CaptureJournalRecord> unresolvedCaptures = new ConcurrentHashMap<>();
     private final Map<UUID, ClaimJournalRecord> pendingClaims = new ConcurrentHashMap<>();
+    private final Map<UUID, ClaimJournalRecord> unresolvedClaims = new ConcurrentHashMap<>();
 
     private final Map<UUID, GravePacketIdentity> packetIdentities = new HashMap<>();
     private final Map<UUID, Map<UUID, GraveViewerState>> viewerStates = new HashMap<>();
@@ -585,8 +586,19 @@ public final class GraveManager implements GraveyardService {
             }
             owner.saveData();
             ClaimJournalRecord applied = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
-            journal.writeClaim(applied);
-            pendingClaims.put(operationToken, applied);
+            try {
+                journal.writeClaim(applied);
+                pendingClaims.put(operationToken, applied);
+            } catch (IOException journalFailure) {
+                unresolvedClaims.put(operationToken, prepared);
+                feature.getLogger().log(
+                        Level.SEVERE,
+                        "Playerdata was saved for claim " + operationToken
+                                + " but its PLAYER_APPLIED journal transition failed. "
+                                + "The persisted player receipt will drive recovery.",
+                        journalFailure
+                );
+            }
             hideGrave(grave.graveId());
             finalizeAppliedClaim(grave, owner, actor, payload, plan, applied, result, reason);
         } catch (IOException | RuntimeException exception) {
@@ -669,6 +681,7 @@ public final class GraveManager implements GraveyardService {
         grave.updatePayload(remaining, journalRecord.remainingPayload().checksum(), finalStatus);
         payloadCache.put(grave.graveId(), remaining);
         pendingClaims.remove(journalRecord.operationToken());
+        unresolvedClaims.remove(journalRecord.operationToken());
         activeOperations.remove(grave.graveId());
         receipts.clearClaim(owner);
         try {
@@ -1146,14 +1159,7 @@ public final class GraveManager implements GraveyardService {
             for (ClaimJournalRecord record : journal.loadClaims()) {
                 switch (record.state()) {
                     case PLAYER_APPLIED -> pendingClaims.put(record.operationToken(), record);
-                    case PREPARED -> repository.releaseOperation(record.graveId(), record.operationToken())
-                            .whenComplete((ignored, failure) -> {
-                                try {
-                                    journal.deleteClaim(record.operationToken());
-                                } catch (IOException exception) {
-                                    feature.getLogger().warning("Could not clean abandoned claim journal.");
-                                }
-                            });
+                    case PREPARED -> unresolvedClaims.put(record.operationToken(), record);
                     case GRAVE_FINALIZED, RECOVERED, ABORTED -> journal.deleteClaim(record.operationToken());
                 }
             }
@@ -1200,15 +1206,48 @@ public final class GraveManager implements GraveyardService {
     private void recoverClaimReceipt(Player player) {
         Optional<PlayerOperationReceiptService.Receipt> receipt = receipts.claim(player);
         if (receipt.isEmpty()) {
+            abortUnappliedClaims(player);
             return;
         }
         ClaimJournalRecord record = pendingClaims.get(receipt.get().operationToken());
+        if (record == null) {
+            ClaimJournalRecord prepared = unresolvedClaims.remove(receipt.get().operationToken());
+            if (prepared != null && prepared.graveId().equals(receipt.get().graveId())) {
+                record = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
+                try {
+                    journal.writeClaim(record);
+                } catch (IOException exception) {
+                    unresolvedClaims.put(prepared.operationToken(), prepared);
+                    feature.getLogger().log(Level.SEVERE, "Could not promote recovered claim journal.", exception);
+                    return;
+                }
+                pendingClaims.put(record.operationToken(), record);
+            }
+        }
         if (record == null || !record.graveId().equals(receipt.get().graveId())) {
             receipts.clearClaim(player);
             player.saveData();
             return;
         }
         retryPendingClaim(record, player);
+        abortUnappliedClaims(player);
+    }
+
+    private void abortUnappliedClaims(Player player) {
+        for (ClaimJournalRecord unresolved : List.copyOf(unresolvedClaims.values())) {
+            if (!unresolved.ownerUuid().equals(player.getUniqueId())) {
+                continue;
+            }
+            unresolvedClaims.remove(unresolved.operationToken());
+            repository.releaseOperation(unresolved.graveId(), unresolved.operationToken());
+            try {
+                journal.writeClaim(unresolved.withState(ClaimJournalState.ABORTED));
+                journal.deleteClaim(unresolved.operationToken());
+            } catch (IOException exception) {
+                feature.getLogger().warning("Could not clean unapplied claim journal "
+                        + unresolved.operationToken());
+            }
+        }
     }
 
     private void retryPendingClaimsForOnlineOwners() {
