@@ -185,6 +185,14 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         return originClassifier;
     }
 
+    public void sendPlayerMessage(Player player, String key) {
+        try {
+            player.sendMessage(getLocalizationHandler().getMessage(key).forAudience(player).build());
+        } catch (RuntimeException exception) {
+            reportFeedbackFailure(player, "message '" + key + "'", exception);
+        }
+    }
+
     public void notifyInventoryFull(Player player, int remainingAmount, int remainingStacks) {
         try {
             Component message = getLocalizationHandler().getMessage("autopickup.inventory_full")
@@ -252,7 +260,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         getLogger().log(
                 Level.WARNING,
                 "AutoPickup " + feedback + " failed for " + player.getUniqueId()
-                        + "; the completed item transfer was retained.",
+                        + "; item transfer and persistence state were retained.",
                 throwable
         );
     }
