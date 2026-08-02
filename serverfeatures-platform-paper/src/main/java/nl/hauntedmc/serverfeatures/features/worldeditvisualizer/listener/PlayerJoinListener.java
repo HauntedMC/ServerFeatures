@@ -9,6 +9,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 
+/** Reconciles packet-only visuals with the player connection and world lifecycle. */
 public final class PlayerJoinListener implements Listener {
 
     private static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
@@ -27,12 +28,12 @@ public final class PlayerJoinListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChangedWorld(PlayerChangedWorldEvent event) {
-        service.clear(event.getPlayer());
+        service.invalidate(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRespawn(PlayerRespawnEvent event) {
-        service.clear(event.getPlayer());
+        service.invalidate(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
