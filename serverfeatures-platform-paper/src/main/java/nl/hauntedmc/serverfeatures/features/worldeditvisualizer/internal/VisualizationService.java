@@ -50,7 +50,8 @@ public final class VisualizationService {
             disable(player, true);
             return new ToggleResult(false, RefreshResult.DISABLED);
         }
-        return new ToggleResult(true, enable(player));
+        RefreshResult result = enable(player);
+        return new ToggleResult(isEnabled(player), result);
     }
 
     public RefreshResult enable(Player player) {
@@ -133,7 +134,7 @@ public final class VisualizationService {
                     "Failed to update WorldEdit visualization for " + player.getName(),
                     throwable
             );
-            clearStale(player);
+            disableAfterFailure(player);
             return RefreshResult.FAILED;
         }
     }
@@ -193,6 +194,15 @@ public final class VisualizationService {
                 point(cuboid.getPos2())
         );
         return SelectionRead.ready(selection);
+    }
+
+    private void disableAfterFailure(Player player) {
+        UUID uuid = player.getUniqueId();
+        enabled.remove(uuid);
+        fingerprints.remove(uuid);
+        nextRefreshNanos.remove(uuid);
+        RenderState state = rendered.remove(uuid);
+        restore(player, state);
     }
 
     private void clearStale(Player player) {
