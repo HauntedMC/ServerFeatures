@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static nl.hauntedmc.serverfeatures.features.invtools.support.TestItemStacks.item;
@@ -96,6 +97,30 @@ class AutoPickupTransferCommitterTest {
     }
 
     @Test
+    void rollbackContinuesRestoringEventStateWhenInventoryRestoreFails() {
+        InventoryHarness inventory = inventory(new ItemStack[36], 2);
+        ItemHarness dropped = droppedItem(item(Material.DIAMOND, 3));
+        FailOnceRemoveList eventItems = new FailOnceRemoveList();
+        eventItems.add(dropped.entity());
+        BlockDropItemEvent event = event(eventItems);
+        var plan = planner.plan(
+                inventory.inventory().getStorageContents(),
+                List.of(dropped.entity().getItemStack()),
+                64
+        );
+
+        AutoPickupCommitException failure = assertThrows(
+                AutoPickupCommitException.class,
+                () -> committer.commit(inventory.inventory(), event, List.of(dropped.entity()), plan)
+        );
+
+        assertTrue(failure.rollbackFailed());
+        assertEquals(1, eventItems.size());
+        assertSame(dropped.entity(), eventItems.getFirst());
+        assertEquals(3, dropped.stack().get().getAmount());
+    }
+
+    @Test
     void storageChangeAfterPlanningRejectsBeforeAnyMutation() {
         InventoryHarness inventory = inventory(new ItemStack[36]);
         ItemHarness dropped = droppedItem(item(Material.DIAMOND, 3));
@@ -149,14 +174,23 @@ class AutoPickupTransferCommitterTest {
     }
 
     private static InventoryHarness inventory(ItemStack[] initial) {
+        return inventory(initial, -1);
+    }
+
+    private static InventoryHarness inventory(ItemStack[] initial, int failOnSetCall) {
         PlayerInventory inventory = mock(PlayerInventory.class);
         AtomicReference<ItemStack[]> contents = new AtomicReference<>(
                 AutoPickupTransferPlanner.cloneArray(initial)
         );
+        AtomicInteger setCalls = new AtomicInteger();
         when(inventory.getStorageContents()).thenAnswer(unused ->
                 AutoPickupTransferPlanner.cloneArray(contents.get())
         );
         doAnswer(invocation -> {
+            int call = setCalls.incrementAndGet();
+            if (call == failOnSetCall) {
+                throw new IllegalStateException("simulated inventory mutation failure");
+            }
             ItemStack[] replacement = invocation.getArgument(0);
             contents.set(AutoPickupTransferPlanner.cloneArray(replacement));
             return null;
