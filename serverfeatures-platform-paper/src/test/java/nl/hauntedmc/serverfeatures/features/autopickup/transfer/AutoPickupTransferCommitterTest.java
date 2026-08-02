@@ -101,7 +101,8 @@ class AutoPickupTransferCommitterTest {
                 AutoPickupTransferPlanner.cloneArray(contents.get())
         );
         doAnswer(invocation -> {
-            contents.set(AutoPickupTransferPlanner.cloneArray(invocation.getArgument(0)));
+            ItemStack[] replacement = invocation.getArgument(0);
+            contents.set(AutoPickupTransferPlanner.cloneArray(replacement));
             return null;
         }).when(inventory).setStorageContents(any(ItemStack[].class));
         return new InventoryHarness(inventory, contents);
@@ -149,6 +150,8 @@ class AutoPickupTransferCommitterTest {
     }
 
     private static final class FailOnceRemoveList extends ArrayList<Item> {
+        private static final long serialVersionUID = 1L;
+
         private boolean fail = true;
 
         @Override
