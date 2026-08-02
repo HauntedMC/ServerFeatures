@@ -147,6 +147,9 @@ public final class LimitSpawnersHandler {
     }
 
     public void scheduleRemovalCheck(UUID entityId) {
+        if (!registry.contains(entityId)) {
+            return;
+        }
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
                 () -> handleRemovalCheck(entityId),
                 BukkitTime.ticks(2)
