@@ -26,6 +26,9 @@ import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
@@ -40,6 +43,7 @@ import java.util.logging.Level;
 public final class LimitSpawnersHandler {
 
     private static final String SOURCE_MARKER = "limitspawners_source_v2";
+    private static final long SHUTDOWN_SAVE_TIMEOUT_SECONDS = 5L;
 
     private final LimitSpawners feature;
     private final int maxSpawn;
@@ -385,7 +389,7 @@ public final class LimitSpawnersHandler {
             try {
                 if (throwable == null) {
                     persistedVersion.accumulateAndGet(version, Math::max);
-                } else {
+                } else if (!(unwrap(throwable) instanceof CancellationException)) {
                     feature.getLogger().log(
                             Level.SEVERE,
                             "Could not save tracked mob registry; the next save interval will retry.",
@@ -399,10 +403,22 @@ public final class LimitSpawnersHandler {
     }
 
     private void awaitPendingSave() {
+        CompletableFuture<Void> pending = saveFuture;
         try {
-            saveFuture.join();
-        } catch (CompletionException | CancellationException ignored) {
-            // The completion callback already logged failures. The synchronous flush below retries.
+            pending.get(SHUTDOWN_SAVE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            pending.cancel(false);
+            feature.getLogger().warning(
+                    "Interrupted while waiting for the tracked mob registry save; retrying synchronously."
+            );
+        } catch (TimeoutException exception) {
+            pending.cancel(false);
+            feature.getLogger().warning(
+                    "Timed out waiting for the tracked mob registry save; retrying synchronously."
+            );
+        } catch (ExecutionException | CancellationException ignored) {
+            // The completion callback logged execution failures. The synchronous flush below retries.
         }
     }
 
