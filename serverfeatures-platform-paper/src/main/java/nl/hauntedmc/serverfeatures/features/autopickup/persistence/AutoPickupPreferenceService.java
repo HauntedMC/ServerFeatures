@@ -461,15 +461,16 @@ public final class AutoPickupPreferenceService {
         boolean accepted = stored.writeRevision() == request.writeRevision()
                 && stored.enabled() == request.enabled();
         AutoPickupPlayerState state = states.get(uuid);
-        if (state != null) {
+        boolean currentIdentity = state != null && state.playerId() == request.playerId();
+        if (currentIdentity) {
             state.writeRevision(Math.max(state.writeRevision(), stored.writeRevision()));
         }
         if (accepted) {
-            if (state != null && state.enabled() == request.enabled() && slot.queuedRequest == null) {
+            if (currentIdentity && state.enabled() == request.enabled() && slot.queuedRequest == null) {
                 state.persisted(true);
             }
         } else if (slot.queuedRequest == null
-                && state != null
+                && currentIdentity
                 && state.loadState() == LoadState.READY
                 && state.enabled() == request.enabled()) {
             boolean changed = state.enabled() != stored.enabled();
@@ -511,11 +512,12 @@ public final class AutoPickupPreferenceService {
         }
         writes.remove(uuid, slot);
         AutoPickupPlayerState state = states.get(uuid);
-        if (state != null) {
+        boolean currentIdentity = state != null && state.playerId() == request.playerId();
+        if (currentIdentity) {
             state.persisted(false);
         }
         Player player = Bukkit.getPlayer(uuid);
-        if (player != null && player.isOnline()) {
+        if (currentIdentity && player != null && player.isOnline()) {
             send(player, "autopickup.save_failed");
         }
     }
@@ -547,7 +549,7 @@ public final class AutoPickupPreferenceService {
     }
 
     private void send(Player player, String key) {
-        player.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(player).build());
+        feature.sendPlayerMessage(player, key);
     }
 
     private static String rootMessage(Throwable throwable) {
