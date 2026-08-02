@@ -9,8 +9,11 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Locale;
 
 public class WorldEditVisualizerCommand extends FeatureCommand {
+
+    private static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
 
     private final WorldEditVisualizer feature;
     private final VisualizationService service;
@@ -18,35 +21,53 @@ public class WorldEditVisualizerCommand extends FeatureCommand {
     public WorldEditVisualizerCommand(WorldEditVisualizer feature, VisualizationService service) {
         super(new CommandMeta.Builder("worldeditvisualizer")
                 .description("Toggle the WorldEdit selection visualizer")
-                .usage("/wevis toggle")
+                .usage("/wevis [toggle]")
                 .aliases(List.of("wevis"))
-                .permission("serverfeatures.feature.worldeditvisualizer.use")
+                .permission(USE_PERMISSION)
                 .build());
         this.feature = feature;
         this.service = service;
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String label, @NotNull String @NotNull [] args) {
-        if (!(sender instanceof Player p)) return true;
-
-        if (!p.hasPermission("serverfeatures.feature.worldeditvisualizer.use")) {
-            p.sendMessage(feature.getLocalizationHandler().getMessage("general.no_permission").forAudience(p).build());
+    public boolean execute(
+            @NotNull CommandSender sender,
+            @NotNull String label,
+            @NotNull String @NotNull [] args
+    ) {
+        if (!(sender instanceof Player player)) {
+            return true;
+        }
+        if (!player.hasPermission(USE_PERMISSION)) {
+            player.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("general.no_permission").forAudience(player).build());
+            return true;
+        }
+        if (args.length > 1 || (args.length == 1 && !args[0].equalsIgnoreCase("toggle"))) {
+            player.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("worldeditvisualizer.usage").forAudience(player).build());
             return true;
         }
 
-        // Toggle and message based on resulting state (true = enabled, false = disabled)
-        boolean nowEnabled = service.toggle(p);
-
-        p.sendMessage(feature.getLocalizationHandler()
-                .getMessage(nowEnabled ? "worldeditvisualizer.enabled" : "worldeditvisualizer.disabled")
-                .forAudience(p).build());
-
+        boolean nowEnabled = service.toggle(player);
+        player.sendMessage(feature.getLocalizationHandler()
+                .getMessage(nowEnabled
+                        ? "worldeditvisualizer.enabled"
+                        : "worldeditvisualizer.disabled")
+                .forAudience(player).build());
         return true;
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String @NotNull [] args) {
-        return List.of("toggle");
+    public @NotNull List<String> tabComplete(
+            @NotNull CommandSender sender,
+            @NotNull String alias,
+            @NotNull String @NotNull [] args
+    ) {
+        if (args.length != 1) {
+            return List.of();
+        }
+        String prefix = args[0].toLowerCase(Locale.ROOT);
+        return "toggle".startsWith(prefix) ? List.of("toggle") : List.of();
     }
 }
