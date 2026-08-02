@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.UUID;
 
+import static nl.hauntedmc.serverfeatures.features.graveyard.GraveyardTestItemStacks.stack;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -14,12 +15,12 @@ class PostDeathInventoryBuilderTest {
     @Test
     void retainedStacksAreSplitSafelyAcrossStorageSlots() {
         PlayerInventoryState original = new PlayerInventoryState();
-        original.set(5, new ItemStack(Material.DIAMOND, 64));
+        original.set(5, stack(Material.DIAMOND, 64));
         DeathInventorySnapshot snapshot = new DeathInventorySnapshot(UUID.randomUUID(), original, 0, null, 1L);
 
         PlayerInventoryState result = new PostDeathInventoryBuilder().build(
                 snapshot,
-                List.of(new ItemStack(Material.DIAMOND, 70))
+                List.of(stack(Material.DIAMOND, 70))
         );
 
         assertEquals(64, result.get(5).getAmount());
@@ -31,7 +32,7 @@ class PostDeathInventoryBuilderTest {
         PlayerInventoryState original = new PlayerInventoryState();
         DeathInventorySnapshot snapshot = new DeathInventorySnapshot(UUID.randomUUID(), original, 0, null, 1L);
         List<ItemStack> retained = java.util.stream.IntStream.range(0, 37)
-                .mapToObj(index -> new ItemStack(Material.DIAMOND_SWORD, 1))
+                .mapToObj(index -> stack(Material.DIAMOND_SWORD, 1))
                 .toList();
 
         assertThrows(
