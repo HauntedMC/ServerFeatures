@@ -146,6 +146,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         for (Player player : getPlugin().getServer().getOnlinePlayers()) {
             preferenceService.initialize(player);
         }
+        getLogger().info("AutoPickup loaded with persistent direct-drop collection.");
     }
 
     @Override
