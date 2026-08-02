@@ -96,4 +96,14 @@ class CuboidOutlineSamplerTest {
 
         assertEquals(1, points.size());
     }
+
+    @Test
+    void flatSelectionsDoNotOverThinFromDuplicateEdges() {
+        CuboidBounds bounds = new CuboidBounds(0, 0, 0, 8, 0, 8);
+
+        Set<VisualPoint> points = CuboidOutlineSampler.sample(
+                bounds, VisualPoint.of(4.5, 0.5, 4.5), 32, 1.0, 1000);
+
+        assertEquals(32, points.size());
+    }
 }
