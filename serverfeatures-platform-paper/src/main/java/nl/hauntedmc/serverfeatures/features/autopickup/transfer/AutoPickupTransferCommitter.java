@@ -99,6 +99,8 @@ public final class AutoPickupTransferCommitter {
     }
 
     public static final class AutoPickupCommitException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
         private final boolean rollbackFailed;
 
         AutoPickupCommitException(String message, Throwable cause, boolean rollbackFailed) {
