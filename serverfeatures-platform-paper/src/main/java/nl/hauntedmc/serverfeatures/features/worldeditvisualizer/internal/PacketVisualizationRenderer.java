@@ -9,6 +9,7 @@ import com.sk89q.worldedit.math.BlockVector3;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -89,10 +90,10 @@ final class PacketVisualizationRenderer {
             }
 
             int[] ids = entityIds.stream().mapToInt(Integer::intValue).toArray();
-            return new PacketVisualHandle(viewer.getWorld().getUID(), ids);
+            return new PacketVisualHandle(ids);
         } catch (RuntimeException exception) {
             int[] ids = entityIds.stream().mapToInt(Integer::intValue).toArray();
-            new PacketVisualHandle(viewer.getWorld().getUID(), ids).clear(viewer);
+            new PacketVisualHandle(ids).clear(viewer);
             throw exception;
         }
     }
@@ -192,7 +193,7 @@ final class PacketVisualizationRenderer {
         Location location = new Location(world, point.x(), point.y() + yOffset, point.z());
         TextDisplay display = world.createEntity(location, TextDisplay.class);
         configureDisplay(display, glow, viewRange);
-        display.text(Component.text(text, namedColor(glow)));
+        display.text(Component.text(text, TextColor.color(glow.asRGB())));
         display.setBillboard(Display.Billboard.CENTER);
         display.setSeeThrough(true);
         display.setShadowed(true);
@@ -284,10 +285,6 @@ final class PacketVisualizationRenderer {
         NamedTextColor result = parsed == null ? fallback : parsed;
         int rgb = result.value();
         return Color.fromRGB((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
-    }
-
-    private static NamedTextColor namedColor(Color color) {
-        return NamedTextColor.nearestTo(net.kyori.adventure.text.format.TextColor.color(color.asRGB()));
     }
 
     private static CuboidWireframe.Point blockCenter(BlockVector3 point) {
