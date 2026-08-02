@@ -37,7 +37,7 @@ public final class SpawnerMobStore {
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
-    public List<TrackedSpawnerMob> load() {
+    public synchronized List<TrackedSpawnerMob> load() {
         if (!Files.isRegularFile(file)) {
             return List.of();
         }
@@ -69,7 +69,7 @@ public final class SpawnerMobStore {
         }
     }
 
-    public void save(Collection<TrackedSpawnerMob> records) {
+    public synchronized void save(Collection<TrackedSpawnerMob> records) {
         Objects.requireNonNull(records, "records");
         Path parent = Objects.requireNonNull(file.getParent(), "file.parent");
 
