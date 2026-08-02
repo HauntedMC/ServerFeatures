@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.autopickup.listener;
 
-import io.papermc.paper.event.block.BlockDropItemEvent;
 import nl.hauntedmc.serverfeatures.features.autopickup.AutoPickup;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferCommitter.AutoPickupCommitException;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferPlanner;
@@ -9,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
