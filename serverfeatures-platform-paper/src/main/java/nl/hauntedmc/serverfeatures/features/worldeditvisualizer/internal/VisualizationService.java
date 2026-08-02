@@ -66,7 +66,7 @@ public final class VisualizationService {
         nextRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
         if (restore) {
-            renderer.clear(player, state);
+            restore(player, state);
         }
         return changed || state != null;
     }
@@ -75,7 +75,7 @@ public final class VisualizationService {
         if (!isEnabled(player)) {
             return RefreshResult.DISABLED;
         }
-        return updatePlayer(player, true);
+        return updateSafely(player, true);
     }
 
     public void invalidate(Player player, boolean restore) {
@@ -83,7 +83,7 @@ public final class VisualizationService {
         invalidateFingerprint(uuid);
         RenderState state = rendered.remove(uuid);
         if (restore) {
-            renderer.clear(player, state);
+            restore(player, state);
         }
     }
 
@@ -109,28 +109,33 @@ public final class VisualizationService {
                 disable(player, true);
                 continue;
             }
-            try {
-                updatePlayer(player, false);
-            } catch (Throwable throwable) {
-                feature.getPlugin().getLogger().log(
-                        Level.WARNING,
-                        "Failed to update WorldEdit visualization for " + player.getName(),
-                        throwable
-                );
-                safeClear(player);
-            }
+            updateSafely(player, false);
         }
     }
 
     public void shutdown() {
         for (Player player : feature.getPlugin().getServer().getOnlinePlayers()) {
             RenderState state = rendered.remove(player.getUniqueId());
-            renderer.clear(player, state);
+            restore(player, state);
         }
         enabled.clear();
         rendered.clear();
         fingerprints.clear();
         nextRefreshNanos.clear();
+    }
+
+    private RefreshResult updateSafely(Player player, boolean force) {
+        try {
+            return updatePlayer(player, force);
+        } catch (Throwable throwable) {
+            feature.getPlugin().getLogger().log(
+                    Level.WARNING,
+                    "Failed to update WorldEdit visualization for " + player.getName(),
+                    throwable
+            );
+            clearStale(player);
+            return RefreshResult.FAILED;
+        }
     }
 
     private RefreshResult updatePlayer(Player player, boolean force) {
@@ -195,17 +200,17 @@ public final class VisualizationService {
         fingerprints.remove(uuid);
         nextRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
-        renderer.clear(player, state);
+        restore(player, state);
     }
 
-    private void safeClear(Player player) {
+    private void restore(Player player, RenderState state) {
         try {
-            clearStale(player);
-        } catch (Throwable clearFailure) {
+            renderer.clear(player, state);
+        } catch (Throwable throwable) {
             feature.getPlugin().getLogger().log(
                     Level.WARNING,
-                    "Failed to clear WorldEdit visualization packets for " + player.getName(),
-                    clearFailure
+                    "Failed to restore WorldEdit visualization for " + player.getName(),
+                    throwable
             );
         }
     }
@@ -247,7 +252,8 @@ public final class VisualizationService {
         RENDERED,
         NO_SELECTION,
         UNSUPPORTED_SELECTION,
-        DISABLED;
+        DISABLED,
+        FAILED;
 
         public String messageKey() {
             return switch (this) {
@@ -255,6 +261,7 @@ public final class VisualizationService {
                 case UNSUPPORTED_SELECTION -> "worldeditvisualizer.not_cuboid";
                 case RENDERED -> "worldeditvisualizer.refreshed";
                 case DISABLED -> "worldeditvisualizer.disabled";
+                case FAILED -> "worldeditvisualizer.failed";
             };
         }
     }
