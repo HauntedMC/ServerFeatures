@@ -128,11 +128,11 @@ public final class VisualizationService {
     private RefreshResult updateSafely(Player player, boolean force) {
         try {
             return updatePlayer(player, force);
-        } catch (Throwable throwable) {
+        } catch (RuntimeException exception) {
             feature.getPlugin().getLogger().log(
                     Level.WARNING,
                     "Failed to update WorldEdit visualization for " + player.getName(),
-                    throwable
+                    exception
             );
             disableAfterFailure(player);
             return RefreshResult.FAILED;
@@ -216,11 +216,11 @@ public final class VisualizationService {
     private void restore(Player player, RenderState state) {
         try {
             renderer.clear(player, state);
-        } catch (Throwable throwable) {
+        } catch (RuntimeException exception) {
             feature.getPlugin().getLogger().log(
                     Level.WARNING,
                     "Failed to restore WorldEdit visualization for " + player.getName(),
-                    throwable
+                    exception
             );
         }
     }
