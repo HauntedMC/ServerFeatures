@@ -18,13 +18,13 @@ jobs:
           ref: agent/graveyard-feature
           fetch-depth: 0
       - name: Apply pending implementation patch
-        if: ${{ hashFiles('.agent/graveyard.patch.gz.b64') != '' }}
+        if: ${{ hashFiles('.agent/graveyard.patch.gz.b64.part-*') != '' }}
         run: |
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          base64 --decode .agent/graveyard.patch.gz.b64 | gzip --decompress > /tmp/graveyard.patch
+          cat .agent/graveyard.patch.gz.b64.part-* | base64 --decode | gzip --decompress > /tmp/graveyard.patch
           git apply --binary /tmp/graveyard.patch
-          rm .agent/graveyard.patch.gz.b64
+          rm .agent/graveyard.patch.gz.b64.part-*
           git add -A
           git commit -m "Implement Graveyard death recovery"
           git push origin HEAD:agent/graveyard-feature
