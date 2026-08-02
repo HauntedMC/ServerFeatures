@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.graveyard.config;
 import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 
@@ -90,8 +92,8 @@ public final class GraveyardSettings {
         headstoneMaterial = material(feature, "render.headstone.material", Material.POLISHED_BLACKSTONE_BRICK_WALL);
         claimParticle = particle(feature, "particles.claim.type", Particle.SCULK_SOUL);
         expiryParticle = particle(feature, "particles.expiry.type", Particle.SCULK_SOUL);
-        claimSound = sound(feature, "sounds.claim.sound", Sound.BLOCK_RESPAWN_ANCHOR_CHARGE);
-        expirySound = sound(feature, "sounds.expiry.sound", Sound.PARTICLE_SOUL_ESCAPE);
+        claimSound = sound(feature, "sounds.claim.sound", "block.respawn_anchor.charge", Sound.BLOCK_RESPAWN_ANCHOR_CHARGE);
+        expirySound = sound(feature, "sounds.expiry.sound", "particle.soul_escape", Sound.PARTICLE_SOUL_ESCAPE);
         ownerGlowRgb = rgb(feature.getConfigHandler().get("render.glow.owner_rgb", String.class, "55FFFF"), 0x55FFFF);
         otherGlowRgb = rgb(feature.getConfigHandler().get("render.glow.other_rgb", String.class, "00AAAA"), 0x00AAAA);
         staffGlowRgb = rgb(feature.getConfigHandler().get("render.glow.staff_rgb", String.class, "FFD700"), 0xFFD700);
@@ -147,8 +149,19 @@ public final class GraveyardSettings {
         return enumSetting(feature, key, Particle.class, fallback);
     }
 
-    private static Sound sound(Graveyard feature, String key, Sound fallback) {
-        return enumSetting(feature, key, Sound.class, fallback);
+    private static Sound sound(Graveyard feature, String key, String fallbackKey, Sound fallback) {
+        String configured = feature.getConfigHandler().get(key, String.class, fallbackKey);
+        String normalized = configured.trim().toLowerCase(Locale.ROOT);
+        if (!normalized.contains(":")) {
+            normalized = "minecraft:" + normalized.replace('_', '.');
+        }
+        NamespacedKey namespacedKey = NamespacedKey.fromString(normalized);
+        Sound resolved = namespacedKey == null ? null : Registry.SOUNDS.get(namespacedKey);
+        if (resolved == null) {
+            feature.getLogger().warning("Invalid Graveyard setting " + key + "=" + configured + "; using " + fallbackKey);
+            return fallback;
+        }
+        return resolved;
     }
 
     private static <E extends Enum<E>> E enumSetting(

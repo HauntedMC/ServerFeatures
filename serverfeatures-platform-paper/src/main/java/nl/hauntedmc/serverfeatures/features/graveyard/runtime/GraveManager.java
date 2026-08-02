@@ -32,6 +32,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadCo
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GraveRepository;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -964,7 +965,7 @@ public final class GraveManager implements GraveyardService {
         if (resolved.isEmpty()) {
             return false;
         }
-        if (!viewer.isChunkSent(grave.location().chunkX(), grave.location().chunkZ())) {
+        if (!viewer.isChunkSent(Chunk.getChunkKey(grave.location().chunkX(), grave.location().chunkZ()))) {
             return false;
         }
         double maximum = currentlySpawned ? settings.despawnDistance() : settings.spawnDistance();
