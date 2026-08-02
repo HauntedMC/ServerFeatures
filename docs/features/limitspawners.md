@@ -131,9 +131,10 @@ Initialization:
 3. reconcile every currently loaded chunk;
 4. start periodic loaded-entity reconciliation and snapshot tasks.
 
-Disable/reload reconciles loaded records, waits for the single in-flight asynchronous snapshot, and
-synchronously flushes any newer mutations before the feature lifecycle cancels tasks and unregisters
-listeners. Existing entity markers are intentionally left intact so re-enable can recover them.
+Disable/reload reconciles loaded records and waits up to five seconds for the single in-flight
+asynchronous snapshot. A queued or timed-out save is cancelled without interruption; store writes are
+serialized so an already-running older snapshot must finish before the newest state is synchronously
+flushed. Existing entity markers are intentionally left intact so re-enable can recover them.
 
 ## Performance
 
@@ -146,7 +147,7 @@ save interval.
 
 All Bukkit entity and chunk access stays on the server thread. Periodic snapshot I/O runs asynchronously
 with at most one write in flight; snapshots are immutable copies captured on the server thread. The
-only synchronous persistence is the final shutdown flush after any in-flight write has completed.
+only synchronous persistence is the final shutdown flush after pending write coordination.
 
 ## Operational verification
 
