@@ -3,12 +3,17 @@ package nl.hauntedmc.serverfeatures.features.worldeditvisualizer.internal;
 import io.papermc.paper.math.Position;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.TileState;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -67,11 +72,12 @@ final class PacketCuboidRenderer {
         }
 
         Map<Position, BlockData> changes = new LinkedHashMap<>();
-        restoreRemovedBlocks(world, previous, desired, changes);
+        List<TileUpdate> tileUpdates = new ArrayList<>();
+        restoreRemovedBlocks(world, previous, desired, changes, tileUpdates);
         for (Map.Entry<BlockPoint, Material> entry : desired.entrySet()) {
             changes.put(toPosition(entry.getKey()), entry.getValue().createBlockData());
         }
-        send(player, changes);
+        send(player, changes, tileUpdates);
 
         return new RenderState(world.getUID(), Map.copyOf(desired));
     }
@@ -86,10 +92,11 @@ final class PacketCuboidRenderer {
         }
 
         Map<Position, BlockData> changes = new LinkedHashMap<>();
+        List<TileUpdate> tileUpdates = new ArrayList<>();
         for (BlockPoint point : state.blocks().keySet()) {
-            addRestoration(world, point, changes);
+            addRestoration(world, point, changes, tileUpdates);
         }
-        send(player, changes);
+        send(player, changes, tileUpdates);
     }
 
     private void addSpecialPoints(
@@ -134,24 +141,33 @@ final class PacketCuboidRenderer {
             World world,
             RenderState previous,
             Map<BlockPoint, Material> desired,
-            Map<Position, BlockData> changes
+            Map<Position, BlockData> changes,
+            List<TileUpdate> tileUpdates
     ) {
         if (previous == null || !previous.worldId().equals(world.getUID())) {
             return;
         }
         for (BlockPoint point : previous.blocks().keySet()) {
             if (!desired.containsKey(point)) {
-                addRestoration(world, point, changes);
+                addRestoration(world, point, changes, tileUpdates);
             }
         }
     }
 
-    private static void addRestoration(World world, BlockPoint point, Map<Position, BlockData> changes) {
+    private static void addRestoration(
+            World world,
+            BlockPoint point,
+            Map<Position, BlockData> changes,
+            List<TileUpdate> tileUpdates
+    ) {
         if (!isSendable(world, point)) {
             return;
         }
-        Position position = toPosition(point);
-        changes.put(position, world.getBlockAt(point.x(), point.y(), point.z()).getBlockData());
+        BlockState state = world.getBlockAt(point.x(), point.y(), point.z()).getState();
+        changes.put(toPosition(point), state.getBlockData());
+        if (state instanceof TileState tileState) {
+            tileUpdates.add(new TileUpdate(state.getLocation(), tileState));
+        }
     }
 
     private static boolean isSendable(World world, BlockPoint point) {
@@ -169,14 +185,25 @@ final class PacketCuboidRenderer {
         return Position.block(point.x(), point.y(), point.z());
     }
 
-    private static void send(Player player, Map<Position, BlockData> changes) {
-        if (!changes.isEmpty() && player.isOnline()) {
-            player.sendMultiBlockChange(changes);
+    private static void send(
+            Player player,
+            Map<Position, BlockData> changes,
+            List<TileUpdate> tileUpdates
+    ) {
+        if (!player.isOnline() || changes.isEmpty()) {
+            return;
+        }
+        player.sendMultiBlockChange(changes);
+        for (TileUpdate tileUpdate : tileUpdates) {
+            player.sendBlockUpdate(tileUpdate.location(), tileUpdate.state());
         }
     }
 
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    private record TileUpdate(Location location, TileState state) {
     }
 }
 
