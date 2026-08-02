@@ -60,6 +60,8 @@ Players with the permission are also enabled when they join. A manual toggle cho
 | `/wevis` | same | Alias. |
 | `/wevis toggle` | same | Toggle the visualizer. |
 
+Other arguments are rejected with the localized usage message. Tab completion suggests `toggle` only when it matches the typed prefix.
+
 The permission is rechecked during polling. Revoking it while the player is online disables the feature and destroys the current client entities on the next poll.
 
 ## Configuration
@@ -93,6 +95,7 @@ Colors use Adventure named colors and are case-insensitive. Invalid values use t
 | `edge.scale` | `0.12` | Wireframe thickness, clamped to `0.02–1.0`. |
 | `corner.scale` | `0.35` | Corner and position marker size, clamped to `0.05–2.0`. |
 | `render.view_range` | `4.0` | Display view-range multiplier, clamped to `0.1–64.0`. |
+| `render.retry_interval_ticks` | `200` | Backoff before retrying the same failed packet render; at least one poll interval. |
 | `poll.interval_ticks` | `10` | Selection/permission polling interval, clamped to at least one tick. |
 
 The removed `edge.step_blocks`, `render.max_blocks`, `render.max_distance_blocks`, and `render.resend_interval_ticks` settings belonged to the temporary fake-block implementation and are not used by version 2.0. The constant wireframe does not need a sampling budget or periodic block resend.
@@ -138,6 +141,8 @@ On quit, the server discards its handle without sending cleanup packets because 
 
 Rendering is failure-safe. If packet creation or delivery fails partway through a new visualization, every entity ID allocated during that attempt is destroyed before the error is propagated. The previous visualization was already cleared, so a partial replacement cannot remain managed as a valid render.
 
+Repeated failures for the same unchanged selection respect `render.retry_interval_ticks`; a manual toggle bypasses the backoff and retries immediately. This prevents a broken packet conversion from retrying and logging every poll.
+
 Even if a destroy packet cannot be delivered because the player disconnects concurrently, there is still no server entity and therefore no persistent world or server-lag risk.
 
 ## Threading and performance
@@ -170,6 +175,7 @@ No current source in ServerFeatures references that package.
 | `worldeditvisualizer.no_selection` | No complete selection when enabling manually. |
 | `worldeditvisualizer.not_cuboid` | Unsupported selector when enabling manually. |
 | `worldeditvisualizer.render_failed` | Packet render failed during a manual enable. |
+| `worldeditvisualizer.usage` | Invalid command arguments. |
 
 ## Verification checklist
 
@@ -182,7 +188,7 @@ No current source in ServerFeatures references that package.
 7. Change world, respawn, relog, revoke permission, reload the feature and stop the server.
 8. Inspect Bukkit/Paper entity counts and chunk data before and after repeated use; they must remain unchanged.
 9. Test invalid material/color/scale configuration and verify documented clamping/fallbacks.
-10. Verify labels disabled/enabled and coincident pos1/pos2 behavior.
+10. Verify labels disabled/enabled, coincident pos1/pos2 behavior and invalid command usage.
 
 ## Source map
 
@@ -191,4 +197,4 @@ No current source in ServerFeatures references that package.
 - Packet renderer: `features/worldeditvisualizer/internal/PacketVisualizationRenderer.java`
 - Packet cleanup handle: `features/worldeditvisualizer/internal/PacketVisualHandle.java`
 - Constant geometry: `features/worldeditvisualizer/internal/CuboidWireframe.java`
-- Join/world/respawn/quit lifecycle: `features/worldeditvisualizer/listener/PlayerJoinListener.java`
+- Join/world/respawn/quit lifecycle: `features/worldeditvisualizer/listener/PlayerLifecycleListener.java`
