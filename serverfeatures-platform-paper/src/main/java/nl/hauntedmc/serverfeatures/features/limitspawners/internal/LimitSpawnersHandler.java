@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 
 /**
@@ -53,11 +54,13 @@ public final class LimitSpawnersHandler {
     private final SpawnerMobRegistry registry = new SpawnerMobRegistry();
     private final SpawnerMobStore store;
     private final Set<UUID> unloadingEntities = new HashSet<>();
+    private final Set<UUID> pendingSpawnReservations = new HashSet<>();
     private final AtomicLong mutationVersion = new AtomicLong();
     private final AtomicLong persistedVersion = new AtomicLong();
     private final AtomicBoolean saveInProgress = new AtomicBoolean();
 
     private volatile CompletableFuture<Void> saveFuture = CompletableFuture.completedFuture(null);
+    private boolean ready;
 
     public LimitSpawnersHandler(LimitSpawners feature) {
         this.feature = Objects.requireNonNull(feature, "feature");
@@ -86,16 +89,25 @@ public final class LimitSpawnersHandler {
     public void start() {
         int persistedCount = registry.size();
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            for (World world : Bukkit.getWorlds()) {
-                for (Chunk chunk : world.getLoadedChunks()) {
-                    handleChunkLoad(chunk);
+            try {
+                for (World world : Bukkit.getWorlds()) {
+                    for (Chunk chunk : world.getLoadedChunks()) {
+                        handleChunkLoad(chunk);
+                    }
                 }
+                ready = true;
+                flushAsyncIfDirty();
+                feature.getLogger().info(
+                        "Loaded " + persistedCount + " persisted tracked mobs; "
+                                + registry.size() + " remain after loaded-chunk reconciliation."
+                );
+            } catch (RuntimeException exception) {
+                feature.getLogger().log(
+                        Level.SEVERE,
+                        "Initial tracked mob reconciliation failed; spawner spawning remains blocked.",
+                        exception
+                );
             }
-            flushAsyncIfDirty();
-            feature.getLogger().info(
-                    "Loaded " + persistedCount + " persisted tracked mobs; "
-                            + registry.size() + " remain after loaded-chunk reconciliation."
-            );
         }, BukkitTime.ticks(1));
 
         feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
@@ -111,17 +123,23 @@ public final class LimitSpawnersHandler {
     }
 
     public void shutdown() {
+        ready = false;
         reconcileLoadedEntities();
         awaitPendingSave();
         flushSynchronously();
+        pendingSpawnReservations.clear();
         unloadingEntities.clear();
     }
 
     /**
      * Registers a direct spawner spawn before the event completes, reserving its slot immediately.
-     * A MONITOR listener rolls this registration back when another plugin later cancels the event.
+     * The reservation is finalized one tick after all event listeners have completed.
      */
     public boolean tryRegisterSpawn(LivingEntity entity, SpawnerKey spawner) {
+        if (!ready) {
+            return false;
+        }
+
         UUID entityId = entity.getUniqueId();
         Optional<TrackedSpawnerMob> existing = registry.get(entityId);
         if (existing.isPresent()) {
@@ -135,11 +153,34 @@ public final class LimitSpawnersHandler {
         }
 
         registerEntity(entity, spawner);
+        pendingSpawnReservations.add(entityId);
         return true;
     }
 
-    public void rollbackCancelledSpawn(Entity entity) {
-        unregister(entity, true);
+    /**
+     * Defers final spawn validation so cancellation by any later listener, including MONITOR, is seen.
+     */
+    public void scheduleSpawnFinalization(Entity entity, BooleanSupplier cancellationState) {
+        Objects.requireNonNull(entity, "entity");
+        Objects.requireNonNull(cancellationState, "cancellationState");
+        UUID entityId = entity.getUniqueId();
+        if (!pendingSpawnReservations.contains(entityId)) {
+            return;
+        }
+
+        try {
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                    () -> finalizeSpawnReservation(entityId, entity, cancellationState),
+                    BukkitTime.ticks(1)
+            );
+        } catch (RuntimeException exception) {
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Could not schedule final validation for spawner mob " + entityId
+                            + "; its reserved slot remains fail-closed.",
+                    exception
+            );
+        }
     }
 
     public void unregisterIfTracked(Entity entity) {
@@ -255,6 +296,45 @@ public final class LimitSpawnersHandler {
         return registry.count(spawner);
     }
 
+    private void finalizeSpawnReservation(
+            UUID entityId,
+            Entity originalEntity,
+            BooleanSupplier cancellationState
+    ) {
+        if (!pendingSpawnReservations.remove(entityId)) {
+            return;
+        }
+
+        boolean cancelled;
+        try {
+            cancelled = cancellationState.getAsBoolean();
+        } catch (RuntimeException exception) {
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Could not read final cancellation state for spawner mob " + entityId
+                            + "; keeping its reserved slot fail-closed.",
+                    exception
+            );
+            return;
+        }
+
+        if (cancelled) {
+            unregister(originalEntity, true);
+            return;
+        }
+
+        Entity resolved = Bukkit.getEntity(entityId);
+        if (!(resolved instanceof LivingEntity living) || living.isDead() || !living.isValid()) {
+            unregister(originalEntity, true);
+            return;
+        }
+
+        registry.get(entityId).ifPresent(record -> {
+            ensureSourceMarker(living, record.spawner());
+            updateTrackedLocation(living);
+        });
+    }
+
     private void handleRemovalCheck(UUID entityId) {
         if (unloadingEntities.contains(entityId)) {
             return;
@@ -293,6 +373,7 @@ public final class LimitSpawnersHandler {
     }
 
     private void removeById(UUID entityId, Entity entity, boolean clearMarker) {
+        pendingSpawnReservations.remove(entityId);
         if (registry.remove(entityId).isPresent()) {
             markDirty();
         }
