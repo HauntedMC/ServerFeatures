@@ -40,6 +40,17 @@ public final class NoopActionBarAPI implements ActionBarAPI {
     }
 
     @Override
+    public void sendOnce(@NotNull Player player, @NotNull Component component) {
+    }
+
+    @Override
+    public void send(@NotNull Player player,
+                     @NotNull Component component,
+                     int seconds,
+                     @NotNull PauseMode pauseMode) {
+    }
+
+    @Override
     public void sendOnceBroadcast(@NotNull Component component) {
     }
 
@@ -52,6 +63,8 @@ public final class NoopActionBarAPI implements ActionBarAPI {
     }
 
     @Override
-    public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode pauseMode) {
+    public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier,
+                                       int seconds,
+                                       @NotNull PauseMode pauseMode) {
     }
 }
