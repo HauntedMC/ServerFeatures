@@ -56,4 +56,37 @@ class GraveOperationJournalTest {
             assertEquals(1L, files.count());
         }
     }
+
+    @Test
+    void claimTransitionsRoundTripAndQuarantinedTokensStayDiscoverable() throws Exception {
+        GraveOperationJournal journal = new GraveOperationJournal(directory, 1024 * 1024);
+        UUID operation = UUID.randomUUID();
+        ClaimJournalRecord record = new ClaimJournalRecord(
+                operation,
+                ClaimJournalState.PREPARED,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                4L,
+                2,
+                15,
+                new EncodedGravePayload(new byte[]{5, 6, 7}, "remaining")
+        );
+
+        journal.writeClaim(record);
+        ClaimJournalRecord loaded = journal.loadClaims().getFirst();
+        assertEquals(operation, loaded.operationToken());
+        assertEquals(ClaimJournalState.PREPARED, loaded.state());
+
+        journal.writeClaim(loaded.withState(ClaimJournalState.PLAYER_APPLIED));
+        assertEquals(ClaimJournalState.PLAYER_APPLIED, journal.loadClaims().getFirst().state());
+
+        Path claim = directory.resolve("local/journal/claim");
+        Files.writeString(claim.resolve(UUID.randomUUID() + ".properties"), "broken=true");
+        journal.loadClaims();
+        assertEquals(1, journal.quarantinedClaimTokens().size());
+
+        journal.deleteClaim(operation);
+        assertTrue(journal.loadClaims().isEmpty());
+    }
 }

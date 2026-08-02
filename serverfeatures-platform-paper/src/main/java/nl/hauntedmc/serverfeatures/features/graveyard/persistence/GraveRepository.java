@@ -10,8 +10,11 @@ import nl.hauntedmc.serverfeatures.features.graveyard.model.GravePayload;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GravePlacementType;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -27,7 +30,9 @@ public final class GraveRepository {
             GraveStatus.PARTIAL,
             GraveStatus.ORPHANED_WORLD,
             GraveStatus.DELIVERY_PENDING,
-            GraveStatus.CORRUPT
+            GraveStatus.CORRUPT,
+            GraveStatus.EXPIRED,
+            GraveStatus.ADMIN_RECOVERED
     );
 
     private final Graveyard feature;
@@ -44,41 +49,104 @@ public final class GraveRepository {
     }
 
     public CompletionStage<List<Grave>> loadRuntimeGraves(String serverId, String inventoryScope) {
-        return async(() -> orm.runInTransaction(session -> session.createSelectionQuery(
-                        "FROM GraveMetadataEntity g "
-                                + "WHERE g.serverId = :serverId "
-                                + "AND g.inventoryScope = :scope "
-                                + "AND g.state IN :states",
-                        GraveMetadataEntity.class
-                )
-                .setParameter("serverId", serverId)
-                .setParameter("scope", inventoryScope)
-                .setParameter("states", LOADABLE_STATES.stream().map(Enum::name).toList())
-                .getResultList()
-                .stream()
-                .map(this::toGrave)
-                .toList()));
+        return async(() -> orm.runInTransaction(session -> {
+            List<GraveMetadataEntity> entities = session.createSelectionQuery(
+                            "FROM GraveMetadataEntity g "
+                                    + "WHERE g.serverId = :serverId "
+                                    + "AND g.inventoryScope = :scope "
+                                    + "AND g.state IN :states",
+                            GraveMetadataEntity.class
+                    )
+                    .setParameter("serverId", serverId)
+                    .setParameter("scope", inventoryScope)
+                    .setParameter("states", LOADABLE_STATES.stream().map(Enum::name).toList())
+                    .getResultList();
+            List<Grave> graves = new ArrayList<>(entities.size());
+            for (GraveMetadataEntity entity : entities) {
+                try {
+                    graves.add(toGrave(entity));
+                } catch (RuntimeException exception) {
+                    feature.getLogger().warning(
+                            "Skipping invalid Graveyard metadata row " + entity.getGraveId()
+                                    + ": " + exception.getMessage()
+                    );
+                }
+            }
+            return List.copyOf(graves);
+        }));
     }
 
-    public CompletionStage<Optional<EncodedGravePayload>> loadPayload(UUID graveId) {
+    public CompletionStage<Optional<EncodedGravePayload>> loadPayload(Grave grave) {
+        return async(() -> orm.runInTransaction(session -> {
+            GravePayloadEntity entity = session.find(GravePayloadEntity.class, grave.graveId().toString());
+            if (entity == null) {
+                return Optional.empty();
+            }
+            validatePayloadEncoding(entity);
+            if (entity.getPayloadRevision() != grave.payloadRevision()
+                    || !Objects.equals(entity.getPayloadChecksum(), grave.payloadChecksum())) {
+                throw new IllegalStateException("Graveyard payload metadata mismatch for " + grave.graveId());
+            }
+            return Optional.of(new EncodedGravePayload(entity.getPayload(), entity.getPayloadChecksum()));
+        }));
+    }
+
+    /**
+     * Loads the current durable payload without comparing it to the in-memory metadata revision.
+     * Recovery uses this after an ambiguous database finalization, where the database may already
+     * contain the next revision while the runtime grave still reflects the previous revision.
+     */
+    public CompletionStage<Optional<EncodedGravePayload>> loadPayloadForRecovery(UUID graveId) {
         return async(() -> orm.runInTransaction(session -> {
             GravePayloadEntity entity = session.find(GravePayloadEntity.class, graveId.toString());
             if (entity == null) {
                 return Optional.empty();
             }
+            validatePayloadEncoding(entity);
             return Optional.of(new EncodedGravePayload(entity.getPayload(), entity.getPayloadChecksum()));
         }));
     }
 
     public CompletionStage<Void> saveCaptured(Grave grave, EncodedGravePayload payload) {
         CompletionStage<Optional<Long>> playerId = playerIdentityResolver.findByUuid(grave.ownerUuid())
-                .thenApply(identity -> identity.map(value -> value.playerId()));
+                .handle((identity, failure) -> failure == null
+                        ? identity.map(value -> value.playerId())
+                        : Optional.empty());
         return playerId.thenCompose(resolvedPlayerId -> async(() -> {
             orm.runInTransaction(session -> {
+                String graveId = grave.graveId().toString();
+                GraveMetadataEntity existing = session.find(
+                        GraveMetadataEntity.class,
+                        graveId,
+                        LockModeType.PESSIMISTIC_WRITE
+                );
+                if (existing != null) {
+                    if (!sameCaptureIdentity(existing, grave)) {
+                        throw new IllegalStateException("Grave id collision for " + grave.graveId());
+                    }
+                    GravePayloadEntity existingPayload = session.find(
+                            GravePayloadEntity.class,
+                            graveId,
+                            LockModeType.PESSIMISTIC_WRITE
+                    );
+                    if (existingPayload == null
+                            && GraveStatus.valueOf(existing.getState()) != GraveStatus.PURGED) {
+                        throw new IllegalStateException("Grave metadata exists without payload for " + grave.graveId());
+                    }
+                    return null;
+                }
+                GravePayloadEntity existingPayload = session.find(
+                        GravePayloadEntity.class,
+                        graveId,
+                        LockModeType.PESSIMISTIC_WRITE
+                );
+                if (existingPayload != null) {
+                    throw new IllegalStateException("Payload exists without metadata for " + grave.graveId());
+                }
                 GraveMetadataEntity metadata = toEntity(grave, resolvedPlayerId.orElse(null));
                 GravePayloadEntity payloadEntity = toPayloadEntity(grave.graveId(), grave.payloadRevision(), payload);
-                session.merge(metadata);
-                session.merge(payloadEntity);
+                session.persist(metadata);
+                session.persist(payloadEntity);
                 persistAudit(
                         session,
                         grave,
@@ -131,6 +199,12 @@ public final class GraveRepository {
                     graveId.toString(),
                     LockModeType.PESSIMISTIC_WRITE
             );
+            if (metadata == null) {
+                return false;
+            }
+            if (metadata.getOperationToken() == null) {
+                return true;
+            }
             if (!ownsOperation(metadata, operationToken)) {
                 return false;
             }
@@ -158,17 +232,18 @@ public final class GraveRepository {
                     grave.graveId().toString(),
                     LockModeType.PESSIMISTIC_WRITE
             );
-            if (!ownsOperation(metadata, operationToken)
-                    || metadata.getPayloadRevision() != previous.revision()) {
-                return false;
-            }
-
             GravePayloadEntity payloadEntity = session.find(
                     GravePayloadEntity.class,
                     grave.graveId().toString(),
                     LockModeType.PESSIMISTIC_WRITE
             );
-            if (payloadEntity == null || payloadEntity.getPayloadRevision() != previous.revision()) {
+            if (isFinalizedClaim(metadata, payloadEntity, remaining, encodedRemaining, finalStatus)) {
+                return true;
+            }
+            if (!ownsOperation(metadata, operationToken)
+                    || metadata.getPayloadRevision() != previous.revision()
+                    || payloadEntity == null
+                    || payloadEntity.getPayloadRevision() != previous.revision()) {
                 return false;
             }
 
@@ -187,6 +262,12 @@ public final class GraveRepository {
             metadata.setPayloadChecksum(encodedRemaining.checksum());
             metadata.setOperationToken(null);
             metadata.setOperationStartedMillis(null);
+            if (finalStatus == GraveStatus.ORPHANED_WORLD
+                    || finalStatus == GraveStatus.DELIVERY_PENDING) {
+                metadata.setPausedRemainingMillis(grave.pausedRemainingMillis());
+            } else {
+                metadata.setPausedRemainingMillis(null);
+            }
             metadata.setUpdatedAt(System.currentTimeMillis());
             if (finalStatus == GraveStatus.CLAIMED) {
                 metadata.setCompletedAt(System.currentTimeMillis());
@@ -215,7 +296,8 @@ public final class GraveRepository {
             Grave grave,
             UUID actorUuid,
             long activeNow,
-            long lifetimeMillis
+            long lifetimeMillis,
+            boolean worldAvailable
     ) {
         return async(() -> orm.runInTransaction(session -> {
             GraveMetadataEntity metadata = session.find(
@@ -223,15 +305,23 @@ public final class GraveRepository {
                     grave.graveId().toString(),
                     LockModeType.PESSIMISTIC_WRITE
             );
-            if (metadata == null
-                    || metadata.getOperationToken() != null
-                    || GraveStatus.valueOf(metadata.getState()) != GraveStatus.EXPIRED) {
+            if (metadata == null || metadata.getOperationToken() != null) {
                 return false;
             }
-            long expiresAt = Math.addExact(activeNow, lifetimeMillis);
-            metadata.setState(GraveStatus.ACTIVE.name());
-            metadata.setExpiresActiveMillis(expiresAt);
-            metadata.setPausedRemainingMillis(null);
+            GraveStatus oldStatus = GraveStatus.valueOf(metadata.getState());
+            if (oldStatus != GraveStatus.EXPIRED && oldStatus != GraveStatus.ORPHANED_WORLD) {
+                return false;
+            }
+            GraveStatus target = worldAvailable
+                    ? metadata.getPayloadRevision() > 0L ? GraveStatus.PARTIAL : GraveStatus.ACTIVE
+                    : GraveStatus.ORPHANED_WORLD;
+            metadata.setState(target.name());
+            if (worldAvailable) {
+                metadata.setExpiresActiveMillis(Math.addExact(activeNow, lifetimeMillis));
+                metadata.setPausedRemainingMillis(null);
+            } else {
+                metadata.setPausedRemainingMillis(lifetimeMillis);
+            }
             metadata.setCompletedAt(null);
             metadata.setUpdatedAt(System.currentTimeMillis());
             persistAudit(
@@ -240,8 +330,8 @@ public final class GraveRepository {
                     null,
                     "RESTORED",
                     actorUuid,
-                    GraveStatus.EXPIRED,
-                    GraveStatus.ACTIVE,
+                    oldStatus,
+                    target,
                     grave.itemEntryCount(),
                     grave.itemEntryCount(),
                     grave.remainingExperience(),
@@ -413,7 +503,7 @@ public final class GraveRepository {
                     : Math.max(0L, metadata.getPausedRemainingMillis());
             GraveStatus target = metadata.getItemEntryCount() == 0 && metadata.getRemainingExperience() == 0
                     ? GraveStatus.CLAIMED
-                    : GraveStatus.ACTIVE;
+                    : metadata.getPayloadRevision() > 0L ? GraveStatus.PARTIAL : GraveStatus.ACTIVE;
             metadata.setState(target.name());
             metadata.setExpiresActiveMillis(Math.addExact(activeNow, remaining));
             metadata.setPausedRemainingMillis(null);
@@ -436,7 +526,12 @@ public final class GraveRepository {
         }));
     }
 
-    public CompletionStage<Boolean> relocate(Grave grave, GraveLocation location, GravePlacementType type) {
+    public CompletionStage<Boolean> relocate(
+            Grave grave,
+            GraveLocation location,
+            GravePlacementType type,
+            UUID actorUuid
+    ) {
         return async(() -> orm.runInTransaction(session -> {
             GraveMetadataEntity metadata = session.find(
                     GraveMetadataEntity.class,
@@ -454,7 +549,56 @@ public final class GraveRepository {
             metadata.setGraveYaw(location.yaw());
             metadata.setPlacementType(type.name());
             metadata.setUpdatedAt(System.currentTimeMillis());
+            GraveStatus state = GraveStatus.valueOf(metadata.getState());
+            persistAudit(
+                    session,
+                    grave,
+                    null,
+                    "RELOCATED",
+                    actorUuid,
+                    state,
+                    state,
+                    grave.itemEntryCount(),
+                    grave.itemEntryCount(),
+                    grave.remainingExperience(),
+                    grave.remainingExperience(),
+                    "from=" + grave.location() + ", to=" + location + ", type=" + type
+            );
             return true;
+        }));
+    }
+
+    public CompletionStage<Integer> clearAbandonedOperations(
+            String serverId,
+            String inventoryScope,
+            long startedBeforeMillis,
+            Set<UUID> preservedTokens
+    ) {
+        Set<String> preserved = preservedTokens.stream().map(UUID::toString).collect(java.util.stream.Collectors.toSet());
+        return async(() -> orm.runInTransaction(session -> {
+            List<GraveMetadataEntity> candidates = session.createSelectionQuery(
+                            "FROM GraveMetadataEntity g WHERE g.serverId = :serverId "
+                                    + "AND g.inventoryScope = :scope AND g.operationToken IS NOT NULL "
+                                    + "AND (g.operationStartedMillis IS NULL OR g.operationStartedMillis < :cutoff)",
+                            GraveMetadataEntity.class
+                    )
+                    .setParameter("serverId", serverId)
+                    .setParameter("scope", inventoryScope)
+                    .setParameter("cutoff", startedBeforeMillis)
+                    .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                    .getResultList();
+            int cleared = 0;
+            long now = System.currentTimeMillis();
+            for (GraveMetadataEntity metadata : candidates) {
+                if (preserved.contains(metadata.getOperationToken())) {
+                    continue;
+                }
+                metadata.setOperationToken(null);
+                metadata.setOperationStartedMillis(null);
+                metadata.setUpdatedAt(now);
+                cleared++;
+            }
+            return cleared;
         }));
     }
 
@@ -530,6 +674,54 @@ public final class GraveRepository {
 
     private <T> CompletionStage<T> async(java.util.function.Supplier<T> operation) {
         return feature.getLifecycleManager().getTaskManager().supplyAsync(operation);
+    }
+
+    private static boolean sameCaptureIdentity(GraveMetadataEntity metadata, Grave grave) {
+        return grave.ownerUuid().toString().equals(metadata.getOwnerUuid())
+                && grave.serverId().equals(metadata.getServerId())
+                && grave.inventoryScope().equals(metadata.getInventoryScope())
+                && grave.shortId().equals(metadata.getShortId())
+                && grave.createdWallMillis() == metadata.getCreatedWallMillis()
+                && grave.createdActiveMillis() == metadata.getCreatedActiveMillis()
+                && grave.payloadRevision() == metadata.getPayloadRevision()
+                && Objects.equals(grave.payloadChecksum(), metadata.getPayloadChecksum());
+    }
+
+    private static void validatePayloadEncoding(GravePayloadEntity entity) {
+        if (entity.getPayloadCodec() != GravePayloadCodec.CODEC_VERSION) {
+            throw new IllegalStateException("Unsupported Graveyard payload codec " + entity.getPayloadCodec());
+        }
+        if (entity.isCompressed()) {
+            throw new IllegalStateException("Compressed Graveyard payloads are not supported");
+        }
+    }
+
+    private static boolean isFinalizedClaim(
+            GraveMetadataEntity metadata,
+            GravePayloadEntity payload,
+            GravePayload remaining,
+            EncodedGravePayload encodedRemaining,
+            GraveStatus finalStatus
+    ) {
+        return metadata != null
+                && payload != null
+                && metadata.getOperationToken() == null
+                && finalStatus.name().equals(metadata.getState())
+                && metadata.getPayloadRevision() == remaining.revision()
+                && metadata.getItemEntryCount() == remaining.entries().size()
+                && metadata.getRemainingExperience() == remaining.remainingExperience()
+                && Objects.equals(metadata.getPayloadChecksum(), encodedRemaining.checksum())
+                && pausedStateMatches(metadata, finalStatus)
+                && payload.getPayloadRevision() == remaining.revision()
+                && Objects.equals(payload.getPayloadChecksum(), encodedRemaining.checksum())
+                && Arrays.equals(payload.getPayload(), encodedRemaining.bytes());
+    }
+
+    private static boolean pausedStateMatches(GraveMetadataEntity metadata, GraveStatus finalStatus) {
+        if (finalStatus == GraveStatus.ORPHANED_WORLD || finalStatus == GraveStatus.DELIVERY_PENDING) {
+            return metadata.getPausedRemainingMillis() != null;
+        }
+        return metadata.getPausedRemainingMillis() == null;
     }
 
     private boolean ownsOperation(GraveMetadataEntity metadata, UUID operationToken) {

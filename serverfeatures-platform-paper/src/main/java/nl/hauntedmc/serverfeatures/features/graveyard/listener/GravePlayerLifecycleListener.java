@@ -59,9 +59,10 @@ public final class GravePlayerLifecycleListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRespawn(PlayerRespawnEvent event) {
         manager.onPlayerTransition(event.getPlayer());
+        manager.onPlayerRespawn(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onWorldUnload(WorldUnloadEvent event) {
         manager.onWorldUnload(event.getWorld());
     }

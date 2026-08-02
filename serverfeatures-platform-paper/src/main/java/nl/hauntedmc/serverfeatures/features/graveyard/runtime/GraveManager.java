@@ -61,8 +61,9 @@ import java.util.logging.Level;
  * Runtime authority for grave indexing, visibility, expiry and effectively-once claims.
  */
 public final class GraveManager implements GraveyardService {
-    public static final String CLAIM_OTHERS_PERMISSION =
-            "serverfeatures.feature.graveyard.claim.others";
+    public static final String ADMIN_PERMISSION = "serverfeatures.feature.graveyard.admin";
+    public static final String ADMIN_DELIVER_PERMISSION =
+            "serverfeatures.feature.graveyard.admin.deliver";
     public static final String INSPECT_PERMISSION =
             "serverfeatures.feature.graveyard.admin.inspect";
 
@@ -101,13 +102,21 @@ public final class GraveManager implements GraveyardService {
     private final Map<UUID, Map<UUID, GraveViewerState>> viewerStates = new HashMap<>();
     private final Map<Integer, InteractionHandle> interactionEntities = new ConcurrentHashMap<>();
     private final Set<UUID> activeOperations = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> activeOwnerOperations = ConcurrentHashMap.newKeySet();
+    private final Map<UUID, PendingOperationRelease> pendingOperationReleases = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> pendingWorldPauses = new ConcurrentHashMap<>();
+    private final Set<UUID> projectionInFlight = ConcurrentHashMap.newKeySet();
     private final Map<UUID, UUID> trackedGraves = new ConcurrentHashMap<>();
     private final Map<UUID, Long> unauthorizedMessageTimes = new ConcurrentHashMap<>();
 
     private final UUID leaseOwnerToken = UUID.randomUUID();
     private final String leaseScopeKey;
     private final AtomicBoolean mutable = new AtomicBoolean();
+    private final AtomicBoolean leaseRequestInFlight = new AtomicBoolean();
+    private final AtomicBoolean runtimeLoadInFlight = new AtomicBoolean();
+    private final AtomicBoolean runtimeLoadComplete = new AtomicBoolean();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
+    private volatile long nextRuntimeLoadAttemptMillis;
 
     public GraveManager(
             Graveyard feature,
@@ -132,18 +141,9 @@ public final class GraveManager implements GraveyardService {
 
     public void initialize() {
         recoverLocalJournals();
-        repository.loadRuntimeGraves(settings.serverId(), settings.inventoryScope())
-                .whenComplete((loaded, failure) -> runMain(() -> {
-                    if (failure != null) {
-                        feature.getLogger().log(Level.SEVERE, "Could not load persisted Graveyard graves.", failure);
-                        return;
-                    }
-                    for (Grave grave : loaded) {
-                        activate(grave);
-                    }
-                    initializeOnlinePlayers();
-                }));
-        acquireLease();
+        loadPersistedGraves();
+        initializeOnlinePlayers();
+        maintainLease();
         feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 this::tick,
                 BukkitTime.ticks(settings.reconciliationTicks()),
@@ -151,7 +151,7 @@ public final class GraveManager implements GraveyardService {
         );
         long heartbeatTicks = Math.max(20L, (settings.leaseHeartbeatMillis() + 49L) / 50L);
         feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
-                this::renewLease,
+                this::maintainLease,
                 BukkitTime.ticks(heartbeatTicks),
                 BukkitTime.ticks(heartbeatTicks)
         );
@@ -163,6 +163,10 @@ public final class GraveManager implements GraveyardService {
 
     public boolean isInteractionEntity(int entityId) {
         return interactionEntities.containsKey(entityId);
+    }
+
+    public void acceptAmbiguousCapture(CaptureJournalRecord record) {
+        unresolvedCaptures.put(record.operationToken(), record);
     }
 
     public void acceptCommittedCapture(CaptureJournalRecord record, GravePayload payload) {
@@ -196,7 +200,7 @@ public final class GraveManager implements GraveyardService {
             requestClaimForPlayer(grave, player, player, ClaimReason.PHYSICAL_INTERACTION, null);
             return;
         }
-        if (player.hasPermission(CLAIM_OTHERS_PERMISSION)) {
+        if (hasAdminPermission(player, ADMIN_DELIVER_PERMISSION)) {
             player.sendMessage(feature.getLocalizationHandler()
                     .getMessage("graveyard.staff_use_deliver")
                     .with("grave_id", grave.shortId())
@@ -252,7 +256,30 @@ public final class GraveManager implements GraveyardService {
         return ownerIndex.getOrDefault(ownerUuid, Set.of()).stream()
                 .map(graves::get)
                 .filter(java.util.Objects::nonNull)
-                .filter(grave -> grave.status().hasRecoverablePayload())
+                .filter(grave -> isOwnerListable(grave.status()))
+                .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
+                .map(grave -> grave.snapshot(activeNow))
+                .toList();
+    }
+
+    public List<GraveSnapshot> findByOwnerIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return List.of();
+        }
+        String normalized = identifier.trim();
+        UUID ownerUuid = null;
+        try {
+            ownerUuid = UUID.fromString(normalized);
+        } catch (IllegalArgumentException ignored) {
+            // Fall back to the last known owner name stored with the grave.
+        }
+        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        UUID resolvedUuid = ownerUuid;
+        return graves.values().stream()
+                .filter(grave -> isOwnerListable(grave.status()))
+                .filter(grave -> resolvedUuid == null
+                        ? grave.ownerName().equalsIgnoreCase(normalized)
+                        : grave.ownerUuid().equals(resolvedUuid))
                 .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
                 .map(grave -> grave.snapshot(activeNow))
                 .toList();
@@ -284,14 +311,27 @@ public final class GraveManager implements GraveyardService {
                 result.complete(result(graveId, GraveClaimOutcome.NOT_OWNER, "Owner mismatch"));
                 return;
             }
+            if (reason == null) {
+                result.complete(result(graveId, GraveClaimOutcome.NOT_CLAIMABLE, "Claim reason is required"));
+                return;
+            }
+            if (reason == ClaimReason.PHYSICAL_INTERACTION && !validatePhysicalInteraction(owner, grave)) {
+                result.complete(result(graveId, GraveClaimOutcome.NOT_CLAIMABLE, "Physical interaction is invalid"));
+                return;
+            }
             if (reason == ClaimReason.REMOTE_UNREACHABLE
                     && grave.placementType() != GravePlacementType.REMOTE_ONLY
-                    && grave.status() != GraveStatus.ORPHANED_WORLD) {
+                    && grave.status() != GraveStatus.ORPHANED_WORLD
+                    && grave.status() != GraveStatus.DELIVERY_PENDING) {
                 result.complete(result(
                         graveId,
                         GraveClaimOutcome.NOT_CLAIMABLE,
                         "This grave must be claimed at its location"
                 ));
+                return;
+            }
+            if (reason != ClaimReason.PHYSICAL_INTERACTION && reason != ClaimReason.REMOTE_UNREACHABLE) {
+                result.complete(result(graveId, GraveClaimOutcome.NOT_CLAIMABLE, "Internal claim reason"));
                 return;
             }
             requestClaimForPlayer(grave, owner, owner, reason, result);
@@ -302,8 +342,12 @@ public final class GraveManager implements GraveyardService {
     public CompletionStage<GraveClaimResult> deliver(Player actor, Grave grave) {
         CompletableFuture<GraveClaimResult> result = new CompletableFuture<>();
         runMain(() -> {
-            if (!actor.hasPermission(CLAIM_OTHERS_PERMISSION)) {
+            if (!hasAdminPermission(actor, ADMIN_DELIVER_PERMISSION)) {
                 result.complete(result(grave.graveId(), GraveClaimOutcome.NOT_OWNER, "No permission"));
+                return;
+            }
+            if (!canMutate()) {
+                result.complete(result(grave.graveId(), GraveClaimOutcome.FAILED, "Graveyard is read-only"));
                 return;
             }
             Player owner = Bukkit.getPlayer(grave.ownerUuid());
@@ -320,7 +364,12 @@ public final class GraveManager implements GraveyardService {
         return transitionAndApply(
                 actor,
                 grave,
-                EnumSet.of(GraveStatus.ACTIVE, GraveStatus.PARTIAL, GraveStatus.ORPHANED_WORLD),
+                EnumSet.of(
+                        GraveStatus.ACTIVE,
+                        GraveStatus.PARTIAL,
+                        GraveStatus.ORPHANED_WORLD,
+                        GraveStatus.DELIVERY_PENDING
+                ),
                 GraveStatus.EXPIRED,
                 "ADMIN_EXPIRED"
         );
@@ -328,17 +377,28 @@ public final class GraveManager implements GraveyardService {
 
     public CompletionStage<Boolean> restore(Player actor, Grave grave) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
+        if (!beginAdministrativeOperation(grave, result)) {
+            return result;
+        }
+        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        boolean worldAvailable = grave.location().resolve().isPresent();
         repository.restore(
                 grave,
                 actor == null ? null : actor.getUniqueId(),
-                feature.getPlugin().getServerActiveClock().nowMillis(),
-                settings.lifetimeMillis()
+                activeNow,
+                settings.lifetimeMillis(),
+                worldAvailable
         ).whenComplete((success, failure) -> runMain(() -> {
+            activeOperations.remove(grave.graveId());
             if (failure != null || !Boolean.TRUE.equals(success)) {
                 result.complete(false);
                 return;
             }
-            grave.restore(feature.getPlugin().getServerActiveClock().nowMillis(), settings.lifetimeMillis());
+            if (worldAvailable) {
+                grave.restore(activeNow, settings.lifetimeMillis());
+            } else {
+                grave.pause(settings.lifetimeMillis(), GraveStatus.ORPHANED_WORLD);
+            }
             activate(grave);
             result.complete(true);
         }));
@@ -347,8 +407,12 @@ public final class GraveManager implements GraveyardService {
 
     public CompletionStage<Boolean> purge(Player actor, Grave grave) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
+        if (!beginAdministrativeOperation(grave, result)) {
+            return result;
+        }
         repository.purge(grave, actor == null ? null : actor.getUniqueId())
                 .whenComplete((success, failure) -> runMain(() -> {
+                    activeOperations.remove(grave.graveId());
                     if (failure != null || !Boolean.TRUE.equals(success)) {
                         if (failure != null) {
                             feature.getLogger().log(
@@ -368,7 +432,11 @@ public final class GraveManager implements GraveyardService {
     }
 
     public boolean track(Player player, Grave grave) {
-        if (!grave.ownerUuid().equals(player.getUniqueId()) && !player.hasPermission(INSPECT_PERMISSION)) {
+        if (!isOwnerListable(grave.status())) {
+            return false;
+        }
+        if (!grave.ownerUuid().equals(player.getUniqueId())
+                && !hasAdminPermission(player, INSPECT_PERMISSION)) {
             return false;
         }
         trackedGraves.put(player.getUniqueId(), grave.graveId());
@@ -382,15 +450,20 @@ public final class GraveManager implements GraveyardService {
     public void onPlayerJoin(Player player) {
         recoverCaptureReceipt(player);
         recoverClaimReceipt(player);
-        GravesForOwner:
-        for (UUID graveId : ownerIndex.getOrDefault(player.getUniqueId(), Set.of())) {
-            Grave grave = graves.get(graveId);
-            if (grave != null && grave.status() == GraveStatus.DELIVERY_PENDING) {
-                requestClaimForPlayer(grave, player, player, ClaimReason.PENDING_DELIVERY, null);
-                break GravesForOwner;
-            }
-        }
+        tryNextPendingDelivery(player);
         reconcileViewer(player);
+    }
+
+    public void onPlayerRespawn(Player player) {
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            recoverCaptureReceipt(player);
+            recoverClaimReceipt(player);
+            tryNextPendingDelivery(player);
+            reconcileViewer(player);
+        }, BukkitTime.ticks(1L));
     }
 
     public void onPlayerQuit(Player player) {
@@ -410,28 +483,25 @@ public final class GraveManager implements GraveyardService {
     public void onWorldUnload(World world) {
         for (Grave grave : graves.values()) {
             if (grave.location().worldUuid().equals(world.getUID())) {
-                hideGrave(grave.graveId());
-                spatialIndex.remove(grave.graveId());
+                pauseForOrphanedWorld(grave);
             }
         }
     }
 
     public void onWorldLoad(World world) {
+        if (!canMutate()) {
+            return;
+        }
         long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
         for (Grave grave : graves.values()) {
             if (!grave.location().worldUuid().equals(world.getUID())
                     || !grave.location().worldKey().equals(world.getKey().asString())) {
                 continue;
             }
-            if (grave.status() == GraveStatus.ORPHANED_WORLD && grave.pausedRemainingMillis() != null) {
-                repository.resumeOrphaned(grave, activeNow).whenComplete((success, failure) -> runMain(() -> {
-                    if (failure != null || !Boolean.TRUE.equals(success)) {
-                        return;
-                    }
-                    grave.resume(activeNow);
-                    activate(grave);
-                    reconcileNearby(grave);
-                }));
+            if (grave.status() == GraveStatus.ORPHANED_WORLD
+                    && grave.pausedRemainingMillis() != null
+                    && !pendingWorldPauses.containsKey(grave.graveId())) {
+                resumeAvailableOrphan(grave, activeNow);
             } else if (grave.status().isVisible()) {
                 spatialIndex.put(grave);
                 reconcileNearby(grave);
@@ -441,32 +511,38 @@ public final class GraveManager implements GraveyardService {
 
     public CompletionStage<Boolean> relocate(Player actor, Grave grave, Location requested) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
+        if (!beginAdministrativeOperation(grave, result)) {
+            return result;
+        }
         Optional<nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementResult> placement =
                 placementService.validateRelocation(requested);
         if (placement.isEmpty()) {
+            activeOperations.remove(grave.graveId());
             result.complete(false);
             return result;
         }
         GraveLocation oldLocation = grave.location();
         var next = placement.get();
-        repository.relocate(grave, next.location(), next.type()).whenComplete((success, failure) -> runMain(() -> {
-            if (failure != null || !Boolean.TRUE.equals(success)) {
-                result.complete(false);
-                return;
-            }
-            spatialIndex.remove(grave.graveId());
-            hideGrave(grave.graveId());
-            grave.relocate(next.location(), next.type());
-            if (grave.status().isVisible()) {
-                spatialIndex.put(grave);
-                reconcileNearby(grave);
-            }
-            feature.getLogger().info(
-                    "Relocated grave " + grave.graveId() + " from " + oldLocation + " to " + next.location()
-                            + " by " + actor.getName()
-            );
-            result.complete(true);
-        }));
+        repository.relocate(grave, next.location(), next.type(), actor.getUniqueId())
+                .whenComplete((success, failure) -> runMain(() -> {
+                    activeOperations.remove(grave.graveId());
+                    if (failure != null || !Boolean.TRUE.equals(success)) {
+                        result.complete(false);
+                        return;
+                    }
+                    spatialIndex.remove(grave.graveId());
+                    hideGrave(grave.graveId());
+                    grave.relocate(next.location(), next.type());
+                    if (grave.status().isVisible()) {
+                        spatialIndex.put(grave);
+                        reconcileNearby(grave);
+                    }
+                    feature.getLogger().info(
+                            "Relocated grave " + grave.graveId() + " from " + oldLocation + " to " + next.location()
+                                    + " by " + actor.getName()
+                    );
+                    result.complete(true);
+                }));
         return result;
     }
 
@@ -487,6 +563,10 @@ public final class GraveManager implements GraveyardService {
                 + ", unprojected=" + unprojectedCaptures.size()
                 + ", unresolvedCaptures=" + unresolvedCaptures.size()
                 + ", pendingClaims=" + pendingClaims.size()
+                + ", unresolvedClaims=" + unresolvedClaims.size()
+                + ", pendingReleases=" + pendingOperationReleases.size()
+                + ", pendingWorldPauses=" + pendingWorldPauses.size()
+                + ", projections=" + projectionInFlight.size()
                 + ", activeOperations=" + activeOperations.size();
     }
 
@@ -516,7 +596,13 @@ public final class GraveManager implements GraveyardService {
             completeClaim(result, grave, GraveClaimOutcome.NOT_CLAIMABLE, 0, 0, 0, "Grave is not claimable");
             return;
         }
+        UUID ownerUuid = owner.getUniqueId();
+        if (hasPendingOwnerOperation(ownerUuid) || !activeOwnerOperations.add(ownerUuid)) {
+            completeClaim(result, grave, GraveClaimOutcome.BUSY, 0, 0, 0, "Owner claim already in progress");
+            return;
+        }
         if (!activeOperations.add(grave.graveId())) {
+            activeOwnerOperations.remove(ownerUuid);
             completeClaim(result, grave, GraveClaimOutcome.BUSY, 0, 0, 0, "Claim already in progress");
             return;
         }
@@ -526,14 +612,14 @@ public final class GraveManager implements GraveyardService {
                 .whenComplete((reserved, reserveFailure) -> {
                     if (reserveFailure != null || !Boolean.TRUE.equals(reserved)) {
                         runMain(() -> {
-                            activeOperations.remove(grave.graveId());
+                            releaseClaimLocks(grave, ownerUuid);
                             completeClaim(result, grave, GraveClaimOutcome.BUSY, 0, 0, 0, "Could not reserve grave");
                         });
                         return;
                     }
                     loadDecodedPayload(grave).whenComplete((payload, payloadFailure) -> runMain(() -> {
                         if (payloadFailure != null || payload == null) {
-                            releaseFailedClaim(grave, operationToken, result, payloadFailure);
+                            releaseFailedClaim(grave, ownerUuid, operationToken, result, payloadFailure);
                             return;
                         }
                         applyClaim(grave, owner, actor, reason, operationToken, payload, result);
@@ -551,25 +637,28 @@ public final class GraveManager implements GraveyardService {
             CompletableFuture<GraveClaimResult> result
     ) {
         if (!owner.isOnline()) {
-            releaseFailedClaim(grave, operationToken, result, null);
+            releaseFailedClaim(grave, owner.getUniqueId(), operationToken, result, null);
             return;
         }
         PlayerInventoryState beforeInventory = PlayerInventoryState.capture(owner);
         int beforeExperience = owner.calculateTotalExperiencePoints();
+        ClaimJournalRecord prepared = null;
+        boolean saveAttempted = false;
         try {
             ClaimTransferPlan plan = claimPlanner.plan(beforeInventory, payload);
             if (!plan.changed()) {
-                repository.releaseOperation(grave.graveId(), operationToken);
-                activeOperations.remove(grave.graveId());
-                completeClaim(
-                        result,
-                        grave,
-                        GraveClaimOutcome.NOTHING_FIT,
-                        0,
-                        payload.entries().size(),
-                        0,
-                        "No inventory space"
-                );
+                releaseReservedOperation(grave.graveId(), operationToken, () -> {
+                    releaseClaimLocks(grave, owner.getUniqueId());
+                    completeClaim(
+                            result,
+                            grave,
+                            GraveClaimOutcome.NOTHING_FIT,
+                            0,
+                            payload.entries().size(),
+                            0,
+                            "No inventory space"
+                    );
+                });
                 owner.sendMessage(feature.getLocalizationHandler()
                         .getMessage("graveyard.inventory_full")
                         .with("grave_id", grave.shortId())
@@ -579,7 +668,7 @@ public final class GraveManager implements GraveyardService {
             }
 
             EncodedGravePayload encodedRemaining = payloadCodec.encode(plan.remainingPayload());
-            ClaimJournalRecord prepared = new ClaimJournalRecord(
+            prepared = new ClaimJournalRecord(
                     operationToken,
                     ClaimJournalState.PREPARED,
                     grave.graveId(),
@@ -596,6 +685,7 @@ public final class GraveManager implements GraveyardService {
             if (plan.transferredExperience() > 0) {
                 owner.giveExp(plan.transferredExperience());
             }
+            saveAttempted = true;
             owner.saveData();
             ClaimJournalRecord applied = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
             try {
@@ -614,14 +704,79 @@ public final class GraveManager implements GraveyardService {
             hideGrave(grave.graveId());
             finalizeAppliedClaim(grave, owner, actor, payload, plan, applied, result, reason);
         } catch (IOException | RuntimeException exception) {
+            if (!saveAttempted) {
+                rollbackClaimBeforeSave(
+                        grave,
+                        owner,
+                        beforeInventory,
+                        beforeExperience,
+                        operationToken,
+                        prepared,
+                        payload,
+                        result,
+                        exception
+                );
+                return;
+            }
+            if (prepared != null) {
+                unresolvedClaims.put(operationToken, prepared);
+            }
+            hideGrave(grave.graveId());
+            releaseClaimLocks(grave, owner.getUniqueId());
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Claim " + operationToken + " reached the playerdata-save boundary; "
+                            + "it will be resolved from the receipt without rolling back inventory.",
+                    exception
+            );
+            owner.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("graveyard.claim_recovery_pending")
+                    .with("grave_id", grave.shortId())
+                    .forAudience(owner)
+                    .build());
+            completeClaim(
+                    result,
+                    grave,
+                    GraveClaimOutcome.RECOVERY_PENDING,
+                    prepared == null ? 0 : prepared.transferredEntries(),
+                    prepared == null ? payload.entries().size() : -1,
+                    prepared == null ? 0 : prepared.transferredExperience(),
+                    "Claim recovery pending"
+            );
+        }
+    }
+
+    private void rollbackClaimBeforeSave(
+            Grave grave,
+            Player owner,
+            PlayerInventoryState beforeInventory,
+            int beforeExperience,
+            UUID operationToken,
+            ClaimJournalRecord prepared,
+            GravePayload payload,
+            CompletableFuture<GraveClaimResult> result,
+            Throwable failure
+    ) {
+        try {
             beforeInventory.apply(owner);
             owner.setExperienceLevelAndProgress(beforeExperience);
             receipts.clearClaim(owner);
-            repository.releaseOperation(grave.graveId(), operationToken);
-            activeOperations.remove(grave.graveId());
-            feature.getLogger().log(Level.SEVERE, "Could not apply claim for grave " + grave.graveId(), exception);
-            completeClaim(result, grave, GraveClaimOutcome.FAILED, 0, payload.entries().size(), 0, "Claim failed");
+        } catch (RuntimeException rollbackFailure) {
+            failure.addSuppressed(rollbackFailure);
         }
+        releaseReservedOperation(grave.graveId(), operationToken, () -> {
+            if (prepared != null) {
+                try {
+                    journal.writeClaim(prepared.withState(ClaimJournalState.ABORTED));
+                    journal.deleteClaim(prepared.operationToken());
+                } catch (IOException journalFailure) {
+                    failure.addSuppressed(journalFailure);
+                }
+            }
+            releaseClaimLocks(grave, owner.getUniqueId());
+            feature.getLogger().log(Level.SEVERE, "Could not apply claim for grave " + grave.graveId(), failure);
+            completeClaim(result, grave, GraveClaimOutcome.FAILED, 0, payload.entries().size(), 0, "Claim failed");
+        });
     }
 
     private void finalizeAppliedClaim(
@@ -634,9 +789,7 @@ public final class GraveManager implements GraveyardService {
             CompletableFuture<GraveClaimResult> result,
             ClaimReason reason
     ) {
-        GraveStatus finalStatus = plan.remainingPayload().isEmpty()
-                ? GraveStatus.CLAIMED
-                : GraveStatus.PARTIAL;
+        GraveStatus finalStatus = claimFinalStatus(grave, plan.remainingPayload());
         repository.finalizeClaim(
                 grave,
                 journalRecord.operationToken(),
@@ -655,13 +808,11 @@ public final class GraveManager implements GraveyardService {
                                 + "the recovery journal will retry it.",
                         failure
                 );
-                activeOperations.remove(grave.graveId());
+                releaseClaimLocks(grave, owner.getUniqueId());
                 completeClaim(
                         result,
                         grave,
-                        finalStatus == GraveStatus.CLAIMED
-                                ? GraveClaimOutcome.CLAIMED
-                                : GraveClaimOutcome.PARTIAL,
+                        GraveClaimOutcome.RECOVERY_PENDING,
                         plan.transferredEntries(),
                         plan.remainingPayload().entries().size(),
                         plan.transferredExperience(),
@@ -691,10 +842,13 @@ public final class GraveManager implements GraveyardService {
             ClaimReason reason
     ) {
         grave.updatePayload(remaining, journalRecord.remainingPayload().checksum(), finalStatus);
+        if (finalStatus == GraveStatus.ORPHANED_WORLD) {
+            pendingWorldPauses.remove(grave.graveId());
+        }
         payloadCache.put(grave.graveId(), remaining);
         pendingClaims.remove(journalRecord.operationToken());
         unresolvedClaims.remove(journalRecord.operationToken());
-        activeOperations.remove(grave.graveId());
+        releaseClaimLocks(grave, owner.getUniqueId());
         receipts.clearClaim(owner);
         try {
             owner.saveData();
@@ -712,9 +866,11 @@ public final class GraveManager implements GraveyardService {
             spatialIndex.remove(grave.graveId());
             trackedGraves.values().removeIf(grave.graveId()::equals);
             playEffect(grave, settings.claimParticle(), settings.claimSound(), 24);
-        } else {
+        } else if (finalStatus.isVisible()) {
             spatialIndex.put(grave);
             reconcileNearby(grave);
+        } else {
+            spatialIndex.remove(grave.graveId());
         }
         owner.sendMessage(feature.getLocalizationHandler()
                 .getMessage(finalStatus == GraveStatus.CLAIMED
@@ -735,6 +891,9 @@ public final class GraveManager implements GraveyardService {
                 journalRecord.transferredExperience(),
                 reason.name()
         );
+        if (finalStatus == GraveStatus.CLAIMED) {
+            tryNextPendingDelivery(owner);
+        }
     }
 
     private void queuePendingDelivery(
@@ -742,6 +901,10 @@ public final class GraveManager implements GraveyardService {
             Grave grave,
             CompletableFuture<GraveClaimResult> result
     ) {
+        if (!canMutate() || !activeOperations.add(grave.graveId())) {
+            result.complete(result(grave.graveId(), GraveClaimOutcome.BUSY, "Grave is busy or read-only"));
+            return;
+        }
         long remaining = grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
         repository.pauseForState(
                 grave,
@@ -751,6 +914,7 @@ public final class GraveManager implements GraveyardService {
                 actor.getUniqueId(),
                 "DELIVERY_PENDING"
         ).whenComplete((success, failure) -> runMain(() -> {
+            activeOperations.remove(grave.graveId());
             if (failure != null || !Boolean.TRUE.equals(success)) {
                 result.complete(result(grave.graveId(), GraveClaimOutcome.FAILED, "Could not queue delivery"));
                 return;
@@ -758,7 +922,7 @@ public final class GraveManager implements GraveyardService {
             grave.pause(remaining, GraveStatus.DELIVERY_PENDING);
             hideGrave(grave.graveId());
             spatialIndex.remove(grave.graveId());
-            result.complete(result(grave.graveId(), GraveClaimOutcome.CLAIMED, "Delivery queued"));
+            result.complete(result(grave.graveId(), GraveClaimOutcome.DELIVERY_QUEUED, "Delivery queued"));
         }));
     }
 
@@ -770,6 +934,9 @@ public final class GraveManager implements GraveyardService {
             String action
     ) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
+        if (!beginAdministrativeOperation(grave, result)) {
+            return result;
+        }
         repository.transitionState(
                 grave,
                 expected,
@@ -778,6 +945,7 @@ public final class GraveManager implements GraveyardService {
                 action,
                 null
         ).whenComplete((success, failure) -> runMain(() -> {
+            activeOperations.remove(grave.graveId());
             if (failure != null || !Boolean.TRUE.equals(success)) {
                 result.complete(false);
                 return;
@@ -788,6 +956,7 @@ public final class GraveManager implements GraveyardService {
                 spatialIndex.remove(grave.graveId());
             }
             if (target == GraveStatus.EXPIRED) {
+                trackedGraves.values().removeIf(grave.graveId()::equals);
                 playEffect(grave, settings.expiryParticle(), settings.expirySound(), 32);
             }
             result.complete(true);
@@ -800,12 +969,18 @@ public final class GraveManager implements GraveyardService {
         if (cached != null && cached.revision() == grave.payloadRevision()) {
             return CompletableFuture.completedFuture(cached);
         }
-        return repository.loadPayload(grave.graveId()).thenApply(encoded -> {
+        return repository.loadPayload(grave).thenApply(encoded -> {
             if (encoded.isEmpty()) {
                 throw new IllegalStateException("Missing payload for grave " + grave.graveId());
             }
             try {
                 GravePayload payload = payloadCodec.decode(encoded.get().bytes(), encoded.get().checksum());
+                if (payload.revision() != grave.payloadRevision()) {
+                    throw new IOException(
+                            "Grave payload revision mismatch: expected " + grave.payloadRevision()
+                                    + " but decoded " + payload.revision()
+                    );
+                }
                 payloadCache.put(grave.graveId(), payload);
                 return payload;
             } catch (IOException exception) {
@@ -816,29 +991,67 @@ public final class GraveManager implements GraveyardService {
 
     private void releaseFailedClaim(
             Grave grave,
+            UUID ownerUuid,
             UUID operationToken,
             CompletableFuture<GraveClaimResult> result,
             Throwable failure
     ) {
         boolean corruptPayload = isCorruptPayloadFailure(failure);
-        repository.releaseOperation(grave.graveId(), operationToken)
-                .whenComplete((released, releaseFailure) -> {
-                    activeOperations.remove(grave.graveId());
-                    if (releaseFailure != null) {
-                        feature.getLogger().log(
-                                Level.SEVERE,
-                                "Could not release failed grave operation " + operationToken,
-                                releaseFailure
-                        );
-                    }
-                    if (corruptPayload && releaseFailure == null && Boolean.TRUE.equals(released)) {
-                        quarantineCorruptPayload(grave, failure);
-                    }
-                });
+        releaseReservedOperation(grave.graveId(), operationToken, () -> {
+            releaseClaimLocks(grave, ownerUuid);
+            if (corruptPayload) {
+                quarantineCorruptPayload(grave, failure);
+            }
+        });
         if (failure != null) {
             feature.getLogger().log(Level.SEVERE, "Could not load grave payload " + grave.graveId(), failure);
         }
         completeClaim(result, grave, GraveClaimOutcome.FAILED, 0, grave.itemEntryCount(), 0, "Claim failed");
+    }
+
+    private void releaseReservedOperation(UUID graveId, UUID operationToken, Runnable completion) {
+        PendingOperationRelease pending = new PendingOperationRelease(operationToken, completion);
+        pendingOperationReleases.put(graveId, pending);
+        repository.releaseOperation(graveId, operationToken).whenComplete((released, failure) -> runMain(() -> {
+            if (failure != null || !Boolean.TRUE.equals(released)) {
+                if (failure != null) {
+                    feature.getLogger().log(
+                            Level.SEVERE,
+                            "Could not release grave operation " + operationToken + "; it will be retried.",
+                            failure
+                    );
+                }
+                return;
+            }
+            if (pendingOperationReleases.remove(graveId, pending)) {
+                completion.run();
+            }
+        }));
+    }
+
+    private void retryPendingOperationReleases() {
+        for (Map.Entry<UUID, PendingOperationRelease> entry : List.copyOf(pendingOperationReleases.entrySet())) {
+            UUID graveId = entry.getKey();
+            PendingOperationRelease pending = entry.getValue();
+            repository.releaseOperation(graveId, pending.operationToken())
+                    .whenComplete((released, failure) -> runMain(() -> {
+                        if (failure == null
+                                && Boolean.TRUE.equals(released)
+                                && pendingOperationReleases.remove(graveId, pending)) {
+                            pending.completion().run();
+                        }
+                    }));
+        }
+    }
+
+    private void releaseClaimLocks(Grave grave, UUID ownerUuid) {
+        activeOperations.remove(grave.graveId());
+        activeOwnerOperations.remove(ownerUuid);
+    }
+
+    private boolean hasPendingOwnerOperation(UUID ownerUuid) {
+        return pendingClaims.values().stream().anyMatch(record -> record.ownerUuid().equals(ownerUuid))
+                || unresolvedClaims.values().stream().anyMatch(record -> record.ownerUuid().equals(ownerUuid));
     }
 
     private void quarantineCorruptPayload(Grave grave, Throwable failure) {
@@ -874,7 +1087,11 @@ public final class GraveManager implements GraveyardService {
             String message = current.getMessage();
             if (message != null
                     && (message.startsWith("Corrupt payload")
-                    || message.startsWith("Missing payload"))) {
+                    || message.startsWith("Missing payload")
+                    || message.startsWith("Unsupported Graveyard payload codec")
+                    || message.startsWith("Compressed Graveyard payload")
+                    || message.startsWith("Graveyard payload metadata mismatch")
+                    || message.startsWith("Grave payload revision mismatch"))) {
                 return true;
             }
             current = current.getCause();
@@ -907,55 +1124,163 @@ public final class GraveManager implements GraveyardService {
         return new GraveClaimResult(graveId, outcome, 0, 0, 0, message);
     }
 
-    private void acquireLease() {
-        repository.acquireLease(leaseScopeKey, leaseOwnerToken, settings.leaseDurationMillis())
-                .whenComplete((acquired, failure) -> {
-                    if (failure != null || !Boolean.TRUE.equals(acquired)) {
-                        mutable.set(false);
-                        feature.getLogger().log(
-                                Level.SEVERE,
-                                "Graveyard could not acquire the instance lease for " + leaseScopeKey
-                                        + "; deaths will retain vanilla behaviour.",
-                                failure
-                        );
-                        return;
-                    }
-                    mutable.set(true);
-                    feature.getLogger().info("Acquired Graveyard instance lease for " + leaseScopeKey);
-                });
-    }
-
-    private void renewLease() {
-        if (shuttingDown.get()) {
+    private void maintainLease() {
+        if (shuttingDown.get() || !leaseRequestInFlight.compareAndSet(false, true)) {
             return;
         }
-        repository.renewLease(leaseScopeKey, leaseOwnerToken, settings.leaseDurationMillis())
-                .whenComplete((renewed, failure) -> {
-                    if (failure != null || !Boolean.TRUE.equals(renewed)) {
-                        if (mutable.getAndSet(false)) {
-                            feature.getLogger().log(
-                                    Level.SEVERE,
-                                    "Graveyard lost its instance lease; all mutations are now disabled.",
-                                    failure
-                            );
-                        }
-                    } else {
-                        mutable.set(true);
-                    }
-                });
+        CompletionStage<Boolean> request = mutable.get()
+                ? repository.renewLease(leaseScopeKey, leaseOwnerToken, settings.leaseDurationMillis())
+                : repository.acquireLease(leaseScopeKey, leaseOwnerToken, settings.leaseDurationMillis());
+        request.whenComplete((success, failure) -> {
+            leaseRequestInFlight.set(false);
+            if (failure != null || !Boolean.TRUE.equals(success)) {
+                if (mutable.getAndSet(false)) {
+                    feature.getLogger().log(
+                            Level.SEVERE,
+                            "Graveyard lost its instance lease; all mutations are disabled until it is reacquired.",
+                            failure
+                    );
+                }
+                return;
+            }
+            boolean newlyAcquired = !mutable.getAndSet(true);
+            if (newlyAcquired) {
+                feature.getLogger().info("Acquired Graveyard instance lease for " + leaseScopeKey);
+                clearAbandonedOperations();
+            }
+        });
+    }
+
+    private void clearAbandonedOperations() {
+        Set<UUID> preserved = new HashSet<>();
+        pendingClaims.values().forEach(record -> preserved.add(record.operationToken()));
+        unresolvedClaims.values().forEach(record -> preserved.add(record.operationToken()));
+        try {
+            preserved.addAll(journal.quarantinedClaimTokens());
+        } catch (IOException exception) {
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Could not inspect quarantined Graveyard claim journals; stale reservations will not be cleared.",
+                    exception
+            );
+            return;
+        }
+        long cutoff = System.currentTimeMillis() - settings.leaseDurationMillis();
+        repository.clearAbandonedOperations(
+                settings.serverId(),
+                settings.inventoryScope(),
+                cutoff,
+                preserved
+        ).whenComplete((cleared, failure) -> {
+            if (failure != null) {
+                feature.getLogger().log(Level.SEVERE, "Could not clear abandoned Graveyard operations.", failure);
+            } else if (cleared != null && cleared > 0) {
+                feature.getLogger().warning("Cleared " + cleared + " abandoned Graveyard operation reservations.");
+            }
+        });
     }
 
     private void tick() {
         if (shuttingDown.get()) {
             return;
         }
+        loadPersistedGraves();
+        pauseUnavailableWorlds();
+        retryPendingWorldPauses();
+        resumeAvailableOrphans();
         expireDueGraves();
         retryUnprojectedCaptures();
+        retryPendingOperationReleases();
+        retryUnresolvedClaimSavesForOnlineOwners();
         retryPendingClaimsForOnlineOwners();
         for (Player player : Bukkit.getOnlinePlayers()) {
             reconcileViewer(player);
             updateTracking(player);
         }
+    }
+
+    private void pauseUnavailableWorlds() {
+        for (Grave grave : graves.values()) {
+            if (EXPIRABLE_STATES.contains(grave.status())
+                    && grave.placementType() != GravePlacementType.REMOTE_ONLY
+                    && grave.location().resolve().isEmpty()) {
+                pauseForOrphanedWorld(grave);
+            }
+        }
+    }
+
+    private void retryPendingWorldPauses() {
+        if (!canMutate()) {
+            return;
+        }
+        for (Map.Entry<UUID, Long> entry : List.copyOf(pendingWorldPauses.entrySet())) {
+            Grave grave = graves.get(entry.getKey());
+            if (grave == null || grave.status() != GraveStatus.ORPHANED_WORLD) {
+                pendingWorldPauses.remove(entry.getKey(), entry.getValue());
+                continue;
+            }
+            if (!activeOperations.add(grave.graveId())) {
+                continue;
+            }
+            repository.pauseForState(
+                    grave,
+                    EXPIRABLE_STATES,
+                    GraveStatus.ORPHANED_WORLD,
+                    entry.getValue(),
+                    null,
+                    "WORLD_UNAVAILABLE"
+            ).whenComplete((success, failure) -> runMain(() -> {
+                activeOperations.remove(grave.graveId());
+                if (failure == null && Boolean.TRUE.equals(success)) {
+                    pendingWorldPauses.remove(grave.graveId(), entry.getValue());
+                }
+            }));
+        }
+    }
+
+    private void resumeAvailableOrphans() {
+        if (!canMutate()) {
+            return;
+        }
+        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        for (Grave grave : graves.values()) {
+            if (grave.status() != GraveStatus.ORPHANED_WORLD
+                    || grave.pausedRemainingMillis() == null
+                    || pendingWorldPauses.containsKey(grave.graveId())
+                    || grave.location().resolve().isEmpty()) {
+                continue;
+            }
+            resumeAvailableOrphan(grave, activeNow);
+        }
+    }
+
+    private void resumeAvailableOrphan(Grave grave, long activeNow) {
+        CaptureJournalRecord local = unprojectedCaptures.get(grave.graveId());
+        if (local != null) {
+            grave.resume(activeNow);
+            try {
+                journal.writeCapture(local);
+            } catch (IOException exception) {
+                grave.pause(grave.remainingActiveMillis(activeNow), GraveStatus.ORPHANED_WORLD);
+                feature.getLogger().log(Level.SEVERE, "Could not resume journal-backed grave.", exception);
+                return;
+            }
+            activate(grave);
+            reconcileNearby(grave);
+            return;
+        }
+        if (!activeOperations.add(grave.graveId())) {
+            return;
+        }
+        repository.resumeOrphaned(grave, activeNow).whenComplete((success, failure) -> runMain(() -> {
+            activeOperations.remove(grave.graveId());
+            if (failure != null || !Boolean.TRUE.equals(success)) {
+                return;
+            }
+            grave.resume(activeNow);
+            activate(grave);
+            reconcileNearby(grave);
+        }));
     }
 
     private void expireDueGraves() {
@@ -987,6 +1312,7 @@ public final class GraveManager implements GraveyardService {
                 grave.setStatus(GraveStatus.EXPIRED);
                 hideGrave(grave.graveId());
                 spatialIndex.remove(grave.graveId());
+                trackedGraves.values().removeIf(grave.graveId()::equals);
                 playEffect(grave, settings.expiryParticle(), settings.expirySound(), 32);
             }));
         }
@@ -1053,7 +1379,7 @@ public final class GraveManager implements GraveyardService {
         }
         return !grave.ownerWasVanished()
                 || grave.ownerUuid().equals(viewer.getUniqueId())
-                || viewer.hasPermission(INSPECT_PERMISSION);
+                || hasAdminPermission(viewer, INSPECT_PERMISSION);
     }
 
     private void ensureShown(Grave grave, Player viewer) {
@@ -1168,6 +1494,54 @@ public final class GraveManager implements GraveyardService {
         }
         trackedGraves.values().removeIf(grave.graveId()::equals);
         activeOperations.remove(grave.graveId());
+        pendingWorldPauses.remove(grave.graveId());
+        projectionInFlight.remove(grave.graveId());
+    }
+
+    private void pauseForOrphanedWorld(Grave grave) {
+        hideGrave(grave.graveId());
+        spatialIndex.remove(grave.graveId());
+        if (!EXPIRABLE_STATES.contains(grave.status())) {
+            return;
+        }
+        long remaining = grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
+        GraveStatus previousStatus = grave.status();
+        CaptureJournalRecord local = unprojectedCaptures.get(grave.graveId());
+        if (local != null) {
+            grave.pause(remaining, GraveStatus.ORPHANED_WORLD);
+            try {
+                journal.writeCapture(local);
+            } catch (IOException exception) {
+                feature.getLogger().log(
+                        Level.SEVERE,
+                        "Could not persist orphaned state for journal-backed grave " + grave.graveId(),
+                        exception
+                );
+            }
+            return;
+        }
+        if (!canMutate()) {
+            return;
+        }
+        grave.pause(remaining, GraveStatus.ORPHANED_WORLD);
+        pendingWorldPauses.put(grave.graveId(), remaining);
+        if (!activeOperations.add(grave.graveId())) {
+            return;
+        }
+        repository.pauseForState(
+                grave,
+                EnumSet.of(previousStatus),
+                GraveStatus.ORPHANED_WORLD,
+                remaining,
+                null,
+                "WORLD_UNAVAILABLE"
+        ).whenComplete((success, failure) -> runMain(() -> {
+            activeOperations.remove(grave.graveId());
+            if (failure != null || !Boolean.TRUE.equals(success)) {
+                return;
+            }
+            pendingWorldPauses.remove(grave.graveId());
+        }));
     }
 
     private void activate(Grave grave) {
@@ -1179,21 +1553,22 @@ public final class GraveManager implements GraveyardService {
         shortIds.put(normalizeShortId(grave.shortId()), grave.graveId());
         ownerIndex.computeIfAbsent(grave.ownerUuid(), ignored -> ConcurrentHashMap.newKeySet())
                 .add(grave.graveId());
-        if (grave.status().isVisible()
-                && grave.placementType() != GravePlacementType.REMOTE_ONLY
-                && grave.location().resolve().isPresent()) {
-            spatialIndex.put(grave);
-        } else if (grave.status().isVisible() && grave.location().resolve().isEmpty()) {
-            grave.pause(
-                    grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis()),
-                    GraveStatus.ORPHANED_WORLD
-            );
+        if (grave.status().isVisible() && grave.placementType() != GravePlacementType.REMOTE_ONLY) {
+            if (grave.location().resolve().isPresent()) {
+                spatialIndex.put(grave);
+            } else {
+                pauseForOrphanedWorld(grave);
+            }
         }
     }
 
     private void projectCapture(CaptureJournalRecord record) {
+        if (!canMutate() || !projectionInFlight.add(record.grave().graveId())) {
+            return;
+        }
         repository.saveCaptured(record.grave(), record.payload())
                 .whenComplete((ignored, failure) -> {
+                    projectionInFlight.remove(record.grave().graveId());
                     if (failure != null) {
                         feature.getLogger().log(
                                 Level.WARNING,
@@ -1253,83 +1628,129 @@ public final class GraveManager implements GraveyardService {
 
     private void recoverCaptureReceipt(Player player) {
         Optional<PlayerOperationReceiptService.Receipt> receipt = receipts.capture(player);
+        UUID protectedToken = null;
         if (receipt.isPresent()) {
-            CaptureJournalRecord record = unresolvedCaptures.remove(receipt.get().operationToken());
+            protectedToken = receipt.get().operationToken();
+            CaptureJournalRecord record = unresolvedCaptures.get(protectedToken);
             if (record != null && record.grave().graveId().equals(receipt.get().graveId())) {
                 try {
+                    GravePayload payload = payloadCodec.decode(
+                            record.payload().bytes(),
+                            record.payload().checksum()
+                    );
                     CaptureJournalRecord committed = record.withState(CaptureJournalState.COMMITTED);
                     journal.writeCapture(committed);
-                    GravePayload payload = payloadCodec.decode(
-                            committed.payload().bytes(),
-                            committed.payload().checksum()
-                    );
+                    unresolvedCaptures.remove(record.operationToken(), record);
                     acceptCommittedCapture(committed, payload);
-                } catch (IOException exception) {
+                    clearCaptureReceipt(player);
+                } catch (IOException | RuntimeException exception) {
                     feature.getLogger().log(Level.SEVERE, "Could not recover committed grave capture.", exception);
+                    return;
                 }
+            } else {
+                clearCaptureReceipt(player);
+                protectedToken = null;
             }
-            receipts.clearCapture(player);
-            player.saveData();
         }
 
         for (CaptureJournalRecord record : List.copyOf(unresolvedCaptures.values())) {
-            if (!record.grave().ownerUuid().equals(player.getUniqueId())) {
+            if (!record.grave().ownerUuid().equals(player.getUniqueId())
+                    || record.operationToken().equals(protectedToken)) {
                 continue;
             }
-            unresolvedCaptures.remove(record.operationToken());
             try {
                 journal.writeCapture(record.withState(CaptureJournalState.ABORTED));
                 journal.deleteCapture(record.grave().graveId());
+                unresolvedCaptures.remove(record.operationToken(), record);
             } catch (IOException exception) {
                 feature.getLogger().warning("Could not clean aborted capture " + record.grave().graveId());
             }
         }
     }
 
+    private void clearCaptureReceipt(Player player) {
+        receipts.clearCapture(player);
+        savePlayerDataSafely(player, "capture receipt cleanup");
+    }
+
     private void recoverClaimReceipt(Player player) {
         Optional<PlayerOperationReceiptService.Receipt> receipt = receipts.claim(player);
         if (receipt.isEmpty()) {
-            abortUnappliedClaims(player);
+            abortUnappliedClaims(player, null);
             return;
         }
-        ClaimJournalRecord record = pendingClaims.get(receipt.get().operationToken());
+        UUID operationToken = receipt.get().operationToken();
+        ClaimJournalRecord record = pendingClaims.get(operationToken);
         if (record == null) {
-            ClaimJournalRecord prepared = unresolvedClaims.remove(receipt.get().operationToken());
+            ClaimJournalRecord prepared = unresolvedClaims.get(operationToken);
             if (prepared != null && prepared.graveId().equals(receipt.get().graveId())) {
-                record = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
+                ClaimJournalRecord applied = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
                 try {
-                    journal.writeClaim(record);
+                    journal.writeClaim(applied);
                 } catch (IOException exception) {
-                    unresolvedClaims.put(prepared.operationToken(), prepared);
                     feature.getLogger().log(Level.SEVERE, "Could not promote recovered claim journal.", exception);
                     return;
                 }
-                pendingClaims.put(record.operationToken(), record);
+                unresolvedClaims.remove(operationToken, prepared);
+                pendingClaims.put(operationToken, applied);
+                record = applied;
             }
         }
         if (record == null || !record.graveId().equals(receipt.get().graveId())) {
             receipts.clearClaim(player);
-            player.saveData();
+            savePlayerDataSafely(player, "stale claim receipt cleanup");
+            abortUnappliedClaims(player, null);
             return;
         }
         retryPendingClaim(record, player);
-        abortUnappliedClaims(player);
+        abortUnappliedClaims(player, operationToken);
     }
 
-    private void abortUnappliedClaims(Player player) {
+    private void abortUnappliedClaims(Player player, UUID protectedToken) {
         for (ClaimJournalRecord unresolved : List.copyOf(unresolvedClaims.values())) {
-            if (!unresolved.ownerUuid().equals(player.getUniqueId())) {
+            if (!unresolved.ownerUuid().equals(player.getUniqueId())
+                    || unresolved.operationToken().equals(protectedToken)) {
                 continue;
             }
-            unresolvedClaims.remove(unresolved.operationToken());
-            repository.releaseOperation(unresolved.graveId(), unresolved.operationToken());
-            try {
-                journal.writeClaim(unresolved.withState(ClaimJournalState.ABORTED));
-                journal.deleteClaim(unresolved.operationToken());
-            } catch (IOException exception) {
-                feature.getLogger().warning("Could not clean unapplied claim journal "
-                        + unresolved.operationToken());
+            releaseReservedOperation(unresolved.graveId(), unresolved.operationToken(), () -> {
+                try {
+                    journal.writeClaim(unresolved.withState(ClaimJournalState.ABORTED));
+                    journal.deleteClaim(unresolved.operationToken());
+                    unresolvedClaims.remove(unresolved.operationToken(), unresolved);
+                } catch (IOException exception) {
+                    feature.getLogger().warning(
+                            "Could not clean unapplied claim journal " + unresolved.operationToken()
+                    );
+                }
+            });
+        }
+    }
+
+    private void retryUnresolvedClaimSavesForOnlineOwners() {
+        for (ClaimJournalRecord prepared : List.copyOf(unresolvedClaims.values())) {
+            Player owner = Bukkit.getPlayer(prepared.ownerUuid());
+            if (owner == null || !owner.isOnline()) {
+                continue;
             }
+            Optional<PlayerOperationReceiptService.Receipt> receipt = receipts.claim(owner);
+            if (receipt.isEmpty() || !receipt.get().operationToken().equals(prepared.operationToken())) {
+                continue;
+            }
+            if (!activeOwnerOperations.add(owner.getUniqueId())) {
+                continue;
+            }
+            try {
+                owner.saveData();
+                ClaimJournalRecord applied = prepared.withState(ClaimJournalState.PLAYER_APPLIED);
+                journal.writeClaim(applied);
+                unresolvedClaims.remove(prepared.operationToken(), prepared);
+                pendingClaims.put(applied.operationToken(), applied);
+            } catch (IOException | RuntimeException exception) {
+                activeOwnerOperations.remove(owner.getUniqueId());
+                continue;
+            }
+            activeOwnerOperations.remove(owner.getUniqueId());
+            retryPendingClaim(pendingClaims.get(prepared.operationToken()), owner);
         }
     }
 
@@ -1343,28 +1764,35 @@ public final class GraveManager implements GraveyardService {
     }
 
     private void retryPendingClaim(ClaimJournalRecord record, Player owner) {
+        if (record == null) {
+            return;
+        }
         Grave grave = graves.get(record.graveId());
-        if (grave == null || activeOperations.contains(grave.graveId())) {
+        if (grave == null || !activeOwnerOperations.add(owner.getUniqueId())) {
+            return;
+        }
+        if (!activeOperations.add(grave.graveId())) {
+            activeOwnerOperations.remove(owner.getUniqueId());
             return;
         }
         Optional<PlayerOperationReceiptService.Receipt> receipt = receipts.claim(owner);
         if (receipt.isEmpty() || !receipt.get().operationToken().equals(record.operationToken())) {
-            pendingClaims.remove(record.operationToken());
-            repository.releaseOperation(record.graveId(), record.operationToken());
-            try {
-                journal.writeClaim(record.withState(ClaimJournalState.ABORTED));
-                journal.deleteClaim(record.operationToken());
-            } catch (IOException exception) {
-                feature.getLogger().warning("Could not clean unapplied claim journal " + record.operationToken());
-            }
+            releaseReservedOperation(record.graveId(), record.operationToken(), () -> {
+                try {
+                    journal.writeClaim(record.withState(ClaimJournalState.ABORTED));
+                    journal.deleteClaim(record.operationToken());
+                    pendingClaims.remove(record.operationToken(), record);
+                } catch (IOException exception) {
+                    feature.getLogger().warning("Could not clean unapplied claim journal " + record.operationToken());
+                } finally {
+                    releaseClaimLocks(grave, owner.getUniqueId());
+                }
+            });
             return;
         }
-        if (!activeOperations.add(grave.graveId())) {
-            return;
-        }
-        repository.loadPayload(grave.graveId()).whenComplete((currentEncoded, failure) -> {
+        repository.loadPayloadForRecovery(grave.graveId()).whenComplete((currentEncoded, failure) -> {
             if (failure != null || currentEncoded.isEmpty()) {
-                activeOperations.remove(grave.graveId());
+                runMain(() -> releaseClaimLocks(grave, owner.getUniqueId()));
                 return;
             }
             try {
@@ -1376,7 +1804,14 @@ public final class GraveManager implements GraveyardService {
                         record.remainingPayload().bytes(),
                         record.remainingPayload().checksum()
                 );
-                GraveStatus finalStatus = remaining.isEmpty() ? GraveStatus.CLAIMED : GraveStatus.PARTIAL;
+                if (previous.revision() != record.previousRevision()
+                        && previous.revision() != remaining.revision()) {
+                    throw new IOException(
+                            "Unexpected durable payload revision " + previous.revision()
+                                    + " for recovery operation " + record.operationToken()
+                    );
+                }
+                GraveStatus finalStatus = claimFinalStatus(grave, remaining);
                 repository.finalizeClaim(
                         grave,
                         record.operationToken(),
@@ -1388,17 +1823,10 @@ public final class GraveManager implements GraveyardService {
                         record.transferredEntries(),
                         record.transferredExperience()
                 ).whenComplete((success, finalizeFailure) -> runMain(() -> {
-                    activeOperations.remove(grave.graveId());
                     if (finalizeFailure != null || !Boolean.TRUE.equals(success)) {
+                        releaseClaimLocks(grave, owner.getUniqueId());
                         return;
                     }
-                    ClaimTransferPlan recoveredPlan = new ClaimTransferPlan(
-                            PlayerInventoryState.capture(owner),
-                            remaining,
-                            record.transferredEntries(),
-                            record.transferredExperience(),
-                            true
-                    );
                     completeFinalizedClaim(
                             grave,
                             owner,
@@ -1410,10 +1838,42 @@ public final class GraveManager implements GraveyardService {
                     );
                 }));
             } catch (IOException exception) {
-                activeOperations.remove(grave.graveId());
+                runMain(() -> releaseClaimLocks(grave, owner.getUniqueId()));
                 feature.getLogger().log(Level.SEVERE, "Could not decode pending claim recovery.", exception);
             }
         });
+    }
+
+    private void tryNextPendingDelivery(Player owner) {
+        if (!owner.isOnline()
+                || activeOwnerOperations.contains(owner.getUniqueId())
+                || hasPendingOwnerOperation(owner.getUniqueId())) {
+            return;
+        }
+        ownerIndex.getOrDefault(owner.getUniqueId(), Set.of()).stream()
+                .map(graves::get)
+                .filter(java.util.Objects::nonNull)
+                .filter(grave -> grave.status() == GraveStatus.DELIVERY_PENDING)
+                .min(Comparator.comparingLong(Grave::createdWallMillis))
+                .ifPresent(grave -> requestClaimForPlayer(
+                        grave,
+                        owner,
+                        owner,
+                        ClaimReason.PENDING_DELIVERY,
+                        null
+                ));
+    }
+
+    private void savePlayerDataSafely(Player player, String operation) {
+        try {
+            player.saveData();
+        } catch (RuntimeException exception) {
+            feature.getLogger().log(
+                    Level.WARNING,
+                    "Could not persist Graveyard " + operation + " for " + player.getName(),
+                    exception
+            );
+        }
     }
 
     private void reconcileNearby(Grave grave) {
@@ -1433,6 +1893,35 @@ public final class GraveManager implements GraveyardService {
         }
     }
 
+    private void loadPersistedGraves() {
+        if (runtimeLoadComplete.get()
+                || shuttingDown.get()
+                || System.currentTimeMillis() < nextRuntimeLoadAttemptMillis
+                || !runtimeLoadInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        repository.loadRuntimeGraves(settings.serverId(), settings.inventoryScope())
+                .whenComplete((loaded, failure) -> runMain(() -> {
+                    runtimeLoadInFlight.set(false);
+                    if (failure != null) {
+                        nextRuntimeLoadAttemptMillis = System.currentTimeMillis() + 10_000L;
+                        feature.getLogger().log(
+                                Level.WARNING,
+                                "Could not load persisted Graveyard graves; retrying in 10 seconds.",
+                                failure
+                        );
+                        return;
+                    }
+                    for (Grave grave : loaded) {
+                        if (!unprojectedCaptures.containsKey(grave.graveId())) {
+                            activate(grave);
+                        }
+                    }
+                    runtimeLoadComplete.set(true);
+                    initializeOnlinePlayers();
+                }));
+    }
+
     private boolean validatePhysicalInteraction(Player player, Grave grave) {
         Optional<Location> location = grave.location().resolve();
         if (location.isEmpty()
@@ -1449,7 +1938,7 @@ public final class GraveManager implements GraveyardService {
         if (grave.ownerUuid().equals(viewer.getUniqueId())) {
             return settings.ownerGlowRgb();
         }
-        if (viewer.hasPermission(INSPECT_PERMISSION)) {
+        if (hasAdminPermission(viewer, INSPECT_PERMISSION)) {
             return settings.staffGlowRgb();
         }
         return settings.otherGlowRgb();
@@ -1472,7 +1961,7 @@ public final class GraveManager implements GraveyardService {
             return;
         }
         Grave grave = graves.get(graveId);
-        if (grave == null || !grave.status().hasRecoverablePayload()) {
+        if (grave == null || !isOwnerListable(grave.status())) {
             trackedGraves.remove(player.getUniqueId());
             return;
         }
@@ -1538,12 +2027,45 @@ public final class GraveManager implements GraveyardService {
         return shortId == null ? "" : shortId.trim().toUpperCase(Locale.ROOT);
     }
 
+    private boolean beginAdministrativeOperation(Grave grave, CompletableFuture<Boolean> result) {
+        if (!canMutate() || !activeOperations.add(grave.graveId())) {
+            result.complete(false);
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean hasAdminPermission(Player player, String childPermission) {
+        return player.hasPermission(ADMIN_PERMISSION) || player.hasPermission(childPermission);
+    }
+
+    private static boolean isOwnerListable(GraveStatus status) {
+        return status == GraveStatus.ACTIVE
+                || status == GraveStatus.PARTIAL
+                || status == GraveStatus.ORPHANED_WORLD
+                || status == GraveStatus.DELIVERY_PENDING;
+    }
+
+    private static GraveStatus claimFinalStatus(Grave grave, GravePayload remaining) {
+        if (remaining.isEmpty()) {
+            return GraveStatus.CLAIMED;
+        }
+        return switch (grave.status()) {
+            case ORPHANED_WORLD -> GraveStatus.ORPHANED_WORLD;
+            case DELIVERY_PENDING -> GraveStatus.DELIVERY_PENDING;
+            default -> GraveStatus.PARTIAL;
+        };
+    }
+
     private void runMain(Runnable action) {
         if (Bukkit.isPrimaryThread()) {
             action.run();
         } else if (!shuttingDown.get()) {
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(action);
         }
+    }
+
+    private record PendingOperationRelease(UUID operationToken, Runnable completion) {
     }
 
     private record InteractionHandle(UUID graveId, long generation) {

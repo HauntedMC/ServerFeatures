@@ -118,6 +118,7 @@ public final class GravePlacementService {
                 || !head.isPassable()
                 || !support.getType().isSolid()
                 || LastSafeLocationTracker.isHazard(feet.getType())
+                || LastSafeLocationTracker.isHazard(head.getType())
                 || LastSafeLocationTracker.isHazard(support.getType())) {
             return Optional.empty();
         }
@@ -134,12 +135,18 @@ public final class GravePlacementService {
                     continue;
                 }
                 Location stand = grave.clone().add(x, 0.0, z);
+                World world = stand.getWorld();
+                if (world == null || !world.isChunkLoaded(stand.getBlockX() >> 4, stand.getBlockZ() >> 4)) {
+                    continue;
+                }
                 Block feet = stand.getBlock();
                 Block head = stand.clone().add(0.0, 1.0, 0.0).getBlock();
                 Block support = stand.clone().add(0.0, -0.1, 0.0).getBlock();
                 if (feet.isPassable()
                         && head.isPassable()
                         && support.getType().isSolid()
+                        && !LastSafeLocationTracker.isHazard(feet.getType())
+                        && !LastSafeLocationTracker.isHazard(head.getType())
                         && !LastSafeLocationTracker.isHazard(support.getType())) {
                     return true;
                 }

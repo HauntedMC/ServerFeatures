@@ -30,6 +30,11 @@ public final class GraveInteractionPacketListener extends PacketListenerAbstract
             return;
         }
         event.setCancelled(true);
+        WrapperPlayClientInteractEntity.InteractAction action = wrapper.getAction();
+        if (action != WrapperPlayClientInteractEntity.InteractAction.INTERACT
+                && action != WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT) {
+            return;
+        }
         Object rawPlayer = event.getPlayer();
         if (!(rawPlayer instanceof Player player)) {
             return;

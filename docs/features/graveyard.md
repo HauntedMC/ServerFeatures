@@ -31,7 +31,7 @@ All player commands require `serverfeatures.feature.graveyard.use`. Subcommands 
 | `/grave locate <id>` | `.command.locate` | Shows the grave location. Physical graves still require a valid nearby interaction to claim. |
 | `/grave track <id>` | `.command.track` | Selects a grave for periodic actionbar distance and remaining-time feedback. |
 | `/grave track off` | `.command.track` | Stops grave tracking. |
-| `/grave claim <id>` | `.command.remoteclaim` | Claims only graves explicitly marked `REMOTE_ONLY` or `ORPHANED_WORLD`. |
+| `/grave claim <id>` | `.command.remoteclaim` | Claims graves marked `REMOTE_ONLY`, `ORPHANED_WORLD`, or `DELIVERY_PENDING`. |
 | `/grave admin list <player>` | `.admin.list` | Lists known graves for an online or resolvable player. |
 | `/grave admin info <id>` | `.admin.inspect` | Shows detailed grave diagnostics. |
 | `/grave admin teleport <id>` | `.admin.teleport` | Teleports a player sender to the grave's resolved world location. |
@@ -52,6 +52,7 @@ serverfeatures.feature.graveyard.command.locate
 serverfeatures.feature.graveyard.command.track
 serverfeatures.feature.graveyard.command.remoteclaim
 serverfeatures.feature.graveyard.keepinventory
+serverfeatures.feature.graveyard.admin
 serverfeatures.feature.graveyard.admin.list
 serverfeatures.feature.graveyard.admin.inspect
 serverfeatures.feature.graveyard.admin.teleport
@@ -63,7 +64,7 @@ serverfeatures.feature.graveyard.admin.purge
 serverfeatures.feature.graveyard.admin.diagnostics
 ```
 
-`keepinventory` is checked independently and is not implied by a broad Graveyard administrator node. It retains inventory and level, creates no grave, and suppresses normal drops.
+`serverfeatures.feature.graveyard.admin` implies every administrative child command. `keepinventory` is checked independently and is not implied by the administrator node. It retains inventory and level, creates no grave, and suppresses normal drops.
 
 ## Configuration reference
 
@@ -73,14 +74,14 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 |---|---:|---|
 | `enabled` | `false` | Enables feature initialization. |
 | `mode` | `ACTIVE` | `ACTIVE` mutates deaths; `OBSERVE` validates and logs captures without changing the event or creating graves. |
-| `identity.server_id` | Bukkit server name | Stable backend identity used in persistence and the writer lease. |
+| `identity.server_id` | global `server_name` | Stable backend identity used in persistence and the writer lease. |
 | `identity.inventory_scope` | server name | Prevents delivery into an unrelated gamemode inventory. |
 | `identity.lease_heartbeat` | `5s` | Single-writer lease renewal interval. |
 | `identity.lease_timeout` | `20s` | Lease freshness window. Loss switches mutation paths to fail-closed/read-only behaviour. |
-| `journal.maximum_record_size` | `8388608` | Maximum local capture or claim record size. |
-| `payload.maximum_entries` | `64` | Defensive payload item-entry limit. |
-| `payload.maximum_item_size` | `2097152` | Maximum serialized bytes for one item entry. |
-| `payload.maximum_total_size` | `8388608` | Maximum encoded payload size. |
+| `storage.journal.maximum_record_bytes` | `12000000` | Maximum local capture or claim record size. |
+| `storage.payload.maximum_entries` | `64` | Defensive payload item-entry limit. |
+| `storage.payload.maximum_item_bytes` | `2097152` | Maximum serialized bytes for one item entry. |
+| `storage.payload.maximum_total_bytes` | `8388608` | Maximum encoded payload size. |
 | `lifetime.duration` | `30m` | Lifetime measured by the plugin-scoped active-server clock, not wall time. |
 | `eligibility.disabled_worlds` | empty | Case-insensitive world names or namespaced world keys excluded from Graveyard. |
 | `eligibility.disabled_gamemodes` | `CREATIVE`, `SPECTATOR` | Game modes that retain normal death behaviour. |
@@ -92,12 +93,13 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 | `render.spawn_distance` | `48` | Inclusive spawn distance. |
 | `render.despawn_distance` | `56` | Despawn distance; clamped not lower than spawn distance to provide hysteresis. |
 | `render.reconciliation_interval_ticks` | `20` | Central viewer reconciliation period; no task is created per grave. |
+| `render.spawn_settle_delay_ticks` | `2` | Delay before rebuilding a viewer after world/teleport transitions. |
 | `render.max_rendered_per_viewer` | `64` | Visual cap only; own and nearest graves are prioritized and storage is unaffected. |
 | `render.base.material` | `POLISHED_BLACKSTONE_BRICK_SLAB` | Virtual base block-display material. |
 | `render.headstone.material` | `POLISHED_BLACKSTONE_BRICK_WALL` | Virtual headstone block-display material. |
-| `render.glow.owner_color` | `#55FFFF` | Per-viewer owner glow override. |
-| `render.glow.staff_color` | `#FFD700` | Staff glow override. |
-| `render.glow.other_color` | `#00AAAA` | Ordinary-viewer glow override. |
+| `render.glow.owner_rgb` | `55FFFF` | Per-viewer owner glow override. |
+| `render.glow.staff_rgb` | `FFD700` | Staff glow override. |
+| `render.glow.other_rgb` | `00AAAA` | Ordinary-viewer glow override. |
 | `interaction.maximum_distance` | `4.5` | Server-side interaction-distance limit. |
 | `interaction.require_line_of_sight` | `true` | Rechecks line of sight before a packet interaction can claim. |
 | `claim.partial_claims` | `true` | Keeps overflow entries in the grave. When disabled, an insufficient inventory returns `NOTHING_FIT`. |
@@ -138,7 +140,7 @@ Consequences:
 
 ## Persistence
 
-Connection: feature-owned `ormConnection`, MySQL, access policy `player_data_rw`.
+Connection: feature-owned `graveyardOrm`, MySQL, access policy `player_data_rw`.
 
 Entities/tables:
 
@@ -197,7 +199,7 @@ Graves persist both world UUID and namespaced key. A matching key with a differe
 
 ## Staff delivery
 
-Staff never receive another player's grave contents. `admin deliver` either performs the normal claim against the online owner or changes the grave to `DELIVERY_PENDING`. Pending delivery pauses normal interaction and is retried when the owner joins the same inventory scope. All state-changing staff actions append an audit row with actor, grave, old/new state, and payload counts.
+Staff never receive another player's grave contents. `admin deliver` either performs the normal claim against the online owner or changes the grave to `DELIVERY_PENDING`. Pending delivery pauses normal interaction, is retried when the owner joins the same inventory scope, and can also be requested manually by the owner through `/grave claim <id>` after freeing inventory space. All state-changing staff actions append an audit row with actor, grave, old/new state, and payload counts.
 
 ## Failure modes
 
@@ -230,4 +232,4 @@ Shutdown stops captures and interactions, destroys every visible packet entity, 
 
 ## Test coverage and acceptance
 
-Automated tests cover duration parsing, spatial reindexing/removal, atomic journal round-trips, state transitions, and corrupt-record quarantine. The production acceptance pass should additionally exercise ordinary/void/lava deaths, retained and vanishing items, full-inventory partial claims, duplicate interaction packets, restart at each journal boundary, database outage, world reset, staff online/offline delivery, vanished owners, feature reload, and absence of ghost displays.
+Automated tests cover duration parsing, spatial reindexing/removal, capture and claim journal round-trips, corrupt-record quarantine/token preservation, payload checksum/schema validation, retained-item reconstruction, partial/all-or-nothing claim planning, stack limits, and paused-state resume behaviour. The production acceptance pass should additionally exercise ordinary/void/lava deaths, retained and vanishing items, full-inventory partial claims, duplicate interaction packets, restart at each journal boundary, database outage, world reset, staff online/offline delivery, vanished owners, feature reload, and absence of ghost displays.

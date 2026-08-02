@@ -12,8 +12,11 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public final class GravePayloadCodec {
@@ -31,6 +34,10 @@ public final class GravePayloadCodec {
     }
 
     public GraveItemEntry createEntry(UUID entryId, int preferredSlot, ItemStack item) throws IOException {
+        if (entryId == null || item == null || item.getType().isAir() || item.getAmount() <= 0) {
+            throw new IOException("Grave item entry is empty or incomplete");
+        }
+        validatePreferredSlot(preferredSlot);
         byte[] serialized = item.serializeAsBytes();
         validateItemSize(serialized.length);
         return new GraveItemEntry(entryId, preferredSlot, serialized);
@@ -50,9 +57,13 @@ public final class GravePayloadCodec {
     }
 
     public EncodedGravePayload encode(GravePayload payload) throws IOException {
+        if (payload == null) {
+            throw new IOException("Grave payload is missing");
+        }
         if (payload.entries().size() > maximumEntries) {
             throw new IOException("Grave payload contains too many entries: " + payload.entries().size());
         }
+        Set<UUID> entryIds = new HashSet<>(payload.entries().size());
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (DataOutputStream output = new DataOutputStream(bytes)) {
             output.writeInt(MAGIC);
@@ -60,11 +71,16 @@ public final class GravePayloadCodec {
             output.writeLong(payload.revision());
             output.writeInt(payload.entries().size());
             for (GraveItemEntry entry : payload.entries()) {
+                if (entry == null || !entryIds.add(entry.entryId())) {
+                    throw new IOException("Grave payload contains a missing or duplicate entry id");
+                }
+                validatePreferredSlot(entry.preferredSlot());
                 output.writeLong(entry.entryId().getMostSignificantBits());
                 output.writeLong(entry.entryId().getLeastSignificantBits());
                 output.writeInt(entry.preferredSlot());
                 byte[] item = entry.serializedItem();
                 validateItemSize(item.length);
+                decodeItem(entry);
                 output.writeInt(item.length);
                 output.write(item);
             }
@@ -78,11 +94,17 @@ public final class GravePayloadCodec {
     }
 
     public GravePayload decode(byte[] encoded, String expectedChecksum) throws IOException {
+        if (encoded == null || encoded.length == 0) {
+            throw new IOException("Grave payload is empty");
+        }
         if (encoded.length > maximumPayloadBytes) {
             throw new IOException("Grave payload exceeds maximum size: " + encoded.length);
         }
         String actualChecksum = checksum(encoded);
-        if (!MessageDigest.isEqual(actualChecksum.getBytes(), expectedChecksum.getBytes())) {
+        if (expectedChecksum == null || !MessageDigest.isEqual(
+                actualChecksum.getBytes(StandardCharsets.US_ASCII),
+                expectedChecksum.getBytes(StandardCharsets.US_ASCII)
+        )) {
             throw new IOException("Grave payload checksum mismatch");
         }
         try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(encoded))) {
@@ -99,15 +121,22 @@ public final class GravePayloadCodec {
                 throw new IOException("Invalid Graveyard payload entry count " + count);
             }
             List<GraveItemEntry> entries = new ArrayList<>(count);
+            Set<UUID> entryIds = new HashSet<>(count);
             for (int index = 0; index < count; index++) {
                 UUID entryId = new UUID(input.readLong(), input.readLong());
+                if (!entryIds.add(entryId)) {
+                    throw new IOException("Duplicate Graveyard payload entry id " + entryId);
+                }
                 int preferredSlot = input.readInt();
+                validatePreferredSlot(preferredSlot);
                 int itemLength = input.readInt();
                 validateItemSize(itemLength);
-                entries.add(new GraveItemEntry(entryId, preferredSlot, input.readNBytes(itemLength)));
-                if (entries.getLast().serializedItem().length != itemLength) {
+                GraveItemEntry entry = new GraveItemEntry(entryId, preferredSlot, input.readNBytes(itemLength));
+                if (entry.serializedItem().length != itemLength) {
                     throw new IOException("Truncated Graveyard item payload");
                 }
+                decodeItem(entry);
+                entries.add(entry);
             }
             int experience = input.readInt();
             if (experience < 0 || input.available() != 0) {
@@ -124,6 +153,12 @@ public final class GravePayloadCodec {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
         } catch (NoSuchAlgorithmException exception) {
             throw new IOException("SHA-256 is unavailable", exception);
+        }
+    }
+
+    private static void validatePreferredSlot(int preferredSlot) throws IOException {
+        if (preferredSlot < -1 || preferredSlot > 40) {
+            throw new IOException("Invalid grave preferred slot " + preferredSlot);
         }
     }
 

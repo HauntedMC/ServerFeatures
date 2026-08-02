@@ -76,8 +76,11 @@ public final class GraveClaimPlanner {
         }
         ItemStack current = state.get(slot);
         if (current == null) {
-            state.set(slot, remainder);
-            remainder.setAmount(0);
+            int moved = Math.min(remainder.getAmount(), remainder.getMaxStackSize());
+            ItemStack inserted = remainder.clone();
+            inserted.setAmount(moved);
+            state.set(slot, inserted);
+            remainder.setAmount(remainder.getAmount() - moved);
             return;
         }
         merge(current, remainder);
