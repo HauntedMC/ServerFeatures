@@ -6,6 +6,7 @@ public final class AutoPickupPlayerState {
     private boolean enabled;
     private boolean persisted = true;
     private long playerId;
+    private long writeRevision;
     private long generation;
     private long lastFullNoticeNanos = Long.MIN_VALUE;
     private CommandIntent pendingCommand;
@@ -40,6 +41,17 @@ public final class AutoPickupPlayerState {
 
     public void playerId(long playerId) {
         this.playerId = playerId;
+    }
+
+    public long writeRevision() {
+        return writeRevision;
+    }
+
+    public void writeRevision(long writeRevision) {
+        if (writeRevision < 0L) {
+            throw new IllegalArgumentException("writeRevision cannot be negative");
+        }
+        this.writeRevision = writeRevision;
     }
 
     public long generation() {
