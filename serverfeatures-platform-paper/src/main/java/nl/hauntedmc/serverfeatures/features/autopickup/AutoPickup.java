@@ -66,6 +66,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         defaults.put("persistence.retry.attempts", 3);
         defaults.put("persistence.retry.initial-delay-millis", 250L);
         defaults.put("persistence.retry.maximum-delay-millis", 2000L);
+        defaults.put("persistence.join-recheck-delay-millis", 3000L);
         defaults.put("persistence.shutdown-drain-timeout-millis", 1000L);
         defaults.put("diagnostics.warning-cooldown-millis", 30000L);
         return defaults;
