@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDe
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
+import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisualizer;
@@ -30,7 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Owns virtual display entities that exist only in one player's client.
@@ -40,8 +40,6 @@ final class PacketDisplayRenderer {
 
     private static final int MAX_RENDER_DISTANCE = 512;
     private static final int MAX_RENDER_ENTITIES = 4096;
-    private static final int ENTITY_ID_RESET_THRESHOLD = 1_500_000_000;
-    private static final AtomicInteger NEXT_ENTITY_ID = new AtomicInteger(Integer.MAX_VALUE - 100_000);
 
     private final WorldEditVisualizer feature;
     private Map<VisualKind, List<EntityData<?>>> metadata;
@@ -308,7 +306,7 @@ final class PacketDisplayRenderer {
             VisualKind kind,
             List<EntityData<?>> entityMetadata
     ) {
-        int entityId = nextEntityId();
+        int entityId = SpigotReflectionUtil.generateEntityId(player.getWorld());
         UUID playerId = player.getUniqueId();
         long unsignedEntityId = Integer.toUnsignedLong(entityId);
         UUID uuid = new UUID(
@@ -406,16 +404,6 @@ final class PacketDisplayRenderer {
     private static boolean isWithinWorld(World world, VisualPoint point) {
         return point.y() >= world.getMinHeight() - 2.0
                 && point.y() <= world.getMaxHeight() + 4.0;
-    }
-
-    private static int nextEntityId() {
-        while (true) {
-            int current = NEXT_ENTITY_ID.getAndDecrement();
-            if (current >= ENTITY_ID_RESET_THRESHOLD) {
-                return current;
-            }
-            NEXT_ENTITY_ID.compareAndSet(current - 1, Integer.MAX_VALUE - 100_000);
-        }
     }
 
     private static double finiteAtLeast(double value, double minimum, double fallback) {
