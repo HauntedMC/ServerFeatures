@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.TrackedSpawnerMob;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
@@ -155,8 +156,13 @@ public final class LimitSpawnersHandler {
     }
 
     public void updateTrackedLocation(Entity entity) {
+        updateTrackedLocation(entity, entity.getLocation());
+    }
+
+    public void updateTrackedLocation(Entity entity, Location destination) {
+        EntityChunkKey destinationChunk = EntityChunkKey.of(destination);
         registry.get(entity.getUniqueId()).ifPresent(record -> {
-            TrackedSpawnerMob relocated = record.relocate(EntityChunkKey.of(entity.getLocation()));
+            TrackedSpawnerMob relocated = record.relocate(destinationChunk);
             if (!relocated.equals(record)) {
                 registry.put(relocated);
                 dirty = true;
@@ -207,6 +213,7 @@ public final class LimitSpawnersHandler {
             unloadingNow.add(entity.getUniqueId());
         }
         markTemporarilyUnloading(unloadingNow);
+        flushIfDirty();
     }
 
     public void handleWorldUnload(World world) {
@@ -227,10 +234,6 @@ public final class LimitSpawnersHandler {
      */
     public int currentAliveCount(SpawnerKey spawner) {
         return registry.count(spawner);
-    }
-
-    int trackedEntityCount() {
-        return registry.size();
     }
 
     private void handleRemovalCheck(UUID entityId) {
