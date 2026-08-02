@@ -76,10 +76,7 @@ public final class AutoPickupBlockDropListener implements Listener {
                 feature.reportTransferFailure(player, exception);
                 if (exception.rollbackFailed()) {
                     feature.preferences().disableForSession(player);
-                    player.sendMessage(feature.getLocalizationHandler()
-                            .getMessage("autopickup.session_disabled")
-                            .forAudience(player)
-                            .build());
+                    feature.sendPlayerMessage(player, "autopickup.session_disabled");
                 }
                 return;
             }
