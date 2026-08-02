@@ -146,24 +146,55 @@ public final class AutoPickupTransferCommitter {
                           ItemStack[] originalStorage,
                           List<Item> originalEventItems,
                           Map<Item, ItemStack> originalStacks) {
-        inventory.setStorageContents(cloneExactArray(originalStorage));
-        event.getItems().clear();
-        event.getItems().addAll(originalEventItems);
-        for (Item item : originalEventItems) {
-            item.setItemStack(cloneExact(originalStacks.get(item)));
+        RuntimeException failure = null;
+        try {
+            inventory.setStorageContents(cloneExactArray(originalStorage));
+        } catch (RuntimeException exception) {
+            failure = appendFailure(failure, exception);
         }
 
-        if (!sameStorage(inventory.getStorageContents(), originalStorage)) {
-            throw new IllegalStateException("AutoPickup inventory rollback verification failed");
+        try {
+            event.getItems().clear();
+            event.getItems().addAll(originalEventItems);
+        } catch (RuntimeException exception) {
+            failure = appendFailure(failure, exception);
         }
-        if (!sameIdentityOrder(event.getItems(), originalEventItems)) {
-            throw new IllegalStateException("AutoPickup event-list rollback verification failed");
+
+        for (Item item : originalEventItems) {
+            try {
+                item.setItemStack(cloneExact(originalStacks.get(item)));
+            } catch (RuntimeException exception) {
+                failure = appendFailure(failure, exception);
+            }
         }
-        verifyStacks(
-                originalEventItems,
-                originalStacks,
-                "AutoPickup item-stack rollback verification failed"
-        );
+
+        try {
+            if (!sameStorage(inventory.getStorageContents(), originalStorage)) {
+                throw new IllegalStateException("AutoPickup inventory rollback verification failed");
+            }
+        } catch (RuntimeException exception) {
+            failure = appendFailure(failure, exception);
+        }
+        try {
+            if (!sameIdentityOrder(event.getItems(), originalEventItems)) {
+                throw new IllegalStateException("AutoPickup event-list rollback verification failed");
+            }
+        } catch (RuntimeException exception) {
+            failure = appendFailure(failure, exception);
+        }
+        try {
+            verifyStacks(
+                    originalEventItems,
+                    originalStacks,
+                    "AutoPickup item-stack rollback verification failed"
+            );
+        } catch (RuntimeException exception) {
+            failure = appendFailure(failure, exception);
+        }
+
+        if (failure != null) {
+            throw new IllegalStateException("AutoPickup rollback was incomplete", failure);
+        }
     }
 
     private Map<Item, ItemStack> snapshotStacks(List<Item> items) {
@@ -227,6 +258,14 @@ public final class AutoPickupTransferCommitter {
             }
         }
         return false;
+    }
+
+    private static RuntimeException appendFailure(RuntimeException current, RuntimeException additional) {
+        if (current == null) {
+            return additional;
+        }
+        current.addSuppressed(additional);
+        return current;
     }
 
     private static ItemStack[] cloneExactArray(ItemStack[] source) {
