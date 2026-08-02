@@ -97,7 +97,7 @@ class AutoPickupTransferCommitterTest {
     }
 
     @Test
-    void rollbackContinuesRestoringEventStateWhenInventoryRestoreFails() {
+    void rollbackCompletesEventCommitWhenInventoryRestoreFails() {
         InventoryHarness inventory = inventory(new ItemStack[36], 2);
         ItemHarness dropped = droppedItem(item(Material.DIAMOND, 3));
         FailOnceRemoveList eventItems = new FailOnceRemoveList();
@@ -115,9 +115,8 @@ class AutoPickupTransferCommitterTest {
         );
 
         assertTrue(failure.rollbackFailed());
-        assertEquals(1, eventItems.size());
-        assertSame(dropped.entity(), eventItems.getFirst());
-        assertEquals(3, dropped.stack().get().getAmount());
+        assertEquals(3, countItems(inventory.contents().get()));
+        assertEquals(0, eventItems.size());
     }
 
     @Test
