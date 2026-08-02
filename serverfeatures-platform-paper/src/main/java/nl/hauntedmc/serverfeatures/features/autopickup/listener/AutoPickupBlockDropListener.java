@@ -33,19 +33,24 @@ public final class AutoPickupBlockDropListener implements Listener {
         List<Item> eligibleItems = new ArrayList<>();
         List<ItemStack> offeredStacks = new ArrayList<>();
         for (Item item : event.getItems()) {
-            if (!feature.originClassifier().eligible(
-                    event.getBlockState(),
-                    item,
-                    feature.settings().dropScope()
-            )) {
-                continue;
+            try {
+                if (!feature.originClassifier().eligible(
+                        event.getBlockState(),
+                        item,
+                        feature.settings().dropScope()
+                )) {
+                    continue;
+                }
+                ItemStack offered = AutoPickupTransferPlanner.cloneOrNull(item.getItemStack());
+                if (offered == null) {
+                    continue;
+                }
+                eligibleItems.add(item);
+                offeredStacks.add(offered);
+            } catch (RuntimeException exception) {
+                // This item remains untouched on the ground; other valid drops may still be collected.
+                feature.reportTransferFailure(player, exception);
             }
-            ItemStack offered = AutoPickupTransferPlanner.cloneOrNull(item.getItemStack());
-            if (offered == null) {
-                continue;
-            }
-            eligibleItems.add(item);
-            offeredStacks.add(offered);
         }
         if (eligibleItems.isEmpty()) {
             return;
