@@ -17,18 +17,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.IntFunction;
 
-/**
- * Renders WorldEdit cuboid selections with player-scoped fake block changes.
- *
- * <p>No Bukkit entities or real blocks are ever created. Every rendered position is restored from
- * the authoritative world block data when the selection changes, the player disables the feature,
- * loses permission, changes world, disconnects, or the feature shuts down.</p>
- */
+/** Player-scoped WorldEdit cuboid rendering using fake block-change packets only. */
 public final class VisualizationService {
 
     private static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
@@ -57,8 +51,7 @@ public final class VisualizationService {
     }
 
     public boolean enable(Player player) {
-        UUID playerId = player.getUniqueId();
-        boolean changed = enabled.add(playerId);
+        boolean changed = enabled.add(player.getUniqueId());
         clear(player);
         renderSelection(player, true);
         return changed;
@@ -77,31 +70,24 @@ public final class VisualizationService {
 
     public void pollSelections() {
         pollSequence++;
-        if (enabled.isEmpty()) {
-            return;
-        }
-
         for (UUID playerId : new ArrayList<>(enabled)) {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) {
                 enabled.remove(playerId);
                 visualizations.remove(playerId);
-                continue;
-            }
-            if (!player.hasPermission(USE_PERMISSION)) {
+            } else if (!player.hasPermission(USE_PERMISSION)) {
                 disable(player);
-                continue;
+            } else {
+                renderSelection(player, false);
             }
-            renderSelection(player, false);
         }
     }
 
     public void clear(Player player) {
         PlayerVisualization previous = visualizations.remove(player.getUniqueId());
-        if (previous == null || !previous.worldId().equals(player.getWorld().getUID())) {
-            return;
+        if (previous != null && previous.worldId().equals(player.getWorld().getUID())) {
+            restore(player, previous.renderedPositions());
         }
-        restore(player, previous.renderedPositions());
     }
 
     public void shutdown() {
@@ -129,45 +115,34 @@ public final class VisualizationService {
 
         SelectionSnapshot snapshot = read.snapshot();
         PlayerVisualization previous = visualizations.get(player.getUniqueId());
-        int resendPolls = resendPolls();
         boolean unchanged = previous != null && previous.snapshot().equals(snapshot);
-        boolean resendDue = previous == null || pollSequence - previous.lastSentPoll() >= resendPolls;
+        boolean resendDue = previous == null
+                || pollSequence - previous.lastSentPoll() >= resendPolls();
         if (unchanged && !resendDue) {
             return;
         }
-
         if (previous != null) {
             restore(player, previous.renderedPositions());
         }
 
-        RenderPalette palette = palette();
-        int configuredStep = Math.max(1, feature.getInt("edge.step_blocks", 1));
+        int step = Math.max(1, feature.getInt("edge.step_blocks", 1));
         int budget = Math.max(MIN_RENDER_BUDGET, feature.getInt("render.max_blocks", 2048));
         int maxDistance = Math.max(16, feature.getInt("render.max_distance_blocks", 192));
-
-        Set<BlockPosition> wireframe = CuboidWireframe.sample(
-                snapshot.minimum(), snapshot.maximum(), configuredStep, budget
+        Set<BlockPosition> positions = CuboidWireframe.sample(
+                snapshot.minimum(), snapshot.maximum(), step, budget
         );
-        Map<BlockPosition, BlockData> blocks = classify(
-                wireframe, snapshot.pos1(), snapshot.pos2(), palette
-        );
-        Set<BlockPosition> sent = send(player, blocks, maxDistance);
-
+        Set<BlockPosition> sent = send(player, classify(positions, snapshot, palette()), maxDistance);
         visualizations.put(player.getUniqueId(), new PlayerVisualization(
-                snapshot,
-                player.getWorld().getUID(),
-                sent,
-                pollSequence
+                snapshot, player.getWorld().getUID(), sent, pollSequence
         ));
     }
 
     private SelectionRead readSelection(Player player) {
-        var actor = BukkitAdapter.adapt(player);
-        var session = WorldEdit.getInstance().getSessionManager().getIfPresent(actor);
+        var session = WorldEdit.getInstance().getSessionManager()
+                .getIfPresent(BukkitAdapter.adapt(player));
         if (session == null) {
             return SelectionRead.noSelection();
         }
-
         Region region;
         try {
             region = session.getSelection(BukkitAdapter.adapt(player.getWorld()));
@@ -177,31 +152,26 @@ public final class VisualizationService {
         if (!(region instanceof CuboidRegion cuboid)) {
             return SelectionRead.notCuboid();
         }
-
         return SelectionRead.valid(new SelectionSnapshot(
-                player.getWorld().getUID(),
-                cuboid.getMinimumPoint(),
-                cuboid.getMaximumPoint(),
-                cuboid.getPos1(),
-                cuboid.getPos2()
+                player.getWorld().getUID(), cuboid.getMinimumPoint(), cuboid.getMaximumPoint(),
+                cuboid.getPos1(), cuboid.getPos2()
         ));
     }
 
     private Map<BlockPosition, BlockData> classify(
-            Set<BlockPosition> positions,
-            BlockVector3 pos1,
-            BlockVector3 pos2,
-            RenderPalette palette
+            Set<BlockPosition> positions, SelectionSnapshot snapshot, RenderPalette palette
     ) {
         Map<BlockPosition, BlockData> result = new LinkedHashMap<>();
         for (BlockPosition position : positions) {
-            BlockData data = palette.edge();
-            if (position.matches(pos1)) {
+            BlockData data;
+            if (position.matches(snapshot.pos1())) {
                 data = palette.pos1();
-            } else if (position.matches(pos2)) {
+            } else if (position.matches(snapshot.pos2())) {
                 data = palette.pos2();
-            } else if (CuboidWireframe.isCorner(position, positions)) {
+            } else if (position.isCorner(snapshot.minimum(), snapshot.maximum())) {
                 data = palette.corner();
+            } else {
+                data = palette.edge();
             }
             result.put(position, data);
         }
@@ -213,16 +183,13 @@ public final class VisualizationService {
         Location origin = player.getLocation();
         long maxDistanceSquared = (long) maxDistance * maxDistance;
         Set<BlockPosition> sent = new LinkedHashSet<>();
-
         for (Map.Entry<BlockPosition, BlockData> entry : blocks.entrySet()) {
             BlockPosition position = entry.getKey();
             long dx = (long) position.x() - origin.getBlockX();
             long dy = (long) position.y() - origin.getBlockY();
             long dz = (long) position.z() - origin.getBlockZ();
-            if (dx * dx + dy * dy + dz * dz > maxDistanceSquared) {
-                continue;
-            }
-            if (!world.isChunkLoaded(position.x() >> 4, position.z() >> 4)) {
+            if (dx * dx + dy * dy + dz * dz > maxDistanceSquared
+                    || !world.isChunkLoaded(position.x() >> 4, position.z() >> 4)) {
                 continue;
             }
             player.sendBlockChange(position.location(world), entry.getValue());
@@ -234,11 +201,10 @@ public final class VisualizationService {
     private void restore(Player player, Set<BlockPosition> positions) {
         World world = player.getWorld();
         for (BlockPosition position : positions) {
-            if (!world.isChunkLoaded(position.x() >> 4, position.z() >> 4)) {
-                continue;
+            if (world.isChunkLoaded(position.x() >> 4, position.z() >> 4)) {
+                player.sendBlockChange(position.location(world),
+                        world.getBlockAt(position.x(), position.y(), position.z()).getBlockData());
             }
-            player.sendBlockChange(position.location(world),
-                    world.getBlockAt(position.x(), position.y(), position.z()).getBlockData());
         }
     }
 
@@ -269,99 +235,72 @@ public final class VisualizationService {
         player.sendMessage(feature.getLocalizationHandler().getMessage(key).forAudience(player).build());
     }
 
-    private enum SelectionStatus {
-        VALID,
-        NO_SELECTION,
-        NOT_CUBOID
-    }
+    private enum SelectionStatus { VALID, NO_SELECTION, NOT_CUBOID }
 
     private record SelectionRead(SelectionStatus status, SelectionSnapshot snapshot) {
         private static SelectionRead valid(SelectionSnapshot snapshot) {
             return new SelectionRead(SelectionStatus.VALID, snapshot);
         }
-
         private static SelectionRead noSelection() {
             return new SelectionRead(SelectionStatus.NO_SELECTION, null);
         }
-
         private static SelectionRead notCuboid() {
             return new SelectionRead(SelectionStatus.NOT_CUBOID, null);
         }
     }
 
-    private record SelectionSnapshot(
-            UUID worldId,
-            BlockVector3 minimum,
-            BlockVector3 maximum,
-            BlockVector3 pos1,
-            BlockVector3 pos2
-    ) {
-    }
+    private record SelectionSnapshot(UUID worldId, BlockVector3 minimum, BlockVector3 maximum,
+                                     BlockVector3 pos1, BlockVector3 pos2) { }
 
-    private record PlayerVisualization(
-            SelectionSnapshot snapshot,
-            UUID worldId,
-            Set<BlockPosition> renderedPositions,
-            long lastSentPoll
-    ) {
-    }
+    private record PlayerVisualization(SelectionSnapshot snapshot, UUID worldId,
+                                       Set<BlockPosition> renderedPositions, long lastSentPoll) { }
 
-    private record RenderPalette(BlockData edge, BlockData corner, BlockData pos1, BlockData pos2) {
-    }
+    private record RenderPalette(BlockData edge, BlockData corner, BlockData pos1, BlockData pos2) { }
 
     static record BlockPosition(int x, int y, int z) {
-        private static BlockPosition of(BlockVector3 vector) {
-            return new BlockPosition(vector.x(), vector.y(), vector.z());
-        }
-
         private boolean matches(BlockVector3 vector) {
             return x == vector.x() && y == vector.y() && z == vector.z();
         }
-
+        private boolean isCorner(BlockVector3 minimum, BlockVector3 maximum) {
+            return (x == minimum.x() || x == maximum.x())
+                    && (y == minimum.y() || y == maximum.y())
+                    && (z == minimum.z() || z == maximum.z());
+        }
         private Location location(World world) {
             return new Location(world, x, y, z);
         }
     }
 
     static final class CuboidWireframe {
+        private CuboidWireframe() { }
 
-        private CuboidWireframe() {
-        }
-
-        static Set<BlockPosition> sample(BlockVector3 minimum, BlockVector3 maximum, int requestedStep, int budget) {
+        static Set<BlockPosition> sample(BlockVector3 minimum, BlockVector3 maximum,
+                                         int requestedStep, int budget) {
             int step = Math.max(1, requestedStep);
             int safeBudget = Math.max(MIN_RENDER_BUDGET, budget);
-            Set<BlockPosition> points;
-            do {
-                points = generate(minimum, maximum, step);
+            while (true) {
+                Set<BlockPosition> points = generate(minimum, maximum, step);
                 if (points.size() <= safeBudget || step == Integer.MAX_VALUE) {
                     return trim(points, safeBudget);
                 }
                 long next = Math.max((long) step + 1L,
                         (long) Math.ceil(step * ((double) points.size() / safeBudget)));
                 step = (int) Math.min(Integer.MAX_VALUE, next);
-            } while (true);
+            }
         }
 
         private static Set<BlockPosition> generate(BlockVector3 minimum, BlockVector3 maximum, int step) {
             LinkedHashSet<BlockPosition> points = new LinkedHashSet<>();
-            int minX = minimum.x();
-            int minY = minimum.y();
-            int minZ = minimum.z();
-            int maxX = maximum.x();
-            int maxY = maximum.y();
-            int maxZ = maximum.z();
-
+            int minX = minimum.x(), minY = minimum.y(), minZ = minimum.z();
+            int maxX = maximum.x(), maxY = maximum.y(), maxZ = maximum.z();
             addAxis(points, minX, maxX, step, x -> new BlockPosition(x, minY, minZ));
             addAxis(points, minX, maxX, step, x -> new BlockPosition(x, minY, maxZ));
             addAxis(points, minX, maxX, step, x -> new BlockPosition(x, maxY, minZ));
             addAxis(points, minX, maxX, step, x -> new BlockPosition(x, maxY, maxZ));
-
             addAxis(points, minY, maxY, step, y -> new BlockPosition(minX, y, minZ));
             addAxis(points, minY, maxY, step, y -> new BlockPosition(minX, y, maxZ));
             addAxis(points, minY, maxY, step, y -> new BlockPosition(maxX, y, minZ));
             addAxis(points, minY, maxY, step, y -> new BlockPosition(maxX, y, maxZ));
-
             addAxis(points, minZ, maxZ, step, z -> new BlockPosition(minX, minY, z));
             addAxis(points, minZ, maxZ, step, z -> new BlockPosition(minX, maxY, z));
             addAxis(points, minZ, maxZ, step, z -> new BlockPosition(maxX, minY, z));
@@ -370,14 +309,15 @@ public final class VisualizationService {
         }
 
         private static void addAxis(Set<BlockPosition> points, int minimum, int maximum, int step,
-                                    java.util.function.IntFunction<BlockPosition> mapper) {
+                                    IntFunction<BlockPosition> mapper) {
             points.add(mapper.apply(minimum));
-            if (minimum != maximum) {
-                for (long value = (long) minimum + step; value < maximum; value += step) {
-                    points.add(mapper.apply((int) value));
-                }
-                points.add(mapper.apply(maximum));
+            if (minimum == maximum) {
+                return;
             }
+            for (long value = (long) minimum + step; value < maximum; value += step) {
+                points.add(mapper.apply((int) value));
+            }
+            points.add(mapper.apply(maximum));
         }
 
         private static Set<BlockPosition> trim(Set<BlockPosition> points, int budget) {
@@ -385,9 +325,9 @@ public final class VisualizationService {
                 return Set.copyOf(points);
             }
             LinkedHashSet<BlockPosition> trimmed = new LinkedHashSet<>(budget);
-            int index = 0;
             double interval = (double) points.size() / budget;
             double next = 0.0d;
+            int index = 0;
             for (BlockPosition point : points) {
                 if (index++ >= Math.floor(next) && trimmed.size() < budget) {
                     trimmed.add(point);
@@ -395,11 +335,6 @@ public final class VisualizationService {
                 }
             }
             return Set.copyOf(trimmed);
-        }
-
-        static boolean isCorner(BlockPosition position, Set<BlockPosition> ignored) {
-            Objects.requireNonNull(position, "position");
-            return false;
         }
     }
 }
