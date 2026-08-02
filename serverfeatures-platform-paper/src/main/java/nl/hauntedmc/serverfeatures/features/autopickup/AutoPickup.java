@@ -78,6 +78,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         messages.add("autopickup.status.loading", "&eJe AutoPickup-instelling wordt nog geladen.");
         messages.add("autopickup.status.unsaved", "&eDe huidige instelling is nog niet bevestigd opgeslagen.");
         messages.add("autopickup.command_queued", "&eJe wijziging wordt toegepast zodra je instelling is geladen.");
+        messages.add("autopickup.save_retry", "&eDe huidige AutoPickup-instelling wordt opnieuw opgeslagen.");
         messages.add(
                 "autopickup.load_failed",
                 "&cJe AutoPickup-instelling kon niet worden geladen. Gebruik /autopickup on of off om een nieuwe keuze op te slaan."
