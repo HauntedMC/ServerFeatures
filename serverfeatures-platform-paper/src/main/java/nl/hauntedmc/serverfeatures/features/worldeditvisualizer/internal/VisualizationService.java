@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
@@ -24,11 +25,14 @@ public final class VisualizationService {
 
     public static final String USE_PERMISSION = "serverfeatures.feature.worldeditvisualizer.use";
 
+    private static final int MAX_FULL_REFRESH_INTERVAL_TICKS = 72_000;
+
     private final WorldEditVisualizer feature;
     private final PacketDisplayRenderer renderer;
     private final Set<UUID> enabled = new HashSet<>();
     private final Map<UUID, RenderState> rendered = new HashMap<>();
     private final Map<UUID, RenderFingerprint> fingerprints = new HashMap<>();
+    private final Map<UUID, Long> nextFullRefreshNanos = new HashMap<>();
 
     public VisualizationService(WorldEditVisualizer feature) {
         this.feature = feature;
@@ -53,8 +57,10 @@ public final class VisualizationService {
     }
 
     public RefreshResult enable(Player player) {
-        enabled.add(player.getUniqueId());
-        fingerprints.remove(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        enabled.add(uuid);
+        fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         return refreshNow(player);
     }
 
@@ -62,6 +68,7 @@ public final class VisualizationService {
         UUID uuid = player.getUniqueId();
         boolean changed = enabled.remove(uuid);
         fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
         if (destroy) {
             destroy(player, state);
@@ -79,6 +86,7 @@ public final class VisualizationService {
     public void invalidate(Player player, boolean destroy) {
         UUID uuid = player.getUniqueId();
         fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
         if (destroy) {
             destroy(player, state);
@@ -92,6 +100,7 @@ public final class VisualizationService {
     private void forget(UUID uuid) {
         enabled.remove(uuid);
         fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         rendered.remove(uuid);
     }
 
@@ -121,6 +130,7 @@ public final class VisualizationService {
         enabled.clear();
         rendered.clear();
         fingerprints.clear();
+        nextFullRefreshNanos.clear();
     }
 
     private RefreshResult updateSafely(Player player, boolean force) {
@@ -153,14 +163,17 @@ public final class VisualizationService {
                 Math.floorDiv(player.getLocation().getBlockZ(), movementCell)
         );
         UUID uuid = player.getUniqueId();
-        if (!force && fingerprint.equals(fingerprints.get(uuid))) {
+        long now = System.nanoTime();
+        boolean fullRefreshDue = now >= nextFullRefreshNanos.getOrDefault(uuid, Long.MAX_VALUE);
+        if (!force && !fullRefreshDue && fingerprint.equals(fingerprints.get(uuid))) {
             return RefreshResult.RENDERED;
         }
 
         RenderState previous = rendered.get(uuid);
-        RenderState current = renderer.render(player, selection, previous, force);
+        RenderState current = renderer.render(player, selection, previous, force || fullRefreshDue);
         rendered.put(uuid, current);
         fingerprints.put(uuid, fingerprint);
+        scheduleFullRefresh(uuid, now);
         return RefreshResult.RENDERED;
     }
 
@@ -196,6 +209,7 @@ public final class VisualizationService {
         UUID uuid = player.getUniqueId();
         enabled.remove(uuid);
         fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
         destroy(player, state);
     }
@@ -203,8 +217,23 @@ public final class VisualizationService {
     private void clearStale(Player player) {
         UUID uuid = player.getUniqueId();
         fingerprints.remove(uuid);
+        nextFullRefreshNanos.remove(uuid);
         RenderState state = rendered.remove(uuid);
         destroy(player, state);
+    }
+
+    private void scheduleFullRefresh(UUID uuid, long now) {
+        int intervalTicks = clamp(
+                feature.getInt("render.full_refresh_interval_ticks", 600),
+                0,
+                MAX_FULL_REFRESH_INTERVAL_TICKS
+        );
+        if (intervalTicks == 0) {
+            nextFullRefreshNanos.put(uuid, Long.MAX_VALUE);
+            return;
+        }
+        long delayNanos = TimeUnit.MILLISECONDS.toNanos(intervalTicks * 50L);
+        nextFullRefreshNanos.put(uuid, saturatingAdd(now, delayNanos));
     }
 
     private void destroy(Player player, RenderState state) {
@@ -225,6 +254,13 @@ public final class VisualizationService {
 
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    private static long saturatingAdd(long value, long amount) {
+        if (amount > 0L && value > Long.MAX_VALUE - amount) {
+            return Long.MAX_VALUE;
+        }
+        return value + amount;
     }
 
     public enum RefreshResult {
