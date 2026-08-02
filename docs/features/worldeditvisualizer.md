@@ -161,6 +161,8 @@ corner.scale
 label.*
 ```
 
+Legacy fractional `edge.step_blocks` values are normalized upward to a positive whole-block interval because packet block positions cannot represent sub-block display spacing. The former `0.25` default therefore migrates to `1`.
+
 ## Messages
 
 | Key | Use |
