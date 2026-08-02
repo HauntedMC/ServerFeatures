@@ -23,6 +23,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 
 /**
@@ -44,8 +48,11 @@ public final class LimitSpawnersHandler {
     private final SpawnerMobRegistry registry = new SpawnerMobRegistry();
     private final SpawnerMobStore store;
     private final Set<UUID> unloadingEntities = new HashSet<>();
+    private final AtomicLong mutationVersion = new AtomicLong();
+    private final AtomicLong persistedVersion = new AtomicLong();
+    private final AtomicBoolean saveInProgress = new AtomicBoolean();
 
-    private boolean dirty;
+    private volatile CompletableFuture<Void> saveFuture = CompletableFuture.completedFuture(null);
 
     public LimitSpawnersHandler(LimitSpawners feature) {
         this.feature = Objects.requireNonNull(feature, "feature");
@@ -79,7 +86,7 @@ public final class LimitSpawnersHandler {
                     handleChunkLoad(chunk);
                 }
             }
-            flushIfDirty();
+            flushAsyncIfDirty();
             feature.getLogger().info(
                     "Loaded " + persistedCount + " persisted tracked mobs; "
                             + registry.size() + " remain after loaded-chunk reconciliation."
@@ -92,7 +99,7 @@ public final class LimitSpawnersHandler {
                 BukkitTime.ticks(reconcileIntervalTicks)
         );
         feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                this::flushIfDirty,
+                this::flushAsyncIfDirty,
                 BukkitTime.ticks(saveIntervalTicks),
                 BukkitTime.ticks(saveIntervalTicks)
         );
@@ -100,7 +107,8 @@ public final class LimitSpawnersHandler {
 
     public void shutdown() {
         reconcileLoadedEntities();
-        flushIfDirty();
+        awaitPendingSave();
+        flushSynchronously();
         unloadingEntities.clear();
     }
 
@@ -166,7 +174,7 @@ public final class LimitSpawnersHandler {
             TrackedSpawnerMob relocated = record.relocate(destinationChunk);
             if (!relocated.equals(record)) {
                 registry.put(relocated);
-                dirty = true;
+                markDirty();
             }
         });
     }
@@ -214,7 +222,7 @@ public final class LimitSpawnersHandler {
             unloadingNow.add(entity.getUniqueId());
         }
         markTemporarilyUnloading(unloadingNow);
-        flushIfDirty();
+        flushAsyncIfDirty();
     }
 
     public void handleWorldUnload(World world) {
@@ -227,7 +235,7 @@ public final class LimitSpawnersHandler {
             unloadingNow.add(entity.getUniqueId());
         }
         markTemporarilyUnloading(unloadingNow);
-        flushIfDirty();
+        flushAsyncIfDirty();
     }
 
     /**
@@ -266,7 +274,7 @@ public final class LimitSpawnersHandler {
         );
         TrackedSpawnerMob previous = registry.put(next);
         if (!next.equals(previous)) {
-            dirty = true;
+            markDirty();
         }
     }
 
@@ -276,7 +284,7 @@ public final class LimitSpawnersHandler {
 
     private void removeById(UUID entityId, Entity entity, boolean clearMarker) {
         if (registry.remove(entityId).isPresent()) {
-            dirty = true;
+            markDirty();
         }
         unloadingEntities.remove(entityId);
         if (clearMarker && entity != null) {
@@ -345,19 +353,67 @@ public final class LimitSpawnersHandler {
         );
     }
 
-    private void flushIfDirty() {
-        if (!dirty) {
+    private void markDirty() {
+        mutationVersion.incrementAndGet();
+    }
+
+    private void flushAsyncIfDirty() {
+        long version = mutationVersion.get();
+        if (version <= persistedVersion.get() || !saveInProgress.compareAndSet(false, true)) {
+            return;
+        }
+
+        List<TrackedSpawnerMob> snapshot = registry.snapshot();
+        CompletableFuture<Void> future = feature.getLifecycleManager()
+                .getTaskManager()
+                .runAsync(() -> store.save(snapshot));
+        saveFuture = future;
+        future.whenComplete((ignored, throwable) -> {
+            try {
+                if (throwable == null) {
+                    persistedVersion.accumulateAndGet(version, Math::max);
+                } else {
+                    feature.getLogger().log(
+                            Level.SEVERE,
+                            "Could not save tracked mob registry; the next save interval will retry.",
+                            unwrap(throwable)
+                    );
+                }
+            } finally {
+                saveInProgress.set(false);
+            }
+        });
+    }
+
+    private void awaitPendingSave() {
+        try {
+            saveFuture.join();
+        } catch (CompletionException ignored) {
+            // The completion callback already logged the failure. The synchronous flush below retries.
+        }
+    }
+
+    private void flushSynchronously() {
+        long version = mutationVersion.get();
+        if (version <= persistedVersion.get()) {
             return;
         }
         try {
             store.save(registry.snapshot());
-            dirty = false;
+            persistedVersion.set(version);
         } catch (RuntimeException exception) {
             feature.getLogger().log(
                     Level.SEVERE,
-                    "Could not save tracked mob registry; the next save interval will retry.",
+                    "Could not save the final tracked mob registry during shutdown.",
                     exception
             );
         }
+    }
+
+    private static Throwable unwrap(Throwable throwable) {
+        if (throwable instanceof CompletionException completion && completion.getCause() != null) {
+            return completion.getCause();
+        }
+        return throwable;
     }
 }
