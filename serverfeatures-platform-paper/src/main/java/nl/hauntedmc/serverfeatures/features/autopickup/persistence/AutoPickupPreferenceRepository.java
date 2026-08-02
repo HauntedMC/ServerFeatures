@@ -51,6 +51,8 @@ public final class AutoPickupPreferenceRepository {
                     .setParameter("writeRevision", writeRevision)
                     .executeUpdate();
 
+            // Native mutations bypass Hibernate's managed entity state. Clear before reading the winner.
+            session.clear();
             PlayerAutoPickupSettingEntity stored = session.createSelectionQuery(
                             "FROM PlayerAutoPickupSettingEntity setting WHERE setting.playerId = :playerId",
                             PlayerAutoPickupSettingEntity.class
