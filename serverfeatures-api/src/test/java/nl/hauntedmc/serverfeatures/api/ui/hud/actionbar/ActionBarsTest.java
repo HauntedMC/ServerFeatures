@@ -9,6 +9,9 @@ import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 class ActionBarsTest {
 
@@ -33,6 +36,18 @@ class ActionBarsTest {
         assertTrue(ActionBars.service() instanceof nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.NoopActionBarAPI);
     }
 
+    @Test
+    void legacyImplementationsReceiveSafeTargetedDefaults() {
+        ActionBarAPI legacyImplementation = new TestActionBarApi();
+        Player player = mock(Player.class);
+        Component message = Component.text("targeted");
+
+        legacyImplementation.sendOnce(player, message);
+        legacyImplementation.send(player, message, 3, PauseMode.PAUSE_CYCLE);
+
+        verify(player, times(2)).sendActionBar(message);
+    }
+
     private static final class TestActionBarApi implements ActionBarAPI {
         @Override
         public ActionBarCycleHandle startCycle(ActionBarCycle cycle) {
@@ -55,14 +70,6 @@ class ActionBarsTest {
 
         @Override
         public void stopCycle() {
-        }
-
-        @Override
-        public void sendOnce(Player player, Component component) {
-        }
-
-        @Override
-        public void send(Player player, Component component, int seconds, PauseMode pauseMode) {
         }
 
         @Override
