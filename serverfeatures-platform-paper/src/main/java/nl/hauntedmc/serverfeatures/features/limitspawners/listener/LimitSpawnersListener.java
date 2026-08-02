@@ -64,7 +64,10 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityTeleport(EntityTeleportEvent event) {
-        handler.updateTrackedLocation(event.getEntity());
+        Location destination = event.getTo();
+        if (destination != null) {
+            handler.updateTrackedLocation(event.getEntity(), destination);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
