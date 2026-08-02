@@ -120,7 +120,7 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
         }
     }
 
-    private static Integer normalizeStep(Object value) {
+    static Integer normalizeStep(Object value) {
         if (!(value instanceof Number number)) {
             return null;
         }
