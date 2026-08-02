@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
 
 /** Coordinates player state, WorldEdit selection reads and packet-only rendering. */
 public final class VisualizationService {
@@ -25,6 +26,8 @@ public final class VisualizationService {
     private final Set<UUID> enabled = ConcurrentHashMap.newKeySet();
     private final Map<UUID, SelectionSnapshot> lastSelections = new ConcurrentHashMap<>();
     private final Map<UUID, PacketVisualHandle> shown = new ConcurrentHashMap<>();
+    private final Map<UUID, RenderFailure> failures = new ConcurrentHashMap<>();
+    private long pollSequence;
 
     public VisualizationService(WorldEditVisualizer feature) {
         this.feature = feature;
@@ -63,6 +66,7 @@ public final class VisualizationService {
         UUID playerId = player.getUniqueId();
         enabled.remove(playerId);
         lastSelections.remove(playerId);
+        failures.remove(playerId);
         PacketVisualHandle handle = shown.remove(playerId);
         if (handle != null) {
             handle.discard();
@@ -70,11 +74,13 @@ public final class VisualizationService {
     }
 
     public void pollSelections() {
+        pollSequence++;
         for (UUID playerId : new ArrayList<>(enabled)) {
             Player player = Bukkit.getPlayer(playerId);
             if (player == null || !player.isOnline()) {
                 enabled.remove(playerId);
                 lastSelections.remove(playerId);
+                failures.remove(playerId);
                 PacketVisualHandle handle = shown.remove(playerId);
                 if (handle != null) {
                     handle.discard();
@@ -90,12 +96,7 @@ public final class VisualizationService {
     }
 
     public void clear(Player player) {
-        UUID playerId = player.getUniqueId();
-        lastSelections.remove(playerId);
-        PacketVisualHandle handle = shown.remove(playerId);
-        if (handle != null) {
-            handle.clear(player);
-        }
+        destroyVisual(player, true);
     }
 
     public void shutdown() {
@@ -110,6 +111,7 @@ public final class VisualizationService {
         enabled.clear();
         lastSelections.clear();
         shown.clear();
+        failures.clear();
     }
 
     private boolean enable(Player player, boolean feedback) {
@@ -138,7 +140,15 @@ public final class VisualizationService {
             return;
         }
 
-        clear(player);
+        RenderFailure previousFailure = failures.get(playerId);
+        if (!feedback
+                && previousFailure != null
+                && previousFailure.snapshot().equals(snapshot)
+                && pollSequence < previousFailure.retryAtPoll()) {
+            return;
+        }
+
+        destroyVisual(player, false);
         try {
             PacketVisualHandle handle = renderer.render(
                     player,
@@ -149,14 +159,30 @@ public final class VisualizationService {
             );
             shown.put(playerId, handle);
             lastSelections.put(playerId, snapshot);
+            failures.remove(playerId);
         } catch (RuntimeException exception) {
-            feature.getPlugin().getLogger().warning(
+            failures.put(playerId, new RenderFailure(snapshot, pollSequence + renderRetryPolls()));
+            feature.getPlugin().getLogger().log(
+                    Level.WARNING,
                     "Failed to render packet-only WorldEdit selection for "
-                            + player.getName() + " (" + playerId + "): " + exception.getMessage()
+                            + player.getName() + " (" + playerId + ")",
+                    exception
             );
             if (feedback) {
                 send(player, "worldeditvisualizer.render_failed");
             }
+        }
+    }
+
+    private void destroyVisual(Player player, boolean clearFailure) {
+        UUID playerId = player.getUniqueId();
+        lastSelections.remove(playerId);
+        if (clearFailure) {
+            failures.remove(playerId);
+        }
+        PacketVisualHandle handle = shown.remove(playerId);
+        if (handle != null) {
+            handle.clear(player);
         }
     }
 
@@ -183,6 +209,12 @@ public final class VisualizationService {
                 cuboid.getPos1(),
                 cuboid.getPos2()
         ));
+    }
+
+    private int renderRetryPolls() {
+        int pollTicks = Math.max(1, feature.getInt("poll.interval_ticks", 10));
+        int retryTicks = Math.max(pollTicks, feature.getInt("render.retry_interval_ticks", 200));
+        return Math.max(1, (int) Math.ceil((double) retryTicks / pollTicks));
     }
 
     private void send(Player player, String key) {
@@ -216,4 +248,6 @@ public final class VisualizationService {
             BlockVector3 pos1,
             BlockVector3 pos2
     ) { }
+
+    private record RenderFailure(SelectionSnapshot snapshot, long retryAtPoll) { }
 }
