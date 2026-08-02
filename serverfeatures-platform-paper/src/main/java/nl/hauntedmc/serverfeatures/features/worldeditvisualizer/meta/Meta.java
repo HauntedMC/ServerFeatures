@@ -18,6 +18,6 @@ public class Meta implements BaseMeta {
 
     @Override
     public List<String> getPluginDependencies() {
-        return List.of("FastAsyncWorldEdit");
+        return List.of(PACKET_EVENTS, "FastAsyncWorldEdit");
     }
 }
