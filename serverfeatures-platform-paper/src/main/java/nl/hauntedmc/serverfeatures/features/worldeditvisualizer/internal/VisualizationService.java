@@ -96,14 +96,14 @@ public final class VisualizationService {
     }
 
     public void clear(Player player) {
-        destroyVisual(player, true);
+        destroyVisual(player, true, "state cleanup");
     }
 
     public void shutdown() {
         for (Map.Entry<UUID, PacketVisualHandle> entry : new ArrayList<>(shown.entrySet())) {
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player != null && player.isOnline()) {
-                entry.getValue().clear(player);
+                safeClear(entry.getKey(), player, entry.getValue(), "feature shutdown");
             } else {
                 entry.getValue().discard();
             }
@@ -148,7 +148,7 @@ public final class VisualizationService {
             return;
         }
 
-        destroyVisual(player, false);
+        destroyVisual(player, false, "selection replacement");
         try {
             PacketVisualHandle handle = renderer.render(
                     player,
@@ -174,7 +174,7 @@ public final class VisualizationService {
         }
     }
 
-    private void destroyVisual(Player player, boolean clearFailure) {
+    private void destroyVisual(Player player, boolean clearFailure, String reason) {
         UUID playerId = player.getUniqueId();
         lastSelections.remove(playerId);
         if (clearFailure) {
@@ -182,7 +182,20 @@ public final class VisualizationService {
         }
         PacketVisualHandle handle = shown.remove(playerId);
         if (handle != null) {
+            safeClear(playerId, player, handle, reason);
+        }
+    }
+
+    private void safeClear(UUID playerId, Player player, PacketVisualHandle handle, String reason) {
+        try {
             handle.clear(player);
+        } catch (RuntimeException exception) {
+            feature.getPlugin().getLogger().log(
+                    Level.WARNING,
+                    "Failed to destroy packet-only WorldEdit visualization for "
+                            + player.getName() + " (" + playerId + ") during " + reason,
+                    exception
+            );
         }
     }
 
