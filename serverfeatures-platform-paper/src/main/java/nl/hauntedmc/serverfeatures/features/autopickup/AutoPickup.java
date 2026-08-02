@@ -53,10 +53,16 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         defaults.put("drop-policy.worlds.mode", "BLACKLIST");
         defaults.put("drop-policy.worlds.values", List.of());
         defaults.put("drop-policy.allowed-game-modes", List.of("SURVIVAL", "ADVENTURE"));
+        defaults.put("drop-policy.require-use-permission", true);
         defaults.put("notification.inventory-full.enabled", true);
         defaults.put("notification.inventory-full.notify-on-partial", true);
         defaults.put("notification.inventory-full.cooldown-millis", 3000L);
         defaults.put("notification.inventory-full.duration-seconds", 2);
+        defaults.put("effects.pickup-sound.enabled", true);
+        defaults.put("effects.pickup-sound.sound", "minecraft:entity.item.pickup");
+        defaults.put("effects.pickup-sound.category", "PLAYERS");
+        defaults.put("effects.pickup-sound.volume", 0.2D);
+        defaults.put("effects.pickup-sound.pitch", 1.0D);
         defaults.put("persistence.retry.attempts", 3);
         defaults.put("persistence.retry.initial-delay-millis", 250L);
         defaults.put("persistence.retry.maximum-delay-millis", 2000L);
@@ -86,6 +92,14 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         messages.add(
                 "autopickup.save_failed",
                 "&cAutoPickup is voor deze sessie aangepast, maar de instelling kon niet worden opgeslagen."
+        );
+        messages.add(
+                "autopickup.remote_enabled",
+                "&eJe AutoPickup-instelling is op een andere server nieuwer gewijzigd naar ingeschakeld."
+        );
+        messages.add(
+                "autopickup.remote_disabled",
+                "&eJe AutoPickup-instelling is op een andere server nieuwer gewijzigd naar uitgeschakeld."
         );
         messages.add(
                 "autopickup.session_disabled",
@@ -178,6 +192,20 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
                 message,
                 notification.durationSeconds(),
                 PauseMode.PAUSE_CYCLE
+        );
+    }
+
+    public void playPickupSound(Player player) {
+        AutoPickupSettings.PickupSoundSettings sound = settings.pickupSound();
+        if (!sound.enabled()) {
+            return;
+        }
+        player.playSound(
+                player.getLocation(),
+                sound.soundKey(),
+                sound.category(),
+                sound.volume(),
+                sound.pitch()
         );
     }
 
