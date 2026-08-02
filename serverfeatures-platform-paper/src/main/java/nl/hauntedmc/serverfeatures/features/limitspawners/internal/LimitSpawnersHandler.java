@@ -206,9 +206,11 @@ public final class LimitSpawnersHandler {
             Entity resolved = Bukkit.getEntity(expectedId);
             if (resolved instanceof LivingEntity living && !living.isDead() && living.isValid()) {
                 updateTrackedLocation(living);
-            } else {
-                removeById(expectedId, null, false);
             }
+            // Do not delete an unresolved durable record here. Its last-known chunk may be stale after
+            // an unclean shutdown or ordinary cross-chunk movement. Removing it would temporarily
+            // under-count the source spawner until the entity's actual chunk is loaded and its PDC
+            // marker is discovered. Explicit death/removal events remain authoritative for deletion.
         }
 
         for (LivingEntity entity : loadedLiving.values()) {
