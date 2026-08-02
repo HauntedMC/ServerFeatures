@@ -94,15 +94,22 @@ cancelled entities in the count.
 - `EntityDeathEvent` removes the entity immediately.
 - Paper's `EntityRemoveFromWorldEvent` performs a delayed validity check. Actual despawns and plugin
   removals are deleted from the registry.
-- Ordinary living-entity movement updates the durable last-known chunk only when a chunk border is
-  crossed. Teleports use their explicit destination, including cross-world teleports.
+- Teleports update the record to their explicit destination, including cross-world teleports.
+- Ordinary walking does not install a global `EntityMoveEvent` listener. The record's last-known chunk
+  is refreshed when the entity is encountered during loaded-entity reconciliation or chunk unload.
 - Chunk/world unload marks affected UUIDs as temporarily unloading, updates their last known chunk,
   and keeps them counted. The later remove-from-world event is therefore not mistaken for death.
-- Chunk load scans persistent source markers, restores missing runtime entries, repairs markers from
-  durable records, and removes records whose last known loaded chunk no longer contains the entity.
+- Chunk load scans persistent source markers, restores missing runtime entries, and repairs markers
+  from durable records. An unresolved record is deliberately retained rather than deleted merely
+  because its last-known chunk no longer contains the mob; that location may be stale after an unclean
+  shutdown or ordinary cross-chunk movement.
 - Successful transformations replace the original entry with every living transformed entity. A
   one-to-many transformation may temporarily put the count above the configured cap; the source
   spawner then remains blocked until the count falls below the limit.
+
+Explicit death and removal events are authoritative for deleting a record. Recovery otherwise fails
+closed: an unresolved durable mob continues to count until its real entity is loaded or a confirmed
+removal event releases it. This prevents a restart or crash from granting a spawner an early extra slot.
 
 ## Durable registry
 
@@ -127,7 +134,7 @@ counted before their chunks are loaded again.
 Initialization:
 
 1. load the durable registry;
-2. register spawn/removal/movement/transform/chunk/world listeners;
+2. register spawn/removal/teleport/transform/chunk/world listeners;
 3. reconcile every currently loaded chunk;
 4. start periodic loaded-entity reconciliation and snapshot tasks.
 
@@ -139,11 +146,12 @@ flushed. Existing entity markers are intentionally left intact so re-enable can 
 ## Performance
 
 Normal spawn checks are constant-time map/set operations. Death, removal, teleport, and transformation
-updates are also constant-time per entity. Paper movement events are filtered by chunk coordinates
-before the registry is touched, so ordinary within-chunk movement adds no registry mutation. Periodic
-reconciliation iterates only tracked UUIDs, not all server entities. Chunk load scans only that chunk's
-entities. Snapshot cost is linear in the number of tracked mobs and normally runs once per configured
-save interval.
+updates are also constant-time per tracked entity. The feature deliberately does not subscribe to
+Paper's global living-entity movement event, avoiding movement-event allocation and dispatch for every
+mob on the server. Periodic reconciliation iterates only tracked UUIDs, not all server entities. Chunk
+load scans only that chunk's entities, while chunk unload already exposes the entities being saved.
+Snapshot cost is linear in the number of tracked mobs and normally runs once per configured save
+interval.
 
 All Bukkit entity and chunk access stays on the server thread. Periodic snapshot I/O runs asynchronously
 with at most one write in flight; snapshots are immutable copies captured on the server thread. The
@@ -170,6 +178,8 @@ only synchronous persistence is the final shutdown flush after pending write coo
 13. Have another plugin cancel `SpawnerSpawnEvent` after LimitSpawners' check and confirm no phantom slot
     remains reserved.
 14. Inspect the JSON snapshot after activity and verify no `.tmp` files remain after a clean save.
+15. Restart immediately after a tracked mob crossed a chunk boundary and confirm its source spawner
+    never receives an early extra slot before the mob's destination chunk loads.
 
 ## Troubleshooting
 
@@ -181,6 +191,9 @@ only synchronous persistence is the final shutdown flush after pending write coo
   alive in chunk data.
 - **A slot does not release immediately after removal:** removal verification is delayed by two ticks
   to distinguish actual removal from unload ordering.
+- **An unresolved record remains after manual world/chunk data editing:** the feature intentionally
+  fails closed because it cannot prove that an unloaded entity is dead. Remove the stale registry entry
+  during maintenance only after verifying the entity no longer exists in saved world data.
 - **Registry was quarantined:** inspect the logged `.corrupt-<timestamp>` path. Loaded PDC-marked mobs
   are rebuilt, while records for currently unloaded entities cannot be recovered until their chunks
   load.
