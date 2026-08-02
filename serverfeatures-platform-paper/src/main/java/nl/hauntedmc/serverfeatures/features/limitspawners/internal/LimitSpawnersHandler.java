@@ -54,7 +54,7 @@ public final class LimitSpawnersHandler {
     private final SpawnerMobRegistry registry = new SpawnerMobRegistry();
     private final SpawnerMobStore store;
     private final Set<UUID> unloadingEntities = new HashSet<>();
-    private final Set<UUID> pendingSpawnReservations = new HashSet<>();
+    private final Map<UUID, PendingSpawnReservation> pendingSpawnReservations = new HashMap<>();
     private final AtomicLong mutationVersion = new AtomicLong();
     private final AtomicLong persistedVersion = new AtomicLong();
     private final AtomicBoolean saveInProgress = new AtomicBoolean();
@@ -124,6 +124,7 @@ public final class LimitSpawnersHandler {
 
     public void shutdown() {
         ready = false;
+        finalizePendingSpawnReservations();
         reconcileLoadedEntities();
         awaitPendingSave();
         flushSynchronously();
@@ -153,7 +154,7 @@ public final class LimitSpawnersHandler {
         }
 
         registerEntity(entity, spawner);
-        pendingSpawnReservations.add(entityId);
+        pendingSpawnReservations.put(entityId, new PendingSpawnReservation(entity, null));
         return true;
     }
 
@@ -164,13 +165,15 @@ public final class LimitSpawnersHandler {
         Objects.requireNonNull(entity, "entity");
         Objects.requireNonNull(cancellationState, "cancellationState");
         UUID entityId = entity.getUniqueId();
-        if (!pendingSpawnReservations.contains(entityId)) {
+        PendingSpawnReservation pending = pendingSpawnReservations.get(entityId);
+        if (pending == null) {
             return;
         }
+        pendingSpawnReservations.put(entityId, pending.withCancellationState(cancellationState));
 
         try {
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                    () -> finalizeSpawnReservation(entityId, entity, cancellationState),
+                    () -> finalizeSpawnReservation(entityId),
                     BukkitTime.ticks(1)
             );
         } catch (RuntimeException exception) {
@@ -296,36 +299,42 @@ public final class LimitSpawnersHandler {
         return registry.count(spawner);
     }
 
-    private void finalizeSpawnReservation(
-            UUID entityId,
-            Entity originalEntity,
-            BooleanSupplier cancellationState
-    ) {
-        if (!pendingSpawnReservations.remove(entityId)) {
+    private void finalizePendingSpawnReservations() {
+        for (UUID entityId : List.copyOf(pendingSpawnReservations.keySet())) {
+            finalizeSpawnReservation(entityId);
+        }
+    }
+
+    private void finalizeSpawnReservation(UUID entityId) {
+        PendingSpawnReservation pending = pendingSpawnReservations.remove(entityId);
+        if (pending == null) {
             return;
         }
 
-        boolean cancelled;
-        try {
-            cancelled = cancellationState.getAsBoolean();
-        } catch (RuntimeException exception) {
-            feature.getLogger().log(
-                    Level.SEVERE,
-                    "Could not read final cancellation state for spawner mob " + entityId
-                            + "; keeping its reserved slot fail-closed.",
-                    exception
-            );
-            return;
-        }
+        BooleanSupplier cancellationState = pending.cancellationState();
+        if (cancellationState != null) {
+            boolean cancelled;
+            try {
+                cancelled = cancellationState.getAsBoolean();
+            } catch (RuntimeException exception) {
+                feature.getLogger().log(
+                        Level.SEVERE,
+                        "Could not read final cancellation state for spawner mob " + entityId
+                                + "; keeping its reserved slot fail-closed.",
+                        exception
+                );
+                return;
+            }
 
-        if (cancelled) {
-            unregister(originalEntity, true);
-            return;
+            if (cancelled) {
+                unregister(pending.entity(), true);
+                return;
+            }
         }
 
         Entity resolved = Bukkit.getEntity(entityId);
         if (!(resolved instanceof LivingEntity living) || living.isDead() || !living.isValid()) {
-            unregister(originalEntity, true);
+            unregister(pending.entity(), true);
             return;
         }
 
@@ -530,5 +539,16 @@ public final class LimitSpawnersHandler {
             return completion.getCause();
         }
         return throwable;
+    }
+
+    private record PendingSpawnReservation(Entity entity, BooleanSupplier cancellationState) {
+
+        private PendingSpawnReservation {
+            Objects.requireNonNull(entity, "entity");
+        }
+
+        private PendingSpawnReservation withCancellationState(BooleanSupplier state) {
+            return new PendingSpawnReservation(entity, Objects.requireNonNull(state, "state"));
+        }
     }
 }
