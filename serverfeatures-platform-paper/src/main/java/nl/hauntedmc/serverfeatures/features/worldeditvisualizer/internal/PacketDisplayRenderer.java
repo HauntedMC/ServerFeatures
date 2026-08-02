@@ -24,12 +24,11 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -113,7 +112,8 @@ final class PacketDisplayRenderer {
                 feature.getInt("render.max_entities", 1024), 16, MAX_RENDER_ENTITIES);
         double maxDistance = clamp(
                 feature.getDouble("render.max_distance_blocks", 128.0), 1.0, MAX_RENDER_DISTANCE);
-        double edgeStep = Math.max(0.05, feature.getDouble("edge.step_blocks", 0.25));
+        double edgeStep = finiteAtLeast(
+                feature.getDouble("edge.step_blocks", 0.25), 0.05, 0.25);
         VisualPoint viewer = VisualPoint.of(
                 player.getLocation().getX(),
                 player.getLocation().getY(),
@@ -167,7 +167,8 @@ final class PacketDisplayRenderer {
                 || !CuboidOutlineSampler.isVisible(anchor, viewer, maxDistance)) {
             return;
         }
-        double yOffset = feature.getDouble("label.y_offset", 0.8);
+        double yOffset = finiteClamped(
+                feature.getDouble("label.y_offset", 0.8), -16.0, 16.0, 0.8);
         VisualPoint point = anchor.offset(0.0, yOffset, 0.0);
         if (isWithinWorld(world, point)) {
             desired.put(new VisualKey(point, kind), kind);
@@ -298,9 +299,12 @@ final class PacketDisplayRenderer {
             List<EntityData<?>> entityMetadata
     ) {
         int entityId = nextEntityId();
-        UUID uuid = UUID.nameUUIDFromBytes((
-                player.getUniqueId() + ":" + entityId + ":" + key)
-                .getBytes(StandardCharsets.UTF_8));
+        UUID playerId = player.getUniqueId();
+        long unsignedEntityId = Integer.toUnsignedLong(entityId);
+        UUID uuid = new UUID(
+                playerId.getMostSignificantBits() ^ (unsignedEntityId << 32),
+                playerId.getLeastSignificantBits() ^ unsignedEntityId
+        );
         Location location = new Location(
                 player.getWorld(), key.point().x(), key.point().y(), key.point().z());
         EntityType entityType = kind.isText() ? EntityTypes.TEXT_DISPLAY : EntityTypes.BLOCK_DISPLAY;
@@ -333,7 +337,7 @@ final class PacketDisplayRenderer {
     }
 
     private Color color(String key, Color fallback) {
-        String configured = feature.getString(key, "").trim().toLowerCase();
+        String configured = feature.getString(key, "").trim().toLowerCase(Locale.ROOT);
         return switch (configured) {
             case "aqua", "cyan" -> Color.AQUA;
             case "black" -> Color.BLACK;
@@ -375,7 +379,9 @@ final class PacketDisplayRenderer {
     }
 
     private static Location templateLocation(World world) {
-        return new Location(world, 0.0, Math.max(world.getMinHeight(), 0), 0.0);
+        double y = world.getMinHeight()
+                + ((world.getMaxHeight() - world.getMinHeight()) / 2.0);
+        return new Location(world, 0.0, y, 0.0);
     }
 
     private static boolean isWithinWorld(World world, VisualPoint point) {
@@ -393,6 +399,22 @@ final class PacketDisplayRenderer {
         }
     }
 
+    private static double finiteAtLeast(double value, double minimum, double fallback) {
+        return Double.isFinite(value) ? Math.max(minimum, value) : fallback;
+    }
+
+    private static double finiteClamped(
+            double value,
+            double minimum,
+            double maximum,
+            double fallback
+    ) {
+        if (!Double.isFinite(value)) {
+            return fallback;
+        }
+        return Math.max(minimum, Math.min(maximum, value));
+    }
+
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
     }
@@ -402,57 +424,5 @@ final class PacketDisplayRenderer {
             return minimum;
         }
         return Math.max(minimum, Math.min(maximum, value));
-    }
-}
-
-enum VisualKind {
-    EDGE(false),
-    CORNER(false),
-    POS1(false),
-    POS2(false),
-    LABEL_POS1(true),
-    LABEL_POS2(true);
-
-    private final boolean text;
-
-    VisualKind(boolean text) {
-        this.text = text;
-    }
-
-    boolean isText() {
-        return text;
-    }
-}
-
-record VisualKey(VisualPoint point, VisualKind kind) {
-}
-
-record VirtualEntity(int entityId) {
-}
-
-record CuboidSelection(
-        UUID worldId,
-        CuboidBounds bounds,
-        BlockPoint pos1,
-        BlockPoint pos2
-) {
-
-    CuboidSelection {
-        Objects.requireNonNull(worldId, "worldId");
-        Objects.requireNonNull(bounds, "bounds");
-        Objects.requireNonNull(pos1, "pos1");
-        Objects.requireNonNull(pos2, "pos2");
-    }
-}
-
-record RenderState(UUID worldId, Map<VisualKey, VirtualEntity> entities) {
-
-    RenderState {
-        Objects.requireNonNull(worldId, "worldId");
-        entities = Map.copyOf(entities);
-    }
-
-    static RenderState empty(UUID worldId) {
-        return new RenderState(worldId, Map.of());
     }
 }
