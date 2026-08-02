@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.listener;
 
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -16,14 +14,8 @@ public final class TransformListener implements Listener {
         this.handler = handler;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onTransform(EntityTransformEvent event) {
-        if (event.getTransformedEntities().isEmpty()) return;
-
-        Entity original = event.getEntity();
-        Entity first = event.getTransformedEntities().getFirst();
-        if (!(first instanceof LivingEntity le)) return;
-
-        handler.transferTracking(original, le);
+        handler.transferTracking(event.getEntity(), event.getTransformedEntities());
     }
 }
