@@ -89,16 +89,17 @@ A `MONITOR` handler observes the final cancellation state and rolls back the res
 plugin cancelled after the initial check. This prevents same-tick over-spawning without retaining
 cancelled entities in the count.
 
-## Death, removal, unload, and transformation
+## Death, removal, movement, unload, and transformation
 
 - `EntityDeathEvent` removes the entity immediately.
 - Paper's `EntityRemoveFromWorldEvent` performs a delayed validity check. Actual despawns and plugin
   removals are deleted from the registry.
+- Ordinary living-entity movement updates the durable last-known chunk only when a chunk border is
+  crossed. Teleports use their explicit destination, including cross-world teleports.
 - Chunk/world unload marks affected UUIDs as temporarily unloading, updates their last known chunk,
   and keeps them counted. The later remove-from-world event is therefore not mistaken for death.
 - Chunk load scans persistent source markers, restores missing runtime entries, repairs markers from
   durable records, and removes records whose last known loaded chunk no longer contains the entity.
-- Teleports update the record to the destination chunk.
 - Successful transformations replace the original entry with every living transformed entity. A
   one-to-many transformation may temporarily put the count above the configured cap; the source
   spawner then remains blocked until the count falls below the limit.
@@ -126,7 +127,7 @@ counted before their chunks are loaded again.
 Initialization:
 
 1. load the durable registry;
-2. register spawn/removal/transform/chunk/world listeners;
+2. register spawn/removal/movement/transform/chunk/world listeners;
 3. reconcile every currently loaded chunk;
 4. start periodic loaded-entity reconciliation and snapshot tasks.
 
@@ -137,9 +138,11 @@ listeners. Existing entity markers are intentionally left intact so re-enable ca
 ## Performance
 
 Normal spawn checks are constant-time map/set operations. Death, removal, teleport, and transformation
-updates are also constant-time per entity. Periodic reconciliation iterates only tracked UUIDs, not all
-server entities. Chunk load scans only that chunk's entities. Snapshot cost is linear in the number of
-tracked mobs and normally runs once per configured save interval.
+updates are also constant-time per entity. Paper movement events are filtered by chunk coordinates
+before the registry is touched, so ordinary within-chunk movement adds no registry mutation. Periodic
+reconciliation iterates only tracked UUIDs, not all server entities. Chunk load scans only that chunk's
+entities. Snapshot cost is linear in the number of tracked mobs and normally runs once per configured
+save interval.
 
 All Bukkit entity and chunk access stays on the server thread. Periodic snapshot I/O runs asynchronously
 with at most one write in flight; snapshots are immutable copies captured on the server thread. The
@@ -151,7 +154,8 @@ only synchronous persistence is the final shutdown flush after any in-flight wri
    block further spawns.
 2. Kill one tracked mob and confirm the same spawner can create exactly one replacement.
 3. Place a second spawner beside it and confirm it receives its own independent allowance.
-4. Move the first spawner's mobs far away and confirm they still block that original spawner.
+4. Move the first spawner's mobs far away and across several chunk borders; confirm they still block
+   that original spawner.
 5. Unload and reload the mob chunk while the spawner chunk remains active; confirm the count does not
    reset and no mobs are deleted by the feature.
 6. Unload and reload the source-spawner chunk; confirm the cap remains unchanged.
