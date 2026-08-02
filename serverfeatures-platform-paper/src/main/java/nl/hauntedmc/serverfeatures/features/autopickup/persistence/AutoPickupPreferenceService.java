@@ -91,7 +91,7 @@ public final class AutoPickupPreferenceService {
             if (intent == CommandIntent.STATUS) {
                 send(player, "autopickup.status.loading");
             } else {
-                state.pendingCommand(intent);
+                state.queuePendingCommand(intent);
                 send(player, "autopickup.command_queued");
             }
             return;
@@ -148,6 +148,11 @@ public final class AutoPickupPreferenceService {
             try {
                 CompletableFuture.allOf(attempts)
                         .get(settings.shutdownDrainTimeoutMillis(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+                feature.getLogger().warning(
+                        "AutoPickup persistence drain was interrupted during feature shutdown."
+                );
             } catch (Exception exception) {
                 feature.getLogger().warning(
                         "AutoPickup persistence did not fully drain before feature shutdown: "
@@ -192,7 +197,7 @@ public final class AutoPickupPreferenceService {
         current.playerId(identity.get().playerId());
         WriteSlot existingWrite = writes.get(uuid);
         WriteRequest newestLocalRequest = existingWrite == null ? null : existingWrite.newestRequest();
-        if (newestLocalRequest != null) {
+        if (newestLocalRequest != null && newestLocalRequest.playerId() == current.playerId()) {
             revisionClock.observe(newestLocalRequest.writeRevision());
             finishLoad(
                     uuid,
@@ -392,9 +397,8 @@ public final class AutoPickupPreferenceService {
         if (closed.get() || playerId <= 0L) {
             return;
         }
-        WriteSlot slot = writes.computeIfAbsent(uuid, ignored -> new WriteSlot(playerId));
-        slot.playerId = playerId;
-        slot.queuedRequest = new WriteRequest(desired, revisionClock.next());
+        WriteSlot slot = writes.computeIfAbsent(uuid, unusedUuid -> new WriteSlot());
+        slot.queuedRequest = new WriteRequest(playerId, desired, revisionClock.next());
         if (!slot.inFlight) {
             startNextWrite(uuid, slot);
         }
@@ -418,7 +422,7 @@ public final class AutoPickupPreferenceService {
             return;
         }
         CompletableFuture<StoredPreference> future = feature.getLifecycleManager().getTaskManager().supplyAsync(
-                () -> repository.upsert(slot.playerId, request.enabled(), request.writeRevision())
+                () -> repository.upsert(request.playerId(), request.enabled(), request.writeRevision())
         );
         track(future);
         future.whenComplete((stored, throwable) -> {
@@ -555,8 +559,11 @@ public final class AutoPickupPreferenceService {
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
-    private record WriteRequest(boolean enabled, long writeRevision) {
+    private record WriteRequest(long playerId, boolean enabled, long writeRevision) {
         private WriteRequest {
+            if (playerId <= 0L) {
+                throw new IllegalArgumentException("playerId must be positive");
+            }
             if (writeRevision <= 0L) {
                 throw new IllegalArgumentException("writeRevision must be positive");
             }
@@ -564,14 +571,9 @@ public final class AutoPickupPreferenceService {
     }
 
     private static final class WriteSlot {
-        private long playerId;
         private boolean inFlight;
         private WriteRequest activeRequest;
         private WriteRequest queuedRequest;
-
-        private WriteSlot(long playerId) {
-            this.playerId = playerId;
-        }
 
         private WriteRequest newestRequest() {
             return queuedRequest != null ? queuedRequest : activeRequest;
