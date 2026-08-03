@@ -91,4 +91,27 @@ class SpawnerPositionIndexTest {
         assertTrue(index.add(spawner));
         assertEquals(1, index.size());
     }
+
+    @Test
+    void shutdownSettlementCommitsEveryPendingPosition() {
+        SpawnerPositionIndex index = new SpawnerPositionIndex();
+        SpawnerKey first = new SpawnerKey(UUID.randomUUID(), 1, 64, 1);
+        SpawnerKey second = new SpawnerKey(first.worldId(), 2, 64, 2);
+
+        PendingSpawnerPlacements.mark(first);
+        PendingSpawnerPlacements.mark(second);
+        assertFalse(PendingSpawnerPlacements.isEmpty());
+
+        PendingSpawnerPlacements.commitAll();
+
+        assertTrue(index.add(first));
+        assertTrue(index.add(second));
+        assertTrue(PendingSpawnerPlacements.contains(first));
+        assertTrue(PendingSpawnerPlacements.contains(second));
+
+        PendingSpawnerPlacements.clearAll();
+
+        assertTrue(PendingSpawnerPlacements.isEmpty());
+        assertEquals(2, index.countWithin(first, 4));
+    }
 }
