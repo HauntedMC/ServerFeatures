@@ -34,7 +34,7 @@ public final class SpawnerPositionIndex {
     }
 
     public boolean add(SpawnerKey spawner) {
-        if (PendingSpawnerPlacements.contains(spawner)) {
+        if (PendingSpawnerPlacements.blocksIndexing(spawner)) {
             return false;
         }
         return addInternal(spawner);
