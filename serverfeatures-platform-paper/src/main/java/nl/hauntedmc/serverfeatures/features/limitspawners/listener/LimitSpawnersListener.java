@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -148,12 +149,18 @@ public final class LimitSpawnersListener implements Listener {
         handler.handleEntityRemoval(event.getEntity(), event.getCause().name());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityTeleport(EntityTeleportEvent event) {
         Location destination = event.getTo();
-        if (destination != null) {
-            handler.handleTeleport(event.getEntity(), destination);
+        if (destination == null) {
+            return;
         }
+        Entity entity = event.getEntity();
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            if (!event.isCancelled()) {
+                handler.handleTeleport(entity, destination);
+            }
+        }, BukkitTime.ticks(1));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
