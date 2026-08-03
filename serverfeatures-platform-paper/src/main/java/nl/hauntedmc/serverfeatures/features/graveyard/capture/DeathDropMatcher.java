@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.graveyard.capture;
 
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
@@ -14,7 +15,7 @@ public final class DeathDropMatcher {
         List<ItemAllocation> allocations = new ArrayList<>();
 
         for (ItemStack requested : requestedItems) {
-            if (requested == null || requested.getType().isAir() || requested.getAmount() <= 0) {
+            if (isEmpty(requested)) {
                 continue;
             }
             int remaining = requested.getAmount();
@@ -39,6 +40,17 @@ public final class DeathDropMatcher {
             }
         }
         return List.copyOf(allocations);
+    }
+
+    private static boolean isEmpty(ItemStack item) {
+        if (item == null || item.getAmount() <= 0) {
+            return true;
+        }
+        Material material = item.getType();
+        return material == null
+                || material == Material.AIR
+                || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR;
     }
 
     private static final class MutableSource {
