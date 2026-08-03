@@ -6,6 +6,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -39,7 +40,7 @@ public final class SpawnerInteractListener implements Listener {
         int z = clicked.getZ();
         var world = clicked.getWorld();
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            if (event.isCancelled()) {
+            if (event.useInteractedBlock() == Event.Result.DENY) {
                 return;
             }
             Block current = world.getBlockAt(x, y, z);
