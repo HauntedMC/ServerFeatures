@@ -160,52 +160,60 @@ public final class GraveOperationJournal {
 
     private CaptureJournalRecord readCapture(Path path) throws IOException {
         Properties properties = read(path);
-        UUID operationToken = UUID.fromString(required(properties, "operationToken"));
-        CaptureJournalState state = CaptureJournalState.valueOf(required(properties, "state"));
-        GraveLocation death = readLocation(properties, "death");
-        GraveLocation location = readLocation(properties, "grave");
-        Long paused = properties.containsKey("pausedRemainingMillis")
-                ? Long.parseLong(properties.getProperty("pausedRemainingMillis"))
-                : null;
-        Grave grave = new Grave(
-                UUID.fromString(required(properties, "graveId")),
-                required(properties, "shortId"),
-                UUID.fromString(required(properties, "ownerUuid")),
-                required(properties, "ownerName"),
-                required(properties, "serverId"),
-                required(properties, "inventoryScope"),
-                death,
-                location,
-                GravePlacementType.valueOf(required(properties, "placementType")),
-                GraveStatus.valueOf(required(properties, "graveStatus")),
-                Long.parseLong(required(properties, "createdWallMillis")),
-                Long.parseLong(required(properties, "createdActiveMillis")),
-                Long.parseLong(required(properties, "expiresActiveMillis")),
-                paused,
-                Integer.parseInt(required(properties, "itemEntryCount")),
-                Integer.parseInt(required(properties, "remainingExperience")),
-                Long.parseLong(required(properties, "payloadRevision")),
-                required(properties, "payloadChecksum"),
-                properties.getProperty("deathCause"),
-                Boolean.parseBoolean(required(properties, "ownerWasVanished"))
-        );
-        EncodedGravePayload payload = encodedPayload(properties);
-        return new CaptureJournalRecord(operationToken, state, grave, payload);
+        try {
+            UUID operationToken = UUID.fromString(required(properties, "operationToken"));
+            CaptureJournalState state = CaptureJournalState.valueOf(required(properties, "state"));
+            GraveLocation death = readLocation(properties, "death");
+            GraveLocation location = readLocation(properties, "grave");
+            Long paused = properties.containsKey("pausedRemainingMillis")
+                    ? Long.parseLong(properties.getProperty("pausedRemainingMillis"))
+                    : null;
+            Grave grave = new Grave(
+                    UUID.fromString(required(properties, "graveId")),
+                    required(properties, "shortId"),
+                    UUID.fromString(required(properties, "ownerUuid")),
+                    required(properties, "ownerName"),
+                    required(properties, "serverId"),
+                    required(properties, "inventoryScope"),
+                    death,
+                    location,
+                    GravePlacementType.valueOf(required(properties, "placementType")),
+                    GraveStatus.valueOf(required(properties, "graveStatus")),
+                    Long.parseLong(required(properties, "createdWallMillis")),
+                    Long.parseLong(required(properties, "createdActiveMillis")),
+                    Long.parseLong(required(properties, "expiresActiveMillis")),
+                    paused,
+                    Integer.parseInt(required(properties, "itemEntryCount")),
+                    Integer.parseInt(required(properties, "remainingExperience")),
+                    Long.parseLong(required(properties, "payloadRevision")),
+                    required(properties, "payloadChecksum"),
+                    properties.getProperty("deathCause"),
+                    Boolean.parseBoolean(required(properties, "ownerWasVanished"))
+            );
+            EncodedGravePayload payload = encodedPayload(properties);
+            return new CaptureJournalRecord(operationToken, state, grave, payload);
+        } catch (NumberFormatException exception) {
+            throw new IOException("Invalid numeric value in Graveyard capture journal: " + path, exception);
+        }
     }
 
     private ClaimJournalRecord readClaim(Path path) throws IOException {
         Properties properties = read(path);
-        return new ClaimJournalRecord(
-                UUID.fromString(required(properties, "operationToken")),
-                ClaimJournalState.valueOf(required(properties, "state")),
-                UUID.fromString(required(properties, "graveId")),
-                UUID.fromString(required(properties, "ownerUuid")),
-                UUID.fromString(required(properties, "actorUuid")),
-                Long.parseLong(required(properties, "previousRevision")),
-                Integer.parseInt(required(properties, "transferredEntries")),
-                Integer.parseInt(required(properties, "transferredExperience")),
-                encodedPayload(properties)
-        );
+        try {
+            return new ClaimJournalRecord(
+                    UUID.fromString(required(properties, "operationToken")),
+                    ClaimJournalState.valueOf(required(properties, "state")),
+                    UUID.fromString(required(properties, "graveId")),
+                    UUID.fromString(required(properties, "ownerUuid")),
+                    UUID.fromString(required(properties, "actorUuid")),
+                    Long.parseLong(required(properties, "previousRevision")),
+                    Integer.parseInt(required(properties, "transferredEntries")),
+                    Integer.parseInt(required(properties, "transferredExperience")),
+                    encodedPayload(properties)
+            );
+        } catch (NumberFormatException exception) {
+            throw new IOException("Invalid numeric value in Graveyard claim journal: " + path, exception);
+        }
     }
 
     private Properties read(Path path) throws IOException {
