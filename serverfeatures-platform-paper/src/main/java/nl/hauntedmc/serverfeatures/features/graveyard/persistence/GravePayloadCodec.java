@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.graveyard.persistence;
 
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveItemEntry;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GravePayload;
+import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.ByteArrayInputStream;
@@ -57,7 +58,7 @@ public final class GravePayloadCodec {
     }
 
     public GraveItemEntry createEntry(UUID entryId, int preferredSlot, ItemStack item) throws IOException {
-        if (entryId == null || item == null || item.getType().isAir() || item.getAmount() <= 0) {
+        if (entryId == null || isEmpty(item)) {
             throw new IOException("Grave item entry is empty or incomplete");
         }
         validatePreferredSlot(preferredSlot);
@@ -81,7 +82,7 @@ public final class GravePayloadCodec {
         validateItemSize(entry.serializedItem().length);
         try {
             ItemStack item = itemCodec.deserialize(entry.serializedItem());
-            if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
+            if (isEmpty(item)) {
                 throw new IOException("Decoded grave item is empty");
             }
             return item;
@@ -190,6 +191,17 @@ public final class GravePayloadCodec {
         } catch (NoSuchAlgorithmException exception) {
             throw new IOException("SHA-256 is unavailable", exception);
         }
+    }
+
+    private static boolean isEmpty(ItemStack item) {
+        if (item == null || item.getAmount() <= 0) {
+            return true;
+        }
+        Material material = item.getType();
+        return material == null
+                || material == Material.AIR
+                || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR;
     }
 
     private static void validatePreferredSlot(int preferredSlot) throws IOException {
