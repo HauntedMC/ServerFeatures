@@ -96,6 +96,10 @@ public final class LimitSpawnersListener implements Listener {
         }
 
         SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
+        if (PendingSpawnerPlacements.contains(position)) {
+            event.setCancelled(true);
+            return;
+        }
         PendingSpawnerPlacements.mark(position);
 
         LimitSpawnersHandler.PlacementDecision decision = handler.tryReservePlacement(
@@ -126,11 +130,15 @@ public final class LimitSpawnersListener implements Listener {
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             boolean cancelled = event.isCancelled();
             if (cancelled) {
-                PendingSpawnerPlacements.clear(position);
+                PendingSpawnerPlacements.cancel(position);
             } else {
                 PendingSpawnerPlacements.commit(position);
             }
             handler.schedulePlacementFinalization(position, () -> cancelled);
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                    () -> PendingSpawnerPlacements.clear(position),
+                    BukkitTime.ticks(2)
+            );
         }, BukkitTime.ticks(1));
     }
 
