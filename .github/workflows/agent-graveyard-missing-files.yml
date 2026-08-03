@@ -22,9 +22,11 @@ jobs:
           set -euo pipefail
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          actual="$(sha256sum .agent/graveyard-missing-files.patch.gz.b64 | cut -d' ' -f1)"
-          test "$actual" = "0f0ec8a89b14f88813cda8fc79605f91910d0e01294cdbbbe10862d8411f5a47"
-          base64 --decode .agent/graveyard-missing-files.patch.gz.b64 | gzip --decompress > /tmp/graveyard-missing-files.patch
+          tr -d '[:space:]' < .agent/graveyard-missing-files.patch.gz.b64 > /tmp/graveyard-missing-files.patch.gz.b64
+          base64 --decode /tmp/graveyard-missing-files.patch.gz.b64 > /tmp/graveyard-missing-files.patch.gz
+          gzip --test /tmp/graveyard-missing-files.patch.gz
+          gzip --decompress --stdout /tmp/graveyard-missing-files.patch.gz > /tmp/graveyard-missing-files.patch
+          git apply --check --binary /tmp/graveyard-missing-files.patch
           git apply --binary /tmp/graveyard-missing-files.patch
           rm -f .agent/graveyard-missing-files.patch.gz.b64
           rm -f .agent/final.part-00 .agent/final.part-01
