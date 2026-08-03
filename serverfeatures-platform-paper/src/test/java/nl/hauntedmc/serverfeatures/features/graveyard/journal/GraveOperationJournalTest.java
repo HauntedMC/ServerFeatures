@@ -58,6 +58,53 @@ class GraveOperationJournalTest {
     }
 
     @Test
+    void malformedNumericFieldsAreQuarantinedThroughTheJournalErrorPath() throws Exception {
+        GraveOperationJournal journal = new GraveOperationJournal(directory, 1024 * 1024);
+        UUID graveId = UUID.randomUUID();
+        GraveLocation location = new GraveLocation(UUID.randomUUID(), "minecraft:world", 12.5, 64, -7.5, 90);
+        Grave grave = new Grave(
+                graveId, "ABC123", UUID.randomUUID(), "Player", "survival-1", "survival",
+                location, location, GravePlacementType.DEATH_LOCATION, GraveStatus.ACTIVE,
+                10L, 20L, 30L, null, 2, 7, 0L, "checksum", "minecraft:fall", false
+        );
+        journal.writeCapture(new CaptureJournalRecord(
+                UUID.randomUUID(),
+                CaptureJournalState.PREPARED,
+                grave,
+                new EncodedGravePayload(new byte[]{1, 2, 3}, "encoded")
+        ));
+        Path capturePath = directory.resolve("local/journal/capture").resolve(graveId + ".properties");
+        Files.writeString(
+                capturePath,
+                Files.readString(capturePath).replace("itemEntryCount=2", "itemEntryCount=invalid")
+        );
+
+        UUID claimOperation = UUID.randomUUID();
+        journal.writeClaim(new ClaimJournalRecord(
+                claimOperation,
+                ClaimJournalState.PREPARED,
+                graveId,
+                grave.ownerUuid(),
+                grave.ownerUuid(),
+                4L,
+                2,
+                15,
+                new EncodedGravePayload(new byte[]{4, 5, 6}, "remaining")
+        ));
+        Path claimPath = directory.resolve("local/journal/claim").resolve(claimOperation + ".properties");
+        Files.writeString(
+                claimPath,
+                Files.readString(claimPath).replace("previousRevision=4", "previousRevision=invalid")
+        );
+
+        assertTrue(journal.loadCaptures().isEmpty());
+        assertTrue(journal.loadClaims().isEmpty());
+        try (var files = Files.list(directory.resolve("local/journal/corrupt"))) {
+            assertEquals(2L, files.count());
+        }
+    }
+
+    @Test
     void claimTransitionsRoundTripAndQuarantinedTokensStayDiscoverable() throws Exception {
         GraveOperationJournal journal = new GraveOperationJournal(directory, 1024 * 1024);
         UUID operation = UUID.randomUUID();
