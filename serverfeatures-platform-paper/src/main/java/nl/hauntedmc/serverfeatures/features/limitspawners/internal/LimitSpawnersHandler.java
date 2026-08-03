@@ -76,6 +76,7 @@ public final class LimitSpawnersHandler {
 
     private volatile CompletableFuture<Void> positionSaveFuture = CompletableFuture.completedFuture(null);
     private boolean running;
+    private boolean shutdown;
 
     public LimitSpawnersHandler(LimitSpawners feature, LimitSpawnersConfig config) {
         this.feature = Objects.requireNonNull(feature, "feature");
@@ -99,7 +100,8 @@ public final class LimitSpawnersHandler {
     }
 
     public void start() {
-        running = true;
+        shutdown = false;
+        running = false;
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
                 this::bootstrapLoadedChunks,
                 BukkitTime.ticks(1)
@@ -117,6 +119,7 @@ public final class LimitSpawnersHandler {
     }
 
     public void shutdown() {
+        shutdown = true;
         running = false;
         finalizePendingSpawns();
         rollbackPendingTransforms();
@@ -196,11 +199,20 @@ public final class LimitSpawnersHandler {
     public PlacementDecision tryReservePlacement(Player player, SpawnerKey position) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(position, "position");
+        if (!running) {
+            return new PlacementDecision(false, 0, 0);
+        }
+
         if (!config.placementControl().enabled()) {
+            pendingPlacements.put(position, new PendingPlacementReservation(null));
             return new PlacementDecision(true, 0, Integer.MAX_VALUE);
         }
 
-        reconcileLoadedChunksInRadius(position);
+        if (positionIndex.remove(position)) {
+            markPositionsDirty();
+        }
+        reconcileLoadedChunksInRadius(position, position);
+
         SpawnerLimitResolver.PlacementLimit limit = limitResolver.placementLimit(player);
         int nearby = positionIndex.countWithin(position, config.farmRadius())
                 + pendingPlacementCount(position);
@@ -300,7 +312,7 @@ public final class LimitSpawnersHandler {
             if (spawner.isPresent() && isDisabled(spawner.get())) {
                 cleanupSource(source, LimitMetric.SOURCE_DISABLED);
             }
-        }, BukkitTime.ticks(1));
+        }, BukkitTime.ticks(2));
     }
 
     public boolean reserveTransform(Entity original, List<Entity> transformedEntities) {
@@ -368,7 +380,9 @@ public final class LimitSpawnersHandler {
         pendingSplits.put(
                 parent.getUniqueId(),
                 new PendingSplit(
+                        parent.getUniqueId(),
                         tracked.get().spawner(),
+                        parent.getType(),
                         parent.getLocation(),
                         accepted,
                         expiresAt
@@ -382,11 +396,17 @@ public final class LimitSpawnersHandler {
     }
 
     public boolean tryReserveSlimeChild(LivingEntity child) {
-        Optional<SpawnerKey> source = claimSplitSource(child.getLocation());
-        if (source.isEmpty()) {
+        Optional<PendingSplitClaim> claim = claimSplitSource(child);
+        if (claim.isEmpty()) {
             return true;
         }
-        return tryReserveDescendant(child, source.get(), LimitMetric.SLIME_SPLIT);
+        int removals = mobRegistry.contains(claim.get().parentId()) ? 1 : 0;
+        return tryReserveDescendant(
+                child,
+                claim.get().source(),
+                LimitMetric.SLIME_SPLIT,
+                removals
+        );
     }
 
     public boolean tryReserveShulkerChild(LivingEntity parent, LivingEntity child) {
@@ -397,7 +417,8 @@ public final class LimitSpawnersHandler {
         return tryReserveDescendant(
                 child,
                 tracked.get().spawner(),
-                LimitMetric.SHULKER_DUPLICATION
+                LimitMetric.SHULKER_DUPLICATION,
+                0
         );
     }
 
@@ -515,15 +536,32 @@ public final class LimitSpawnersHandler {
     }
 
     private void bootstrapLoadedChunks() {
-        if (!running) {
+        if (shutdown) {
             return;
         }
-        int changed = rescanLoadedChunks();
-        flushPositionsAsyncIfDirty();
-        feature.getLogger().info(
-                "Loaded " + positionIndex.size() + " indexed spawners; bootstrap reconciled "
-                        + changed + " position changes."
-        );
+
+        try {
+            int changed = 0;
+            for (World world : Bukkit.getWorlds()) {
+                for (Chunk chunk : world.getLoadedChunks()) {
+                    changed += reconcileSpawnerChunk(chunk);
+                    removeCrashRecoveredEntities(List.of(chunk.getEntities()));
+                }
+            }
+            flushPositionsAsyncIfDirty();
+            running = true;
+            feature.getLogger().info(
+                    "Loaded " + positionIndex.size() + " indexed spawners; bootstrap reconciled "
+                            + changed + " position changes."
+            );
+        } catch (RuntimeException exception) {
+            running = false;
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "LimitSpawners bootstrap failed; spawning and placement remain blocked.",
+                    exception
+            );
+        }
     }
 
     private void runMaintenance() {
@@ -678,9 +716,10 @@ public final class LimitSpawnersHandler {
     private boolean tryReserveDescendant(
             LivingEntity child,
             SpawnerKey source,
-            LimitMetric metric
+            LimitMetric metric,
+            int removals
     ) {
-        SpawnDecision decision = evaluateAddition(source, child.getType(), 1, 0);
+        SpawnDecision decision = evaluateAddition(source, child.getType(), 1, removals);
         if (!decision.allowed()) {
             increment(decision.metric());
             return false;
@@ -805,7 +844,7 @@ public final class LimitSpawnersHandler {
         }
     }
 
-    private Optional<SpawnerKey> claimSplitSource(Location childLocation) {
+    private Optional<PendingSplitClaim> claimSplitSource(LivingEntity child) {
         long now = System.currentTimeMillis();
         for (Map.Entry<UUID, PendingSplit> entry : List.copyOf(pendingSplits.entrySet())) {
             PendingSplit split = entry.getValue();
@@ -813,8 +852,9 @@ public final class LimitSpawnersHandler {
                 pendingSplits.remove(entry.getKey());
                 continue;
             }
-            if (!sameWorld(split.location(), childLocation)
-                    || split.location().distanceSquared(childLocation)
+            if (split.entityType() != child.getType()
+                    || !sameWorld(split.location(), child.getLocation())
+                    || split.location().distanceSquared(child.getLocation())
                     > SPLIT_MATCH_DISTANCE_SQUARED) {
                 continue;
             }
@@ -825,19 +865,28 @@ public final class LimitSpawnersHandler {
             } else {
                 pendingSplits.put(entry.getKey(), split.withRemainingChildren(remaining));
             }
-            return Optional.of(split.source());
+            return Optional.of(new PendingSplitClaim(split.parentId(), split.source()));
         }
         return Optional.empty();
     }
 
     private void finalizePlacement(SpawnerKey position) {
         PendingPlacementReservation pending = pendingPlacements.remove(position);
-        if (pending == null || isCancelled(pending.cancellationState())) {
+        if (pending == null) {
+            return;
+        }
+        if (isCancelled(pending.cancellationState())) {
+            if (positionIndex.remove(position)) {
+                markPositionsDirty();
+            }
             return;
         }
 
         Optional<CreatureSpawner> spawner = loadedSpawner(position);
         if (spawner.isEmpty()) {
+            if (positionIndex.remove(position)) {
+                markPositionsDirty();
+            }
             return;
         }
         safetyPolicy.apply(spawner.get());
@@ -855,7 +904,7 @@ public final class LimitSpawnersHandler {
         return count;
     }
 
-    private void reconcileLoadedChunksInRadius(SpawnerKey center) {
+    private void reconcileLoadedChunksInRadius(SpawnerKey center, SpawnerKey excluded) {
         World world = Bukkit.getWorld(center.worldId());
         if (world == null) {
             return;
@@ -868,17 +917,24 @@ public final class LimitSpawnersHandler {
                     chunkZ <= center.chunkZ() + chunkRadius;
                     chunkZ++) {
                 if (world.isChunkLoaded(chunkX, chunkZ)) {
-                    reconcileSpawnerChunk(world.getChunkAt(chunkX, chunkZ));
+                    reconcileSpawnerChunk(world.getChunkAt(chunkX, chunkZ), excluded);
                 }
             }
         }
     }
 
     private int reconcileSpawnerChunk(Chunk chunk) {
+        return reconcileSpawnerChunk(chunk, null);
+    }
+
+    private int reconcileSpawnerChunk(Chunk chunk, SpawnerKey excluded) {
         Set<SpawnerKey> actual = new HashSet<>();
         for (BlockState state : chunk.getTileEntities()) {
             if (state instanceof CreatureSpawner spawner) {
                 SpawnerKey key = SpawnerKey.of(spawner.getLocation());
+                if (key.equals(excluded)) {
+                    continue;
+                }
                 actual.add(key);
                 safetyPolicy.apply(spawner);
             }
@@ -890,6 +946,9 @@ public final class LimitSpawnersHandler {
                 chunk.getX(),
                 chunk.getZ()
         )) {
+            if (known.equals(excluded)) {
+                continue;
+            }
             if (!actual.contains(known) && positionIndex.remove(known)) {
                 changed++;
                 markPositionsDirty();
@@ -939,7 +998,7 @@ public final class LimitSpawnersHandler {
 
     private void removeCrashRecoveredEntities(List<Entity> entities) {
         for (Entity entity : entities) {
-            if (readSourceMarker(entity).isEmpty()) {
+            if (mobRegistry.contains(entity.getUniqueId()) || readSourceMarker(entity).isEmpty()) {
                 continue;
             }
             clearSourceMarker(entity);
@@ -1240,13 +1299,25 @@ public final class LimitSpawnersHandler {
     }
 
     private record PendingSplit(
+            UUID parentId,
             SpawnerKey source,
+            EntityType entityType,
             Location location,
             int remainingChildren,
             long expiresAtMillis
     ) {
         private PendingSplit withRemainingChildren(int remaining) {
-            return new PendingSplit(source, location, remaining, expiresAtMillis);
+            return new PendingSplit(
+                    parentId,
+                    source,
+                    entityType,
+                    location,
+                    remaining,
+                    expiresAtMillis
+            );
         }
+    }
+
+    private record PendingSplitClaim(UUID parentId, SpawnerKey source) {
     }
 }
