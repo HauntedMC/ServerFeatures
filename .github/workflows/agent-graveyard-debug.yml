@@ -26,7 +26,7 @@ jobs:
           actual="$(sha256sum /tmp/graveyard-fix.patch.gz.b64 | cut -d' ' -f1)"
           test "$actual" = "70547982cc09374a399eedfa75155f905eb2727263487ed0aebd1261066fd2eb"
           base64 --decode /tmp/graveyard-fix.patch.gz.b64 | gzip --decompress > /tmp/graveyard-fix.patch
-          git apply --binary /tmp/graveyard-fix.patch
+          git apply --binary --exclude=.github/workflows/agent-graveyard-debug.yml /tmp/graveyard-fix.patch
           rm -f .agent/graveyard-fix.patch.b64 .agent/graveyard-fix.patch.part-*
           rm -f .github/workflows/agent-graveyard-debug.yml
           git add -A
