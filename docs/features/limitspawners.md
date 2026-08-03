@@ -66,7 +66,8 @@ position_index:
 There is no compatibility parser for earlier LimitSpawners schemas. Invalid or missing values receive
 the generated defaults. Values below zero are clamped where appropriate. `farm_radius` is raised when
 needed so it remains at least twice `max_required_player_range`. `server_limit` cannot be lower than
-`per_world_limit`.
+`per_world_limit`. Maintenance and position-save intervals are clamped to at least 20 ticks so an unsafe
+configuration cannot schedule either operation every server tick.
 
 `maximum_lifetime_seconds: 0` disables fixed lifetime cleanup. This is the recommended default because
 players should normally kill mobs while actively using a farm.
@@ -85,6 +86,10 @@ block coordinates. Runtime indexes provide:
 A spawn is accepted only when all four configured limits have capacity. The entity UUID is reserved
 immediately at `HIGHEST`, then finalized one tick after the complete event dispatch. Later cancellation
 or failed entity creation rolls the reservation back.
+
+During the one-tick startup bootstrap, direct block-spawner output and player spawner placement remain
+blocked. Loaded chunks are reconciled and any crash-surviving marked mobs are removed before normal
+operation is enabled. A failed bootstrap leaves the feature fail-closed and logs the failure.
 
 A blocked source receives at least `blocked_retry_delay_ticks` before its next cycle. No player message
 or log is emitted for routine blocked attempts.
@@ -117,24 +122,27 @@ entities or install an entity-movement listener.
 Successful `EntityTransformEvent` replacements inherit the source. A transformation is cancelled when
 its complete result would exceed a source, area, world, or server cap.
 
-Tracked slime and magma-cube splits reserve only the number of children that fit. The subsequent
-`SLIME_SPLIT` spawn events inherit the parent source. Tracked shulker duplication also inherits the
-source and is cancelled when no capacity remains.
+Tracked slime and magma-cube splits reserve only the number of children that fit. Child capacity
+discounts the parent while it is still waiting for removal, preventing both false rejection and cap
+overflow. The subsequent `SLIME_SPLIT` spawn events inherit the parent source. Tracked shulker
+duplication also inherits the source and is cancelled when no capacity remains.
 
 Ordinary breeding descendants are not attributed; that belongs to a general breeding/entity limiter.
 
 ## Placement density
 
 Every player placement of `Material.SPAWNER` is checked independently of SilkSpawners. The prospective
-position is counted with every indexed spawner inside a three-dimensional sphere of `farm_radius`.
+position is evaluated with every indexed spawner inside a three-dimensional sphere of `farm_radius`.
 Natural, disabled, different-type, and other-player spawners all count.
 
 The effective limit is the highest configured permission tier the player has, clamped to `hard_limit`.
 The soft bypass grants exactly the hard limit. Only the separate hard-bypass permission permits an
 unlimited administrative placement.
 
-Placement positions are reserved during the event and committed one tick after final cancellation and
-block-state validation. Same-tick placement attempts therefore cannot race past a limit.
+Placement positions remain provisional for the complete event and are committed one tick after final
+cancellation and block-state validation. Reconciliation explicitly excludes every same-tick provisional
+position, while the pending-reservation count includes it exactly once. Same-tick placement attempts
+therefore cannot race past a limit or be double-counted.
 
 ## Persistent position index
 
@@ -154,8 +162,8 @@ reconcile already-loaded chunks intersecting their radius. No query force-loads 
 ## Crash recovery
 
 Mob state is not persisted. The PDC source marker exists only so a mob surviving an abrupt crash can be
-recognized. Marked survivors are removed when their entities next load. Clean shutdown removes every
-tracked mob before clearing runtime state.
+recognized. Marked survivors are removed during the delayed startup scan when already loaded, or when
+their entities later load. Clean shutdown removes every tracked mob before clearing runtime state.
 
 ## Spawner safety
 
@@ -163,7 +171,7 @@ Safety clamps run after placement, during chunk reconciliation, and before a sou
 
 - `spawnCount` is capped;
 - minimum delay is raised;
-- maximum delay is raised when below the resulting minimum;
+- maximum delay is raised before the minimum when required by API invariants;
 - required player range is capped and non-positive values are repaired;
 - spawn range is capped;
 - maximum nearby entities is capped.
