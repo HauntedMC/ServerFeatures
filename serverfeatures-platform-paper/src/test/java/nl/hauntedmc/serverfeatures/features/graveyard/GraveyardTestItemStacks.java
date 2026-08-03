@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.graveyard;
 
+import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadCodec;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
-import org.mockito.MockedStatic;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -12,7 +12,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.withSettings;
 
 public final class GraveyardTestItemStacks {
     private GraveyardTestItemStacks() {
@@ -20,7 +20,7 @@ public final class GraveyardTestItemStacks {
 
     public static ItemStack stack(Material material, int amount) {
         AtomicInteger currentAmount = new AtomicInteger(amount);
-        ItemStack item = mock(ItemStack.class);
+        ItemStack item = mock(ItemStack.class, withSettings().lenient());
         doAnswer(ignored -> material).when(item).getType();
         doAnswer(ignored -> currentAmount.get()).when(item).getAmount();
         doAnswer(invocation -> {
@@ -37,11 +37,18 @@ public final class GraveyardTestItemStacks {
         return item;
     }
 
-    public static MockedStatic<ItemStack> mockBinaryDeserialization() {
-        MockedStatic<ItemStack> itemStacks = mockStatic(ItemStack.class);
-        itemStacks.when(() -> ItemStack.deserializeBytes(any(byte[].class)))
-                .thenAnswer(invocation -> decode(invocation.getArgument(0)));
-        return itemStacks;
+    public static GravePayloadCodec.ItemStackBinaryCodec binaryCodec() {
+        return new GravePayloadCodec.ItemStackBinaryCodec() {
+            @Override
+            public byte[] serialize(ItemStack item) {
+                return encode(item.getType(), item.getAmount());
+            }
+
+            @Override
+            public ItemStack deserialize(byte[] bytes) {
+                return decode(bytes);
+            }
+        };
     }
 
     private static byte[] encode(Material material, int amount) {
