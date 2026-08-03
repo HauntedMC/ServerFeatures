@@ -2,292 +2,245 @@
 
 > Paper · Feature ID `worldeditvisualizer` · disabled by default · commands `/worldeditvisualizer` and `/wevis`
 
-WorldEditVisualizer polls each enabled player's current WorldEdit cuboid selection and renders it with real Bukkit `BlockDisplay` and `TextDisplay` entities. Those entities are hidden by default and explicitly shown only to the owning viewer.
+WorldEditVisualizer renders a player's current WorldEdit cuboid selection with **packet-only virtual `BlockDisplay` and `TextDisplay` entities**. The displays exist only in the client of the player using the visualizer. They are never added to a Bukkit world, never tick, never enter a chunk, never save to disk, and cannot remain behind as server entities.
 
-The visual contains:
+This replaces the former implementation, which spawned real display entities and relied on every lifecycle path successfully retaining and removing every handle. The generic world-display API that enabled that implementation has been removed from `serverfeatures-api` because no other feature used it.
 
-- specially styled pos1 and pos2 corner cubes;
-- optional pos1/pos2 labels;
-- the remaining cuboid corner cubes;
-- sampled cubes along all cuboid edges.
+## Safety model
 
-It does not use particles, client-side block changes or WorldEdit CUI packets.
+The renderer provides the following guarantees:
 
-## Dependency and activation
+1. **No world entities.** Spawn, metadata, and destroy packets are sent directly to one player through PacketEvents.
+2. **No world mutation.** No real or fake block state is changed, so visualization cannot affect blocks, block entities, movement prediction, collision, or interaction.
+3. **Per-player isolation.** Nearby players receive no packets and cannot see or interact with another player's selection.
+4. **Bounded output.** Distance clipping and a hard per-player entity budget prevent large selections from creating unbounded work or client load.
+5. **No chunk loading.** Selection geometry is calculated from coordinates only; the renderer never requests block data or loads chunks.
+6. **Collision-safe identities.** Virtual displays use PacketEvents' server-backed entity-ID generator, sharing the same allocation source as Paper rather than inventing potentially colliding IDs.
+7. **Deterministic cleanup.** Every active virtual entity ID is tracked per viewer and destroyed on disable, selection invalidation, teleport, world change, respawn, permission loss, reload, or a guarded failure.
+8. **Self-healing client state.** A configurable bounded full refresh recreates displays that a client may have discarded after long movement or chunk lifecycle changes.
 
-The implementation directly links to WorldEdit classes and calls `WorldEdit.getInstance()`. There is no runtime availability guard in the feature. A compatible WorldEdit API must therefore be present when the feature class is loaded/initialized.
+Paper's `World#createEntity` is used only to construct short-lived, **unspawned** display templates. Their metadata is converted to PacketEvents data once and cached. The templates are never passed to `addEntity` or any spawn method.
 
-On initialization:
+## Dependencies and activation
 
-1. create one `VisualizationService`;
-2. register the toggle command;
-3. register join/quit listeners;
-4. automatically enable every already-online player with the use permission;
-5. start the polling task when `poll.interval_ticks > 0`.
+The feature declares both required plugins:
 
-Every permitted player is also automatically enabled on every join. A manual disabled choice is not persisted across reconnects.
+- `packetevents`, for viewer-specific virtual entity packets and collision-safe entity IDs;
+- `FastAsyncWorldEdit`, which exposes the WorldEdit selection API.
+
+The feature supports complete `CuboidRegion` selections. Other selector types are deliberately rejected rather than rendered incorrectly.
+
+On initialization the feature:
+
+1. creates one visualization service and packet renderer;
+2. registers the command and player lifecycle listener;
+3. optionally enables already-online permitted players;
+4. starts one synchronous selection reconciliation task.
+
+WorldEdit session reads, Bukkit template construction, ID allocation, and packet sends all remain on the server thread.
 
 ## Command and permission
 
-| Syntax | Permission | Behavior |
-|---|---|---|
-| `/worldeditvisualizer` | `serverfeatures.feature.worldeditvisualizer.use` | Toggle current state. Player-only. |
-| `/wevis` | same | Alias. |
-| `/wevis toggle` | same | Also toggles. |
+Permission: `serverfeatures.feature.worldeditvisualizer.use`
 
-The command ignores all arguments and always toggles. `/wevis anything` therefore behaves exactly like `/wevis toggle`.
+| Syntax | Behavior |
+|---|---|
+| `/wevis` | Toggle the visualizer. |
+| `/wevis toggle` | Toggle the visualizer. |
+| `/wevis on` | Enable and immediately read the current selection. |
+| `/wevis off` | Disable and destroy all virtual displays for the player. |
+| `/wevis refresh` | Force a complete packet rebuild; enables first when necessary. |
 
-Console/non-player senders receive no message and return successfully.
+Aliases `enable` and `disable` are accepted in command execution. Tab completion exposes `toggle`, `on`, `off`, and `refresh`.
 
-Command metadata declares the permission, and execution checks it again. Tab completion always returns `toggle` without prefix filtering.
+Enabled state is session-local and is not written to the database. When `auto_enable_on_join` is enabled, every joining player with the permission is enabled again. Permission revocation while online is detected by polling and immediately destroys the viewer's active displays.
 
 ## Configuration
 
-### Display materials
+```yaml
+enabled: false
+auto_enable_on_join: true
 
-| Key | Default | Use |
+edge:
+  material: WHITE_STAINED_GLASS
+  step_blocks: 0.25
+  scale: 0.15
+
+corner:
+  material: LIME_STAINED_GLASS
+  pos1_material: BLUE_STAINED_GLASS
+  pos2_material: RED_STAINED_GLASS
+  scale: 1.0
+
+glow:
+  edge_color: aqua
+  corner_color: lime
+  pos1_color: blue
+  pos2_color: red
+
+label:
+  enabled: true
+  show_prefix_hash: true
+  scale: 0.8
+  y_offset: 0.8
+
+render:
+  max_distance_blocks: 128
+  max_entities: 1024
+  movement_refresh_blocks: 8
+  full_refresh_interval_ticks: 600
+
+poll:
+  interval_ticks: 10
+```
+
+### Materials and scale
+
+| Key | Default | Runtime behavior |
 |---|---|---|
-| `edge.material` | `WHITE_STAINED_GLASS` | Edge sample cubes. |
-| `corner.material` | `LIME_STAINED_GLASS` | Unnamed cuboid corners. |
-| `corner.pos1_material` | `BLUE_STAINED_GLASS` | WorldEdit pos1 cube. |
-| `corner.pos2_material` | `RED_STAINED_GLASS` | WorldEdit pos2 cube. |
+| `edge.material` | `WHITE_STAINED_GLASS` | Block data shown by virtual edge displays. |
+| `edge.step_blocks` | `0.25` | Requested sub-block interval between edge displays; minimum runtime value `0.05`. |
+| `edge.scale` | `0.15` | Uniform edge-display scale, clamped to `0.01–8.0`. |
+| `corner.material` | `LIME_STAINED_GLASS` | Ordinary cuboid corner material. |
+| `corner.pos1_material` | `BLUE_STAINED_GLASS` | WorldEdit position 1 material. |
+| `corner.pos2_material` | `RED_STAINED_GLASS` | WorldEdit position 2 material. |
+| `corner.scale` | `1.0` | Corner/position display scale, clamped to `0.01–8.0`. |
 
-Materials are resolved through `Material.matchMaterial`. Invalid values silently use the listed fallback. The implementation does not restrict values to blocks before calling `Bukkit.createBlockData`; a non-block material can fail at render time.
+Materials are resolved with `Material.matchMaterial`. Invalid or non-block materials fall back to the documented defaults. Pos1 and pos2 styling override an ordinary corner when their coordinates overlap; pos2 wins when both positions are identical.
 
 ### Glow colors
 
-| Key | Default |
-|---|---|
-| `glow.edge_color` | `aqua` |
-| `glow.corner_color` | `aqua` |
-| `glow.pos1_color` | `blue` |
-| `glow.pos2_color` | `red` |
-
-Values use `NamedTextColor.NAMES.value`. Unknown values silently use the corresponding default. The service does not normalize case before lookup.
-
-Every display is full-bright, glowing and receives a Bukkit RGB glow override derived from the named color.
-
-### Geometry
-
-| Key | Default | Behavior |
-|---|---:|---|
-| `edge.step_blocks` | `0.25` | Distance between sampled edge cubes. Clamped to at least `0.25`. |
-| `edge.scale` | `0.15` | Uniform scale of each edge cube. Not clamped. |
-| `corner.scale` | `1.0` | Uniform scale of all corner cubes. Not clamped. |
-
-The runtime fallback inside `buildOptionsFromConfig` differs slightly from declared defaults (`0.5`, `0.18`, `0.45`), but declared config keys normally exist. If a key is absent or unparsable, the internal fallback is used.
-
-There is no maximum selection size, entity count, edge-point count, view distance or per-render budget.
+The four `glow.*` keys configure Bukkit display glow overrides. Common Minecraft names such as `aqua`, `blue`, `red`, `lime`, `gold`, and `dark_aqua` are supported, as are six-digit RGB values such as `#35d7ff`. Invalid values use the corresponding default.
 
 ### Labels
 
 | Key | Default | Behavior |
 |---|---:|---|
-| `label.enabled` | `true` | Spawn labels for named points. |
-| `label.y_offset` | `0.7` | Vertical offset above the point center. |
-| `label.scale` | `1.0` | Uniform TextDisplay scale. |
-| `label.show_prefix_hash` | `false` | `false`: `pos1`/`pos2`; `true`: `#1`/`#2`. |
+| `label.enabled` | `true` | Spawn virtual text labels above pos1 and pos2. |
+| `label.show_prefix_hash` | `true` | Use `#1` / `#2`; when false use `pos1` / `pos2`. |
+| `label.scale` | `0.8` | Uniform text-display scale, clamped to `0.1–4.0`. |
+| `label.y_offset` | `0.8` | Vertical offset from the block-center marker, clamped to `-16–16`. |
 
-Labels are center-billboarded, see-through, shadowed, glowing, line width 120 and use a semi-transparent black background.
+Labels are centered, billboarded, see-through, shadowed, and rendered with a translucent background. They count toward the same per-player entity budget as block displays.
+
+### Rendering budgets and refreshes
+
+| Key | Default | Runtime bounds | Behavior |
+|---|---:|---:|---|
+| `render.max_distance_blocks` | `128` | `1–512` | Axis-aligned distance around the viewer in which virtual displays may exist. |
+| `render.max_entities` | `1024` | `16–4096` | Hard maximum number of virtual displays owned by one viewer. |
+| `render.movement_refresh_blocks` | `8` | `1–32` | Size of movement cells used to recalculate distance-clipped geometry. |
+| `render.full_refresh_interval_ticks` | `600` | `0–72000` | Recreate the full client view periodically; `0` disables this recovery pass. |
+
+The sampler first clips each of the twelve cuboid edges to the viewer's configured range. It never walks across the invisible middle of an enormous selection. If the requested `edge.step_blocks` would exceed the remaining entity budget, the effective step is increased adaptively. Corners, pos1, pos2, and labels are prioritized before ordinary edge points. A deterministic final cap remains as a defensive backstop.
+
+Coordinates are quantized to 1/4096 of a block for stable identity and packet diffing. This preserves fractional spacing without accumulating floating-point duplicates.
+
+The periodic full refresh is deliberately bounded by the same distance and entity limits. Normal movement and selection updates remain differential. Manual `/wevis refresh` uses the same complete rebuild path immediately.
 
 ### Polling
 
-| Key | Default | Behavior |
-|---|---:|---|
-| `poll.interval_ticks` | `10` | Period for selection polling. Values `<=0` disable polling. |
+`poll.interval_ticks` defaults to `10` and is clamped to at least one tick. Each poll checks only enabled players. An unchanged selection is skipped until the player enters a new movement cell, the selection changes, the full-refresh deadline expires, or `/wevis refresh` forces a rebuild.
 
-Without polling, the command's initial enable attempt is the only automatic selection read. WorldEdit selection changes are not reflected until another explicit enable/toggle/reload path.
+## Packet lifecycle
 
-## Player state
+For each enabled player, reconciliation performs the following:
 
-`VisualizationService` maintains three concurrent collections:
+1. verify that the player remains online and permitted;
+2. read the existing WorldEdit session without creating one;
+3. read the selection in the player's current world;
+4. require a complete cuboid selection;
+5. compare the selection and movement-cell fingerprint;
+6. calculate the bounded desired virtual display set;
+7. send one destroy packet for virtual IDs no longer required;
+8. retain unchanged virtual displays without packet churn;
+9. allocate each new ID through PacketEvents' server-backed generator;
+10. send spawn and metadata packets only for newly required displays.
 
-| State | Meaning |
-|---|---|
-| `enabled: Set<UUID>` | Players included in polling. |
-| `last: Map<UUID,SelectionSnapshot>` | Last rendered world/min/max/pos1/pos2 for diff suppression. |
-| `shown: Map<UUID,VisualHandle>` | Current display-entity handle. |
+`/wevis refresh` and the periodic recovery pass deliberately destroy and recreate the full set. Normal polling uses a diff so movement and point changes do not respawn the complete visualization.
 
-`isActive` returns true when either enabled state or a visual handle exists. This lets toggle clean up an orphaned handle even if the enabled flag was lost.
+If the selection is cleared, becomes incomplete, switches to an unsupported selector, or cannot be read in the current world, all previous virtual displays are destroyed immediately.
 
-### Enable
+If a packet sequence fails midway, all tracked IDs from that attempted render are destroyed best-effort before the affected session is disabled. One player's failure cannot abort polling for other viewers.
 
-`enable(player)`:
+## Player lifecycle
 
-1. clears the current handle/entities;
-2. removes the last snapshot;
-3. adds UUID to enabled set;
-4. immediately attempts to render the current selection without feedback.
+- **Join:** optionally enable and render when permitted.
+- **Quit:** forget in-memory state; the disconnected client no longer exists and no server entity can remain.
+- **Teleport:** destroy the old packet entities before a successful teleport is applied.
+- **World change:** destroy any remaining old-dimension IDs, discard state, and immediately build the destination-world selection.
+- **Respawn:** destroy tracked IDs and let the next poll recreate the visualization for the new client state.
+- **Permission loss:** disable and destroy the player's virtual entities.
+- **Feature disable/reload:** destroy all active virtual entities for online viewers and clear all state maps and refresh deadlines.
 
-It always refreshes/cleans before rendering, even when already enabled.
+A runtime failure is isolated to the affected viewer, logged, and followed by best-effort destruction and session disablement. This prevents one bad selection or client state from producing a repeating exception loop.
 
-### Disable
+## Performance characteristics
 
-`disable(player,true)` removes enabled and last state, then clears/removes every display in the handle.
+The server stores a bounded map of virtual display keys and IDs per enabled player. There are no ticking visualization entities, chunk entity lists, persistence records, block reads, or block-update packets.
 
-### Toggle
+Changed-render work is bounded by:
 
-- active → disable and clear;
-- inactive → clear any stale handle/snapshot, enable and render once.
+- twelve distance-clipped edge ranges;
+- at most `render.max_entities` desired keys;
+- one batched destroy packet for removed IDs;
+- two packets per newly spawned virtual display: spawn and metadata.
 
-The command reports enabled even when no usable selection was found, because `enable` represents polling state rather than successful visualization creation.
+The metadata for the six display styles is generated once from unspawned templates and reused for all viewers until feature reload.
 
-## WorldEdit selection read
+## Removed legacy API
 
-For an enabled online player:
-
-1. get an existing WorldEdit `LocalSession` with `getIfPresent`;
-2. adapt the player's current Bukkit world;
-3. call `session.getSelection(world)`;
-4. require `CuboidRegion`;
-5. read min, max, pos1 and pos2;
-6. create a snapshot including Bukkit world UUID;
-7. skip rendering when snapshot equals the prior snapshot;
-8. build the shape/options;
-9. clear previous handle;
-10. create and store a new visual handle.
-
-Only complete cuboid selections are supported. Polygonal, ellipsoid, convex and other WorldEdit region selectors are ignored.
-
-### Stale-render behavior
-
-When polling finds:
-
-- no existing WorldEdit session;
-- no complete selection;
-- a non-cuboid selection;
-
-`tryShowFromSelection` returns without clearing `last` or `shown`. A previous cuboid visualization therefore remains visible after the selection is cleared or changed to an unsupported type, until:
-
-- a different complete cuboid snapshot is rendered;
-- the player toggles off/on;
-- the player quits and cleanup completes;
-- the feature disables.
-
-The `no_selection` and `not_cuboid` messages are sent only when the method is called with `feedback=true`. All current calls use `false`, so these messages are defined but not reached by the current command/join/poll implementation.
-
-## Shape and coordinate mapping
-
-The cuboid uses inclusive WorldEdit block min/max coordinates. Named point centers are:
+The unused package below has been removed from `serverfeatures-api`:
 
 ```text
-(pos.x + 0.5, pos.y + 0.5, pos.z + 0.5)
+nl.hauntedmc.serverfeatures.api.ui.world.display
 ```
 
-`CuboidRegionShape` provides all corner centers and samples every edge at the configured step. Exact vector equality prevents pos1/pos2 from also being spawned as ordinary corners.
+Removed types include `VisualHandle`, `Visualisation`, `DisplayVisualHandle`, `VisualOptions`, `RegionShape`, `CuboidRegionShape`, and `CubeRegionVisualisation`, together with their tests. The API module's now-unused direct JOML dependency was also removed.
 
-Pos1 and pos2 can coincide or correspond to the same geometric point in a one-block selection. Named entries are processed separately, so overlapping special cubes/labels may be created.
+This is an intentional breaking cleanup. External code that imported these classes must stop using them; ServerFeatures no longer exposes a generic world-entity visualization API.
 
-## Display entity implementation
-
-For every cube, `CubeRegionVisualisation` spawns a real `BlockDisplay` in the player's current world:
-
-- block data set from configured material;
-- brightness 15/15;
-- glow enabled and color override;
-- no shadow radius;
-- `visibleByDefault=false`;
-- transformation translated by negative half scale to center the cube;
-- shown only through `viewer.showEntity(plugin, display)`.
-
-Labels use real `TextDisplay` entities with the options described above.
-
-These are server entities, not packets generated solely for the client. Other systems that enumerate entities can observe them even though ordinary players cannot see them by default.
-
-`DisplayVisualHandle.clear()` removes each live display entity exactly once and clears its list.
-
-## Entity-count and performance model
-
-Each render creates:
-
-- 2 named point cubes;
-- up to 2 labels;
-- up to 6 remaining corner cubes;
-- edge sample cubes proportional to total edge length divided by `edge.step_blocks`.
-
-A rectangular cuboid has 12 edges. With step 0.25, an axis length of 1,000 blocks can create thousands to tens of thousands of display entities depending on dimensions and shape sampling endpoints.
-
-There is no maximum region volume/edge length or entity cap. Polling snapshot equality prevents recreating unchanged selections, but changing one endpoint clears every old entity and respawns the entire visual.
-
-Operators should restrict the use permission and test realistic large selections. This feature can create severe entity/tick/memory load with very large WorldEdit regions.
-
-Polling itself runs synchronously through the normal repeating task, so WorldEdit reads, display removal and entity spawning occur on the main thread.
-
-## Join, quit and disable ordering
-
-Join/quit handlers use default `NORMAL` priority and process cancelled events.
-
-### Join
-
-A player with use permission is automatically enabled and immediately rendered when possible. Players without permission are ignored.
-
-### Quit
-
-The listener calls only `service.clear(player)`. It does not directly remove UUID from `enabled` or `last`.
-
-When polling is enabled, the next poll sees the player offline and `disableOffline` removes all three states. When polling is disabled, enabled/snapshot state can remain in memory until rejoin or feature disable. A same-UUID rejoin calls `enable`, which clears stale snapshot and remains enabled.
-
-### Disable
-
-The feature clears visual handles for every currently online player and drops its service reference. It does not explicitly iterate offline retained UUID state, but the service object becomes unreachable after lifecycle cleanup.
-
-The lifecycle manager owns task/listener cancellation.
-
-## Permission changes
-
-Permission is checked only:
-
-- at command execution;
-- when auto-enabling during initialize/join.
-
-Polling does not re-check permission. Revoking permission while the player remains enabled does not stop visualization until they toggle, quit or the feature reloads. Granting permission while online does not auto-enable until command/rejoin/reload.
+The feature's existing material, spacing, scale, glow, and label settings remain supported by the packet-only renderer.
 
 ## Messages
 
-| Key | Current use |
+| Key | Use |
 |---|---|
-| `worldeditvisualizer.enabled` | Toggle result: enabled state, whether or not a selection rendered. |
-| `worldeditvisualizer.disabled` | Toggle result: disabled/cleared. |
-| `worldeditvisualizer.no_selection` | Defined but current callers never request feedback. |
-| `worldeditvisualizer.not_cuboid` | Defined but current callers never request feedback. |
-
-## Persistence and APIs
-
-Player preference is not persisted. There is no database, Redis, PAPI or external public service registration. The visualisation API classes are reusable internal/public API utilities, but this feature's concrete service is not registered through the feature API manager.
-
-## Important implementation boundaries
-
-- Direct WorldEdit dependency with no availability guard.
-- Players with permission auto-enable on every join.
-- Command arguments are ignored.
-- Polling can be disabled with interval `<=0`.
-- Cleared/non-cuboid selections leave stale visual entities visible.
-- No selection-size/entity-count cap exists.
-- Real display entities are spawned on the main thread.
-- Permission changes are not continuously reconciled.
-- Quit relies on the next poll to remove enabled/snapshot state.
-- Invalid materials/colors silently fall back; scales are not clamped.
-- No-selection/non-cuboid messages are currently unreachable.
+| `worldeditvisualizer.enabled` | Enabled confirmation. |
+| `worldeditvisualizer.disabled` | Disabled and virtual entities destroyed. |
+| `worldeditvisualizer.refreshed` | Forced packet rebuild succeeded. |
+| `worldeditvisualizer.no_selection` | No complete selection exists in the current world. |
+| `worldeditvisualizer.not_cuboid` | Current selector type is unsupported. |
+| `worldeditvisualizer.failed` | Guarded packet/render update failed and details were logged. |
+| `worldeditvisualizer.usage` | Invalid command argument. |
 
 ## Verification checklist
 
-1. Toggle with no selection, incomplete selection, cuboid and non-cuboid selectors.
-2. Clear/change an existing cuboid to verify the documented stale-render behavior.
-3. Use one-block and coincident pos1/pos2 selections and inspect overlapping displays.
-4. Measure display count and tick impact for long/thin and large cuboids at several step sizes.
-5. Test invalid/non-block materials, color casing and negative/zero scales.
-6. Disable polling and change selections; verify only the initial render remains.
-7. Revoke/grant permission while online.
-8. Quit with polling enabled and disabled and inspect service state/entity cleanup.
-9. Disable/reload with active visuals and verify every display entity is removed.
-10. Test WorldEdit reload/unavailability and unsupported API versions.
-11. Inspect whether entity-management plugins affect invisible display entities.
+1. Start once without PacketEvents and once without FastAsyncWorldEdit; the feature must be rejected cleanly by dependency validation rather than failing during class use.
+2. Enable with no selection, an incomplete pos1-only selection, a complete cuboid, and a non-cuboid selector.
+3. Change, clear, and switch selector type; verify old virtual displays disappear immediately.
+4. Stand another player beside the selection and confirm they never see the visualization.
+5. Inspect Bukkit entities, chunk entity counts, entity-save data, and timings before, during, and after use; the visualization must create none.
+6. Walk, sprint, fly, and pass directly through every visual point; there must be no collision, rubber-banding, or blocked interaction.
+7. Cross movement cells and chunk or vertical-section boundaries while changing both WorldEdit points.
+8. Teleport within a world, change worlds, respawn, disconnect, and reconnect.
+9. Revoke permission while the visual is active.
+10. Disable or reload ServerFeatures with several active viewers.
+11. Test tiny, flat, line-like, very large, and extreme-coordinate selections.
+12. Configure very small spacing with a low entity budget; verify adaptive thinning and stable TPS and client FPS.
+13. Test invalid materials, colors, scales, distances, budgets, polling, and refresh intervals; safe fallbacks and clamps must apply.
+14. Toggle labels and both label naming modes.
+15. Run `/wevis refresh` repeatedly and confirm no real entity is replaced or destroyed because virtual IDs use the shared server allocator.
+16. Leave a visualization active across several `full_refresh_interval_ticks` cycles and verify it recovers without duplicate displays.
 
 ## Source map
 
-- Defaults, lifecycle and poll scheduling: `features/worldeditvisualizer/WorldEditVisualizer.java`
-- WorldEdit bridge/state/diff/options: `features/worldeditvisualizer/internal/VisualizationService.java`
-- Command/permission: `features/worldeditvisualizer/command/WorldEditVisualizerCommand.java`
-- Join/quit behavior: `features/worldeditvisualizer/listener/PlayerJoinListener.java`
-- Display rendering: `serverfeatures-api/.../CubeRegionVisualisation.java`
-- Handle cleanup: `serverfeatures-api/.../DisplayVisualHandle.java`
+- Defaults and lifecycle: `features/worldeditvisualizer/WorldEditVisualizer.java`
+- Feature dependencies: `features/worldeditvisualizer/meta/Meta.java`
+- Command: `features/worldeditvisualizer/command/WorldEditVisualizerCommand.java`
+- Selection state and reconciliation: `features/worldeditvisualizer/internal/VisualizationService.java`
+- Packet-only virtual displays: `features/worldeditvisualizer/internal/PacketDisplayRenderer.java`
+- Bounded sub-block geometry: `features/worldeditvisualizer/internal/CuboidOutlineSampler.java`
+- Player lifecycle: `features/worldeditvisualizer/listener/PlayerLifecycleListener.java`
+- Geometry tests: `features/worldeditvisualizer/internal/CuboidOutlineSamplerTest.java`
+- Dependency regression test: `features/worldeditvisualizer/meta/MetaTest.java`

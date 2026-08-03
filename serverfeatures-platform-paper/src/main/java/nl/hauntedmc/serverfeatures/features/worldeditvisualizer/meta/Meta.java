@@ -13,11 +13,11 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureVersion() {
-        return "1.1.0";
+        return "2.0.0";
     }
 
     @Override
     public List<String> getPluginDependencies() {
-        return List.of("FastAsyncWorldEdit");
+        return List.of(PACKET_EVENTS, "FastAsyncWorldEdit");
     }
 }
