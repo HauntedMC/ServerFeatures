@@ -13,7 +13,13 @@ class VoteEventTest {
 
     @Test
     void exposesPayloadAndSharedHandlerListAcrossInstances() {
-        VotePayload payload = new VotePayload("svc", "player", "127.0.0.1", 1L);
+        VotePayload payload = new VotePayload(
+                "svc",
+                "player",
+                "127.0.0.1",
+                1L,
+                "vote.1"
+        );
         VoteEvent first = new VoteEvent(payload);
         VoteEvent second = new VoteEvent(null);
 
@@ -25,7 +31,13 @@ class VoteEventTest {
 
     @Test
     void trackedBusinessWorkControlsProcessingCompletion() {
-        VoteEvent event = new VoteEvent(new VotePayload("svc", "player", "127.0.0.1", 1L));
+        VoteEvent event = new VoteEvent(new VotePayload(
+                "svc",
+                "player",
+                "127.0.0.1",
+                1L,
+                "vote.1"
+        ));
         CompletableFuture<Void> processing = new CompletableFuture<>();
 
         event.track(processing);

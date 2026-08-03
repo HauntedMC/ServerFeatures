@@ -5,14 +5,10 @@ import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingData
 import nl.hauntedmc.dataprovider.database.messaging.durable.DurableSubscription;
 import nl.hauntedmc.proxyfeatures.contracts.messaging.VoteMessage;
 import nl.hauntedmc.serverfeatures.features.votifier.Votifier;
-import nl.hauntedmc.serverfeatures.features.votifier.event.VoteDispatchTracker;
 import nl.hauntedmc.serverfeatures.features.votifier.event.VoteEvent;
 import nl.hauntedmc.serverfeatures.features.votifier.event.VotePayload;
 import org.bukkit.Bukkit;
-import org.bukkit.event.Event;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
@@ -27,19 +23,9 @@ public class EventBusHandler {
     private final Votifier feature;
     private DurableSubscription subscription;
 
-    // One-time detection & cached reflection
-    private final boolean nativeVotifierAvailable;
-    private Constructor<?> voteCtorNoArgs;
-    private Constructor<?> eventCtor;
-    private Method setServiceName;
-    private Method setUsername;
-    private Method setAddress;
-    private Method setTimeStamp;
-
     public EventBusHandler(Votifier feature, DurableMessagingDataAccess redisBus) {
         this.feature = feature;
         this.redisBus = redisBus;
-        this.nativeVotifierAvailable = detectAndCacheVotifier();
     }
 
     public void consume(String stream, String consumerGroup) {
@@ -63,17 +49,17 @@ public class EventBusHandler {
             feature.getLogger().info(
                     "Consuming durable vote stream \"" + stream + "\" as group \"" + consumerGroup + "\"."
             );
-        } catch (RuntimeException ex) {
+        } catch (RuntimeException exception) {
             feature.getLogger().severe(
-                    "Failed to consume durable vote stream \"" + stream + "\": " + rootMessage(ex)
+                    "Failed to consume durable vote stream \"" + stream + "\": " + rootMessage(exception)
             );
-            throw ex;
+            throw exception;
         }
     }
 
     private void handleIncoming(DurableDelivery<VoteMessage> delivery) {
-        VoteMessage msg = delivery.event().payload();
-        if (msg.getUsername() == null || msg.getServiceName() == null) {
+        VoteMessage message = delivery.event().payload();
+        if (message.getUsername() == null || message.getServiceName() == null) {
             feature.getLogger().warning(
                     "Discarding invalid durable vote " + delivery.event().processingKey() + "."
             );
@@ -81,24 +67,12 @@ public class EventBusHandler {
             return;
         }
 
-        final String service = msg.getServiceName();
-        final String user = msg.getUsername();
-        final String addr = msg.getAddress() == null ? "-" : msg.getAddress();
-        final long ts = msg.getVoteTimestamp();
-        final String processingKey = delivery.event().processingKey();
-
+        String processingKey = delivery.event().processingKey();
         try {
             feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
                 CompletionStage<Void> processing;
                 try {
-                    if (nativeVotifierAvailable) {
-                        processing = dispatchTrackedNativeEvent(service, user, addr, ts, processingKey);
-                        if (processing == null) {
-                            processing = dispatchLocalEvent(service, user, addr, ts, processingKey);
-                        }
-                    } else {
-                        processing = dispatchLocalEvent(service, user, addr, ts, processingKey);
-                    }
+                    processing = dispatchLocalEvent(message, processingKey);
                 } catch (Throwable throwable) {
                     feature.getLogger().warning(
                             "Durable vote " + processingKey + " was not dispatched: " + rootMessage(throwable)
@@ -123,77 +97,14 @@ public class EventBusHandler {
         }
     }
 
-    /**
-     * Runs once in the constructor: checks if Votifier is enabled and its API is present.
-     * If so, caches reflection members we need to dispatch their event later.
-     */
-    private boolean detectAndCacheVotifier() {
-
-        if (!Bukkit.getPluginManager().isPluginEnabled("Votifier")) {
-            feature.getLogger().info("Votifier not available or incompatible; using native vote events.");
-            return false;
-        }
-
-        try {
-            Class<?> voteCls = Class.forName("com.vexsoftware.votifier.model.Vote", false, getClass().getClassLoader());
-            Class<?> eventCls = Class.forName("com.vexsoftware.votifier.model.VotifierEvent", false, getClass().getClassLoader());
-
-            voteCtorNoArgs = voteCls.getConstructor();
-            eventCtor = eventCls.getConstructor(voteCls);
-
-            setServiceName = voteCls.getMethod("setServiceName", String.class);
-            setUsername = voteCls.getMethod("setUsername", String.class);
-            setAddress = voteCls.getMethod("setAddress", String.class);
-            setTimeStamp = voteCls.getMethod("setTimeStamp", String.class);
-
-            return true;
-        } catch (Throwable t) {
-            feature.getLogger().info("Votifier not available or incompatible; using native vote events.");
-            return false;
-        }
-    }
-
-    private boolean dispatchNativeVotifierEvent(String service, String user, String addr, long ts) {
-        try {
-            Object vote = voteCtorNoArgs.newInstance();
-            setServiceName.invoke(vote, service);
-            setUsername.invoke(vote, user);
-            setAddress.invoke(vote, addr);
-            setTimeStamp.invoke(vote, String.valueOf(ts));
-
-            Object event = eventCtor.newInstance(vote);
-            Bukkit.getPluginManager().callEvent((Event) event);
-            return true;
-        } catch (Throwable t) {
-            feature.getLogger().severe("Failed to dispatch native Votifier event; falling back. " +
-                    t.getClass().getSimpleName() + ": " + t.getMessage());
-            return false;
-        }
-    }
-
-    private CompletionStage<Void> dispatchTrackedNativeEvent(
-            String service,
-            String user,
-            String addr,
-            long ts,
-            String processingKey
-    ) {
-        try (VoteDispatchTracker tracker = VoteDispatchTracker.open(processingKey)) {
-            if (!dispatchNativeVotifierEvent(service, user, addr, ts)) {
-                return null;
-            }
-            return tracker.processingCompletion();
-        }
-    }
-
-    private CompletionStage<Void> dispatchLocalEvent(
-            String service,
-            String user,
-            String addr,
-            long ts,
-            String processingKey
-    ) {
-        VoteEvent event = new VoteEvent(new VotePayload(service, user, addr, ts, processingKey));
+    private CompletionStage<Void> dispatchLocalEvent(VoteMessage message, String processingKey) {
+        VoteEvent event = new VoteEvent(new VotePayload(
+                message.getServiceName(),
+                message.getUsername(),
+                message.getAddress() == null ? "-" : message.getAddress(),
+                message.getVoteTimestamp(),
+                processingKey
+        ));
         Bukkit.getPluginManager().callEvent(event);
         return event.processingCompletion();
     }

@@ -1,9 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.votereward.internal;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
-import nl.hauntedmc.dataregistry.api.player.PlayerData;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.dataregistry.api.player.PlayerNameHistoryEntry;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheDirectory;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheType;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
@@ -16,9 +14,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -29,10 +25,7 @@ import java.util.function.Supplier;
 
 public class VoteHandler {
 
-    private static final int LEGACY_NAME_HISTORY_LIMIT = 100;
-
     private final VoteReward feature;
-    private final PlayerData playerData;
     private final PlayerIdentityResolver playerResolver;
     private final CacheDirectory playerCacheDirectory;
     private final FileCacheStore processedVoteStore;
@@ -51,7 +44,6 @@ public class VoteHandler {
         this.feature = feature;
         DataRegistryApi dataRegistry = feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for VoteReward."));
-        this.playerData = dataRegistry.players();
         this.playerResolver = new PlayerIdentityResolver(dataRegistry);
         this.playerCacheDirectory = feature.getPlayerCacheDir();
         this.processedVoteStore = cacheStore("_processed-votes");
@@ -67,17 +59,14 @@ public class VoteHandler {
     }
 
     /**
-     * Entry point from either listener. All Bukkit work is normalized onto the main thread.
+     * Entry point for the native tracked vote listener. All Bukkit work is normalized onto the main thread.
      */
     public CompletionStage<Void> handleVote(IncomingVote vote) {
         if (!Bukkit.isPrimaryThread()) {
             return scheduleMainStage(() -> handleVote(vote));
         }
 
-        String processingKey = normalizeProcessingKey(vote.processingKey());
-        if (processingKey == null) {
-            return processVote(vote);
-        }
+        String processingKey = vote.processingKey();
         if (processedVoteKeys.contains(processingKey)) {
             feature.getLogger().fine("Ignored already processed vote " + processingKey + ".");
             return CompletableFuture.completedFuture(null);
@@ -208,23 +197,16 @@ public class VoteHandler {
     private void queueOfflineVote(String cacheKey, String service, String processingKey) {
         FileCacheStore cache = cacheStore(cacheKey);
         CacheValue value = CacheValue.builder(cacheTtlMillis).with("service", service).build();
-        String normalizedProcessingKey = normalizeProcessingKey(processingKey);
-        String voteKey = normalizedProcessingKey == null
-                ? "vote_" + System.currentTimeMillis() + "_" + UUID.randomUUID()
-                : normalizedProcessingKey;
-        cache.put(voteKey, value);
+        cache.put(processingKey, value);
     }
 
     public void processOfflineVotesOnJoin(Player player) {
         UUID playerUuid = player.getUniqueId();
-        String currentName = player.getName();
         UUID replayGeneration = UUID.randomUUID();
         replayGenerations.put(playerUuid, replayGeneration);
 
-        resolveLegacyCacheNames(playerUuid, currentName)
-                .thenCompose(legacyNames -> feature.getLifecycleManager().getTaskManager().supplyAsync(
-                        () -> loadPendingVotes(playerUuid.toString(), legacyNames)
-                ))
+        feature.getLifecycleManager().getTaskManager()
+                .supplyAsync(() -> loadPendingVotes(playerUuid.toString()))
                 .whenComplete((pendingVotes, throwable) -> {
                     if (throwable != null) {
                         replayGenerations.remove(playerUuid, replayGeneration);
@@ -240,45 +222,9 @@ public class VoteHandler {
                 });
     }
 
-    private CompletionStage<List<String>> resolveLegacyCacheNames(UUID playerUuid, String currentName) {
-        List<String> fallback = normalizedNames(currentName, List.of());
-        return playerResolver.whenReady(playerUuid)
-                .thenCompose(identity -> {
-                    if (identity == null || identity.isEmpty()) {
-                        return CompletableFuture.completedFuture(fallback);
-                    }
-                    return playerData.findNameHistory(identity.get().playerId(), LEGACY_NAME_HISTORY_LIMIT)
-                            .thenApply(history -> normalizedNames(currentName, history));
-                })
-                .exceptionally(throwable -> {
-                    feature.getLogger().warning("Could not resolve legacy vote cache names for " + playerUuid + ": "
-                            + rootMessage(throwable));
-                    return fallback;
-                });
-    }
-
-    private List<String> normalizedNames(String currentName, List<PlayerNameHistoryEntry> history) {
-        Set<String> names = new LinkedHashSet<>();
-        names.add(normalizeName(currentName));
-        if (history != null) {
-            for (PlayerNameHistoryEntry entry : history) {
-                if (entry != null && entry.username() != null && !entry.username().isBlank()) {
-                    names.add(normalizeName(entry.username()));
-                }
-            }
-        }
-        names.remove("");
-        return List.copyOf(names);
-    }
-
-    private List<PendingVote> loadPendingVotes(String stableKey, List<String> legacyNames) {
+    private List<PendingVote> loadPendingVotes(String playerUuid) {
         List<PendingVote> pending = new ArrayList<>();
-        collectPendingVotes(cacheStore(stableKey), pending);
-        for (String legacyName : legacyNames) {
-            if (!stableKey.equalsIgnoreCase(legacyName)) {
-                collectPendingVotes(cacheStore(legacyName), pending);
-            }
-        }
+        collectPendingVotes(cacheStore(playerUuid), pending);
         return pending;
     }
 
@@ -416,17 +362,6 @@ public class VoteHandler {
         } else {
             completion.completeExceptionally(throwable);
         }
-    }
-
-    private static String normalizeProcessingKey(String processingKey) {
-        if (processingKey == null || processingKey.isBlank()) {
-            return null;
-        }
-        return processingKey.trim();
-    }
-
-    private static String normalizeName(String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
     }
 
     private static String rootMessage(Throwable throwable) {

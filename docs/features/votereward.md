@@ -1,252 +1,232 @@
 # VoteReward
 
-> Paper · Feature ID `votereward` · disabled by default · native or external Votifier ingress
+> Paper · Feature ID `votereward` · disabled by default · native tracked vote rewards
 
-VoteReward validates incoming votes, broadcasts accepted votes, executes configured console reward commands for online players, and stores rewards for known offline players in feature JSON cache files. On join it loads UUID and legacy-name cache stores, announces the queued count and replays rewards at a configurable interval.
+VoteReward consumes ServerFeatures Votifier's native tracked `VoteEvent`. It validates vote services and player identities, grants configured console-command rewards to online players, stores rewards for known offline players, deduplicates immutable durable processing keys, and replays queued rewards when players join.
 
-It includes stable vote-key deduplication and in-process coalescing, but reward execution, offline-cache removal and processed-marker persistence are separate steps. The exact duplicate-delivery windows are documented below.
+VoteReward requires the ServerFeatures Votifier feature to be enabled and fails initialization otherwise.
 
-## Vote source selection
+## Required feature relationship
 
-| Key | Default | Behavior |
-|---|---|---|
-| `vote_source` | `native` | `native` listens to ServerFeatures Votifier's `VoteEvent`; `votifier` listens to external Votifier plugin `VotifierEvent`. |
+```yaml
+Votifier:
+  enabled: true
 
-Values are trimmed/lower-cased. Null/blank resolves to native. Unknown nonblank values log a warning and default to native.
+VoteReward:
+  enabled: true
+```
 
-Only one listener is registered. The feature warns when the selected provider is not enabled, but remains loaded and does not switch automatically later.
+Flow:
 
-### Native ingress
+```text
+ProxyFeatures persistent backend outbox
+→ private Redis vote stream
+→ ServerFeatures Votifier
+→ native tracked VoteEvent
+→ VoteReward NativeVoteListener
+→ VoteHandler completion stage
+→ Redis acknowledgement
+```
 
-`NativeVoteListener` handles ServerFeatures `VoteEvent` at `NORMAL`, `ignoreCancelled=true`. It converts the payload without changing its processing key and attaches the returned completion stage through `event.track(...)`. This lets the native Votifier dispatch wait for downstream completion before acknowledging its own durable work.
-
-### External Votifier ingress
-
-`VotifierVoteListener` handles `VotifierEvent` at `NORMAL`, `ignoreCancelled=true`.
-
-- timestamp text is parsed as a long;
-- parse failure uses current epoch milliseconds;
-- a stable key is generated from service, username, address and timestamp;
-- when ServerFeatures' `VoteDispatchTracker` already exposes a current processing key, that key is preferred;
-- completion is attached back to the current tracker where one exists.
-
-The external event itself has no durable acknowledgement contract controlled by VoteReward.
+`NativeVoteListener` preserves the durable processing key and registers the complete reward stage through `event.track(...)`. Upstream acknowledgement therefore waits for VoteReward's terminal result.
 
 ## Configuration
 
 | Key | Default | Meaning |
 |---|---|---|
-| `enabled` | `false` | Enables cache, selected vote listener and join replay listener. |
-| `vote_whitelist` | `SERVERPACTTEST`, `TopMinecraftServers`, `SERVERPACT.NL`, `minecraftkrant.nl`, `Minecraft-MP.com` | Exact accepted service names. Empty list rejects all votes. |
+| `enabled` | `false` | Enables cache storage, native vote listener, and join replay listener. |
+| `vote_whitelist` | `SERVERPACTTEST`, `TopMinecraftServers`, `SERVERPACT.NL`, `minecraftkrant.nl`, `Minecraft-MP.com` | Exact accepted service names. Empty rejects all votes. |
 | `rewards` | `eco give {player} 10` | Console command templates executed once per delivered vote. |
-| `join_message_delay` | `100` ticks | Delay before queued-vote count message. |
-| `rewards_start_delay` | `100` ticks | Additional delay after the message delay before replay scheduling begins. |
+| `join_message_delay` | `100` ticks | Delay before the queued-vote count message. |
+| `rewards_start_delay` | `100` ticks | Additional delay before queued reward replay starts. |
 | `reward_interval` | `20` ticks | Spacing between queued vote deliveries. |
-| `cache_ttl_millis` | `86400000` | Expiry for an offline queued vote, default 24 hours. |
-| `processed_vote_ttl_millis` | `691200000` | Expiry for processed-key markers, default 8 days. |
+| `cache_ttl_millis` | `86400000` | Offline queued-vote expiry, default 24 hours. |
+| `processed_vote_ttl_millis` | `691200000` | Processed-key marker expiry, default eight days. |
 
-Delay values are directly cast to `int`; TTL values are cast through `Number`. Negative/zero values are not clamped in `VoteHandler` and depend on the cache/scheduler implementation.
+Delay values are read as integers and TTL values through `Number`. The default offline-retrieval message states 24 hours; update that message when changing `cache_ttl_millis`.
 
-The default offline-retrieval message states 24 hours statically. If `cache_ttl_millis` changes, update that text separately.
+## Service whitelist
 
-### Whitelist matching
+`vote_whitelist` matching is exact and case-sensitive. Incoming service names are not trimmed or lower-cased before membership checking.
 
-`whitelist.contains(service)` is exact and case-sensitive. There is no trim or case normalization of the incoming service name. A null service or nonmatching capitalization is rejected and logged.
+A null service or a service absent from the list is rejected and logged. Rejection is terminal business processing: the completion stage succeeds so the structurally valid Redis delivery can be acknowledged rather than retried forever.
 
-### Reward commands
+## Player identity
 
-For each configured template, every literal occurrence of `{player}` is replaced with the current online player's name and dispatched immediately as console. Commands run in list order. No leading slash is stripped and no command success result is inspected.
+VoteReward first tries exact online-name lookup through Bukkit.
 
-An empty list still consumes/marks the vote but gives no reward. A failure/exception from one dispatch can interrupt later commands and fail the vote stage.
+For offline players, `PlayerIdentityResolver.findByUsername` queries DataRegistry. A vote is accepted only when a canonical player identity exists. Unknown names are rejected rather than creating arbitrary offline cache entries.
 
-## Identity resolution
+After asynchronous identity lookup, processing returns to the main-thread path and rechecks whether the UUID is online. This handles a player joining while identity resolution is running.
 
-Votes first try exact online-name lookup with `Bukkit.getPlayerExact(suppliedUsername)`.
+Offline state is keyed only by canonical UUID.
 
-For an offline name, `PlayerIdentityResolver.findByUsername` queries DataRegistry. The vote is accepted only when a canonical `player_entity` identity exists. Unknown names are rejected rather than creating an offline-player row or caching by arbitrary username.
+## Processing-key contract
 
-After asynchronous identity lookup, the handler returns to the main task path and rechecks the UUID online. This handles a player joining during lookup.
+Every `IncomingVote` requires a nonblank durable processing key. The key is trimmed and then used for:
 
-The persisted/offline cache key is the canonical UUID string.
+- concurrent in-process coalescing;
+- processed-vote markers;
+- offline queue entry identity;
+- replay deduplication.
 
-## Online delivery
+No fallback or generated key exists. ProxyFeatures creates the immutable key and retains it across immediate retries, proxy restarts, backend downtime, and fresh-timestamp replay.
+
+The processed marker's default eight-day TTL exceeds the proxy outbox's maximum 24-hour retention.
+
+## Online reward delivery
 
 For an online player:
 
-1. broadcast `votereward.vote_broadcast` separately to every online audience;
+1. broadcast `votereward.vote_broadcast` to online audiences;
 2. send `votereward.vote_received` to the recipient;
-3. dispatch every reward command synchronously as console;
-4. complete vote processing;
-5. asynchronously persist the processed-key marker when a key exists.
+3. replace every `{player}` occurrence in each reward command;
+4. execute commands as console in configured order;
+5. persist the durable processed-key marker;
+6. complete the tracked vote stage.
 
-Broadcast and reward messages use each audience's localization context.
+VoteReward does not own an economy or item transaction. Command behavior, atomicity, and rollback belong to the target command providers.
 
-There is no economy/item transaction owned by VoteReward; reward semantics belong to the configured commands and their plugins.
+An empty reward list consumes and marks the vote but grants nothing. A thrown command-dispatch failure can stop later commands and fail the tracked vote stage.
 
-## Offline queue storage
+## Offline queue
 
-Feature cache directory:
+Offline votes are stored only below:
 
 ```text
 <VoteReward cache>/players/<canonical UUID>/
 ```
 
-Each vote is a JSON `CacheValue` containing:
+Each JSON cache value contains:
 
-- TTL from `cache_ttl_millis`;
-- field `service`.
+- configured TTL;
+- vote service.
 
-The cache entry key is:
+The entry key is the durable processing key. The public vote broadcast is scheduled only after the offline cache write succeeds. The processed marker is then persisted so durable redelivery does not queue the same obligation again.
 
-- normalized processing key when present;
-- otherwise `vote_<epoch>_<random UUID>`.
+## Processed-key idempotency
 
-Address, username and timestamp are not stored as fields in the offline cache beyond information encoded in a stable processing key.
+A separate `_processed-votes` store contains TTL markers. Existing active keys are loaded into a concurrent set at handler construction.
 
-Queuing runs asynchronously. The public vote broadcast is scheduled on the main thread only after the cache write stage completes successfully.
+For each vote:
 
-After the offline queue operation completes, the global processed-vote marker is written. Thus a repeated ingress event with the same key is ignored even though the actual reward remains pending for join replay.
+1. return immediately when its key is already processed;
+2. use an in-process map to coalesce concurrent identical deliveries;
+3. run validation and online/offline handling once;
+4. persist the processed marker;
+5. add the key to the in-memory set;
+6. complete all coalesced callers.
 
-## Processed-vote deduplication
+## Idempotency boundaries
 
-A separate JSON store `_processed-votes` contains TTL markers. Its existing keys are loaded into a concurrent set when `VoteHandler` is created.
+Reward execution and marker/cache mutation are not one database transaction.
 
-For a nonblank processing key:
+### Online grant window
 
-1. trim it;
-2. ignore immediately when present in the processed set;
-3. use `voteProcessing.putIfAbsent` to coalesce concurrent same-key deliveries in this process;
-4. process the vote;
-5. asynchronously write a processed marker;
-6. add the key to the in-memory processed set;
-7. complete all callers waiting on that key.
+Commands execute before marker persistence. A crash or write failure after commands but before the marker becomes durable can permit the same vote to grant again on redelivery.
 
-The marker value contains `processed=true` and the configured processed TTL.
+### Offline queue window
 
-Expired marker cleanup depends on `FileCacheStore.listAll`/cache semantics. Keys loaded into `processedVoteKeys` are not explicitly checked for expiry in the visible constructor, so correct startup behavior depends on the cache store excluding/removing expired values.
+The queue entry is written before the processed marker. A crash between them can allow ingress redelivery, but writing under the same processing key replaces the same cache obligation rather than creating a second key.
 
-Votes with null/blank processing keys bypass both persistent deduplication and in-process coalescing.
+### Join replay window
 
-## Duplicate-delivery windows
+The queued entry is removed after reward commands execute. A crash, disconnect race, or removal failure after granting can replay the reward on a later join.
 
-The design prevents ordinary retries after successful terminal persistence, but it is not one atomic transaction.
+Configured rewards should therefore be idempotent when duplicate financial impact would be unacceptable.
 
-### Online vote
+## Join replay
 
-Reward commands execute before the processed marker is written. A process crash or marker-write failure after commands but before durable marker completion can allow the same vote to grant again on redelivery.
+`VoteJoinListener` invokes offline replay at `NORMAL` priority.
 
-### Offline queue ingress
+A random replay generation UUID fences delayed tasks from older joins or replay attempts. VoteReward loads only the canonical UUID store. Expired entries are removed during collection.
 
-The offline cache entry is written before the processed marker. A crash in between can leave the queued reward while ingress redelivery queues the same key again. Because the queue key normally equals processing key, store replacement semantics may limit duplication, but that behavior belongs to `FileCacheStore` and must be tested.
+When pending votes exist:
 
-### Join replay
+1. after `join_message_delay`, send the queued count;
+2. after the additional `rewards_start_delay`, schedule replay tasks;
+3. space tasks by `index × reward_interval`;
+4. verify current replay generation and online state;
+5. execute normal online reward delivery;
+6. remove the cache entry asynchronously;
+7. clear the replay generation when the final scheduled task finishes.
 
-A queued cache entry is removed asynchronously **after** `processVote(current)` executes. A crash, disconnect timing or removal failure after rewards can replay that cache entry on the next join.
-
-There is no database transaction/outbox connecting command execution and marker/cache mutation. Configured reward commands should therefore be idempotent where possible, or the architecture should move grants into a durable ledger with terminal states.
-
-## Join replay lifecycle
-
-`VoteJoinListener` handles `PlayerJoinEvent` at `NORMAL`, `ignoreCancelled=true` and calls `processOfflineVotesOnJoin`.
-
-A fresh random replay generation UUID is stored per player, fencing delayed work from an older join/replay attempt.
-
-### Legacy cache-name migration
-
-Before loading votes, the handler waits for DataRegistry identity and requests up to 100 historical player names. It builds a normalized lower-case set containing current and historical usernames.
-
-Pending entries are collected from:
-
-- canonical UUID store;
-- every distinct legacy-name store.
-
-Expired cache values are removed during collection. Nonexpired values are represented by their originating store and key, so successful replay removes them from the correct legacy/UUID file.
-
-Identity/history failure falls back to current normalized name plus UUID store and logs a warning.
-
-### Replay ordering
-
-When pending entries exist:
-
-1. after `join_message_delay`, send `offline_votes_retrieved` with total count;
-2. after `join_message_delay + rewards_start_delay`, schedule one task per vote;
-3. each vote task is delayed by `index × reward_interval`;
-4. re-resolve player by UUID and require current replay generation/online state;
-5. execute normal online reward messaging and commands;
-6. asynchronously remove that cache entry;
-7. the final scheduled vote clears the generation in a `finally` block.
-
-The pending list order comes from cache-store iteration and legacy-store traversal; it is not explicitly sorted by timestamp or service.
-
-If the player disconnects before a delivery, the entry is left for a later join. If the last scheduled task runs while offline, its `finally` still clears the generation.
-
-Starting another replay replaces the generation, making older delayed callbacks inert.
+Cache iteration order is not explicitly chronological. A player disconnecting before a scheduled grant leaves the entry for a future join. A newer replay generation makes callbacks from an older join inert.
 
 ## Messages
 
 | Key | Variables / audience |
 |---|---|
-| `votereward.vote_received` | Recipient after online/replayed delivery. The handler also supplies `{player}`, though the default text does not use it. |
-| `votereward.offline_votes_retrieved` | `{count}` after join delay. |
-| `votereward.vote_broadcast` | `{player}` to every online player for accepted ingress; queued replay itself does not rebroadcast. |
+| `votereward.vote_received` | Sent to the online recipient after accepted processing. |
+| `votereward.offline_votes_retrieved` | `{count}` sent after join delay. |
+| `votereward.vote_broadcast` | `{player}` sent to online audiences for accepted ingress. |
 
-There is no player-facing message for rejected service, unknown identity, command failure, cache failure or duplicate suppression.
+Rejected services, unknown players, duplicates, cache failures, and command failures are logged rather than shown to players.
 
-## Threading and event safety
+## Threading
 
-`handleVote` normalizes any off-main invocation by scheduling a main-thread stage. Bukkit player lookups, broadcasts and command dispatch occur on the main path.
+`handleVote` schedules onto the main server path when invoked off-thread.
 
-DataRegistry identity/history and file-cache work run asynchronously. Completion returns to main before Bukkit operations.
+Bukkit lookups, messages, broadcasts, and command dispatch run on the main path. DataRegistry and file-cache work run asynchronously, with Bukkit operations rescheduled appropriately.
 
-Config lists/delays are captured at handler construction. There is no explicit closed/generation flag for the whole feature; lifecycle task management and per-player replay generations provide most fencing.
+The completion stage returned by `VoteHandler` covers the work that must finish before Votifier acknowledges the Redis delivery.
 
-## Commands, permissions and APIs
+## Failure behavior
 
-VoteReward registers no player/staff command, permission or PlaceholderAPI expansion. `getVoteHandler()` is exposed on the concrete feature but no public service is registered through the API manager.
+| Failure | VoteEvent stage | Upstream result |
+|---|---|---|
+| Service rejected | Success | Redis delivery can be acknowledged. |
+| Unknown player identity | Success | Delivery is terminally rejected and acknowledged. |
+| Duplicate processing key | Success | No second reward; delivery acknowledged. |
+| Offline cache write fails | Failure | Redis delivery remains pending. |
+| Reward command processing fails | Failure | Delivery remains pending. |
+| Processed marker write fails | Failure | Delivery remains pending. |
+| Queued-entry removal fails after join grant | Replay entry remains | May grant again on later join. |
 
-There is no manual replay/inspect/delete command or reward audit UI.
+## Persistence and scope
 
-## Persistence and observability
+VoteReward state is local JSON cache, not MySQL. Each backend has its own reward obligations, queue, and processed-key store. The same immutable vote key can therefore be processed independently on every intended gamemode without one backend suppressing another.
 
-Persistence is local file cache, not MySQL. Moving a player to another backend does not share queued votes unless cache storage itself is shared externally. The native Votifier may route votes to the intended reward backend, but VoteReward has no Redis/network queue of its own.
+Moving a player to another backend does not move that backend's queued rewards.
 
-Logs cover accepted/rejected vote decisions, unknown identities, cache failures and processed/replay problems. Successful reward command results are not audited.
+## Commands, permissions, placeholders, and APIs
 
-## Important implementation boundaries
+VoteReward registers no command, permission, or PlaceholderAPI expansion. It exposes its `VoteHandler` through the concrete feature instance but does not register a separate public service API.
 
-- Service whitelist is exact/case-sensitive.
-- Only one ingress source is active.
-- Missing selected source logs but does not auto-switch.
+There is no manual queue inspection, replay, deletion, or reward audit command.
+
+## Important boundaries
+
+- Votifier is a hard feature dependency.
+- Native `VoteEvent` is the only ingress.
+- A durable processing key is mandatory.
+- Service matching is exact and case-sensitive.
 - Offline players must already exist in DataRegistry.
-- Rewards are arbitrary console commands with no rollback/result verification.
-- Stable processing keys provide deduplication only after marker persistence.
-- Blank processing keys are not deduplicated.
-- Offline and processed state use local JSON cache.
-- Join replay order is not explicitly chronological.
-- Cache removal occurs after command execution and can fail.
-- Static message retention text can diverge from configured TTL.
-- There is no command/permission/manual audit path.
+- Offline state uses only the canonical UUID store.
+- Rewards are console commands without transaction rollback.
+- Durable keys deduplicate only after marker persistence.
+- Join replay order is not guaranteed chronological.
+- Entry removal occurs after command execution.
 
 ## Verification checklist
 
-1. Exercise native and external source selection with the other source also installed; verify only one listener grants.
-2. Test exact whitelist capitalization, null/blank service and empty whitelist.
-3. Deliver the same processing key concurrently and after restart.
-4. Interrupt online processing between commands and marker persistence in a disposable environment.
-5. Vote for online, known offline, renamed and unknown players.
-6. Inspect UUID and legacy-name cache files, TTL expiry and name-history migration.
-7. Disconnect/reconnect during count delay, start delay and reward interval.
-8. Force cache-entry removal failure after a granted replay and confirm next-join behavior.
-9. Use multiple reward commands with one failing/throwing command.
-10. Test zero/negative delays, interval and TTL values.
-11. Verify local-cache behavior when players join a different backend.
-12. Confirm native `VoteEvent.track` does not acknowledge upstream before VoteReward completion.
+1. Enable Votifier and VoteReward and confirm native listener registration.
+2. Disable Votifier and confirm VoteReward fails initialization.
+3. Test exact whitelist capitalization, null service, and empty whitelist.
+4. Reject a missing processing key before reward handling.
+5. Deliver the same processing key concurrently and after restart.
+6. Vote for online, known offline, and unknown players.
+7. Inspect canonical UUID cache lookup and TTL expiry.
+8. Disconnect and reconnect during count delay, start delay, and replay interval.
+9. Force cache write, marker write, and entry-removal failures independently.
+10. Use multiple reward commands with one failing command.
+11. Confirm `VoteEvent.track` prevents Redis acknowledgement until reward processing completes.
+12. Confirm the same key rewards independently on two intended backend servers.
 
 ## Source map
 
-- Defaults/source selection/cache setup: `features/votereward/VoteReward.java`
-- Validation, identity, rewards, cache, deduplication and replay: `features/votereward/internal/VoteHandler.java`
-- Shared ingress record/key: `features/votereward/internal/IncomingVote.java`
-- Native event bridge: `features/votereward/listener/NativeVoteListener.java`
-- External Votifier bridge: `features/votereward/listener/VotifierVoteListener.java`
+- Defaults, dependency validation, and listener registration: `features/votereward/VoteReward.java`
+- Validation, identity, rewards, canonical cache, deduplication, and replay: `features/votereward/internal/VoteHandler.java`
+- Strict durable ingress record: `features/votereward/internal/IncomingVote.java`
+- Native tracked event listener: `features/votereward/listener/NativeVoteListener.java`
 - Join replay trigger: `features/votereward/listener/VoteJoinListener.java`
