@@ -26,6 +26,8 @@ class SpigotYmlSanitizeTaskTest {
         TestFs.write(file, """
                 messages:
                   whitelist: test
+                settings:
+                  restart-on-crash: true
                 custom-root:
                   x: 1
                 """);
@@ -44,6 +46,6 @@ class SpigotYmlSanitizeTaskTest {
         assertTrue(out.contains("messages:"));
         assertTrue(out.contains("commands:"));
         assertTrue(out.contains("settings:"));
+        assertTrue(out.contains("restart-on-crash: false"));
     }
 }
-

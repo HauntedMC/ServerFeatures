@@ -153,6 +153,7 @@ Values are not changed for:
 - `view-distance`;
 - `spawn-monsters`;
 - `allow-nether`;
+- `enable-code-of-conduct`;
 - `difficulty`;
 - `pvp`;
 - `gamemode`;
@@ -160,8 +161,6 @@ Values are not changed for:
 - `level-name`;
 - `level-seed`;
 - `level-type`;
-- `max-players`;
-- `max-tick-time`;
 - `max-world-size`.
 
 If one of these is absent, Sanitize does not add a default for it.
@@ -175,28 +174,40 @@ If one of these is absent, Sanitize does not add a default for it.
 | `broadcast-console-to-ops` | `false` |
 | `broadcast-rcon-to-ops` | `false` |
 | `bug-report-link` | `https://hauntedmc.nl/support` |
+| `chat-spam-threshold-seconds` | `10` |
+| `command-spam-threshold-seconds` | `10` |
 | `debug` | `false` |
 | `enable-command-block` | `false` |
 | `enable-jmx-monitoring` | `false` |
 | `enable-query` | `false` |
 | `enable-rcon` | `false` |
-| `enable-status` | `true` |
+| `enable-status` | `false` |
 | `enforce-secure-profile` | `true` |
 | `enforce-whitelist` | `false` |
 | `entity-broadcast-range-percentage` | `100` |
 | `force-gamemode` | `true` |
-| `function-permission-level` | `2` |
+| `function-permission-level` | `1` |
 | `generate-structures` | `true` |
 | `generator-settings` | `{}` |
-| `hide-online-players` | `false` |
+| `hide-online-players` | `true` |
 | `initial-disabled-packs` | empty |
 | `initial-enabled-packs` | `vanilla` |
 | `log-ips` | `true` |
+| `management-server-allowed-origins` | empty |
+| `management-server-enabled` | `false` |
+| `management-server-host` | `localhost` |
+| `management-server-port` | `0` |
+| `management-server-secret` | empty |
+| `management-server-tls-enabled` | `true` |
+| `management-server-tls-keystore` | empty |
+| `management-server-tls-keystore-password` | empty |
 | `max-chained-neighbor-updates` | `1000000` |
+| `max-players` | `999` |
+| `max-tick-time` | `60000` |
 | `motd` | empty |
 | `network-compression-threshold` | `256` |
 | `online-mode` | `false` |
-| `op-permission-level` | `4` |
+| `op-permission-level` | `0` |
 | `pause-when-empty-seconds` | `-1` |
 | `player-idle-timeout` | `0` |
 | `prevent-proxy-connections` | `false` |
@@ -216,6 +227,7 @@ If one of these is absent, Sanitize does not add a default for it.
 | `text-filtering-config` | empty |
 | `text-filtering-version` | `0` |
 | `spawn-protection` | `0` |
+| `status-heartbeat-interval` | `0` |
 | `use-native-transport` | `true` |
 | `white-list` | `false` |
 
@@ -287,7 +299,7 @@ SnakeYAML rewrites the entire file and removes existing comments/formatting. Unk
 | `settings.moved-wrongly-threshold` | `0.0625` |
 | `settings.moved-too-quickly-multiplier` | `10.0` |
 | `settings.timeout-time` | `60` |
-| `settings.restart-on-crash` | `true` |
+| `settings.restart-on-crash` | `false` |
 | `settings.restart-script` | `./restart` |
 | `settings.netty-threads` | `4` |
 | `settings.log-villager-deaths` | `true` |
@@ -317,13 +329,14 @@ Target: `<server root>/config/paper-global.yml`. The directory is created when a
 
 ### Unsupported/exploit settings
 
-The task disables headless pistons, permanent block-break exploits, piston duplication, unsafe end-portal teleportation, skipped tripwire validation and skipped vanilla shield damage ticks. It enforces ZLIB compression, username validation and equipment updates on player actions.
+The task disables headless pistons, permanent block-break exploits, piston duplication, unsafe end-portal teleportation, skipped tripwire validation and skipped vanilla shield damage ticks. It enforces an empty oversized-item sanitizer exemption list, ZLIB compression, username validation and equipment updates on player actions.
 
 ### Watchdog and scoreboards
 
 - early warning delay `10000` ms and interval `5000` ms;
 - do not save empty scoreboard teams;
-- do not track plugin scoreboards.
+- do not track plugin scoreboards;
+- Paper update checking enabled.
 
 ### Proxy settings
 
@@ -331,32 +344,34 @@ The task disables headless pistons, permanent block-break exploits, piston dupli
 - `proxies.proxy-protocol=false`;
 - `proxies.velocity.enabled=true`;
 - `proxies.velocity.online-mode=true`;
-- `proxies.velocity.secret` is overwritten by a **hard-coded literal in source**.
 
-The secret is intentionally not reproduced in this reference. It is present in the public source history and should be treated as compromised: rotate it and move it out of source/Sanitize policy. As currently implemented, every startup with this task enabled restores that literal, overriding an operator's manual rotation.
+`proxies.velocity.secret` is not controlled by Sanitize. Each server installation must configure its own secret manually and ensure that it exactly matches the Velocity proxy's forwarding secret. Sanitize preserves an existing value and does not add one when it is absent.
 
-### Spam, Spark, save and miscellaneous settings
+### Packet/spam limits, Spark and miscellaneous settings
 
 - incoming packet threshold `300`;
 - recipe increment/limit `1/20`;
 - tab increment/limit `1/500`;
+- all-packet limiter uses `KICK`, interval `7.0` and rate `500.0`;
+- `minecraft:place_recipe` override uses `DROP`, interval `4.0` and rate `5.0`;
+- packet-limit kick message uses the vanilla exceeded-rate language component;
 - Spark enabled but not immediate;
-- player auto-save `max-per-tick=-1`, `rate=-1`;
-- chat executor sizes `-1`;
-- client leniency/compression/default XP grouping set to `default`;
+- client interaction leniency and XP grouping set to `default`;
 - permissions YAML loads before plugins;
 - maximum joins per tick `5`;
 - negative villager demand prevention disabled;
-- region-file cache `256`;
 - full item-entity positions disabled;
 - strict advancement dimension check disabled;
 - alternative luck formula/custom spawner dimension type disabled.
 
+Hardware/workload tuning remains installation-controlled: `player-auto-save`, `misc.chat-threads`, `misc.compression-level`, `misc.region-file-cache-size`, `chunk-loading-advanced`, `chunk-loading-basic` and `chunk-system` are preserved and are not added when absent.
+
 ### Commands and console
 
 - player-as-vehicle for `/ride` disabled;
-- player names suggested for null completions;
-- `/time` does not affect all worlds;
+- player names are not suggested for null completions;
+- `time.affects-all-worlds=false`;
+- obsolete `commands.time-command-affects-all-worlds` is removed;
 - console Brigadier completions/highlighting enabled;
 - console does not automatically have all permissions.
 
@@ -367,21 +382,17 @@ The secret is intentionally not reproduced in this reference. It is present in t
 - page max `2560` and total multiplier `0.98`;
 - selector resolution in books disabled.
 
-### Logging, anticheat and block updates
+### Logging, item obfuscation and block updates
 
 - deobfuscate stack traces;
-- item obfuscation disabled;
-- exact `dont-obfuscate` lists for lodestone tracker and Elytra damage;
-- sanitize model counts;
+- the complete `anticheat.obfuscation.items` subtree is installation-controlled and preserved;
 - chorus, mushroom, noteblock and tripwire updates remain enabled (`disable-* = false`).
 
 ### Chunk loading/system
 
-- auto-config send distance enabled;
-- concurrent generation/load values `0`;
-- generate rate `-1.0`, load rate `100.0`, send rate `75.0`;
-- generation parallelism `default`;
-- IO and worker threads `-1`.
+Chunk loading and thread/system tuning are no longer controlled by Sanitize. Existing values are preserved and missing sections are left for Paper to default.
+
+`_version`, `packet-limiter`, `time` and `update-checker` are recognized top-level Paper sections and are not reported as new/deprecated/other. `_version` itself is never controlled.
 
 These keys are tightly coupled to the supported Paper version. Renamed/removed/type-changed upstream settings can be silently reintroduced as unknown YAML paths or rejected by Paper after restart.
 
@@ -438,7 +449,7 @@ Because the feature runs after the server process has already read startup confi
 - Defaults enable destructive replacement/deletion tasks.
 - Vanilla bans, ops and whitelist are forcibly emptied.
 - Proxy/offline-mode/port policy is hard-coded.
-- `paper-global.yml` contains a source-owned Velocity secret literal.
+- The Velocity forwarding secret and backend firewall remain installation responsibilities.
 - YAML comments and formatting are discarded.
 - There is no automatic backup or rollback.
 - Version/cache deletion relies on correct server-root/version detection.
@@ -456,7 +467,7 @@ Because the feature runs after the server process has already read startup confi
 4. Populate bans, ops, whitelist and permissions files and verify that replacement is intentional.
 5. Compare every preserved/enforced/unknown `server.properties` key after rewrite.
 6. Add comments, unknown sections and custom values to Bukkit/Spigot/Paper YAML and inspect preservation versus formatting loss.
-7. Rotate the Velocity forwarding secret and confirm Sanitize currently overwrites it; keep this task disabled until code policy is corrected.
+7. Configure a unique Velocity forwarding secret, confirm Sanitize preserves it, and verify that the backend accepts connections only from the proxy.
 8. Validate generated files with the exact deployed Paper build before production restart.
 9. Create gamerule differences in multiple worlds and confirm audit-only behavior.
 10. Create matching/nonmatching logs around the retention boundary and confirm filename-date semantics.

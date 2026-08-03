@@ -30,28 +30,40 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("broadcast-console-to-ops", "false");
         ENFORCED.put("broadcast-rcon-to-ops", "false");
         ENFORCED.put("bug-report-link", "https://hauntedmc.nl/support");
+        ENFORCED.put("chat-spam-threshold-seconds", "10");
+        ENFORCED.put("command-spam-threshold-seconds", "10");
         ENFORCED.put("debug", "false");
         ENFORCED.put("enable-command-block", "false");
         ENFORCED.put("enable-jmx-monitoring", "false");
         ENFORCED.put("enable-query", "false");
         ENFORCED.put("enable-rcon", "false");
-        ENFORCED.put("enable-status", "true");
+        ENFORCED.put("enable-status", "false");
         ENFORCED.put("enforce-secure-profile", "true");
         ENFORCED.put("enforce-whitelist", "false");
         ENFORCED.put("entity-broadcast-range-percentage", "100");
         ENFORCED.put("force-gamemode", "true");
-        ENFORCED.put("function-permission-level", "2");
+        ENFORCED.put("function-permission-level", "1");
         ENFORCED.put("generate-structures", "true");
         ENFORCED.put("generator-settings", "{}");
-        ENFORCED.put("hide-online-players", "false");
+        ENFORCED.put("hide-online-players", "true");
         ENFORCED.put("initial-disabled-packs", "");
         ENFORCED.put("initial-enabled-packs", "vanilla");
         ENFORCED.put("log-ips", "true");
+        ENFORCED.put("management-server-allowed-origins", "");
+        ENFORCED.put("management-server-enabled", "false");
+        ENFORCED.put("management-server-host", "localhost");
+        ENFORCED.put("management-server-port", "0");
+        ENFORCED.put("management-server-secret", "");
+        ENFORCED.put("management-server-tls-enabled", "true");
+        ENFORCED.put("management-server-tls-keystore", "");
+        ENFORCED.put("management-server-tls-keystore-password", "");
         ENFORCED.put("max-chained-neighbor-updates", "1000000");
+        ENFORCED.put("max-players", "999");
+        ENFORCED.put("max-tick-time", "60000");
         ENFORCED.put("motd", "");
         ENFORCED.put("network-compression-threshold", "256");
         ENFORCED.put("online-mode", "false");
-        ENFORCED.put("op-permission-level", "4");
+        ENFORCED.put("op-permission-level", "0");
         ENFORCED.put("pause-when-empty-seconds", "-1");
         ENFORCED.put("player-idle-timeout", "0");
         ENFORCED.put("prevent-proxy-connections", "false");
@@ -71,6 +83,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("text-filtering-config", "");
         ENFORCED.put("text-filtering-version", "0");
         ENFORCED.put("spawn-protection", "0");
+        ENFORCED.put("status-heartbeat-interval", "0");
         ENFORCED.put("use-native-transport", "true");
         ENFORCED.put("white-list", "false");
     }
@@ -83,6 +96,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
             "view-distance",
             "spawn-monsters",
             "allow-nether",
+            "enable-code-of-conduct",
             "difficulty",
             "pvp",
             "gamemode",
@@ -90,8 +104,6 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
             "level-name",
             "level-seed",
             "level-type",
-            "max-players",
-            "max-tick-time",
             "max-world-size"
     );
 

@@ -16,9 +16,10 @@ import java.util.*;
 public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
 
     private static final Set<String> KNOWN_TOP = Set.of(
-            "collisions", "messages", "unsupported-settings", "watchdog", "scoreboards", "proxies",
+            "_version", "collisions", "messages", "unsupported-settings", "watchdog", "scoreboards", "proxies",
             "spam-limiter", "spark", "player-auto-save", "misc", "commands", "console", "item-validation",
-            "logging", "anticheat", "block-updates", "chunk-loading-advanced", "chunk-loading-basic", "chunk-system"
+            "logging", "anticheat", "block-updates", "chunk-loading-advanced", "chunk-loading-basic", "chunk-system",
+            "packet-limiter", "time", "update-checker"
     );
 
     @Override
@@ -73,6 +74,9 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         CONTROLLED.add("unsupported-settings.allow-piston-duplication");
         YamlSanitizeUtil.set(root, "unsupported-settings.allow-unsafe-end-portal-teleportation", false);
         CONTROLLED.add("unsupported-settings.allow-unsafe-end-portal-teleportation");
+        YamlSanitizeUtil.ensureExactList(root, "unsupported-settings.oversized-item-component-sanitizer.dont-sanitize",
+                Collections.emptyList());
+        CONTROLLED.add("unsupported-settings.oversized-item-component-sanitizer.dont-sanitize");
         YamlSanitizeUtil.set(root, "unsupported-settings.compression-format", "ZLIB");
         CONTROLLED.add("unsupported-settings.compression-format");
         YamlSanitizeUtil.set(root, "unsupported-settings.perform-username-validation", true);
@@ -105,8 +109,6 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         CONTROLLED.add("proxies.velocity.enabled");
         YamlSanitizeUtil.set(root, "proxies.velocity.online-mode", true);
         CONTROLLED.add("proxies.velocity.online-mode");
-        YamlSanitizeUtil.set(root, "proxies.velocity.secret", "VO4m9zTY6dX6");
-        CONTROLLED.add("proxies.velocity.secret");
 
         // ---- spam-limiter ----
         YamlSanitizeUtil.set(root, "spam-limiter.incoming-packet-threshold", 300);
@@ -120,35 +122,37 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         YamlSanitizeUtil.set(root, "spam-limiter.tab-spam-limit", 500);
         CONTROLLED.add("spam-limiter.tab-spam-limit");
 
+        // ---- packet-limiter ----
+        YamlSanitizeUtil.set(root, "packet-limiter.all-packets.action", "KICK");
+        CONTROLLED.add("packet-limiter.all-packets.action");
+        YamlSanitizeUtil.set(root, "packet-limiter.all-packets.interval", 7.0D);
+        CONTROLLED.add("packet-limiter.all-packets.interval");
+        YamlSanitizeUtil.set(root, "packet-limiter.all-packets.max-packet-rate", 500.0D);
+        CONTROLLED.add("packet-limiter.all-packets.max-packet-rate");
+        YamlSanitizeUtil.set(root, "packet-limiter.kick-message", "<red><lang:disconnect.exceeded_packet_rate>");
+        CONTROLLED.add("packet-limiter.kick-message");
+        YamlSanitizeUtil.set(root, "packet-limiter.overrides.minecraft:place_recipe.action", "DROP");
+        CONTROLLED.add("packet-limiter.overrides.minecraft:place_recipe.action");
+        YamlSanitizeUtil.set(root, "packet-limiter.overrides.minecraft:place_recipe.interval", 4.0D);
+        CONTROLLED.add("packet-limiter.overrides.minecraft:place_recipe.interval");
+        YamlSanitizeUtil.set(root, "packet-limiter.overrides.minecraft:place_recipe.max-packet-rate", 5.0D);
+        CONTROLLED.add("packet-limiter.overrides.minecraft:place_recipe.max-packet-rate");
+
         // ---- spark ----
         YamlSanitizeUtil.set(root, "spark.enable-immediately", false);
         CONTROLLED.add("spark.enable-immediately");
         YamlSanitizeUtil.set(root, "spark.enabled", true);
         CONTROLLED.add("spark.enabled");
 
-        // ---- player-auto-save ----
-        YamlSanitizeUtil.set(root, "player-auto-save.max-per-tick", -1);
-        CONTROLLED.add("player-auto-save.max-per-tick");
-        YamlSanitizeUtil.set(root, "player-auto-save.rate", -1);
-        CONTROLLED.add("player-auto-save.rate");
-
         // ---- misc ----
-        YamlSanitizeUtil.set(root, "misc.chat-threads.chat-executor-core-size", -1);
-        CONTROLLED.add("misc.chat-threads.chat-executor-core-size");
-        YamlSanitizeUtil.set(root, "misc.chat-threads.chat-executor-max-size", -1);
-        CONTROLLED.add("misc.chat-threads.chat-executor-max-size");
         YamlSanitizeUtil.set(root, "misc.client-interaction-leniency-distance", "default");
         CONTROLLED.add("misc.client-interaction-leniency-distance");
-        YamlSanitizeUtil.set(root, "misc.compression-level", "default");
-        CONTROLLED.add("misc.compression-level");
         YamlSanitizeUtil.set(root, "misc.load-permissions-yml-before-plugins", true);
         CONTROLLED.add("misc.load-permissions-yml-before-plugins");
         YamlSanitizeUtil.set(root, "misc.max-joins-per-tick", 5);
         CONTROLLED.add("misc.max-joins-per-tick");
         YamlSanitizeUtil.set(root, "misc.prevent-negative-villager-demand", false);
         CONTROLLED.add("misc.prevent-negative-villager-demand");
-        YamlSanitizeUtil.set(root, "misc.region-file-cache-size", 256);
-        CONTROLLED.add("misc.region-file-cache-size");
         YamlSanitizeUtil.set(root, "misc.send-full-pos-for-item-entities", false);
         CONTROLLED.add("misc.send-full-pos-for-item-entities");
         YamlSanitizeUtil.set(root, "misc.strict-advancement-dimension-check", false);
@@ -163,10 +167,13 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         // ---- commands ----
         YamlSanitizeUtil.set(root, "commands.ride-command-allow-player-as-vehicle", false);
         CONTROLLED.add("commands.ride-command-allow-player-as-vehicle");
-        YamlSanitizeUtil.set(root, "commands.suggest-player-names-when-null-tab-completions", true);
+        YamlSanitizeUtil.set(root, "commands.suggest-player-names-when-null-tab-completions", false);
         CONTROLLED.add("commands.suggest-player-names-when-null-tab-completions");
-        YamlSanitizeUtil.set(root, "commands.time-command-affects-all-worlds", false);
-        CONTROLLED.add("commands.time-command-affects-all-worlds");
+        YamlSanitizeUtil.getOrCreateSection(root, "commands").remove("time-command-affects-all-worlds");
+
+        // ---- time ----
+        YamlSanitizeUtil.set(root, "time.affects-all-worlds", false);
+        CONTROLLED.add("time.affects-all-worlds");
 
         // ---- console ----
         YamlSanitizeUtil.set(root, "console.enable-brigadier-completions", true);
@@ -198,24 +205,6 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         YamlSanitizeUtil.set(root, "logging.deobfuscate-stacktraces", true);
         CONTROLLED.add("logging.deobfuscate-stacktraces");
 
-        // ---- anticheat ----
-        YamlSanitizeUtil.set(root, "anticheat.obfuscation.items.all-models.also-obfuscate", Collections.emptyList());
-        CONTROLLED.add("anticheat.obfuscation.items.all-models.also-obfuscate");
-        YamlSanitizeUtil.ensureExactList(root, "anticheat.obfuscation.items.all-models.dont-obfuscate",
-                List.of("minecraft:lodestone_tracker"));
-        CONTROLLED.add("anticheat.obfuscation.items.all-models.dont-obfuscate");
-        YamlSanitizeUtil.set(root, "anticheat.obfuscation.items.all-models.sanitize-count", true);
-        CONTROLLED.add("anticheat.obfuscation.items.all-models.sanitize-count");
-        YamlSanitizeUtil.set(root, "anticheat.obfuscation.items.enable-item-obfuscation", false);
-        CONTROLLED.add("anticheat.obfuscation.items.enable-item-obfuscation");
-        YamlSanitizeUtil.set(root, "anticheat.obfuscation.items.model-overrides.minecraft:elytra.also-obfuscate", Collections.emptyList());
-        CONTROLLED.add("anticheat.obfuscation.items.model-overrides.minecraft:elytra.also-obfuscate");
-        YamlSanitizeUtil.ensureExactList(root, "anticheat.obfuscation.items.model-overrides.minecraft:elytra.dont-obfuscate",
-                List.of("minecraft:damage"));
-        CONTROLLED.add("anticheat.obfuscation.items.model-overrides.minecraft:elytra.dont-obfuscate");
-        YamlSanitizeUtil.set(root, "anticheat.obfuscation.items.model-overrides.minecraft:elytra.sanitize-count", true);
-        CONTROLLED.add("anticheat.obfuscation.items.model-overrides.minecraft:elytra.sanitize-count");
-
         // ---- block-updates ----
         YamlSanitizeUtil.set(root, "block-updates.disable-chorus-plant-updates", false);
         CONTROLLED.add("block-updates.disable-chorus-plant-updates");
@@ -226,29 +215,9 @@ public class PaperGlobalYmlSanitizeTask implements SanitizeTask {
         YamlSanitizeUtil.set(root, "block-updates.disable-tripwire-updates", false);
         CONTROLLED.add("block-updates.disable-tripwire-updates");
 
-        // ---- chunk-loading-advanced ----
-        YamlSanitizeUtil.set(root, "chunk-loading-advanced.auto-config-send-distance", true);
-        CONTROLLED.add("chunk-loading-advanced.auto-config-send-distance");
-        YamlSanitizeUtil.set(root, "chunk-loading-advanced.player-max-concurrent-chunk-generates", 0);
-        CONTROLLED.add("chunk-loading-advanced.player-max-concurrent-chunk-generates");
-        YamlSanitizeUtil.set(root, "chunk-loading-advanced.player-max-concurrent-chunk-loads", 0);
-        CONTROLLED.add("chunk-loading-advanced.player-max-concurrent-chunk-loads");
-
-        // ---- chunk-loading-basic ----
-        YamlSanitizeUtil.set(root, "chunk-loading-basic.player-max-chunk-generate-rate", -1.0D);
-        CONTROLLED.add("chunk-loading-basic.player-max-chunk-generate-rate");
-        YamlSanitizeUtil.set(root, "chunk-loading-basic.player-max-chunk-load-rate", 100.0D);
-        CONTROLLED.add("chunk-loading-basic.player-max-chunk-load-rate");
-        YamlSanitizeUtil.set(root, "chunk-loading-basic.player-max-chunk-send-rate", 75.0D);
-        CONTROLLED.add("chunk-loading-basic.player-max-chunk-send-rate");
-
-        // ---- chunk-system ----
-        YamlSanitizeUtil.set(root, "chunk-system.gen-parallelism", "default");
-        CONTROLLED.add("chunk-system.gen-parallelism");
-        YamlSanitizeUtil.set(root, "chunk-system.io-threads", -1);
-        CONTROLLED.add("chunk-system.io-threads");
-        YamlSanitizeUtil.set(root, "chunk-system.worker-threads", -1);
-        CONTROLLED.add("chunk-system.worker-threads");
+        // ---- update-checker ----
+        YamlSanitizeUtil.set(root, "update-checker.enabled", true);
+        CONTROLLED.add("update-checker.enabled");
 
         // Build header + dump
         String header = makeHeader(root);
