@@ -31,13 +31,21 @@ public final class AutoPickupTransferCommitter {
         }
 
         ItemStack[] originalStorage;
+        ItemStack originalOffhand;
         List<Item> originalEventItems;
         Map<Item, ItemStack> originalStacks;
         try {
             originalStorage = cloneExactArray(inventory.getStorageContents());
+            originalOffhand = AutoPickupTransferPlanner.cloneOrNull(inventory.getItemInOffHand());
             originalEventItems = new ArrayList<>(event.getItems());
             originalStacks = snapshotStacks(originalEventItems);
-            validatePreconditions(originalStorage, originalEventItems, eligibleItems, plan);
+            validatePreconditions(
+                    originalStorage,
+                    originalOffhand,
+                    originalEventItems,
+                    eligibleItems,
+                    plan
+            );
         } catch (RuntimeException preconditionFailure) {
             throw new AutoPickupCommitException(
                     "AutoPickup commit precondition failed before mutation",
@@ -47,8 +55,10 @@ public final class AutoPickupTransferCommitter {
         }
 
         ItemStack[] plannedFinalStorage = plan.finalStorage();
+        ItemStack plannedFinalOffhand = plan.finalOffhand();
         try {
             inventory.setStorageContents(plannedFinalStorage);
+            inventory.setItemInOffHand(cloneExact(plannedFinalOffhand));
             applyPlannedEventMutations(event, eligibleItems, plan);
             verifyCommittedState(
                     inventory,
@@ -57,7 +67,8 @@ public final class AutoPickupTransferCommitter {
                     plan,
                     originalEventItems,
                     originalStacks,
-                    plannedFinalStorage
+                    plannedFinalStorage,
+                    plannedFinalOffhand
             );
         } catch (RuntimeException commitFailure) {
             try {
@@ -67,9 +78,11 @@ public final class AutoPickupTransferCommitter {
                         eligibleItems,
                         plan,
                         originalStorage,
+                        originalOffhand,
                         originalEventItems,
                         originalStacks,
-                        plannedFinalStorage
+                        plannedFinalStorage,
+                        plannedFinalOffhand
                 );
             } catch (RuntimeException rollbackFailure) {
                 commitFailure.addSuppressed(rollbackFailure);
@@ -84,11 +97,15 @@ public final class AutoPickupTransferCommitter {
     }
 
     private void validatePreconditions(ItemStack[] liveStorage,
+                                       ItemStack liveOffhand,
                                        List<Item> eventItems,
                                        List<Item> eligibleItems,
                                        AutoPickupTransferPlanner.TransferPlan plan) {
         if (!sameStorage(liveStorage, plan.initialStorage())) {
             throw new IllegalStateException("Player storage changed after AutoPickup planning");
+        }
+        if (!AutoPickupTransferPlanner.sameStack(liveOffhand, plan.initialOffhand())) {
+            throw new IllegalStateException("Player offhand changed after AutoPickup planning");
         }
 
         Set<Item> uniqueEligible = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -129,8 +146,9 @@ public final class AutoPickupTransferCommitter {
                                       AutoPickupTransferPlanner.TransferPlan plan,
                                       List<Item> originalEventItems,
                                       Map<Item, ItemStack> originalStacks,
-                                      ItemStack[] plannedFinalStorage) {
-        if (!sameStorage(inventory.getStorageContents(), plannedFinalStorage)) {
+                                      ItemStack[] plannedFinalStorage,
+                                      ItemStack plannedFinalOffhand) {
+        if (!sameInventory(inventory, plannedFinalStorage, plannedFinalOffhand)) {
             throw new IllegalStateException("Player inventory did not retain the planned AutoPickup state");
         }
         ExpectedEventState expected = expectedCommittedEventState(
@@ -147,19 +165,28 @@ public final class AutoPickupTransferCommitter {
                           List<Item> eligibleItems,
                           AutoPickupTransferPlanner.TransferPlan plan,
                           ItemStack[] originalStorage,
+                          ItemStack originalOffhand,
                           List<Item> originalEventItems,
                           Map<Item, ItemStack> originalStacks,
-                          ItemStack[] plannedFinalStorage) {
+                          ItemStack[] plannedFinalStorage,
+                          ItemStack plannedFinalOffhand) {
         RuntimeException inventoryRestoreFailure = null;
         try {
             inventory.setStorageContents(cloneExactArray(originalStorage));
         } catch (RuntimeException exception) {
-            inventoryRestoreFailure = exception;
+            inventoryRestoreFailure = appendFailure(inventoryRestoreFailure, exception);
+        }
+        try {
+            inventory.setItemInOffHand(cloneExact(originalOffhand));
+        } catch (RuntimeException exception) {
+            inventoryRestoreFailure = appendFailure(inventoryRestoreFailure, exception);
         }
 
         ItemStack[] liveStorage;
+        ItemStack liveOffhand;
         try {
             liveStorage = inventory.getStorageContents();
+            liveOffhand = inventory.getItemInOffHand();
         } catch (RuntimeException exception) {
             if (inventoryRestoreFailure != null) {
                 exception.addSuppressed(inventoryRestoreFailure);
@@ -170,19 +197,19 @@ public final class AutoPickupTransferCommitter {
             );
         }
 
-        if (sameStorage(liveStorage, originalStorage)) {
+        if (sameInventory(liveStorage, liveOffhand, originalStorage, originalOffhand)) {
             forceEventState(
                     event,
                     new ExpectedEventState(originalEventItems, originalStacks),
                     "AutoPickup original event state could not be restored"
             );
-            if (!sameStorage(inventory.getStorageContents(), originalStorage)) {
+            if (!sameInventory(inventory, originalStorage, originalOffhand)) {
                 throw new IllegalStateException("AutoPickup inventory changed after successful rollback");
             }
             return;
         }
 
-        if (sameStorage(liveStorage, plannedFinalStorage)) {
+        if (sameInventory(liveStorage, liveOffhand, plannedFinalStorage, plannedFinalOffhand)) {
             ExpectedEventState committedState = expectedCommittedEventState(
                     eligibleItems,
                     plan,
@@ -287,6 +314,25 @@ public final class AutoPickupTransferCommitter {
                 throw new IllegalStateException(failureMessage);
             }
         }
+    }
+
+    private boolean sameInventory(PlayerInventory inventory,
+                                  ItemStack[] expectedStorage,
+                                  ItemStack expectedOffhand) {
+        return sameInventory(
+                inventory.getStorageContents(),
+                inventory.getItemInOffHand(),
+                expectedStorage,
+                expectedOffhand
+        );
+    }
+
+    private boolean sameInventory(ItemStack[] liveStorage,
+                                  ItemStack liveOffhand,
+                                  ItemStack[] expectedStorage,
+                                  ItemStack expectedOffhand) {
+        return sameStorage(liveStorage, expectedStorage)
+                && AutoPickupTransferPlanner.sameStack(liveOffhand, expectedOffhand);
     }
 
     private boolean sameStorage(ItemStack[] first, ItemStack[] second) {
