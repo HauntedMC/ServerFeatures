@@ -23,6 +23,10 @@ public final class PendingSpawnerPlacements {
         POSITIONS.computeIfPresent(position, (ignored, state) -> State.COMMITTED);
     }
 
+    public static void commitAll() {
+        POSITIONS.replaceAll((position, state) -> State.COMMITTED);
+    }
+
     public static void cancel(SpawnerKey position) {
         POSITIONS.computeIfPresent(position, (ignored, state) -> State.CANCELLED);
     }
@@ -33,6 +37,10 @@ public final class PendingSpawnerPlacements {
 
     public static boolean contains(SpawnerKey position) {
         return POSITIONS.containsKey(position);
+    }
+
+    public static boolean isEmpty() {
+        return POSITIONS.isEmpty();
     }
 
     /**
