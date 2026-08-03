@@ -23,6 +23,8 @@ public record LimitSpawnersConfig(
         boolean blockSpawnerMinecarts
 ) {
 
+    private static final int MINIMUM_TASK_INTERVAL_TICKS = 20;
+
     public LimitSpawnersConfig {
         Objects.requireNonNull(mobControl, "mobControl");
         Objects.requireNonNull(placementControl, "placementControl");
@@ -71,7 +73,12 @@ public record LimitSpawnersConfig(
                 perWorldLimit,
                 serverLimit,
                 positive(mobNode, "blocked_retry_delay_ticks", 200),
-                positive(mobNode, "maintenance_interval_ticks", 100),
+                atLeast(
+                        mobNode,
+                        "maintenance_interval_ticks",
+                        100,
+                        MINIMUM_TASK_INTERVAL_TICKS
+                ),
                 nonNegative(mobNode, "outside_radius_grace_seconds", 30),
                 nonNegative(mobNode, "inactive_source_grace_seconds", 30),
                 nonNegative(mobNode, "maximum_lifetime_seconds", 0),
@@ -101,7 +108,12 @@ public record LimitSpawnersConfig(
 
         ConfigNode indexNode = root.get("position_index");
         PositionIndex positionIndex = new PositionIndex(
-                positive(indexNode, "save_debounce_ticks", 20)
+                atLeast(
+                        indexNode,
+                        "save_debounce_ticks",
+                        20,
+                        MINIMUM_TASK_INTERVAL_TICKS
+                )
         );
 
         return new LimitSpawnersConfig(
@@ -155,7 +167,10 @@ public record LimitSpawnersConfig(
                 );
                 continue;
             }
-            int limit = Math.min(hardLimit, Math.max(0, tierNode.get("limit").as(Integer.class, 0)));
+            int limit = Math.min(
+                    hardLimit,
+                    Math.max(0, tierNode.get("limit").as(Integer.class, 0))
+            );
             tiers.add(new PermissionTier(permission, limit));
         }
         return List.copyOf(tiers);
@@ -163,6 +178,10 @@ public record LimitSpawnersConfig(
 
     private static int positive(ConfigNode node, String key, int fallback) {
         return Math.max(1, node.get(key).as(Integer.class, fallback));
+    }
+
+    private static int atLeast(ConfigNode node, String key, int fallback, int minimum) {
+        return Math.max(minimum, node.get(key).as(Integer.class, fallback));
     }
 
     private static int nonNegative(ConfigNode node, String key, int fallback) {
