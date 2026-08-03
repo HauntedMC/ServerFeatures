@@ -23,6 +23,10 @@ public final class PendingSpawnerPlacements {
         POSITIONS.computeIfPresent(position, (ignored, state) -> State.COMMITTED);
     }
 
+    public static void cancel(SpawnerKey position) {
+        POSITIONS.computeIfPresent(position, (ignored, state) -> State.CANCELLED);
+    }
+
     public static void clear(SpawnerKey position) {
         POSITIONS.remove(position);
     }
@@ -34,19 +38,12 @@ public final class PendingSpawnerPlacements {
     /**
      * Returns whether reconciliation must ignore this position.
      *
-     * <p>A committed position is consumed here and may be indexed exactly once by either the
-     * placement finalizer or an intervening chunk reconciliation.</p>
+     * <p>Committed positions may be indexed, but remain reserved until the placement finalizer has
+     * completed so a second placement cannot overwrite the first reservation.</p>
      */
     public static boolean blocksIndexing(SpawnerKey position) {
         State state = POSITIONS.get(position);
-        if (state == null) {
-            return false;
-        }
-        if (state == State.PROVISIONAL) {
-            return true;
-        }
-        POSITIONS.remove(position);
-        return false;
+        return state == State.PROVISIONAL || state == State.CANCELLED;
     }
 
     public static void clearAll() {
@@ -55,6 +52,7 @@ public final class PendingSpawnerPlacements {
 
     private enum State {
         PROVISIONAL,
-        COMMITTED
+        COMMITTED,
+        CANCELLED
     }
 }
