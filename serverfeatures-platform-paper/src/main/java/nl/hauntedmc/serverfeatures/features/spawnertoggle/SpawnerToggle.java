@@ -3,10 +3,10 @@ package nl.hauntedmc.serverfeatures.features.spawnertoggle;
 import me.ryanhamshire.GriefPrevention.Claim;
 import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
 import org.bukkit.Bukkit;
@@ -29,15 +29,21 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     public ConfigMap getDefaultConfig() {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
-        defaults.put("default_spawn_range", 16); // Default Minecraft setting
+        defaults.put("toggle_permission", "");
         return defaults;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap messageMap = new MessageMap();
-        messageMap.add("spawner_toggle.toggle_message", "&7[&bSpawner&7] Mob spawning is {status} &7voor deze spawner.");
-        messageMap.add("spawner_toggle.claim_restricted", "&cJe kunt deze spawner niet bewerken in andermans claim.");
+        messageMap.add(
+                "spawner_toggle.toggle_message",
+                "&7[&bSpawner&7] Mob spawning is {status} &7voor deze spawner."
+        );
+        messageMap.add(
+                "spawner_toggle.claim_restricted",
+                "&cJe kunt deze spawner niet bewerken in andermans claim."
+        );
         messageMap.add("spawner_toggle.status_on", "&aingeschakeld");
         messageMap.add("spawner_toggle.status_off", "&cuitgeschakeld");
         return messageMap;
@@ -51,32 +57,41 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-
     }
 
     public void toggleSpawner(Player player, Block block) {
         BlockState blockState = block.getState();
-        if (!(blockState instanceof CreatureSpawner spawner)) return;
-
-        int defaultRange = (int) getConfigHandler().get("default_spawn_range");
-
-        if (spawner.getRequiredPlayerRange() == defaultRange) {
-            spawner.setRequiredPlayerRange(0);
-            Component status_off = getLocalizationHandler().getMessage("spawner_toggle.status_off").forAudience(player).build();
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message")
-                    .forAudience(player)
-                    .with("status", status_off)
-                    .build());
-        } else {
-            spawner.setRequiredPlayerRange(defaultRange);
-            Component status_on = getLocalizationHandler().getMessage("spawner_toggle.status_on").forAudience(player).build();
-            player.sendMessage(getLocalizationHandler().getMessage("spawner_toggle.toggle_message")
-                    .forAudience(player)
-                    .with("status", status_on)
-                    .build());
+        if (!(blockState instanceof CreatureSpawner spawner)) {
+            return;
         }
 
-        blockState.update();
+        boolean disabled = !SpawnerToggleState.isDisabled(spawner, getPlugin());
+        SpawnerToggleState.setDisabled(spawner, getPlugin(), disabled);
+        spawner.update(true, false);
+
+        Component status = getLocalizationHandler()
+                .getMessage(disabled
+                        ? "spawner_toggle.status_off"
+                        : "spawner_toggle.status_on")
+                .forAudience(player)
+                .build();
+        player.sendMessage(getLocalizationHandler()
+                .getMessage("spawner_toggle.toggle_message")
+                .forAudience(player)
+                .with("status", status)
+                .build());
+    }
+
+    public boolean isDisabled(CreatureSpawner spawner) {
+        return SpawnerToggleState.isDisabled(spawner, getPlugin());
+    }
+
+    public boolean mayToggle(Player player) {
+        String permission = getConfigHandler()
+                .node("toggle_permission")
+                .as(String.class, "")
+                .trim();
+        return permission.isEmpty() || player.hasPermission(permission);
     }
 
     @SuppressWarnings("deprecation")
@@ -88,5 +103,4 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     public boolean isGriefPreventionEnabled() {
         return griefPreventionEnabled;
     }
-
 }
