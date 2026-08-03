@@ -2,10 +2,10 @@ package nl.hauntedmc.serverfeatures.features.votifier;
 
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
 import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.votifier.internal.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.votifier.meta.Meta;
 
@@ -13,11 +13,6 @@ import java.util.Locale;
 import java.util.Optional;
 
 public class Votifier extends BukkitBaseFeature<Meta> {
-
-    enum DeliveryMode {
-        LEGACY,
-        TARGETED
-    }
 
     private static final String DEFAULT_STREAM = "proxy.votifier.vote";
     private static final String DEFAULT_STREAM_PATTERN = "{channel}.{server}";
@@ -35,9 +30,8 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         ConfigMap cfg = new ConfigMap();
         cfg.put("enabled", false);
         cfg.put("channel", DEFAULT_STREAM);
+        cfg.put("stream_pattern", DEFAULT_STREAM_PATTERN);
         cfg.put("consumer_group", "");
-        cfg.put("delivery.mode", DeliveryMode.LEGACY.name());
-        cfg.put("delivery.stream_pattern", DEFAULT_STREAM_PATTERN);
         return cfg;
     }
 
@@ -53,50 +47,36 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
                 .getDataManager()
                 .registerRedisMessagingProvider("redis", CONNECTION);
-
         if (redisProvider.isEmpty()) {
-            throw new IllegalStateException("Redis messaging provider is not available for feature '" + getFeatureName() + "'.");
+            throw new IllegalStateException(
+                    "Redis messaging provider is not available for feature '" + getFeatureName() + "'."
+            );
         }
         DurableMessagingDataAccess redisBus = redisProvider.get().getDurableDataAccess();
 
-        String configuredChannel = getConfigHandler().get("channel", String.class, DEFAULT_STREAM);
-        String baseStream = resolveStream(configuredChannel);
-        if (configuredChannel == null || configuredChannel.isBlank()) {
-            getLogger().warning("Configured Votifier stream is blank; falling back to \"" + DEFAULT_STREAM + "\".");
-        }
-
-        String serverName = getConfigHandler().getGlobalSetting(
+        String baseStream = requireStream(
+                getConfigHandler().get("channel", String.class, DEFAULT_STREAM)
+        );
+        String streamPattern = requireStreamPattern(
+                getConfigHandler().get("stream_pattern", String.class, DEFAULT_STREAM_PATTERN)
+        );
+        String serverName = requireServerName(getConfigHandler().getGlobalSetting(
                 "server_name",
                 String.class,
                 DEFAULT_SERVER_NAME
-        );
-        DeliveryMode deliveryMode = parseDeliveryMode(
-                getConfigHandler().get("delivery.mode", String.class, DeliveryMode.LEGACY.name())
-        );
-        String streamPattern = getConfigHandler().get(
-                "delivery.stream_pattern",
-                String.class,
-                DEFAULT_STREAM_PATTERN
-        );
-        String stream = resolveDeliveryStream(baseStream, deliveryMode, streamPattern, serverName);
+        ));
+        String stream = resolveDeliveryStream(baseStream, streamPattern, serverName);
 
         String configuredGroup = getConfigHandler().get("consumer_group", String.class, "");
         String consumerGroup = resolveConsumerGroup(configuredGroup, serverName);
-        if ((configuredGroup == null || configuredGroup.isBlank())
-                && DEFAULT_SERVER_NAME.equalsIgnoreCase(normalizeTargetServerName(serverName))) {
-            getLogger().warning(
-                    "Votifier is using the default durable consumer group. Configure a unique global "
-                            + "'server_name' or feature 'consumer_group' for every backend that must receive votes."
-            );
-        }
 
         this.eventBusHandler = new EventBusHandler(this, redisBus);
         this.eventBusHandler.consume(stream, consumerGroup);
 
         getLogger().info(
-                "Votifier delivery mode=" + deliveryMode
-                        + ", server_name=\"" + normalizeTargetServerName(serverName) + "\""
-                        + ", stream=\"" + stream + "\"."
+                "Votifier backend=\"" + normalizeTargetServerName(serverName)
+                        + "\", stream=\"" + stream
+                        + "\", consumer_group=\"" + consumerGroup + "\"."
         );
     }
 
@@ -108,63 +88,23 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         }
     }
 
-    static String resolveStream(String configuredChannel) {
-        if (configuredChannel == null) {
-            return DEFAULT_STREAM;
-        }
-        String channel = configuredChannel.trim();
-        return channel.isEmpty() ? DEFAULT_STREAM : channel;
-    }
-
-    static DeliveryMode parseDeliveryMode(String configuredMode) {
-        String normalized = configuredMode == null
-                ? ""
-                : configuredMode.trim().toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "", "LEGACY" -> DeliveryMode.LEGACY;
-            case "TARGETED", "PER_SERVER", "PER-SERVER" -> DeliveryMode.TARGETED;
-            default -> throw new IllegalArgumentException(
-                    "Unknown Votifier delivery.mode \"" + configuredMode
-                            + "\". Expected LEGACY or TARGETED."
-            );
-        };
-    }
-
     static String resolveDeliveryStream(
             String baseStream,
-            DeliveryMode mode,
-            String configuredPattern,
+            String streamPattern,
             String serverName
     ) {
-        String resolvedBase = resolveStream(baseStream);
-        if (mode != DeliveryMode.TARGETED) {
-            return resolvedBase;
-        }
-
-        String normalizedServer = normalizeTargetServerName(serverName);
-        if (DEFAULT_SERVER_NAME.equals(normalizedServer)) {
-            throw new IllegalStateException(
-                    "Targeted Votifier delivery requires a unique global 'server_name'; "
-                            + "the default value \"server\" is not allowed."
-            );
-        }
-
-        String pattern = configuredPattern == null ? "" : configuredPattern.trim();
-        if (!pattern.contains("{server}")) {
-            pattern = DEFAULT_STREAM_PATTERN;
-        }
-        return pattern
-                .replace("{channel}", resolvedBase)
-                .replace("{server}", normalizedServer);
+        return requireStreamPattern(streamPattern)
+                .replace("{channel}", requireStream(baseStream))
+                .replace("{server}", normalizeTargetServerName(requireServerName(serverName)));
     }
 
     static String resolveConsumerGroup(String configuredGroup, String serverName) {
+        String requiredServerName = requireServerName(serverName);
         if (configuredGroup != null && !configuredGroup.isBlank()) {
             return normalizeConsumerKey(configuredGroup, "serverfeatures.votifier.server");
         }
-        String normalizedServer = normalizeConsumerKey(serverName, DEFAULT_SERVER_NAME);
         return normalizeConsumerKey(
-                "serverfeatures.votifier." + normalizedServer,
+                "serverfeatures.votifier." + normalizeTargetServerName(requiredServerName),
                 "serverfeatures.votifier.server"
         );
     }
@@ -174,9 +114,38 @@ public class Votifier extends BukkitBaseFeature<Meta> {
         normalized = normalized.replaceAll("[^a-z0-9_.-]", "_");
         normalized = normalized.replaceAll("_+", "_");
         if (normalized.isBlank()) {
-            normalized = DEFAULT_SERVER_NAME;
+            throw new IllegalArgumentException("server_name must not be blank");
         }
         return normalized.substring(0, Math.min(normalized.length(), 64));
+    }
+
+    private static String requireServerName(String value) {
+        String normalized = normalizeTargetServerName(value);
+        if (DEFAULT_SERVER_NAME.equals(normalized)) {
+            throw new IllegalStateException(
+                    "Votifier requires a unique global 'server_name'; the default value \"server\" is not allowed."
+            );
+        }
+        return value.trim();
+    }
+
+    private static String requireStream(String value) {
+        String stream = value == null ? "" : value.trim();
+        if (stream.isBlank()) {
+            throw new IllegalArgumentException("Votifier channel must not be blank");
+        }
+        return stream;
+    }
+
+    private static String requireStreamPattern(String value) {
+        String pattern = value == null ? "" : value.trim();
+        if (pattern.isBlank()) {
+            throw new IllegalArgumentException("Votifier stream_pattern must not be blank");
+        }
+        if (!pattern.contains("{server}")) {
+            throw new IllegalArgumentException("Votifier stream_pattern must contain {server}");
+        }
+        return pattern;
     }
 
     private static String normalizeConsumerKey(String value, String fallback) {
