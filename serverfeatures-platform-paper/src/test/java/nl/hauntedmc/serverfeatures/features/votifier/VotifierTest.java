@@ -8,26 +8,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class VotifierTest {
 
     @Test
-    void derivesPrivateStreamFromServerName() {
+    void derivesPrivateStreamFromVelocityServerName() {
         assertEquals(
-                "proxy.votifier.vote.survival_eu",
+                "proxy.votifier.vote.survival-eu",
                 Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
                         "{channel}.{server}",
-                        " Survival EU "
+                        "Survival-EU"
                 )
         );
     }
 
     @Test
-    void streamNormalizationMatchesProxyTargets() {
-        assertEquals("survival_eu-2", Votifier.normalizeTargetServerName(" Survival:EU-2 "));
+    void streamIdentityMatchesProxyNormalization() {
+        assertEquals("survival_eu-2", Votifier.normalizeTargetServerName("Survival_EU-2"));
         assertEquals(
                 "proxy.votifier.vote.survival_eu-2",
                 Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
                         "{channel}.{server}",
-                        " Survival:EU-2 "
+                        "Survival_EU-2"
                 )
         );
     }
@@ -45,7 +45,7 @@ class VotifierTest {
     }
 
     @Test
-    void rejectsAmbiguousServerIdentity() {
+    void rejectsAmbiguousOrInvalidServerIdentity() {
         assertThrows(
                 IllegalStateException.class,
                 () -> Votifier.resolveDeliveryStream(
@@ -60,6 +60,22 @@ class VotifierTest {
                         "proxy.votifier.vote",
                         "{channel}.{server}",
                         ""
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveDeliveryStream(
+                        "proxy.votifier.vote",
+                        "{channel}.{server}",
+                        "Survival EU"
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveDeliveryStream(
+                        "proxy.votifier.vote",
+                        "{channel}.{server}",
+                        "Survival:EU"
                 )
         );
     }
@@ -84,7 +100,7 @@ class VotifierTest {
     void consumerGroupDefaultsToStableBackendIdentity() {
         assertEquals(
                 "serverfeatures.votifier.survival_eu",
-                Votifier.resolveConsumerGroup("", " Survival EU ")
+                Votifier.resolveConsumerGroup("", "Survival_EU")
         );
         assertEquals(
                 "custom_votes",
@@ -93,7 +109,7 @@ class VotifierTest {
     }
 
     @Test
-    void consumerGroupAlsoRejectsAmbiguousServerIdentity() {
+    void consumerGroupRequiresValidBackendIdentity() {
         assertThrows(
                 IllegalStateException.class,
                 () -> Votifier.resolveConsumerGroup("", "server")
@@ -101,6 +117,10 @@ class VotifierTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> Votifier.resolveConsumerGroup("", "")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveConsumerGroup("custom", "Survival EU")
         );
     }
 }
