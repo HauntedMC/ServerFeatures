@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.limitspawners.command.LimitSpawnersCommand;
 import nl.hauntedmc.serverfeatures.features.limitspawners.config.LimitSpawnersConfig;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
+import nl.hauntedmc.serverfeatures.features.limitspawners.internal.PendingSpawnerPlacements;
 import nl.hauntedmc.serverfeatures.features.limitspawners.listener.LimitSpawnersListener;
 import nl.hauntedmc.serverfeatures.features.limitspawners.listener.TransformListener;
 import nl.hauntedmc.serverfeatures.features.limitspawners.meta.Meta;
@@ -100,15 +101,27 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
                 "limitspawners.command.usage",
                 "&eGebruik: /limitspawners <stats|inspect|cleanup|rescan>"
         );
-        messages.add("limitspawners.command.players_only", "&cDit commando kan alleen door een speler worden gebruikt.");
-        messages.add("limitspawners.command.no_target", "&cKijk naar een spawner binnen acht blokken.");
-        messages.add("limitspawners.command.invalid_radius", "&cDe radius moet een positief geheel getal zijn.");
+        messages.add(
+                "limitspawners.command.players_only",
+                "&cDit commando kan alleen door een speler worden gebruikt."
+        );
+        messages.add(
+                "limitspawners.command.no_target",
+                "&cKijk naar een spawner binnen acht blokken."
+        );
+        messages.add(
+                "limitspawners.command.invalid_radius",
+                "&cDe radius moet een positief geheel getal zijn."
+        );
         messages.add("limitspawners.command.world_not_found", "&cDie wereld bestaat niet.");
         messages.add(
                 "limitspawners.command.stats_header",
                 "&6&lLimitSpawners &7- actief: &f{active}&7, geïndexeerde spawners: &f{spawners}"
         );
-        messages.add("limitspawners.command.stats_world", "&7Wereld &f{world}&7: &f{count} &7actieve mobs");
+        messages.add(
+                "limitspawners.command.stats_world",
+                "&7Wereld &f{world}&7: &f{count} &7actieve mobs"
+        );
         messages.add("limitspawners.command.stats_metric", "&7{metric}: &f{count}");
         messages.add(
                 "limitspawners.command.inspect_header",
@@ -130,13 +143,20 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
                 "limitspawners.command.inspect_entity",
                 "&8- &f{uuid} &7{type}, leeftijd &f{age}s&7, afstand &f{distance}"
         );
-        messages.add("limitspawners.command.cleanup_success", "&a{count} actieve spawner-mobs verwijderd.");
-        messages.add("limitspawners.command.rescan_success", "&aGeladen chunks opnieuw gescand; {count} indexwijzigingen.");
+        messages.add(
+                "limitspawners.command.cleanup_success",
+                "&a{count} actieve spawner-mobs verwijderd."
+        );
+        messages.add(
+                "limitspawners.command.rescan_success",
+                "&aGeladen chunks opnieuw gescand; {count} indexwijzigingen."
+        );
         return messages;
     }
 
     @Override
     public void initialize() {
+        PendingSpawnerPlacements.clearAll();
         LimitSpawnersConfig config = LimitSpawnersConfig.load(this);
         this.handler = new LimitSpawnersHandler(this, config);
         getLifecycleManager().getListenerManager().registerListener(new TransformListener(handler));
@@ -151,6 +171,7 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
+        PendingSpawnerPlacements.clearAll();
         if (handler != null) {
             handler.shutdown();
         }
