@@ -44,7 +44,8 @@ for command in curl docker java jq jar sha256sum; do require "$command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable."
 mkdir -p \
     "$work_directory/paper/plugins/DataProvider/databases" \
-    "$work_directory/paper/plugins/DataRegistry"
+    "$work_directory/paper/plugins/DataRegistry" \
+    "$work_directory/paper/plugins/ServerFeatures/features/AutoPickup"
 
 dataregistry_version="$(property dataregistry.version)"
 dataprovider_version="$(property dataprovider.version)"
@@ -71,20 +72,34 @@ cp "$registry_bundle" "$work_directory/paper/plugins/DataRegistry.jar"
 cp "$plugin" "$work_directory/paper/plugins/ServerFeatures.jar"
 cp "$consumer" "$work_directory/paper/plugins/ServerFeaturesAcceptance.jar"
 printf '%s\n' 'orm:' '  schema_mode: update' 'databases:' '  mysql: { enabled: true }' '  mongodb: { enabled: false }' '  redis: { enabled: false }' '  redis_messaging: { enabled: false }' >"$work_directory/paper/plugins/DataProvider/config.yml"
+printf '%s\n' 'enabled: true' >"$work_directory/paper/plugins/ServerFeatures/features/AutoPickup/config.yml"
 
 docker compose --file "$compose_file" up --detach --wait
 mysql_port="$(docker compose --file "$compose_file" port mysql 3306 | sed -n 's/.*://p' | head -n 1)"
 [[ -n "$mysql_port" ]] || fail "Unable to resolve MySQL port."
-printf '%s\n' 'player_data_rw:' '  access: { owner_plugin: "DataRegistry", shared_with: [] }' '  host: 127.0.0.1' "  port: $mysql_port" '  database: minecraft' '  username: root' '  password: acceptance-root' '  ssl_mode: DISABLED' '  pool_size: 3' '  min_idle: 0' >"$work_directory/paper/plugins/DataProvider/databases/mysql.yml"
+printf '%s\n' 'player_data_rw:' '  access: { owner_plugin: "DataRegistry", shared_with: ["ServerFeatures"] }' '  host: 127.0.0.1' "  port: $mysql_port" '  database: minecraft' '  username: root' '  password: acceptance-root' '  ssl_mode: DISABLED' '  pool_size: 3' '  min_idle: 0' >"$work_directory/paper/plugins/DataProvider/databases/mysql.yml"
 printf '%s\n' 'orm:' '  schema-mode: update' >"$work_directory/paper/plugins/DataRegistry/config.yml"
 printf '%s\n' 'eula=true' >"$work_directory/paper/eula.txt"
 printf '%s\n' 'server-port=0' >"$work_directory/paper/server.properties"
+
+docker compose --file "$compose_file" exec -T mysql \
+    mysql --user=root --password=acceptance-root minecraft <<'SQL'
+CREATE TABLE IF NOT EXISTS player_auto_pickup_settings (
+    player_id BIGINT NOT NULL,
+    enabled BOOLEAN NOT NULL,
+    updated_at BIGINT NOT NULL,
+    write_revision BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (player_id)
+) ENGINE=InnoDB;
+SQL
 
 mkfifo "$work_directory/paper/console.in"
 (cd "$work_directory/paper" && exec java -Xms512M -Xmx1G -jar "$work_directory/paper.jar" --nogui <console.in >paper.log 2>&1) &
 paper_pid=$!
 exec {paper_input_fd}>"$work_directory/paper/console.in"
 wait_for_log "$work_directory/paper/paper.log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
+grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$work_directory/paper/paper.log" \
+    || fail "AutoPickup did not load during Paper acceptance."
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
 while kill -0 "$paper_pid" 2>/dev/null && (( SECONDS < deadline )); do sleep 1; done

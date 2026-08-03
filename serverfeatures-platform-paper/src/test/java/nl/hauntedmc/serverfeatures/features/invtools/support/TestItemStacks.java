@@ -29,22 +29,26 @@ public final class TestItemStacks {
     }
 
     public static ItemStack item(Material material, int initialAmount) {
+        return item(material, initialAmount, 64);
+    }
+
+    public static ItemStack item(Material material, int initialAmount, int maxStackSize) {
         Material testMaterial = TEST_MATERIALS.computeIfAbsent(material, ignored -> {
             Material mocked = mock(Material.class);
             when(mocked.isAir()).thenReturn(false);
             when(mocked.getEquipmentSlot()).thenReturn(testEquipmentSlot(ignored));
             return mocked;
         });
-        return mockedItem(testMaterial, initialAmount);
+        return mockedItem(testMaterial, initialAmount, maxStackSize);
     }
 
-    private static ItemStack mockedItem(Material testMaterial, int initialAmount) {
+    private static ItemStack mockedItem(Material testMaterial, int initialAmount, int maxStackSize) {
         AtomicInteger amount = new AtomicInteger(initialAmount);
         ItemStack stack = mock(ItemStack.class);
         when(stack.getType()).thenReturn(testMaterial);
         when(stack.getAmount()).thenAnswer(invocation -> amount.get());
-        when(stack.getMaxStackSize()).thenReturn(64);
-        when(stack.clone()).thenAnswer(invocation -> mockedItem(testMaterial, amount.get()));
+        when(stack.getMaxStackSize()).thenReturn(maxStackSize);
+        when(stack.clone()).thenAnswer(invocation -> mockedItem(testMaterial, amount.get(), maxStackSize));
         when(stack.isSimilar(any(ItemStack.class))).thenAnswer(invocation -> {
             ItemStack other = invocation.getArgument(0);
             return other != null && other.getType() == testMaterial;

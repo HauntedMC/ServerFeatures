@@ -47,6 +47,17 @@
                             </environmentVariables>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>assert-autopickup-shutdown</id>
+                        <phase>verify</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <executable>bash</executable>
+                            <arguments>
+                                <argument>${project.parent.basedir}/assert-autopickup-shutdown.sh</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
         </plugins>
