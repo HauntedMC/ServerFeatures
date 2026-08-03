@@ -79,7 +79,8 @@ public final class SpawnerPositionIndex {
                     continue;
                 }
                 for (SpawnerKey position : chunkPositions) {
-                    if (center.distanceSquared(position) <= radiusSquared) {
+                    if (!PendingSpawnerPlacements.contains(position)
+                            && center.distanceSquared(position) <= radiusSquared) {
                         count++;
                     }
                 }
