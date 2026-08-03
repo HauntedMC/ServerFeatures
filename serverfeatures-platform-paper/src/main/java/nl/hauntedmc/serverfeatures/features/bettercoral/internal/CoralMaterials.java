@@ -35,49 +35,61 @@ public final class CoralMaterials {
     private static Map<Material, Material> createDryingTransitions() {
         EnumMap<Material, Material> transitions = new EnumMap<>(Material.class);
 
-        add(transitions, Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
-        add(transitions, Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
-        add(transitions, Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
-        add(transitions, Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
-        add(transitions, Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
+        put(transitions, Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
+        put(transitions, Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
+        put(transitions, Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
+        put(transitions, Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
+        put(transitions, Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
 
-        add(transitions, Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
-        add(transitions, Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
-        add(transitions, Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
-        add(transitions, Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
-        add(transitions, Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
+        put(transitions, Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
+        put(transitions, Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
+        put(transitions, Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
+        put(transitions, Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
+        put(transitions, Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
 
-        add(transitions, Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
-        add(transitions, Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
-        add(transitions, Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
-        add(transitions, Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
-        add(transitions, Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
+        put(transitions, Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
+        put(transitions, Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
+        put(transitions, Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
+        put(transitions, Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
+        put(transitions, Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
 
-        add(transitions, Material.TUBE_CORAL_WALL_FAN, Material.DEAD_TUBE_CORAL_WALL_FAN);
-        add(transitions, Material.BRAIN_CORAL_WALL_FAN, Material.DEAD_BRAIN_CORAL_WALL_FAN);
-        add(transitions, Material.BUBBLE_CORAL_WALL_FAN, Material.DEAD_BUBBLE_CORAL_WALL_FAN);
-        add(transitions, Material.FIRE_CORAL_WALL_FAN, Material.DEAD_FIRE_CORAL_WALL_FAN);
-        add(transitions, Material.HORN_CORAL_WALL_FAN, Material.DEAD_HORN_CORAL_WALL_FAN);
+        put(transitions, Material.TUBE_CORAL_WALL_FAN, Material.DEAD_TUBE_CORAL_WALL_FAN);
+        put(transitions, Material.BRAIN_CORAL_WALL_FAN, Material.DEAD_BRAIN_CORAL_WALL_FAN);
+        put(transitions, Material.BUBBLE_CORAL_WALL_FAN, Material.DEAD_BUBBLE_CORAL_WALL_FAN);
+        put(transitions, Material.FIRE_CORAL_WALL_FAN, Material.DEAD_FIRE_CORAL_WALL_FAN);
+        put(transitions, Material.HORN_CORAL_WALL_FAN, Material.DEAD_HORN_CORAL_WALL_FAN);
 
         return Collections.unmodifiableMap(transitions);
     }
 
     private static Map<Material, Material> createFurnaceConversions() {
         EnumMap<Material, Material> conversions = new EnumMap<>(Material.class);
-        for (Map.Entry<Material, Material> transition : DRYING_TRANSITIONS.entrySet()) {
-            Material input = transition.getKey();
-            Material result = transition.getValue();
-            if (input.isItem() && result.isItem()) {
-                conversions.put(input, result);
-            }
-        }
+
+        put(conversions, Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
+        put(conversions, Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
+        put(conversions, Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
+        put(conversions, Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
+        put(conversions, Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
+
+        put(conversions, Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
+        put(conversions, Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
+        put(conversions, Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
+        put(conversions, Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
+        put(conversions, Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
+
+        put(conversions, Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
+        put(conversions, Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
+        put(conversions, Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
+        put(conversions, Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
+        put(conversions, Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
+
         return Collections.unmodifiableMap(conversions);
     }
 
-    private static void add(Map<Material, Material> transitions, Material live, Material dead) {
-        if (!live.isBlock() || !dead.isBlock()) {
-            throw new IllegalArgumentException("Coral drying mappings must contain block materials");
+    private static void put(Map<Material, Material> mappings, Material live, Material dead) {
+        Material previous = mappings.put(live, dead);
+        if (previous != null) {
+            throw new IllegalStateException("Duplicate BetterCoral mapping for " + live);
         }
-        transitions.put(live, dead);
     }
 }
