@@ -13,6 +13,7 @@ import java.util.Objects;
 public final class AutoPickupTransferPlanner {
 
     public TransferPlan plan(ItemStack[] currentStorage,
+                             ItemStack currentOffhand,
                              List<ItemStack> offeredDrops,
                              int inventoryMaxStackSize) {
         Objects.requireNonNull(currentStorage, "currentStorage");
@@ -23,6 +24,8 @@ public final class AutoPickupTransferPlanner {
 
         ItemStack[] initialStorage = cloneArray(currentStorage);
         ItemStack[] changedStorage = cloneArray(initialStorage);
+        ItemStack initialOffhand = cloneOrNull(currentOffhand);
+        ItemStack changedOffhand = cloneOrNull(initialOffhand);
         List<DropResult> results = new ArrayList<>(offeredDrops.size());
         int totalInserted = 0;
         int totalRemaining = 0;
@@ -37,6 +40,9 @@ public final class AutoPickupTransferPlanner {
             ItemStack remainder = original.clone();
             remainder = mergeIntoExisting(changedStorage, remainder, inventoryMaxStackSize);
             remainder = fillEmptySlots(changedStorage, remainder, inventoryMaxStackSize);
+            OffhandResult offhandResult = fillOffhand(changedOffhand, remainder, inventoryMaxStackSize);
+            changedOffhand = offhandResult.offhand();
+            remainder = offhandResult.remainder();
 
             int remaining = remainder == null ? 0 : remainder.getAmount();
             int inserted = original.getAmount() - remaining;
@@ -48,7 +54,15 @@ public final class AutoPickupTransferPlanner {
             totalRemaining = Math.addExact(totalRemaining, remaining);
         }
 
-        return new TransferPlan(initialStorage, changedStorage, results, totalInserted, totalRemaining);
+        return new TransferPlan(
+                initialStorage,
+                changedStorage,
+                initialOffhand,
+                changedOffhand,
+                results,
+                totalInserted,
+                totalRemaining
+        );
     }
 
     private ItemStack mergeIntoExisting(ItemStack[] storage,
@@ -86,6 +100,30 @@ public final class AutoPickupTransferPlanner {
         return remainder;
     }
 
+    private OffhandResult fillOffhand(ItemStack currentOffhand,
+                                      ItemStack remainder,
+                                      int inventoryMaxStackSize) {
+        if (remainder == null) {
+            return new OffhandResult(currentOffhand, null);
+        }
+        if (currentOffhand != null && !currentOffhand.isSimilar(remainder)) {
+            return new OffhandResult(currentOffhand, remainder);
+        }
+
+        int currentAmount = currentOffhand == null ? 0 : currentOffhand.getAmount();
+        int limit = Math.min(remainder.getMaxStackSize(), inventoryMaxStackSize);
+        int capacity = limit - currentAmount;
+        if (capacity <= 0) {
+            return new OffhandResult(currentOffhand, remainder);
+        }
+
+        int moved = Math.min(capacity, remainder.getAmount());
+        ItemStack finalOffhand = currentOffhand == null
+                ? withAmount(remainder, moved)
+                : withAmount(currentOffhand, currentAmount + moved);
+        return new OffhandResult(finalOffhand, withAmount(remainder, remainder.getAmount() - moved));
+    }
+
     public static ItemStack[] cloneArray(ItemStack[] source) {
         Objects.requireNonNull(source, "source");
         return Arrays.stream(source).map(AutoPickupTransferPlanner::cloneOrNull).toArray(ItemStack[]::new);
@@ -109,6 +147,23 @@ public final class AutoPickupTransferPlanner {
         ItemStack clone = item.clone();
         clone.setAmount(amount);
         return clone;
+    }
+
+    private record OffhandResult(ItemStack offhand, ItemStack remainder) {
+        private OffhandResult {
+            offhand = cloneOrNull(offhand);
+            remainder = cloneOrNull(remainder);
+        }
+
+        @Override
+        public ItemStack offhand() {
+            return cloneOrNull(offhand);
+        }
+
+        @Override
+        public ItemStack remainder() {
+            return cloneOrNull(remainder);
+        }
     }
 
     public record DropResult(ItemStack original, ItemStack remainder, int insertedAmount) {
@@ -146,6 +201,8 @@ public final class AutoPickupTransferPlanner {
     public record TransferPlan(
             ItemStack[] initialStorage,
             ItemStack[] finalStorage,
+            ItemStack initialOffhand,
+            ItemStack finalOffhand,
             List<DropResult> drops,
             int totalInserted,
             int totalRemaining
@@ -153,6 +210,8 @@ public final class AutoPickupTransferPlanner {
         public TransferPlan {
             initialStorage = cloneArray(initialStorage);
             finalStorage = cloneArray(finalStorage);
+            initialOffhand = cloneOrNull(initialOffhand);
+            finalOffhand = cloneOrNull(finalOffhand);
             drops = List.copyOf(drops);
             if (initialStorage.length != finalStorage.length) {
                 throw new IllegalArgumentException("Initial and final storage lengths must match");
@@ -179,6 +238,16 @@ public final class AutoPickupTransferPlanner {
         @Override
         public ItemStack[] finalStorage() {
             return cloneArray(finalStorage);
+        }
+
+        @Override
+        public ItemStack initialOffhand() {
+            return cloneOrNull(initialOffhand);
+        }
+
+        @Override
+        public ItemStack finalOffhand() {
+            return cloneOrNull(finalOffhand);
         }
 
         public int remainingStacks() {
