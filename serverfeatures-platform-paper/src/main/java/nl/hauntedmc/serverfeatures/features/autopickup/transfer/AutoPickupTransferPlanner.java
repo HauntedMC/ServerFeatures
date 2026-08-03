@@ -111,7 +111,10 @@ public final class AutoPickupTransferPlanner {
         }
 
         int currentAmount = currentOffhand == null ? 0 : currentOffhand.getAmount();
-        int limit = Math.min(remainder.getMaxStackSize(), inventoryMaxStackSize);
+        int itemMaxStackSize = currentOffhand == null
+                ? remainder.getMaxStackSize()
+                : currentOffhand.getMaxStackSize();
+        int limit = Math.min(itemMaxStackSize, inventoryMaxStackSize);
         int capacity = limit - currentAmount;
         if (capacity <= 0) {
             return new OffhandResult(currentOffhand, remainder);
