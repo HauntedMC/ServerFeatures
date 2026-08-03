@@ -12,7 +12,7 @@ import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.graveyard.ClaimReason;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveClaimOutcome;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveSnapshot;
-import GraveStatus;
+import nl.hauntedmc.serverfeatures.api.graveyard.GraveStatus;
 import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
