@@ -14,6 +14,7 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.meta.Meta;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.logging.Level;
 
 public final class LimitSpawners extends BukkitBaseFeature<Meta> {
 
@@ -171,7 +172,21 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        PendingSpawnerPlacements.clearAll();
+        try {
+            if (handler != null && !PendingSpawnerPlacements.isEmpty()) {
+                PendingSpawnerPlacements.commitAll();
+                handler.rescanLoadedChunks();
+            }
+        } catch (RuntimeException exception) {
+            getLogger().log(
+                    Level.SEVERE,
+                    "Could not reconcile pending spawner placements before shutdown.",
+                    exception
+            );
+        } finally {
+            PendingSpawnerPlacements.clearAll();
+        }
+
         if (handler != null) {
             handler.shutdown();
         }
