@@ -1,6 +1,6 @@
 # ServerFeatures Feature Reference
 
-This directory documents all **57** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
+This directory documents all **58** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
 
 ## How to use these pages
 
@@ -36,6 +36,7 @@ This directory documents all **57** feature modules currently present in ServerF
 - [JoinItems](joinitems.md) — Gives players configured utility/menu items when they join and protects the intended slot behavior.
 - [DeepHaste](deephaste.md) — Boosts the Haste effect supplied by a beacon when the affected player is below a configured Y level.
 - [AutoLapis](autolapis.md) — Automatically supplies lapis behavior for enchanting workflows so players do not need to carry lapis manually.
+- [AutoPickup](autopickup.md) — Persistently toggles direct block-drop collection, preserves exact ground overflow, and excludes indirect destruction.
 - [Holograms](holograms.md) — Creates and manages configured holographic text displays in worlds.
 - [EnderFrame](enderframe.md) — Allows controlled pickup and placement of End Portal Frames outside protected stronghold or claim contexts.
 - [InstaSkull](instaskull.md) — Provides immediate player-head/skull handling for configured gameplay interactions.

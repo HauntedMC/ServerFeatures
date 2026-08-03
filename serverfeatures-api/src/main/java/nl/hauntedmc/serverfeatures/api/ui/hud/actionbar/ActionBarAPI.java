@@ -14,6 +14,18 @@ public interface ActionBarAPI {
 
     void stopCycle();
 
+    // Targeted delivery. PAUSE_CYCLE suppresses the shared cycle only for this player.
+    default void sendOnce(@NotNull Player player, @NotNull Component component) {
+        player.sendActionBar(component);
+    }
+
+    default void send(@NotNull Player player,
+                      @NotNull Component component,
+                      int seconds,
+                      @NotNull PauseMode pauseMode) {
+        sendOnce(player, component);
+    }
+
     // Broadcasts — static component
     void sendOnceBroadcast(@NotNull Component component);
 
@@ -22,5 +34,7 @@ public interface ActionBarAPI {
     // Broadcasts — per-player supplier (lets you do i18n and PAPI at call sites)
     void sendOnceBroadcastPerPlayer(@NotNull Function<Player, Component> supplier);
 
-    void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode pauseMode);
+    void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier,
+                                int seconds,
+                                @NotNull PauseMode pauseMode);
 }

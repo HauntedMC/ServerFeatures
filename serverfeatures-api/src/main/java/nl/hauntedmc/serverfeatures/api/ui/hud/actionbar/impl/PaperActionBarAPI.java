@@ -1,13 +1,20 @@
 package nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.*;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBarAPI;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBarCycle;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBarCycleHandle;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBarEntry;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.PauseMode;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -36,6 +43,10 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     private int broadcastRepeatingTaskId = -1;
     private int endBroadcastTaskId = -1;
 
+    // Per-player timed overrides. A PAUSE_CYCLE override suppresses cycle frames only for that player.
+    private final AtomicInteger targetedGeneration = new AtomicInteger();
+    private final Map<UUID, TargetedOverride> targetedOverrides = new HashMap<>();
+
     public PaperActionBarAPI(@NotNull Plugin plugin) {
         this.plugin = plugin;
     }
@@ -45,8 +56,7 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     @Override
     public @NotNull ActionBarCycleHandle startCycle(@NotNull ActionBarCycle cycle) {
         runSync(() -> {
-            // Replace current cycle
-            cancelCycleTasks(); // stop anything existing
+            cancelCycleTasks();
             this.currentCycle = cycle;
             this.cycleIndex = 0;
             this.cyclePaused = false;
@@ -67,7 +77,7 @@ public final class PaperActionBarAPI implements ActionBarAPI {
             public void cancel() {
                 runSync(() -> {
                     if (runningGen == myGen) {
-                        stopCycle(); // only cancel if still the active generation
+                        stopCycle();
                     }
                 });
             }
@@ -87,6 +97,24 @@ public final class PaperActionBarAPI implements ActionBarAPI {
             cycleIndex = 0;
             cyclePaused = false;
         });
+    }
+
+    @Override
+    public void sendOnce(@NotNull Player player, @NotNull Component component) {
+        runSync(() -> {
+            clearTargetedOverride(player.getUniqueId());
+            if (player.isOnline()) {
+                player.sendActionBar(component);
+            }
+        });
+    }
+
+    @Override
+    public void send(@NotNull Player player,
+                     @NotNull Component component,
+                     int seconds,
+                     @NotNull PauseMode pauseMode) {
+        runSync(() -> startTargetedOverride(player, component, seconds, pauseMode));
     }
 
     @Override
@@ -110,50 +138,51 @@ public final class PaperActionBarAPI implements ActionBarAPI {
 
     @Override
     public void sendOnceBroadcastPerPlayer(@NotNull Function<Player, Component> supplier) {
-        runSync(() -> sendActionBarAllPerPlayer(supplier));
+        runSync(() -> sendActionBarAllPerPlayer(supplier, false));
     }
 
     @Override
-    public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier, int seconds, @NotNull PauseMode mode) {
+    public void sendBroadcastPerPlayer(@NotNull Function<Player, Component> supplier,
+                                       int seconds,
+                                       @NotNull PauseMode mode) {
         runSync(() -> {
             if (seconds <= 0) {
-                sendActionBarAllPerPlayer(supplier);
+                sendActionBarAllPerPlayer(supplier, false);
                 return;
             }
             if (mode == PauseMode.PAUSE_CYCLE && isCycleRunning() && !cyclePaused) {
                 pauseCycle();
             }
-            startBroadcastRepeating(() -> sendActionBarAllPerPlayer(supplier), seconds);
+            startBroadcastRepeating(() -> sendActionBarAllPerPlayer(supplier, false), seconds);
         });
     }
 
     /* ============================== Internals ============================== */
 
     private void playCurrentEntryThenScheduleNext() {
-        // Assumes main thread and currentCycle != null
         List<ActionBarEntry> entries = currentCycle.entries();
-        if (entries.isEmpty()) return;
+        if (entries.isEmpty()) {
+            return;
+        }
 
         ActionBarEntry entry = entries.get(Math.floorMod(cycleIndex, entries.size()));
 
-        // Repeat send every 20 ticks for entry.seconds()
         cancelTask(repeatingTaskId);
         repeatingTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
             if (entry.isPerPlayer()) {
-                sendActionBarAllPerPlayer(entry.perPlayer());
+                sendActionBarAllPerPlayer(entry.perPlayer(), true);
             } else {
-                sendActionBarAll(entry.component());
+                sendCycleActionBarAll(entry.component());
             }
         }, 0L, 20L);
 
-        // End-of-entry => schedule gap then advance
         cancelTask(endOfEntryTaskId);
         int durationTicks = Math.max(0, entry.seconds()) * 20;
         endOfEntryTaskId = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
-            cancelTask(repeatingTaskId); // stop sending this entry
+            cancelTask(repeatingTaskId);
             repeatingTaskId = -1;
 
-            int gapSeconds = (currentCycle != null) ? currentCycle.gapSeconds() : 0;
+            int gapSeconds = currentCycle != null ? currentCycle.gapSeconds() : 0;
             int gapTicks = Math.max(0, gapSeconds) * 20;
 
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -174,14 +203,14 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     }
 
     private void resumeCycle() {
-        if (currentCycle == null || currentCycle.entries().isEmpty()) return;
-        if (!cyclePaused) return;
+        if (currentCycle == null || currentCycle.entries().isEmpty() || !cyclePaused) {
+            return;
+        }
         cyclePaused = false;
         playCurrentEntryThenScheduleNext();
     }
 
     private void startBroadcastRepeating(Runnable broadcastTick, int seconds) {
-        // Replace any existing timed broadcast
         cancelTask(broadcastRepeatingTaskId);
         cancelTask(endBroadcastTaskId);
 
@@ -189,12 +218,67 @@ public final class PaperActionBarAPI implements ActionBarAPI {
         endBroadcastTaskId = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
             cancelTask(broadcastRepeatingTaskId);
             broadcastRepeatingTaskId = -1;
-            // If cycle was paused for this broadcast, resume now.
             if (cyclePaused) {
                 cancelTask(resumeCycleTaskId);
                 resumeCycleTaskId = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, this::resumeCycle, 1L);
             }
         }, Math.max(0, seconds) * 20L);
+    }
+
+    private void startTargetedOverride(Player player,
+                                       Component component,
+                                       int seconds,
+                                       PauseMode pauseMode) {
+        UUID playerId = player.getUniqueId();
+        clearTargetedOverride(playerId);
+        if (seconds <= 0) {
+            if (player.isOnline()) {
+                player.sendActionBar(component);
+            }
+            return;
+        }
+
+        int generation = targetedGeneration.incrementAndGet();
+        int repeating = Bukkit.getScheduler().scheduleSyncRepeatingTask(plugin, () -> {
+            TargetedOverride current = targetedOverrides.get(playerId);
+            if (current == null || current.generation() != generation) {
+                return;
+            }
+            Player online = Bukkit.getPlayer(playerId);
+            if (online == null || !online.isOnline()) {
+                clearTargetedOverride(playerId);
+                return;
+            }
+            online.sendActionBar(component);
+        }, 0L, 20L);
+
+        int ending = Bukkit.getScheduler().scheduleSyncDelayedTask(plugin, () -> {
+            TargetedOverride current = targetedOverrides.get(playerId);
+            if (current != null && current.generation() == generation) {
+                clearTargetedOverride(playerId);
+            }
+        }, Math.max(0, seconds) * 20L);
+
+        targetedOverrides.put(playerId, new TargetedOverride(
+                generation,
+                repeating,
+                ending,
+                pauseMode == PauseMode.PAUSE_CYCLE
+        ));
+    }
+
+    private void clearTargetedOverride(UUID playerId) {
+        TargetedOverride previous = targetedOverrides.remove(playerId);
+        if (previous == null) {
+            return;
+        }
+        cancelTask(previous.repeatingTaskId());
+        cancelTask(previous.endTaskId());
+    }
+
+    private boolean cycleSuppressedFor(Player player) {
+        TargetedOverride override = targetedOverrides.get(player.getUniqueId());
+        return override != null && override.pauseCycle();
     }
 
     private void cancelCycleTasks() {
@@ -212,20 +296,39 @@ public final class PaperActionBarAPI implements ActionBarAPI {
         }
     }
 
-    private void sendActionBarAll(Component c) {
-        for (Player p : Bukkit.getOnlinePlayers()) p.sendActionBar(c);
-    }
-
-    private void sendActionBarAllPerPlayer(@NotNull java.util.function.Function<Player, Component> fn) {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            Component c = fn.apply(p);
-            if (c != null) p.sendActionBar(c);
+    private void sendCycleActionBarAll(Component component) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!cycleSuppressedFor(player)) {
+                player.sendActionBar(component);
+            }
         }
     }
 
-    private void runSync(Runnable r) {
-        if (Bukkit.isPrimaryThread()) r.run();
-        else Bukkit.getScheduler().runTask(plugin, r);
+    private void sendActionBarAll(Component component) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendActionBar(component);
+        }
+    }
+
+    private void sendActionBarAllPerPlayer(@NotNull Function<Player, Component> supplier,
+                                           boolean cycleFrame) {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (cycleFrame && cycleSuppressedFor(player)) {
+                continue;
+            }
+            Component component = supplier.apply(player);
+            if (component != null) {
+                player.sendActionBar(component);
+            }
+        }
+    }
+
+    private void runSync(Runnable runnable) {
+        if (Bukkit.isPrimaryThread()) {
+            runnable.run();
+        } else {
+            Bukkit.getScheduler().runTask(plugin, runnable);
+        }
     }
 
     /**
@@ -238,9 +341,18 @@ public final class PaperActionBarAPI implements ActionBarAPI {
             cancelTask(endBroadcastTaskId);
             broadcastRepeatingTaskId = -1;
             endBroadcastTaskId = -1;
+            for (UUID playerId : List.copyOf(targetedOverrides.keySet())) {
+                clearTargetedOverride(playerId);
+            }
             currentCycle = null;
             cycleIndex = 0;
             cyclePaused = false;
         });
+    }
+
+    private record TargetedOverride(int generation,
+                                    int repeatingTaskId,
+                                    int endTaskId,
+                                    boolean pauseCycle) {
     }
 }
