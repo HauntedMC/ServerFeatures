@@ -33,6 +33,33 @@ public record SpawnerKey(UUID worldId, int x, int y, int z) {
         return z >> 4;
     }
 
+    public EntityChunkKey chunkKey() {
+        return new EntityChunkKey(worldId, chunkX(), chunkZ());
+    }
+
+    public long distanceSquared(SpawnerKey other) {
+        Objects.requireNonNull(other, "other");
+        if (!worldId.equals(other.worldId)) {
+            return Long.MAX_VALUE;
+        }
+        long dx = (long) x - other.x;
+        long dy = (long) y - other.y;
+        long dz = (long) z - other.z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    public long distanceSquared(Location location) {
+        Objects.requireNonNull(location, "location");
+        World world = location.getWorld();
+        if (world == null || !worldId.equals(world.getUID())) {
+            return Long.MAX_VALUE;
+        }
+        double dx = location.getX() - (x + 0.5D);
+        double dy = location.getY() - (y + 0.5D);
+        double dz = location.getZ() - (z + 0.5D);
+        return (long) Math.ceil(dx * dx + dy * dy + dz * dz);
+    }
+
     @Override
     public @NotNull String toString() {
         return worldId + ":" + x + ":" + y + ":" + z;
@@ -58,12 +85,5 @@ public record SpawnerKey(UUID worldId, int x, int y, int z) {
         } catch (IllegalArgumentException exception) {
             return Optional.empty();
         }
-    }
-
-    /**
-     * Compatibility helper for callers that still use the old nullable parser.
-     */
-    public static SpawnerKey fromString(String serialized) {
-        return parse(serialized).orElse(null);
     }
 }
