@@ -278,6 +278,18 @@ public final class PlayerDataMigrationCoordinator implements PlayerDataMigration
     }
 
     @Override
+    public void malformedItemComponentsRemoved(
+            UUID playerId,
+            String location,
+            List<String> componentKeys
+    ) {
+        feature.getLogger().warning(
+                "Removed malformed item component(s) " + componentKeys + " from " + location
+                        + " in offline playerdata for " + playerId
+        );
+    }
+
+    @Override
     public void loadFailed(UUID playerId, Throwable failure) {
         Objects.requireNonNull(failure, "failure");
         clearRequests(playerId);

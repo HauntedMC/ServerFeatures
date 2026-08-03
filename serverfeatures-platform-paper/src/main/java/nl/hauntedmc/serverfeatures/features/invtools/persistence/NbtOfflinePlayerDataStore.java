@@ -24,6 +24,7 @@ import java.nio.file.attribute.FileOwnerAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
@@ -220,6 +221,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                             + "version " + runtimeDataVersion + " for " + playerId
             );
         }
+        InventorySnapshot snapshot;
         if (sourceVersion < runtimeDataVersion) {
             MigratedPlayerData migrated = migratePlayerData(
                     file,
@@ -230,13 +232,47 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             );
             bytes = migrated.bytes();
             root = migrated.root();
+            snapshot = decodeSnapshot(root, false, new ArrayList<>());
         } else {
             migrationObserver.migrationNotRequired(playerId);
+            List<ItemComponentRepair> repairs = new ArrayList<>();
+            snapshot = decodeSnapshot(root, true, repairs);
+            if (!repairs.isEmpty()) {
+                PlayerDataRevision originalRevision = revision(bytes);
+                bytes = writeAtomically(
+                        file,
+                        root,
+                        originalRevision,
+                        playerId,
+                        (temporaryBytes, temporaryFile) -> {
+                            ReadWriteNBT verifiedRoot = nbtIo.read(
+                                    temporaryBytes,
+                                    temporaryFile
+                            );
+                            validateCurrentPlayerData(
+                                    verifiedRoot,
+                                    playerId,
+                                    false,
+                                    new ArrayList<>()
+                            );
+                        }
+                );
+
+                root = nbtIo.read(bytes, file);
+                validatePlayerIdentity(root, playerId);
+                if (dataVersion(root, playerId) != runtimeDataVersion) {
+                    throw new IOException(
+                            "Repaired playerdata version changed for " + playerId
+                    );
+                }
+                snapshot = decodeSnapshot(root, false, new ArrayList<>());
+                notifyRepairs(playerId, repairs);
+            }
         }
 
         return new OfflinePlayerData(
                 playerId,
-                decodeSnapshot(root),
+                snapshot,
                 revision(bytes)
         );
     }
@@ -334,7 +370,8 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     sourceVersion,
                     runtimeDataVersion
             );
-            validateCurrentPlayerData(converted, playerId);
+            List<ItemComponentRepair> repairs = new ArrayList<>();
+            validateCurrentPlayerData(converted, playerId, true, repairs);
 
             temporary = Files.createTempFile(
                     file.getParent(),
@@ -347,7 +384,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
             byte[] convertedBytes = readPlayerData(temporary);
             ReadWriteNBT verifiedConverted = nbtIo.read(convertedBytes, temporary);
-            validateCurrentPlayerData(verifiedConverted, playerId);
+            validateCurrentPlayerData(
+                    verifiedConverted,
+                    playerId,
+                    false,
+                    new ArrayList<>()
+            );
             installedRevision = revision(convertedBytes);
 
             migrationCheckpoint.reached(
@@ -372,7 +414,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                 );
             }
             ReadWriteNBT committedRoot = nbtIo.read(committedBytes, file);
-            validateCurrentPlayerData(committedRoot, playerId);
+            validateCurrentPlayerData(committedRoot, playerId, false, new ArrayList<>());
 
             deleteMigrationBackupAfterSuccess(
                     backup,
@@ -380,6 +422,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                     sourceVersion,
                     runtimeDataVersion
             );
+            notifyRepairs(playerId, repairs);
             migrationObserver.migrationCompleted(
                     playerId,
                     sourceVersion,
@@ -550,7 +593,7 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
 
         try {
             ReadWriteNBT targetRoot = nbtIo.read(targetBytes, file);
-            validateCurrentPlayerData(targetRoot, playerId);
+            validateCurrentPlayerData(targetRoot, playerId, false, new ArrayList<>());
             deleteRegularBackup(backup);
             forceDirectory(file.getParent());
         } catch (IOException | RuntimeException invalidTarget) {
@@ -738,7 +781,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         return version;
     }
 
-    private void validateCurrentPlayerData(ReadableNBT root, UUID playerId) throws IOException {
+    private void validateCurrentPlayerData(
+            ReadWriteNBT root,
+            UUID playerId,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
+    ) throws IOException {
         validatePlayerIdentity(root, playerId);
         int version = dataVersion(root, playerId);
         if (version != runtimeDataVersion) {
@@ -747,16 +795,20 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
                             + runtimeDataVersion + " for " + playerId
             );
         }
-        decodeSnapshot(root);
+        decodeSnapshot(root, repairMalformedComponents, repairs);
     }
 
-    private InventorySnapshot decodeSnapshot(ReadableNBT root) throws IOException {
+    private InventorySnapshot decodeSnapshot(
+            ReadWriteNBT root,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
+    ) throws IOException {
         ItemStack[] storage = new ItemStack[InventorySnapshot.STORAGE_SIZE];
         ItemStack[] enderChest = new ItemStack[InventorySnapshot.ENDER_CHEST_SIZE];
         ItemStack[] equipment = new ItemStack[5];
 
-        readInventory(root, storage, equipment);
-        readEnderChest(root, enderChest);
+        readInventory(root, storage, equipment, repairMalformedComponents, repairs);
+        readEnderChest(root, enderChest, repairMalformedComponents, repairs);
         return new InventorySnapshot(
                 storage,
                 equipment[0],
@@ -769,30 +821,44 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     }
 
     private void readInventory(
-            ReadableNBT root,
+            ReadWriteNBT root,
             ItemStack[] storage,
-            ItemStack[] equipment
+            ItemStack[] equipment,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
     ) throws IOException {
         validateSlottedList(root, "Inventory", "Inventory", InventorySnapshot.STORAGE_SIZE);
         for (ReadWriteNBT entry : root.getCompoundList("Inventory")) {
             int slot = slot(entry, "Inventory");
-            storage[slot] = decodeItem(entry, "Inventory slot " + slot);
+            storage[slot] = decodeItem(
+                    entry,
+                    "Inventory slot " + slot,
+                    repairMalformedComponents,
+                    repairs
+            );
         }
 
         validateCurrentEquipment(root);
-        ReadableNBT equipmentData = root.getCompound("equipment");
+        ReadWriteNBT equipmentData = root.getCompound("equipment");
         if (equipmentData != null) {
-            equipment[0] = decodeOptionalItem(equipmentData.getCompound("head"), "helmet");
-            equipment[1] = decodeOptionalItem(equipmentData.getCompound("chest"), "chestplate");
-            equipment[2] = decodeOptionalItem(equipmentData.getCompound("legs"), "leggings");
-            equipment[3] = decodeOptionalItem(equipmentData.getCompound("feet"), "boots");
-            equipment[4] = decodeOptionalItem(equipmentData.getCompound("offhand"), "offhand");
+            equipment[0] = decodeOptionalItem(equipmentData.getCompound("head"), "helmet",
+                    repairMalformedComponents, repairs);
+            equipment[1] = decodeOptionalItem(equipmentData.getCompound("chest"), "chestplate",
+                    repairMalformedComponents, repairs);
+            equipment[2] = decodeOptionalItem(equipmentData.getCompound("legs"), "leggings",
+                    repairMalformedComponents, repairs);
+            equipment[3] = decodeOptionalItem(equipmentData.getCompound("feet"), "boots",
+                    repairMalformedComponents, repairs);
+            equipment[4] = decodeOptionalItem(equipmentData.getCompound("offhand"), "offhand",
+                    repairMalformedComponents, repairs);
         }
     }
 
     private void readEnderChest(
-            ReadableNBT root,
-            ItemStack[] enderChest
+            ReadWriteNBT root,
+            ItemStack[] enderChest,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
     ) throws IOException {
         validateSlottedList(
                 root,
@@ -802,7 +868,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         );
         for (ReadWriteNBT entry : root.getCompoundList("EnderItems")) {
             int slot = slot(entry, "EnderItems");
-            enderChest[slot] = decodeItem(entry, "EnderItems slot " + slot);
+            enderChest[slot] = decodeItem(
+                    entry,
+                    "EnderItems slot " + slot,
+                    repairMalformedComponents,
+                    repairs
+            );
         }
     }
 
@@ -895,36 +966,48 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
     }
 
     private static ItemStack decodeOptionalItem(
-            ReadableNBT item,
-            String location
+            ReadWriteNBT item,
+            String location,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
     ) throws IOException {
-        return item == null || item.isEmpty() ? null : decodeItem(item, location);
+        return item == null || item.isEmpty()
+                ? null
+                : decodeItem(item, location, repairMalformedComponents, repairs);
     }
 
     private static ItemStack decodeItem(
-            ReadableNBT item,
-            String location
+            ReadWriteNBT item,
+            String location,
+            boolean repairMalformedComponents,
+            List<ItemComponentRepair> repairs
     ) throws IOException {
-        try {
-            ItemStack decoded = NBT.itemStackFromNBT(item);
-            if (isEmpty(decoded)) {
-                return null;
-            }
-            if (decoded.getAmount() > decoded.getMaxStackSize()) {
-                throw new IOException(
-                        "Player item at " + location + " exceeds its legal stack size"
-                );
-            }
-            return decoded.clone();
-        } catch (IOException exception) {
-            throw exception;
-        } catch (RuntimeException exception) {
-            throw new IOException("Could not decode player item at " + location, exception);
+        MalformedItemComponentRepair.Result result = MalformedItemComponentRepair.decode(
+                item,
+                location,
+                repairMalformedComponents
+        );
+        if (!result.removedComponents().isEmpty()) {
+            repairs.add(new ItemComponentRepair(location, result.removedComponents()));
+        }
+        return result.item();
+    }
+
+    private void notifyRepairs(UUID playerId, List<ItemComponentRepair> repairs) {
+        for (ItemComponentRepair repair : repairs) {
+            migrationObserver.malformedItemComponentsRemoved(
+                    playerId,
+                    repair.location(),
+                    repair.componentKeys()
+            );
         }
     }
 
     private static boolean isEmpty(ItemStack item) {
         return item == null || item.getType().isAir() || item.getAmount() <= 0;
+    }
+
+    private record ItemComponentRepair(String location, List<String> componentKeys) {
     }
 
     private static void validateSlottedList(
@@ -1115,11 +1198,21 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         }
     }
 
-    private void writeAtomically(
+    private byte[] writeAtomically(
             Path target,
             ReadWriteNBT root,
             PlayerDataRevision expected,
             UUID playerId
+    ) throws IOException {
+        return writeAtomically(target, root, expected, playerId, null);
+    }
+
+    private byte[] writeAtomically(
+            Path target,
+            ReadWriteNBT root,
+            PlayerDataRevision expected,
+            UUID playerId,
+            TemporaryPlayerDataVerifier verifier
     ) throws IOException {
         Path temporary = Files.createTempFile(
                 target.getParent(),
@@ -1130,6 +1223,11 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             copyPermissions(target, temporary);
             nbtIo.write(temporary, root);
             forceFile(temporary);
+            byte[] temporaryBytes = readPlayerData(temporary);
+            if (verifier != null) {
+                verifier.verify(temporaryBytes, temporary);
+            }
+            PlayerDataRevision installedRevision = revision(temporaryBytes);
 
             byte[] currentBytes = readPlayerData(target);
             requireRevision(expected, currentBytes, playerId);
@@ -1137,6 +1235,14 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
             requireRevision(expected, readPlayerData(target), playerId);
             moveAtomically(temporary, target);
             forceDirectory(target.getParent());
+            byte[] committedBytes = readPlayerData(target);
+            if (!installedRevision.equals(revision(committedBytes))) {
+                throw new IOException(
+                        "Committed playerdata did not match the validated temporary file for "
+                                + playerId
+                );
+            }
+            return committedBytes;
         } finally {
             Files.deleteIfExists(temporary);
         }
@@ -1174,6 +1280,12 @@ public final class NbtOfflinePlayerDataStore implements OfflinePlayerDataStore {
         try (FileChannel channel = FileChannel.open(file, StandardOpenOption.WRITE)) {
             channel.force(true);
         }
+    }
+
+    @FunctionalInterface
+    private interface TemporaryPlayerDataVerifier {
+
+        void verify(byte[] bytes, Path file) throws IOException;
     }
 
     private static void forceDirectory(Path directory) {

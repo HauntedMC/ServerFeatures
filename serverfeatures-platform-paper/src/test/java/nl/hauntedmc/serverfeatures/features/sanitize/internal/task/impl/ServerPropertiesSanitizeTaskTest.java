@@ -27,7 +27,14 @@ class ServerPropertiesSanitizeTaskTest {
                 # old file
                 custom-key = abc
                 difficulty: hard
+                enable-code-of-conduct=true
+                enable-status=false
+                function-permission-level=2
+                hide-online-players=true
                 max-players=42
+                max-tick-time=-1
+                management-server-enabled=true
+                op-permission-level=4
                 custom-key=override
                 """);
 
@@ -46,7 +53,24 @@ class ServerPropertiesSanitizeTaskTest {
         assertTrue(rewritten.contains("## --- HauntedMC enforced defaults (DO NOT CHANGE) ---"));
         assertTrue(rewritten.contains("custom-key=override"));
         assertTrue(rewritten.contains("difficulty=hard"));
-        assertTrue(rewritten.contains("max-players=42"));
+        assertTrue(rewritten.contains("enable-code-of-conduct=true"));
+        assertTrue(rewritten.contains("enable-status=true"));
+        assertTrue(rewritten.contains("function-permission-level=1"));
+        assertTrue(rewritten.contains("hide-online-players=false"));
+        assertTrue(rewritten.contains("max-players=999"));
+        assertTrue(rewritten.contains("max-tick-time=60000"));
+        assertTrue(rewritten.contains("chat-spam-threshold-seconds=10"));
+        assertTrue(rewritten.contains("command-spam-threshold-seconds=10"));
+        assertTrue(rewritten.contains("management-server-allowed-origins="));
+        assertTrue(rewritten.contains("management-server-enabled=false"));
+        assertTrue(rewritten.contains("management-server-host=localhost"));
+        assertTrue(rewritten.contains("management-server-port=0"));
+        assertTrue(rewritten.contains("management-server-secret="));
+        assertTrue(rewritten.contains("management-server-tls-enabled=true"));
+        assertTrue(rewritten.contains("management-server-tls-keystore="));
+        assertTrue(rewritten.contains("management-server-tls-keystore-password="));
+        assertTrue(rewritten.contains("op-permission-level=0"));
+        assertTrue(rewritten.contains("status-heartbeat-interval=0"));
     }
 
     @Test
@@ -61,4 +85,3 @@ class ServerPropertiesSanitizeTaskTest {
         assertTrue(Files.exists(serverRoot.resolve("server.properties")));
     }
 }
-

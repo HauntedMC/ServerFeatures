@@ -1,13 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.worldeditvisualizer;
 
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.command.WorldEditVisualizerCommand;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.internal.VisualizationService;
-import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerJoinListener;
+import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.listener.PlayerLifecycleListener;
 import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta;
 import org.bukkit.entity.Player;
 
@@ -21,104 +21,109 @@ public class WorldEditVisualizer extends BukkitBaseFeature<Meta> {
 
     @Override
     public ConfigMap getDefaultConfig() {
-        ConfigMap c = new ConfigMap();
-        c.put("enabled", false);
-        c.put("edge.material", "WHITE_STAINED_GLASS");
-        c.put("corner.material", "LIME_STAINED_GLASS");
-        c.put("corner.pos1_material", "BLUE_STAINED_GLASS");
-        c.put("corner.pos2_material", "RED_STAINED_GLASS");
-        c.put("glow.edge_color", "aqua");
-        c.put("glow.corner_color", "aqua");
-        c.put("glow.pos1_color", "blue");
-        c.put("glow.pos2_color", "red");
-        c.put("edge.step_blocks", 0.25d);
-        c.put("edge.scale", 0.15d);
-        c.put("corner.scale", 1.0d);
-        c.put("label.enabled", true);
-        c.put("label.y_offset", 0.7d);
-        c.put("label.scale", 1.0d);
-        c.put("label.show_prefix_hash", false); // if true, show "#1"/"#2" instead of "pos1"/"pos2"
-        c.put("poll.interval_ticks", 10);
-        return c;
+        ConfigMap config = new ConfigMap();
+        config.put("enabled", false);
+        config.put("auto_enable_on_join", true);
+        config.put("edge.material", "WHITE_STAINED_GLASS");
+        config.put("edge.step_blocks", 0.25);
+        config.put("edge.scale", 0.15);
+        config.put("corner.material", "LIME_STAINED_GLASS");
+        config.put("corner.pos1_material", "BLUE_STAINED_GLASS");
+        config.put("corner.pos2_material", "RED_STAINED_GLASS");
+        config.put("corner.scale", 1.0);
+        config.put("glow.edge_color", "aqua");
+        config.put("glow.corner_color", "lime");
+        config.put("glow.pos1_color", "blue");
+        config.put("glow.pos2_color", "red");
+        config.put("label.enabled", true);
+        config.put("label.show_prefix_hash", true);
+        config.put("label.scale", 0.8);
+        config.put("label.y_offset", 0.8);
+        config.put("render.max_distance_blocks", 128);
+        config.put("render.max_entities", 1024);
+        config.put("render.movement_refresh_blocks", 8);
+        config.put("render.full_refresh_interval_ticks", 600);
+        config.put("poll.interval_ticks", 10);
+        return config;
     }
 
     @Override
     public MessageMap getDefaultMessages() {
-        MessageMap m = new MessageMap();
-        m.add("worldeditvisualizer.enabled", "&aVisualizer ingeschakeld. Je WorldEdit-selectie wordt getoond.");
-        m.add("worldeditvisualizer.disabled", "&7Visualizer uitgeschakeld en gewist.");
-        m.add("worldeditvisualizer.no_selection", "&eGeen WorldEdit-selectie gevonden.");
-        m.add("worldeditvisualizer.not_cuboid", "&eAlleen cuboid-selecties worden ondersteund.");
-        return m;
+        MessageMap messages = new MessageMap();
+        messages.add("worldeditvisualizer.enabled",
+                "&aVisualizer ingeschakeld. Alleen jij ziet de packetweergave.");
+        messages.add("worldeditvisualizer.disabled", "&7Visualizer uitgeschakeld en gewist.");
+        messages.add("worldeditvisualizer.refreshed", "&aWorldEdit-selectie opnieuw weergegeven.");
+        messages.add("worldeditvisualizer.no_selection", "&eGeen complete WorldEdit-selectie gevonden.");
+        messages.add("worldeditvisualizer.not_cuboid", "&eAlleen cuboid-selecties worden ondersteund.");
+        messages.add("worldeditvisualizer.failed", "&cDe visualisatie kon niet worden bijgewerkt. Zie de console.");
+        messages.add("worldeditvisualizer.usage", "&eGebruik: /wevis [toggle|on|off|refresh]");
+        return messages;
     }
 
     @Override
     public void initialize() {
-        this.service = new VisualizationService(this);
+        service = new VisualizationService(this);
 
-        // Command
-        getLifecycleManager()
-                .getCommandManager()
+        getLifecycleManager().getCommandManager()
                 .registerFeatureCommand(new WorldEditVisualizerCommand(this, service));
+        getLifecycleManager().getListenerManager()
+                .registerListener(new PlayerLifecycleListener(service));
 
-        // Events
-        getLifecycleManager().getListenerManager().registerListener(new PlayerJoinListener(service));
-
-        // Enable by default for online players with permission
-        for (Player p : getPlugin().getServer().getOnlinePlayers()) {
-            if (p.hasPermission("serverfeatures.feature.worldeditvisualizer.use")) {
-                service.enable(p);
+        if (getBoolean("auto_enable_on_join", true)) {
+            for (Player player : getPlugin().getServer().getOnlinePlayers()) {
+                if (player.hasPermission(VisualizationService.USE_PERMISSION)) {
+                    service.enable(player);
+                }
             }
         }
 
-        // Poll loop
-        int interval = getInt("poll.interval_ticks", 10);
-        if (interval > 0) {
-            getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                    service::pollSelections,
-                    BukkitTime.ticks(interval)
-            );
-        }
+        int interval = Math.max(1, getInt("poll.interval_ticks", 10));
+        getLifecycleManager().getTaskManager().scheduleRepeatingTask(
+                service::pollSelections,
+                BukkitTime.ticks(interval)
+        );
     }
 
     @Override
     public void disable() {
         if (service != null) {
-            for (Player p : getPlugin().getServer().getOnlinePlayers()) {
-                service.clear(p);
-            }
+            service.shutdown();
             service = null;
         }
     }
 
-    /* helpers */
-    public boolean getBoolean(String key, boolean def) {
-        Object v = getConfigHandler().get(key);
-        return (v instanceof Boolean b) ? b : def;
+    public boolean getBoolean(String key, boolean fallback) {
+        Object value = getConfigHandler().get(key);
+        return value instanceof Boolean configured ? configured : fallback;
     }
 
-    public int getInt(String key, int def) {
-        Object v = getConfigHandler().get(key);
-        if (v instanceof Number n) return n.intValue();
-        try {
-            return Integer.parseInt(String.valueOf(v));
-        } catch (Throwable ignored) {
+    public int getInt(String key, int fallback) {
+        Object value = getConfigHandler().get(key);
+        if (value instanceof Number number) {
+            return number.intValue();
         }
-        return def;
-    }
-
-    public double getDouble(String key, double def) {
-        Object v = getConfigHandler().get(key);
-        if (v instanceof Number n) return n.doubleValue();
         try {
-            return Double.parseDouble(String.valueOf(v));
-        } catch (Throwable ignored) {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return fallback;
         }
-        return def;
     }
 
-    public String getString(String key, String def) {
-        Object v = getConfigHandler().get(key);
-        return v == null ? def : String.valueOf(v);
+    public double getDouble(String key, double fallback) {
+        Object value = getConfigHandler().get(key);
+        if (value instanceof Number number) {
+            return number.doubleValue();
+        }
+        try {
+            return Double.parseDouble(String.valueOf(value));
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
+    public String getString(String key, String fallback) {
+        Object value = getConfigHandler().get(key);
+        return value == null ? fallback : String.valueOf(value);
     }
 }

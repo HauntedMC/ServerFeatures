@@ -61,7 +61,7 @@ public class SpigotYmlSanitizeTask implements SanitizeTask {
         ENFORCED_SETTINGS.put("moved-wrongly-threshold", 0.0625D);
         ENFORCED_SETTINGS.put("moved-too-quickly-multiplier", 10.0D);
         ENFORCED_SETTINGS.put("timeout-time", 60);
-        ENFORCED_SETTINGS.put("restart-on-crash", true);
+        ENFORCED_SETTINGS.put("restart-on-crash", false);
         ENFORCED_SETTINGS.put("restart-script", "./restart");
         ENFORCED_SETTINGS.put("netty-threads", 4);
         ENFORCED_SETTINGS.put("log-villager-deaths", true);

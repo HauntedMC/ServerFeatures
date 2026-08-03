@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.invtools.persistence;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -73,6 +74,16 @@ public interface PlayerDataMigrationObserver {
     }
 
     default void migrationNotRequired(UUID playerId) {
+    }
+
+    default void malformedItemComponentsRemoved(
+            UUID playerId,
+            String location,
+            List<String> componentKeys
+    ) {
+        Objects.requireNonNull(playerId, "playerId");
+        Objects.requireNonNull(location, "location");
+        Objects.requireNonNull(componentKeys, "componentKeys");
     }
 
     default void loadFailed(UUID playerId, Throwable failure) {
