@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.limitspawners.listener;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
+import nl.hauntedmc.serverfeatures.features.limitspawners.internal.PendingSpawnerPlacements;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -94,11 +95,18 @@ public final class LimitSpawnersListener implements Listener {
         }
 
         SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
+        PendingSpawnerPlacements.mark(position);
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> PendingSpawnerPlacements.clear(position),
+                BukkitTime.ticks(1)
+        );
+
         LimitSpawnersHandler.PlacementDecision decision = handler.tryReservePlacement(
                 event.getPlayer(),
                 position
         );
         if (!decision.allowed()) {
+            PendingSpawnerPlacements.clear(position);
             event.setCancelled(true);
             event.getPlayer().sendMessage(
                     feature.getLocalizationHandler()
