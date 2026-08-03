@@ -43,15 +43,32 @@ class CoralMaterialsTest {
     }
 
     @Test
-    void furnaceConversionsContainOnlyRealInventoryItems() {
+    void containsEverySupportedFurnaceConversion() {
         Map<Material, Material> conversions = CoralMaterials.furnaceConversions();
 
         assertEquals(15, conversions.size());
-        conversions.forEach((input, result) -> {
-            assertTrue(input.isItem(), () -> input + " is not an item");
-            assertTrue(result.isItem(), () -> result + " is not an item");
-            assertEquals(CoralMaterials.dryingTransitions().get(input), result);
-        });
+        assertTransition(conversions, Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
+        assertTransition(conversions, Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
+        assertTransition(conversions, Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
+        assertTransition(conversions, Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
+        assertTransition(conversions, Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
+
+        assertTransition(conversions, Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
+        assertTransition(conversions, Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
+        assertTransition(conversions, Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
+        assertTransition(conversions, Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
+        assertTransition(conversions, Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
+
+        assertTransition(conversions, Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
+        assertTransition(conversions, Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
+        assertTransition(conversions, Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
+        assertTransition(conversions, Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
+        assertTransition(conversions, Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
+
+        conversions.forEach((input, result) -> assertEquals(
+                CoralMaterials.dryingTransitions().get(input),
+                result
+        ));
     }
 
     @Test
