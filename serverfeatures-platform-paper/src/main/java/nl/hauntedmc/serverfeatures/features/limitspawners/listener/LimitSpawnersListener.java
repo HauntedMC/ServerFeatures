@@ -113,7 +113,7 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSpawnerPlaceFinalState(BlockPlaceEvent event) {
-        if (event.getBlockPlaced().getType() == Material.SPAWNER) {
+        if (event.getItemInHand().getType() == Material.SPAWNER) {
             handler.schedulePlacementFinalization(
                     SpawnerKey.of(event.getBlockPlaced().getLocation()),
                     event::isCancelled
