@@ -51,7 +51,7 @@ class SpawnerPositionIndexTest {
     }
 
     @Test
-    void provisionalPlacementsAreNotCommittedByReconciliation() {
+    void provisionalPlacementsRemainBlockedUntilCommitted() {
         SpawnerPositionIndex index = new SpawnerPositionIndex();
         SpawnerKey spawner = new SpawnerKey(UUID.randomUUID(), 1, 64, 1);
 
@@ -59,7 +59,21 @@ class SpawnerPositionIndexTest {
 
         assertFalse(index.add(spawner));
         assertEquals(0, index.size());
+        assertTrue(PendingSpawnerPlacements.contains(spawner));
 
+        PendingSpawnerPlacements.commit(spawner);
+
+        assertTrue(index.add(spawner));
+        assertEquals(1, index.size());
+        assertFalse(PendingSpawnerPlacements.contains(spawner));
+    }
+
+    @Test
+    void cancelledPlacementsCanNeverBlockLaterReconciliation() {
+        SpawnerPositionIndex index = new SpawnerPositionIndex();
+        SpawnerKey spawner = new SpawnerKey(UUID.randomUUID(), 1, 64, 1);
+
+        PendingSpawnerPlacements.mark(spawner);
         PendingSpawnerPlacements.clear(spawner);
 
         assertTrue(index.add(spawner));
