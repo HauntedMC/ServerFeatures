@@ -3,9 +3,9 @@ package nl.hauntedmc.serverfeatures.features.limitspawners.internal;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.EntityChunkKey;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.TrackedSpawnerMob;
+import org.bukkit.entity.EntityType;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,23 +15,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SpawnerMobRegistryTest {
 
     @Test
-    void tracksIndependentCountsPerExactSpawner() {
+    void tracksIndependentSpawnerAreaWorldAndServerCounts() {
         SpawnerMobRegistry registry = new SpawnerMobRegistry();
         UUID worldId = UUID.randomUUID();
         SpawnerKey firstSpawner = new SpawnerKey(worldId, 1, 64, 1);
-        SpawnerKey secondSpawner = new SpawnerKey(worldId, 2, 64, 1);
+        SpawnerKey nearbySpawner = new SpawnerKey(worldId, 20, 64, 1);
+        SpawnerKey distantSpawner = new SpawnerKey(worldId, 100, 64, 1);
 
-        registry.put(record(UUID.randomUUID(), firstSpawner, worldId, 0, 0));
-        registry.put(record(UUID.randomUUID(), firstSpawner, worldId, 0, 0));
-        registry.put(record(UUID.randomUUID(), secondSpawner, worldId, 0, 0));
+        registry.put(record(UUID.randomUUID(), firstSpawner, new EntityChunkKey(worldId, 0, 0)));
+        registry.put(record(UUID.randomUUID(), firstSpawner, new EntityChunkKey(worldId, 0, 0)));
+        registry.put(record(UUID.randomUUID(), nearbySpawner, new EntityChunkKey(worldId, 1, 0)));
+        registry.put(record(UUID.randomUUID(), distantSpawner, new EntityChunkKey(worldId, 6, 0)));
 
         assertEquals(2, registry.count(firstSpawner));
-        assertEquals(1, registry.count(secondSpawner));
-        assertEquals(3, registry.size());
+        assertEquals(3, registry.countInArea(firstSpawner, 32));
+        assertEquals(4, registry.worldCount(worldId));
+        assertEquals(4, registry.size());
     }
 
     @Test
-    void replacingAnEntityUpdatesSpawnerAndChunkIndexes() {
+    void replacingAnEntityUpdatesEveryIndexWithoutChangingWorldCount() {
         SpawnerMobRegistry registry = new SpawnerMobRegistry();
         UUID entityId = UUID.randomUUID();
         UUID worldId = UUID.randomUUID();
@@ -40,13 +43,18 @@ class SpawnerMobRegistryTest {
         EntityChunkKey originalChunk = new EntityChunkKey(worldId, 0, 0);
         EntityChunkKey replacementChunk = new EntityChunkKey(worldId, 3, 3);
 
-        registry.put(record(entityId, originalSpawner, worldId, 0, 0));
-        registry.put(record(entityId, replacementSpawner, worldId, 3, 3));
+        registry.put(record(entityId, originalSpawner, originalChunk));
+        registry.put(record(entityId, replacementSpawner, replacementChunk));
 
         assertEquals(0, registry.count(originalSpawner));
         assertEquals(1, registry.count(replacementSpawner));
-        assertFalse(registry.entityIdsInChunk(originalChunk).contains(entityId));
-        assertTrue(registry.entityIdsInChunk(replacementChunk).contains(entityId));
+        assertFalse(registry.entityIdsInMobChunk(originalChunk).contains(entityId));
+        assertTrue(registry.entityIdsInMobChunk(replacementChunk).contains(entityId));
+        assertFalse(registry.spawnersInSourceChunk(originalSpawner.chunkKey())
+                .contains(originalSpawner));
+        assertTrue(registry.spawnersInSourceChunk(replacementSpawner.chunkKey())
+                .contains(replacementSpawner));
+        assertEquals(1, registry.worldCount(worldId));
     }
 
     @Test
@@ -56,26 +64,35 @@ class SpawnerMobRegistryTest {
         SpawnerKey spawner = new SpawnerKey(worldId, 1, 64, 1);
         UUID first = UUID.fromString("00000000-0000-0000-0000-000000000002");
         UUID second = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        EntityChunkKey chunk = new EntityChunkKey(worldId, 0, 0);
 
-        registry.load(List.of(
-                record(first, spawner, worldId, 0, 0),
-                record(second, spawner, worldId, 0, 0)
-        ));
+        registry.put(record(first, spawner, chunk));
+        registry.put(record(second, spawner, chunk));
 
         assertEquals(second, registry.snapshot().getFirst().entityId());
         assertTrue(registry.remove(first).isPresent());
         assertFalse(registry.contains(first));
         assertEquals(1, registry.count(spawner));
-        assertEquals(1, registry.entityIdsInChunk(new EntityChunkKey(worldId, 0, 0)).size());
+        assertEquals(1, registry.entityIdsInMobChunk(chunk).size());
+        assertEquals(1, registry.worldCount(worldId));
+
+        assertTrue(registry.remove(second).isPresent());
+        assertTrue(registry.spawnersInSourceChunk(spawner.chunkKey()).isEmpty());
+        assertEquals(0, registry.worldCount(worldId));
     }
 
     private static TrackedSpawnerMob record(
             UUID entityId,
             SpawnerKey spawner,
-            UUID worldId,
-            int chunkX,
-            int chunkZ
+            EntityChunkKey chunk
     ) {
-        return new TrackedSpawnerMob(entityId, spawner, worldId, chunkX, chunkZ);
+        return new TrackedSpawnerMob(
+                entityId,
+                spawner,
+                EntityType.ZOMBIE,
+                1L,
+                chunk,
+                null
+        );
     }
 }
