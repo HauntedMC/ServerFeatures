@@ -20,7 +20,7 @@ Version 1.1.0 separates the concepts explicitly:
 - **drying transitions:** all twenty live block states, including wall fans;
 - **furnace conversions:** the fifteen pairs where both input and result are valid inventory items.
 
-The shared material registry validates that drying mappings contain block materials and derives the furnace table only from item-capable pairs. Regression tests lock both totals and every vanilla mapping.
+Both maps are explicit and immutable. This avoids registry-dependent `Material` classification calls during static initialization; regression tests lock all twenty drying transitions and all fifteen furnace conversions.
 
 ## Configuration
 
@@ -153,7 +153,8 @@ There are no repeating tasks, asynchronous operations or persistent feature stat
 - Fade listener: `features/bettercoral/listener/BetterCoralListener.java`
 - Furnace service: `features/bettercoral/recipe/CoralRecipes.java`
 - Metadata: `features/bettercoral/meta/Meta.java`
-- Regression tests: `features/bettercoral/internal/CoralMaterialsTest.java`
+- Mapping regression tests: `features/bettercoral/internal/CoralMaterialsTest.java`
+- Listener regression tests: `features/bettercoral/listener/BetterCoralListenerTest.java`
 
 ## Production verification
 
