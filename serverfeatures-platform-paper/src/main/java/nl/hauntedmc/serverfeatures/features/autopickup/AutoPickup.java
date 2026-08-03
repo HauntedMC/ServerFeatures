@@ -108,10 +108,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
                 "autopickup.session_disabled",
                 "&cAutoPickup is voor deze sessie uitgeschakeld door een onverwachte inventarisfout. Je items zijn zo veilig mogelijk hersteld."
         );
-        messages.add(
-                "autopickup.inventory_full",
-                "&cJe inventaris zit vol. &7{remaining_amount} item(s) in {remaining_stacks} stack(s) liggen op de grond."
-        );
+        messages.add("autopickup.inventory_full", "&cJe inventaris zit vol.");
         return messages;
     }
 
@@ -193,12 +190,10 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         }
     }
 
-    public void notifyInventoryFull(Player player, int remainingAmount, int remainingStacks) {
+    public void notifyInventoryFull(Player player) {
         try {
             Component message = getLocalizationHandler().getMessage("autopickup.inventory_full")
                     .forAudience(player)
-                    .with("remaining_amount", remainingAmount)
-                    .with("remaining_stacks", remainingStacks)
                     .build();
             AutoPickupSettings.NotificationSettings notification = settings.notification();
             ActionBars.service().send(
