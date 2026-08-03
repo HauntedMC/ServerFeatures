@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.PendingSpawnerPlacements;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -96,10 +97,6 @@ public final class LimitSpawnersListener implements Listener {
 
         SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
         PendingSpawnerPlacements.mark(position);
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
-                () -> PendingSpawnerPlacements.clear(position),
-                BukkitTime.ticks(1)
-        );
 
         LimitSpawnersHandler.PlacementDecision decision = handler.tryReservePlacement(
                 event.getPlayer(),
@@ -121,12 +118,20 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSpawnerPlaceFinalState(BlockPlaceEvent event) {
-        if (event.getItemInHand().getType() == Material.SPAWNER) {
-            handler.schedulePlacementFinalization(
-                    SpawnerKey.of(event.getBlockPlaced().getLocation()),
-                    event::isCancelled
-            );
+        SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
+        if (!PendingSpawnerPlacements.contains(position)) {
+            return;
         }
+
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+            boolean cancelled = event.isCancelled();
+            if (cancelled) {
+                PendingSpawnerPlacements.clear(position);
+            } else {
+                PendingSpawnerPlacements.commit(position);
+            }
+            handler.schedulePlacementFinalization(position, () -> cancelled);
+        }, BukkitTime.ticks(1));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -153,7 +158,17 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveEvent event) {
-        handler.handleEntityRemoval(event.getEntity(), event.getCause().name());
+        Entity entity = event.getEntity();
+        String cause = event.getCause().name();
+        if (event.getCause() == EntityRemoveEvent.Cause.UNLOAD) {
+            feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
+                if (Bukkit.getEntity(entity.getUniqueId()) == null) {
+                    handler.handleEntityRemoval(entity, cause);
+                }
+            }, BukkitTime.ticks(1));
+            return;
+        }
+        handler.handleEntityRemoval(entity, cause);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
