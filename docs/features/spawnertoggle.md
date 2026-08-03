@@ -1,6 +1,6 @@
 # SpawnerToggle
 
-> Paper · feature ID `spawnertoggle` · disabled by default · placed block spawners only
+> Paper · feature ID `spawnertoggle` · version `2.0.0` · disabled by default · placed block spawners only
 
 SpawnerToggle lets players enable or disable a placed block spawner without changing its normal
 activation range. Disabled state is stored as a persistent block-state PDC marker and every
@@ -17,7 +17,7 @@ toggle_permission: ""
 ```
 
 An empty permission allows every player who passes protection checks. A non-empty value requires that
-permission.
+permission. There is no compatibility parser for the removed `default_spawn_range` setting.
 
 ## Interaction flow
 
@@ -29,7 +29,10 @@ Before toggling:
 
 1. the block must still be a spawner;
 2. the optional configured permission must pass;
-3. when GriefPrevention was available during feature initialization, its break authorization must pass.
+3. when GriefPrevention is currently enabled, its break authorization must pass.
+
+GriefPrevention availability is resolved for every interaction rather than cached at feature startup,
+so enabling or disabling that plugin does not leave stale integration state.
 
 The PDC marker is then added or removed and the block state is force-updated without physics. Spawned
 type, delay, ranges, counts, and potential-spawn data remain unchanged.
@@ -73,7 +76,7 @@ qualifying interaction and one marker lookup per block-spawner spawn attempt.
 3. Verify a cancelled interaction never changes the marker.
 4. Verify main-hand filtering prevents duplicate off-hand toggles.
 5. Test empty and configured `toggle_permission` values.
-6. Test GriefPrevention owner, trusted, untrusted, and wilderness access.
+6. Test GriefPrevention owner, trusted, untrusted, wilderness, enable, and disable states.
 7. Restart and unload/reload the chunk while the source is disabled.
 8. Enable LimitSpawners and confirm toggle-off also cleans active tracked mobs.
 
