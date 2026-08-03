@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.graveyard.capture;
 
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -77,8 +78,7 @@ public final class PlayerInventoryState {
 
     public int firstEmptyStorageSlot() {
         for (int slot = 0; slot < storage.length; slot++) {
-            ItemStack item = storage[slot];
-            if (item == null || item.getType().isAir()) {
+            if (isEmpty(storage[slot])) {
                 return slot;
             }
         }
@@ -117,7 +117,7 @@ public final class PlayerInventoryState {
     }
 
     private static void add(java.util.List<SlotStack> target, int slot, ItemStack item) {
-        if (item != null && !item.getType().isAir() && item.getAmount() > 0) {
+        if (!isEmpty(item)) {
             target.add(new SlotStack(slot, item));
         }
     }
@@ -131,6 +131,17 @@ public final class PlayerInventoryState {
     }
 
     private static ItemStack cloneOrNull(ItemStack item) {
-        return item == null || item.getType().isAir() ? null : item.clone();
+        return isEmpty(item) ? null : item.clone();
+    }
+
+    private static boolean isEmpty(ItemStack item) {
+        if (item == null || item.getAmount() <= 0) {
+            return true;
+        }
+        Material material = item.getType();
+        return material == null
+                || material == Material.AIR
+                || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR;
     }
 }
