@@ -10,9 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.withSettings;
 
 public final class GraveyardTestItemStacks {
     private GraveyardTestItemStacks() {
@@ -20,20 +19,20 @@ public final class GraveyardTestItemStacks {
 
     public static ItemStack stack(Material material, int amount) {
         AtomicInteger currentAmount = new AtomicInteger(amount);
-        ItemStack item = mock(ItemStack.class, withSettings().lenient());
-        doAnswer(ignored -> material).when(item).getType();
-        doAnswer(ignored -> currentAmount.get()).when(item).getAmount();
-        doAnswer(invocation -> {
+        ItemStack item = mock(ItemStack.class);
+        lenient().doAnswer(ignored -> material).when(item).getType();
+        lenient().doAnswer(ignored -> currentAmount.get()).when(item).getAmount();
+        lenient().doAnswer(invocation -> {
             currentAmount.set(invocation.getArgument(0));
             return null;
         }).when(item).setAmount(anyInt());
-        doAnswer(ignored -> maximumStackSize(material)).when(item).getMaxStackSize();
-        doAnswer(ignored -> stack(material, currentAmount.get())).when(item).clone();
-        doAnswer(invocation -> {
+        lenient().doAnswer(ignored -> maximumStackSize(material)).when(item).getMaxStackSize();
+        lenient().doAnswer(ignored -> stack(material, currentAmount.get())).when(item).clone();
+        lenient().doAnswer(invocation -> {
             ItemStack other = invocation.getArgument(0);
             return other != null && other.getType() == material;
         }).when(item).isSimilar(any(ItemStack.class));
-        doAnswer(ignored -> encode(material, currentAmount.get())).when(item).serializeAsBytes();
+        lenient().doAnswer(ignored -> encode(material, currentAmount.get())).when(item).serializeAsBytes();
         return item;
     }
 
