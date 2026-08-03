@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.internal;
 
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -10,6 +11,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpawnerPositionIndexTest {
+
+    @AfterEach
+    void clearPendingPlacements() {
+        PendingSpawnerPlacements.clearAll();
+    }
 
     @Test
     void countsThreeDimensionalRadiusAcrossChunkAndNegativeBoundaries() {
@@ -42,5 +48,21 @@ class SpawnerPositionIndexTest {
         assertTrue(index.remove(spawner));
         assertFalse(index.remove(spawner));
         assertEquals(0, index.size());
+    }
+
+    @Test
+    void provisionalPlacementsAreNotCommittedByReconciliation() {
+        SpawnerPositionIndex index = new SpawnerPositionIndex();
+        SpawnerKey spawner = new SpawnerKey(UUID.randomUUID(), 1, 64, 1);
+
+        PendingSpawnerPlacements.mark(spawner);
+
+        assertFalse(index.add(spawner));
+        assertEquals(0, index.size());
+
+        PendingSpawnerPlacements.clear(spawner);
+
+        assertTrue(index.add(spawner));
+        assertEquals(1, index.size());
     }
 }
