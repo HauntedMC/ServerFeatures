@@ -115,8 +115,10 @@ public final class GraveManager implements GraveyardService {
     private final AtomicBoolean leaseRequestInFlight = new AtomicBoolean();
     private final AtomicBoolean runtimeLoadInFlight = new AtomicBoolean();
     private final AtomicBoolean runtimeLoadComplete = new AtomicBoolean();
+    private final AtomicBoolean retentionSweepInFlight = new AtomicBoolean();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private volatile long nextRuntimeLoadAttemptMillis;
+    private volatile long nextRetentionSweepMillis;
 
     public GraveManager(
             Graveyard feature,
@@ -567,6 +569,7 @@ public final class GraveManager implements GraveyardService {
                 + ", pendingReleases=" + pendingOperationReleases.size()
                 + ", pendingWorldPauses=" + pendingWorldPauses.size()
                 + ", projections=" + projectionInFlight.size()
+                + ", retentionSweep=" + retentionSweepInFlight.get()
                 + ", activeOperations=" + activeOperations.size();
     }
 
@@ -1193,10 +1196,51 @@ public final class GraveManager implements GraveyardService {
         retryPendingOperationReleases();
         retryUnresolvedClaimSavesForOnlineOwners();
         retryPendingClaimsForOnlineOwners();
+        purgeRetainedGraves();
         for (Player player : Bukkit.getOnlinePlayers()) {
             reconcileViewer(player);
             updateTracking(player);
         }
+    }
+
+    private void purgeRetainedGraves() {
+        long now = System.currentTimeMillis();
+        if (!canMutate()
+                || now < nextRetentionSweepMillis
+                || !retentionSweepInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        long expiredCutoff = Math.max(0L, now - settings.expiredRetentionMillis());
+        long claimedCutoff = Math.max(0L, now - settings.claimedRetentionMillis());
+        repository.purgeRetained(
+                settings.serverId(),
+                settings.inventoryScope(),
+                expiredCutoff,
+                claimedCutoff,
+                settings.purgeBatchSize()
+        ).whenComplete((purged, failure) -> runMain(() -> {
+            retentionSweepInFlight.set(false);
+            if (failure != null) {
+                nextRetentionSweepMillis = System.currentTimeMillis()
+                        + Math.min(60_000L, settings.purgeIntervalMillis());
+                feature.getLogger().log(Level.WARNING, "Could not purge retained Graveyard records.", failure);
+                return;
+            }
+            if (purged != null) {
+                for (UUID graveId : purged) {
+                    Grave grave = graves.get(graveId);
+                    if (grave != null) {
+                        removeRuntimeGrave(grave);
+                    }
+                }
+                if (!purged.isEmpty()) {
+                    feature.getLogger().info("Purged " + purged.size() + " retained Graveyard records.");
+                }
+            }
+            boolean batchWasFull = purged != null && purged.size() >= settings.purgeBatchSize();
+            nextRetentionSweepMillis = System.currentTimeMillis()
+                    + (batchWasFull ? 1_000L : settings.purgeIntervalMillis());
+        }));
     }
 
     private void pauseUnavailableWorlds() {

@@ -105,6 +105,33 @@ class GraveOperationJournalTest {
     }
 
     @Test
+    void malformedNumericFieldsAreQuarantined() throws Exception {
+        GraveOperationJournal journal = new GraveOperationJournal(directory, 1024 * 1024);
+        UUID operation = UUID.randomUUID();
+        UUID graveId = UUID.randomUUID();
+        GraveLocation location = new GraveLocation(UUID.randomUUID(), "minecraft:world", 1, 64, 1, 0);
+        Grave grave = new Grave(
+                graveId, "NUM123", UUID.randomUUID(), "Player", "survival-1", "survival",
+                location, location, GravePlacementType.DEATH_LOCATION, GraveStatus.ACTIVE,
+                10L, 20L, 30L, null, 1, 5, 0L, "checksum", null, false
+        );
+        journal.writeCapture(new CaptureJournalRecord(
+                operation,
+                CaptureJournalState.COMMITTED,
+                grave,
+                new EncodedGravePayload(new byte[]{1}, "encoded")
+        ));
+        Path capture = directory.resolve("local/journal/capture").resolve(graveId + ".properties");
+        String invalid = Files.readString(capture).replace("createdWallMillis=10", "createdWallMillis=invalid");
+        Files.writeString(capture, invalid);
+
+        assertTrue(journal.loadCaptures().isEmpty());
+        try (var files = Files.list(directory.resolve("local/journal/corrupt"))) {
+            assertEquals(1L, files.count());
+        }
+    }
+
+    @Test
     void claimTransitionsRoundTripAndQuarantinedTokensStayDiscoverable() throws Exception {
         GraveOperationJournal journal = new GraveOperationJournal(directory, 1024 * 1024);
         UUID operation = UUID.randomUUID();

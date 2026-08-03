@@ -18,6 +18,9 @@ public final class GraveyardSettings {
     private static final long DEFAULT_LIFETIME_MILLIS = 1_800_000L;
     private static final long DEFAULT_LEASE_MILLIS = 20_000L;
     private static final long DEFAULT_LEASE_HEARTBEAT_MILLIS = 5_000L;
+    private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 7L * 24L * 60L * 60L * 1_000L;
+    private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 24L * 60L * 60L * 1_000L;
+    private static final long DEFAULT_PURGE_INTERVAL_MILLIS = 10L * 60L * 1_000L;
 
     private final GraveyardMode mode;
     private final String serverId;
@@ -25,6 +28,10 @@ public final class GraveyardSettings {
     private final long lifetimeMillis;
     private final long leaseDurationMillis;
     private final long leaseHeartbeatMillis;
+    private final long expiredRetentionMillis;
+    private final long claimedRetentionMillis;
+    private final long purgeIntervalMillis;
+    private final int purgeBatchSize;
     private final int experiencePercentage;
     private final int horizontalSearchRadius;
     private final int verticalSearchBelow;
@@ -76,6 +83,26 @@ public final class GraveyardSettings {
                 Math.max(1_000L, leaseDurationMillis / 2L),
                 duration(feature, "identity.lease_heartbeat", DEFAULT_LEASE_HEARTBEAT_MILLIS)
         ));
+        expiredRetentionMillis = duration(
+                feature,
+                "storage.retention.expired",
+                DEFAULT_EXPIRED_RETENTION_MILLIS
+        );
+        claimedRetentionMillis = duration(
+                feature,
+                "storage.retention.claimed",
+                DEFAULT_CLAIMED_RETENTION_MILLIS
+        );
+        purgeIntervalMillis = Math.max(60_000L, duration(
+                feature,
+                "storage.retention.purge_interval",
+                DEFAULT_PURGE_INTERVAL_MILLIS
+        ));
+        purgeBatchSize = clamp(
+                feature.getConfigHandler().get("storage.retention.purge_batch_size", Integer.class, 100),
+                1,
+                1_000
+        );
         experiencePercentage = clamp(feature.getConfigHandler().get("experience.recovery_percentage", Integer.class, 50), 0, 100);
         horizontalSearchRadius = clamp(feature.getConfigHandler().get("placement.horizontal_search_radius", Integer.class, 8), 0, 32);
         verticalSearchBelow = clamp(feature.getConfigHandler().get("placement.vertical_search_below", Integer.class, 4), 0, 16);
@@ -122,6 +149,10 @@ public final class GraveyardSettings {
     public long lifetimeMillis() { return lifetimeMillis; }
     public long leaseDurationMillis() { return leaseDurationMillis; }
     public long leaseHeartbeatMillis() { return leaseHeartbeatMillis; }
+    public long expiredRetentionMillis() { return expiredRetentionMillis; }
+    public long claimedRetentionMillis() { return claimedRetentionMillis; }
+    public long purgeIntervalMillis() { return purgeIntervalMillis; }
+    public int purgeBatchSize() { return purgeBatchSize; }
     public int experiencePercentage() { return experiencePercentage; }
     public int horizontalSearchRadius() { return horizontalSearchRadius; }
     public int verticalSearchBelow() { return verticalSearchBelow; }

@@ -444,6 +444,75 @@ public final class GraveRepository {
         }));
     }
 
+    /**
+     * Permanently removes completed grave rows after their configured support window. Corrupt
+     * graves are deliberately excluded and require an explicit administrative purge.
+     */
+    public CompletionStage<List<UUID>> purgeRetained(
+            String serverId,
+            String inventoryScope,
+            long expiredCutoffMillis,
+            long claimedCutoffMillis,
+            int limit
+    ) {
+        return async(() -> orm.runInTransaction(session -> {
+            List<GraveMetadataEntity> candidates = session.createSelectionQuery(
+                            "FROM GraveMetadataEntity g "
+                                    + "WHERE g.serverId = :serverId "
+                                    + "AND g.inventoryScope = :scope "
+                                    + "AND g.operationToken IS NULL "
+                                    + "AND g.completedAt IS NOT NULL "
+                                    + "AND ((g.state = :expiredState AND g.completedAt <= :expiredCutoff) "
+                                    + "OR (g.state IN :completedStates AND g.completedAt <= :claimedCutoff)) "
+                                    + "ORDER BY g.completedAt ASC",
+                            GraveMetadataEntity.class
+                    )
+                    .setParameter("serverId", serverId)
+                    .setParameter("scope", inventoryScope)
+                    .setParameter("expiredState", GraveStatus.EXPIRED.name())
+                    .setParameter("expiredCutoff", expiredCutoffMillis)
+                    .setParameter("completedStates", List.of(
+                            GraveStatus.CLAIMED.name(),
+                            GraveStatus.ADMIN_RECOVERED.name(),
+                            GraveStatus.PURGED.name()
+                    ))
+                    .setParameter("claimedCutoff", claimedCutoffMillis)
+                    .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                    .setMaxResults(Math.max(1, limit))
+                    .getResultList();
+            List<UUID> purged = new ArrayList<>(candidates.size());
+            for (GraveMetadataEntity metadata : candidates) {
+                GraveStatus oldStatus = GraveStatus.valueOf(metadata.getState());
+                Grave grave = toGrave(metadata);
+                GravePayloadEntity payload = session.find(
+                        GravePayloadEntity.class,
+                        metadata.getGraveId(),
+                        LockModeType.PESSIMISTIC_WRITE
+                );
+                if (payload != null) {
+                    session.remove(payload);
+                }
+                persistAudit(
+                        session,
+                        grave,
+                        null,
+                        "RETENTION_PURGED",
+                        null,
+                        oldStatus,
+                        GraveStatus.PURGED,
+                        metadata.getItemEntryCount(),
+                        0,
+                        metadata.getRemainingExperience(),
+                        0,
+                        "metadataDeleted=true,payloadDeleted=" + (payload != null)
+                );
+                session.remove(metadata);
+                purged.add(grave.graveId());
+            }
+            return List.copyOf(purged);
+        }));
+    }
+
     public CompletionStage<Boolean> pauseForState(
             Grave grave,
             Set<GraveStatus> expectedStates,
