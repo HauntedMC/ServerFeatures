@@ -65,11 +65,13 @@ class SpawnerPositionIndexTest {
 
         assertTrue(index.add(spawner));
         assertEquals(1, index.size());
+        assertEquals(0, index.countWithin(spawner, 1));
         assertTrue(PendingSpawnerPlacements.contains(spawner));
 
         PendingSpawnerPlacements.clear(spawner);
 
         assertFalse(PendingSpawnerPlacements.contains(spawner));
+        assertEquals(1, index.countWithin(spawner, 1));
     }
 
     @Test
