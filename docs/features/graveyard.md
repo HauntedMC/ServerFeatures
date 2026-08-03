@@ -15,7 +15,7 @@ The implementation is deliberately fail-safe. Death drops are changed only after
 5. The grave is projected asynchronously to MySQL and rendered to nearby viewers.
 6. The owner right-clicks the virtual interaction entity. Items restore to preferred slots where safe, merge into compatible stacks, then use empty slots. Nothing is overwritten or dropped.
 7. If only part fits, the remaining entries stay in the grave and its active-server-time expiry continues.
-8. A fully claimed or expired grave disappears with the configured effect. Expired payloads remain stored for administrative recovery; automatic payload purging is intentionally not performed by the runtime implementation.
+8. A fully claimed or expired grave disappears with the configured effect. Expired payloads remain available for the configured support window, after which a lease-owned bounded retention sweep removes payload and metadata while preserving the audit record. Corrupt graves are never automatically purged.
 
 ## Commands and permissions
 
@@ -82,6 +82,10 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 | `storage.payload.maximum_entries` | `64` | Defensive payload item-entry limit. |
 | `storage.payload.maximum_item_bytes` | `2097152` | Maximum serialized bytes for one item entry. |
 | `storage.payload.maximum_total_bytes` | `8388608` | Maximum encoded payload size. |
+| `storage.retention.expired` | `7d` | Support window for expired payloads before automatic permanent cleanup. |
+| `storage.retention.claimed` | `24h` | Retention for claimed, administratively recovered, or already-purged metadata before row cleanup. |
+| `storage.retention.purge_interval` | `10m` | Interval between bounded retention sweeps; minimum one minute. |
+| `storage.retention.purge_batch_size` | `100` | Maximum records removed per transaction; full batches are drained gradually. |
 | `lifetime.duration` | `30m` | Lifetime measured by the plugin-scoped active-server clock, not wall time. |
 | `eligibility.disabled_worlds` | empty | Case-insensitive world names or namespaced world keys excluded from Graveyard. |
 | `eligibility.disabled_gamemodes` | `CREATIVE`, `SPECTATOR` | Game modes that retain normal death behaviour. |
@@ -141,6 +145,8 @@ Consequences:
 ## Persistence
 
 Connection: feature-owned `graveyardOrm`, MySQL, access policy `player_data_rw`.
+
+Retention cleanup runs only under the active writer lease and never automatically removes `CORRUPT` graves.
 
 Entities/tables:
 
