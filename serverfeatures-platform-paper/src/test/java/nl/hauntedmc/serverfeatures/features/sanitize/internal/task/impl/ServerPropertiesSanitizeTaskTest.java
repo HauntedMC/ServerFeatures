@@ -28,9 +28,9 @@ class ServerPropertiesSanitizeTaskTest {
                 custom-key = abc
                 difficulty: hard
                 enable-code-of-conduct=true
-                enable-status=true
+                enable-status=false
                 function-permission-level=2
-                hide-online-players=false
+                hide-online-players=true
                 max-players=42
                 max-tick-time=-1
                 management-server-enabled=true
@@ -54,9 +54,9 @@ class ServerPropertiesSanitizeTaskTest {
         assertTrue(rewritten.contains("custom-key=override"));
         assertTrue(rewritten.contains("difficulty=hard"));
         assertTrue(rewritten.contains("enable-code-of-conduct=true"));
-        assertTrue(rewritten.contains("enable-status=false"));
+        assertTrue(rewritten.contains("enable-status=true"));
         assertTrue(rewritten.contains("function-permission-level=1"));
-        assertTrue(rewritten.contains("hide-online-players=true"));
+        assertTrue(rewritten.contains("hide-online-players=false"));
         assertTrue(rewritten.contains("max-players=999"));
         assertTrue(rewritten.contains("max-tick-time=60000"));
         assertTrue(rewritten.contains("chat-spam-threshold-seconds=10"));

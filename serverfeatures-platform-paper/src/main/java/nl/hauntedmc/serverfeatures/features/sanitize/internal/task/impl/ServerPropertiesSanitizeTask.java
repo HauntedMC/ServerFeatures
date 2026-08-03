@@ -37,7 +37,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("enable-jmx-monitoring", "false");
         ENFORCED.put("enable-query", "false");
         ENFORCED.put("enable-rcon", "false");
-        ENFORCED.put("enable-status", "false");
+        ENFORCED.put("enable-status", "true");
         ENFORCED.put("enforce-secure-profile", "true");
         ENFORCED.put("enforce-whitelist", "false");
         ENFORCED.put("entity-broadcast-range-percentage", "100");
@@ -45,7 +45,7 @@ public class ServerPropertiesSanitizeTask implements SanitizeTask {
         ENFORCED.put("function-permission-level", "1");
         ENFORCED.put("generate-structures", "true");
         ENFORCED.put("generator-settings", "{}");
-        ENFORCED.put("hide-online-players", "true");
+        ENFORCED.put("hide-online-players", "false");
         ENFORCED.put("initial-disabled-packs", "");
         ENFORCED.put("initial-enabled-packs", "vanilla");
         ENFORCED.put("log-ips", "true");

@@ -181,7 +181,7 @@ If one of these is absent, Sanitize does not add a default for it.
 | `enable-jmx-monitoring` | `false` |
 | `enable-query` | `false` |
 | `enable-rcon` | `false` |
-| `enable-status` | `false` |
+| `enable-status` | `true` |
 | `enforce-secure-profile` | `true` |
 | `enforce-whitelist` | `false` |
 | `entity-broadcast-range-percentage` | `100` |
@@ -189,7 +189,7 @@ If one of these is absent, Sanitize does not add a default for it.
 | `function-permission-level` | `1` |
 | `generate-structures` | `true` |
 | `generator-settings` | `{}` |
-| `hide-online-players` | `true` |
+| `hide-online-players` | `false` |
 | `initial-disabled-packs` | empty |
 | `initial-enabled-packs` | `vanilla` |
 | `log-ips` | `true` |
