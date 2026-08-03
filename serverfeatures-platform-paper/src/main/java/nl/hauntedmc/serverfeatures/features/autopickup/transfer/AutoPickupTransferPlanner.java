@@ -134,10 +134,13 @@ public final class AutoPickupTransferPlanner {
     }
 
     static boolean sameStack(ItemStack first, ItemStack second) {
-        if (first == null || second == null) {
-            return first == second;
+        ItemStack normalizedFirst = cloneOrNull(first);
+        ItemStack normalizedSecond = cloneOrNull(second);
+        if (normalizedFirst == null || normalizedSecond == null) {
+            return normalizedFirst == normalizedSecond;
         }
-        return first.getAmount() == second.getAmount() && first.isSimilar(second);
+        return normalizedFirst.getAmount() == normalizedSecond.getAmount()
+                && normalizedFirst.isSimilar(normalizedSecond);
     }
 
     private static ItemStack withAmount(ItemStack item, int amount) {
