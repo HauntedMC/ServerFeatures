@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.LimitSpawners;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.LimitMetric;
 import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
+import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -75,7 +76,7 @@ public final class LimitSpawnersCommand extends FeatureCommand {
         for (var entry : snapshot.worldCounts().entrySet()) {
             World world = Bukkit.getWorld(entry.getKey());
             sender.sendMessage(message("limitspawners.command.stats_world", sender)
-                    .with("world", world == null ? entry.getKey() : world.getName())
+                    .with("world", world == null ? entry.getKey().toString() : world.getName())
                     .with("count", entry.getValue())
                     .build());
         }
@@ -124,8 +125,8 @@ public final class LimitSpawnersCommand extends FeatureCommand {
                     .with("placement_limit", inspection.placementLimit())
                     .build());
             sender.sendMessage(message("limitspawners.command.inspect_state", sender)
-                    .with("disabled", inspection.disabled())
-                    .with("activated", inspection.activated())
+                    .with("disabled", Boolean.toString(inspection.disabled()))
+                    .with("activated", Boolean.toString(inspection.activated()))
                     .with("delay", inspection.delay())
                     .with("min_delay", inspection.minimumDelay())
                     .with("max_delay", inspection.maximumDelay())
@@ -136,10 +137,13 @@ public final class LimitSpawnersCommand extends FeatureCommand {
                     .build());
             for (LimitSpawnersHandler.TrackedEntityView entity : inspection.entities()) {
                 sender.sendMessage(message("limitspawners.command.inspect_entity", sender)
-                        .with("uuid", entity.entityId())
-                        .with("type", entity.entityType())
+                        .with("uuid", entity.entityId().toString())
+                        .with("type", entity.entityType().name())
                         .with("age", entity.ageSeconds())
-                        .with("distance", String.format(Locale.ROOT, "%.1f", entity.distanceFromSource()))
+                        .with(
+                                "distance",
+                                String.format(Locale.ROOT, "%.1f", entity.distanceFromSource())
+                        )
                         .build());
             }
         }, () -> sender.sendMessage(
@@ -253,10 +257,7 @@ public final class LimitSpawnersCommand extends FeatureCommand {
         sender.sendMessage(message("limitspawners.command.usage", sender).build());
     }
 
-    private nl.hauntedmc.serverfeatures.api.io.localization.MessageBuilder message(
-            String key,
-            CommandSender sender
-    ) {
+    private LocalizationHandler.MessageBuilder message(String key, CommandSender sender) {
         return feature.getLocalizationHandler().getMessage(key).forAudience(sender);
     }
 
