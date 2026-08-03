@@ -61,6 +61,7 @@ public final class AutoPickupBlockDropListener implements Listener {
         try {
             plan = feature.transferPlanner().plan(
                     inventory.getStorageContents(),
+                    inventory.getItemInOffHand(),
                     offeredStacks,
                     inventory.getMaxStackSize()
             );
@@ -87,7 +88,7 @@ public final class AutoPickupBlockDropListener implements Listener {
             boolean partial = plan.totalInserted() > 0;
             long now = System.nanoTime();
             if (feature.preferences().shouldNotifyFull(player, partial, now)) {
-                feature.notifyInventoryFull(player, plan.totalRemaining(), plan.remainingStacks());
+                feature.notifyInventoryFull(player);
             }
         }
     }
