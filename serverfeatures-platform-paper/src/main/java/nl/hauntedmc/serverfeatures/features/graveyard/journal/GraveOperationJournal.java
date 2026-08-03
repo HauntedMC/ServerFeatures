@@ -192,8 +192,8 @@ public final class GraveOperationJournal {
             );
             EncodedGravePayload payload = encodedPayload(properties);
             return new CaptureJournalRecord(operationToken, state, grave, payload);
-        } catch (NumberFormatException exception) {
-            throw new IOException("Invalid numeric value in Graveyard capture journal: " + path, exception);
+        } catch (IllegalArgumentException exception) {
+            throw new IOException("Invalid Graveyard capture journal record: " + path, exception);
         }
     }
 
@@ -211,8 +211,8 @@ public final class GraveOperationJournal {
                     Integer.parseInt(required(properties, "transferredExperience")),
                     encodedPayload(properties)
             );
-        } catch (NumberFormatException exception) {
-            throw new IOException("Invalid numeric value in Graveyard claim journal: " + path, exception);
+        } catch (IllegalArgumentException exception) {
+            throw new IOException("Invalid Graveyard claim journal record: " + path, exception);
         }
     }
 
@@ -291,14 +291,21 @@ public final class GraveOperationJournal {
     }
 
     private static GraveLocation readLocation(Properties properties, String prefix) {
-        return new GraveLocation(
-                UUID.fromString(required(properties, prefix + "WorldUuid")),
-                required(properties, prefix + "WorldKey"),
-                Double.parseDouble(required(properties, prefix + "X")),
-                Double.parseDouble(required(properties, prefix + "Y")),
-                Double.parseDouble(required(properties, prefix + "Z")),
-                Float.parseFloat(required(properties, prefix + "Yaw"))
-        );
+        try {
+            return new GraveLocation(
+                    UUID.fromString(required(properties, prefix + "WorldUuid")),
+                    required(properties, prefix + "WorldKey"),
+                    Double.parseDouble(required(properties, prefix + "X")),
+                    Double.parseDouble(required(properties, prefix + "Y")),
+                    Double.parseDouble(required(properties, prefix + "Z")),
+                    Float.parseFloat(required(properties, prefix + "Yaw"))
+            );
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid numeric Graveyard journal location for prefix " + prefix,
+                    exception
+            );
+        }
     }
 
     private static EncodedGravePayload encodedPayload(Properties properties) {
