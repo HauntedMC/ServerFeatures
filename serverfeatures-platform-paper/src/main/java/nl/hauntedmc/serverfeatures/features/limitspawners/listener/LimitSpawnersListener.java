@@ -106,7 +106,6 @@ public final class LimitSpawnersListener implements Listener {
                 position
         );
         if (!decision.allowed()) {
-            PendingSpawnerPlacements.clear(position);
             event.setCancelled(true);
             event.getPlayer().sendMessage(
                     feature.getLocalizationHandler()
@@ -159,13 +158,13 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityTeleport(EntityTeleportEvent event) {
-        Location destination = event.getTo();
-        if (destination == null) {
-            return;
-        }
         Entity entity = event.getEntity();
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            if (!event.isCancelled()) {
+            if (event.isCancelled()) {
+                return;
+            }
+            Location destination = event.getTo();
+            if (destination != null) {
                 handler.handleTeleport(entity, destination);
             }
         }, BukkitTime.ticks(1));
