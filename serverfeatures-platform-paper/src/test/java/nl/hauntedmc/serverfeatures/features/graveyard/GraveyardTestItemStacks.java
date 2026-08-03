@@ -13,7 +13,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 public final class GraveyardTestItemStacks {
     private GraveyardTestItemStacks() {
@@ -22,19 +21,19 @@ public final class GraveyardTestItemStacks {
     public static ItemStack stack(Material material, int amount) {
         AtomicInteger currentAmount = new AtomicInteger(amount);
         ItemStack item = mock(ItemStack.class);
-        when(item.getType()).thenReturn(material);
-        when(item.getAmount()).thenAnswer(ignored -> currentAmount.get());
+        doAnswer(ignored -> material).when(item).getType();
+        doAnswer(ignored -> currentAmount.get()).when(item).getAmount();
         doAnswer(invocation -> {
             currentAmount.set(invocation.getArgument(0));
             return null;
         }).when(item).setAmount(anyInt());
-        when(item.getMaxStackSize()).thenReturn(maximumStackSize(material));
-        when(item.clone()).thenAnswer(ignored -> stack(material, currentAmount.get()));
-        when(item.isSimilar(any(ItemStack.class))).thenAnswer(invocation -> {
+        doAnswer(ignored -> maximumStackSize(material)).when(item).getMaxStackSize();
+        doAnswer(ignored -> stack(material, currentAmount.get())).when(item).clone();
+        doAnswer(invocation -> {
             ItemStack other = invocation.getArgument(0);
             return other != null && other.getType() == material;
-        });
-        when(item.serializeAsBytes()).thenAnswer(ignored -> encode(material, currentAmount.get()));
+        }).when(item).isSimilar(any(ItemStack.class));
+        doAnswer(ignored -> encode(material, currentAmount.get())).when(item).serializeAsBytes();
         return item;
     }
 
