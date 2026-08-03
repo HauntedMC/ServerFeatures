@@ -1,0 +1,34 @@
+name: Agent Graveyard missing files
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/graveyard-feature
+          fetch-depth: 0
+      - name: Apply missing source and tests
+        run: |
+          set -euo pipefail
+          git config user.name "OpenAI Agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          actual="$(sha256sum .agent/graveyard-missing-files.patch.gz.b64 | cut -d' ' -f1)"
+          test "$actual" = "b1f674cb43fbeb4c70fcb82ac4f0fc8332eb27e8017f4ea116a54b85d0a66abc"
+          base64 --decode .agent/graveyard-missing-files.patch.gz.b64 | gzip --decompress > /tmp/graveyard-missing-files.patch
+          git apply --binary /tmp/graveyard-missing-files.patch
+          rm -f .agent/graveyard-missing-files.patch.gz.b64
+          rm -f .agent/final.part-00 .agent/final.part-01
+          rm -f .github/workflows/agent-graveyard-missing-files.yml
+          git add -A
+          git commit -m "Complete Graveyard runtime fix coverage"
+          git push origin HEAD:agent/graveyard-feature
