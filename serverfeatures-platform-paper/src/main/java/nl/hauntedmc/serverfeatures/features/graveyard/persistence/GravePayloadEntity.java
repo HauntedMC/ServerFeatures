@@ -10,7 +10,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 @Entity
-@Table(name = "graveyard_payloads")
+@Table(name = "player_graveyard_payloads")
 public class GravePayloadEntity {
     @Id
     @Column(name = "grave_id", length = 36, nullable = false)

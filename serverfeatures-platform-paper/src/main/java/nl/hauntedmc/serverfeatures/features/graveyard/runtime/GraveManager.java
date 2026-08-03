@@ -73,9 +73,19 @@ public final class GraveManager implements GraveyardService {
             GraveStatus.ORPHANED_WORLD,
             GraveStatus.DELIVERY_PENDING
     );
+    private static final Set<GraveStatus> COMMAND_VISIBLE_STATES = EnumSet.copyOf(CLAIMABLE_STATES);
     private static final Set<GraveStatus> EXPIRABLE_STATES = EnumSet.of(
             GraveStatus.ACTIVE,
             GraveStatus.PARTIAL
+    );
+    private static final Set<GraveStatus> RESTORABLE_STATES = EnumSet.of(
+            GraveStatus.EXPIRED,
+            GraveStatus.ORPHANED_WORLD
+    );
+    private static final Set<GraveStatus> PURGEABLE_STATES = EnumSet.of(
+            GraveStatus.EXPIRED,
+            GraveStatus.CORRUPT,
+            GraveStatus.ADMIN_RECOVERED
     );
 
     private final Graveyard feature;
@@ -290,6 +300,32 @@ public final class GraveManager implements GraveyardService {
     public List<GraveSnapshot> allRuntimeGraves() {
         long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
         return graves.values().stream()
+                .filter(grave -> grave.status() != GraveStatus.PURGED)
+                .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
+                .map(grave -> grave.snapshot(activeNow))
+                .toList();
+    }
+
+    public List<GraveSnapshot> allActiveRuntimeGraves() {
+        return snapshotsForStates(COMMAND_VISIBLE_STATES);
+    }
+
+    public List<GraveSnapshot> allRestorableRuntimeGraves() {
+        return snapshotsForStates(RESTORABLE_STATES);
+    }
+
+    public List<GraveSnapshot> allPurgeableRuntimeGraves() {
+        return snapshotsForStates(PURGEABLE_STATES);
+    }
+
+    public Optional<Grave> findActiveRuntime(String identifier) {
+        return findRuntime(identifier).filter(grave -> isOwnerListable(grave.status()));
+    }
+
+    private List<GraveSnapshot> snapshotsForStates(Set<GraveStatus> states) {
+        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        return graves.values().stream()
+                .filter(grave -> states.contains(grave.status()))
                 .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
                 .map(grave -> grave.snapshot(activeNow))
                 .toList();
@@ -469,7 +505,7 @@ public final class GraveManager implements GraveyardService {
     }
 
     public void onPlayerQuit(Player player) {
-        hideViewer(player);
+        forgetViewer(player.getUniqueId());
         trackedGraves.remove(player.getUniqueId());
         unauthorizedMessageTimes.remove(player.getUniqueId());
     }
@@ -1469,7 +1505,10 @@ public final class GraveManager implements GraveyardService {
     }
 
     private GravePacketIdentity createPacketIdentity(Grave grave) {
-        GravePacketIdentity identity = GravePacketIdentity.create(grave.rotateVisualGeneration());
+        World world = grave.location().resolve()
+                .orElseThrow(() -> new IllegalStateException("Cannot allocate packet ids for an unavailable grave"))
+                .getWorld();
+        GravePacketIdentity identity = GravePacketIdentity.create(grave.rotateVisualGeneration(), world);
         interactionEntities.put(
                 identity.interactionEntityId(),
                 new InteractionHandle(grave.graveId(), identity.generation())
@@ -1511,6 +1550,12 @@ public final class GraveManager implements GraveyardService {
             if (states != null) {
                 states.remove(viewer.getUniqueId());
             }
+        }
+    }
+
+    private void forgetViewer(UUID viewerId) {
+        for (Map<UUID, GraveViewerState> states : viewerStates.values()) {
+            states.remove(viewerId);
         }
     }
 
@@ -2083,11 +2128,16 @@ public final class GraveManager implements GraveyardService {
         return player.hasPermission(ADMIN_PERMISSION) || player.hasPermission(childPermission);
     }
 
-    private static boolean isOwnerListable(GraveStatus status) {
-        return status == GraveStatus.ACTIVE
-                || status == GraveStatus.PARTIAL
-                || status == GraveStatus.ORPHANED_WORLD
-                || status == GraveStatus.DELIVERY_PENDING;
+    public static boolean isOwnerListable(GraveStatus status) {
+        return COMMAND_VISIBLE_STATES.contains(status);
+    }
+
+    public static boolean isRestorable(GraveStatus status) {
+        return RESTORABLE_STATES.contains(status);
+    }
+
+    public static boolean isPurgeable(GraveStatus status) {
+        return PURGEABLE_STATES.contains(status);
     }
 
     private static GraveStatus claimFinalStatus(Grave grave, GravePayload remaining) {

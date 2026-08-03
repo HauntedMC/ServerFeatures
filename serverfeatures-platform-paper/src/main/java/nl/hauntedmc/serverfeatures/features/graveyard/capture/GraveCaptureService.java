@@ -10,6 +10,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.journal.GraveOperationJour
 import nl.hauntedmc.serverfeatures.features.graveyard.journal.PlayerOperationReceiptService;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveItemEntry;
+import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveIdentifier;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveLocation;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GravePayload;
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.EncodedGravePayload;
@@ -25,7 +26,6 @@ import org.bukkit.inventory.ItemStack;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -132,8 +132,13 @@ public final class GraveCaptureService {
 
         UUID graveId = UUID.randomUUID();
         UUID operationToken = UUID.randomUUID();
-        String shortId = shortId(graveId);
         GravePlacementResult placement = placementService.place(player, snapshot.deathLocation());
+        long createdWallMillis = System.currentTimeMillis();
+        String shortId = GraveIdentifier.create(
+                player.getName(),
+                snapshot.deathLocation().getWorld().getName(),
+                createdWallMillis
+        );
         long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
         GravePayload payload = new GravePayload(0L, entries, experience);
         EncodedGravePayload encoded = payloadCodec.encode(payload);
@@ -153,7 +158,7 @@ public final class GraveCaptureService {
                 placement.location(),
                 placement.type(),
                 GraveStatus.ACTIVE,
-                System.currentTimeMillis(),
+                createdWallMillis,
                 activeNow,
                 Math.addExact(activeNow, settings.lifetimeMillis()),
                 null,
@@ -328,9 +333,6 @@ public final class GraveCaptureService {
                 .toList();
     }
 
-    private static String shortId(UUID graveId) {
-        return graveId.toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
-    }
 
     private record PreparedCapture(CaptureJournalRecord record, GravePayload payload) {
     }

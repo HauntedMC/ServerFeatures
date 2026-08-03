@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 @Entity
-@Table(name = "graveyard_leases")
+@Table(name = "player_graveyard_leases")
 public class GraveLeaseEntity {
     @Id
     @Column(name = "scope_key", length = 220, nullable = false)

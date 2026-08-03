@@ -9,12 +9,17 @@ import jakarta.persistence.Version;
 
 @Entity
 @Table(
-        name = "graveyard_graves",
+        name = "player_graveyard_graves",
         indexes = {
-                @Index(name = "idx_grave_owner_state", columnList = "owner_uuid, state"),
-                @Index(name = "idx_grave_server_state", columnList = "server_id, state"),
-                @Index(name = "idx_grave_world_state", columnList = "server_id, world_uuid, state"),
-                @Index(name = "idx_grave_expiry", columnList = "server_id, expires_active_ms, state")
+                @Index(name = "idx_player_grave_owner_state", columnList = "owner_uuid, state"),
+                @Index(name = "idx_player_grave_server_state", columnList = "server_id, state"),
+                @Index(name = "idx_player_grave_world_state", columnList = "server_id, world_uuid, state"),
+                @Index(name = "idx_player_grave_expiry", columnList = "server_id, expires_active_ms, state"),
+                @Index(
+                        name = "uq_player_grave_scope_identifier",
+                        columnList = "server_id, inventory_scope, short_id",
+                        unique = true
+                )
         }
 )
 public class GraveMetadataEntity {
@@ -22,7 +27,7 @@ public class GraveMetadataEntity {
     @Column(name = "grave_id", length = 36, nullable = false)
     private String graveId;
 
-    @Column(name = "short_id", length = 12, nullable = false, unique = true)
+    @Column(name = "short_id", length = 160, nullable = false)
     private String shortId;
 
     @Column(name = "owner_uuid", length = 36, nullable = false)

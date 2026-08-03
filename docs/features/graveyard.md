@@ -12,7 +12,10 @@ The implementation is deliberately fail-safe. Death drops are changed only after
 2. The final drops are matched deterministically back to preferred inventory, armour, and offhand slots.
 3. A reachable virtual-grave location is selected without loading or generating chunks. A recent safe location is preferred when the death position is hazardous; otherwise the grave becomes remote-only.
 4. The payload and `PREPARED` capture journal are forced to disk. Only then are normal drops suppressed and the intended post-death inventory saved to playerdata.
-5. The grave is projected asynchronously to MySQL and rendered to nearby viewers.
+5. The grave receives a stable readable command identifier in the form
+   `<player>-<world>-<yyyyMMdd-HHmmss-SSS>`, is projected asynchronously to MySQL, and is rendered
+   to nearby viewers. The timestamp uses the server timezone and millisecond precision, so normal
+   command use never exposes the internal UUID.
 6. The owner right-clicks the virtual interaction entity. Items restore to preferred slots where safe, merge into compatible stacks, then use empty slots. Nothing is overwritten or dropped.
 7. If only part fits, the remaining entries stay in the grave and its active-server-time expiry continues.
 8. A fully claimed or expired grave disappears with the configured effect. Expired payloads remain available for the configured support window, after which a lease-owned bounded retention sweep removes payload and metadata while preserving the audit record. Corrupt graves are never automatically purged.
@@ -123,7 +126,12 @@ A visual generation contains globally generated packet entity IDs and random UUI
 - multiline `TEXT_DISPLAY`;
 - invisible `INTERACTION` entity.
 
-The renderer sends a bundle containing all spawn and metadata packets. Partial spawn failure triggers best-effort destruction. Every viewer state records the visual generation and rendered timer string. Relocation or hard rebuilding rotates the generation so delayed interactions and metadata callbacks cannot affect the replacement.
+The renderer sends concrete `PacketWrapper<?>` instances through PacketEvents. Display and
+interaction metadata is generated from unspawned Bukkit entity templates and converted by
+PacketEvents, avoiding protocol-version-specific metadata indexes. Partial spawn failure triggers
+best-effort destruction. Every viewer state records the visual generation and rendered timer
+string. Relocation or hard rebuilding rotates the generation so delayed interactions and metadata
+callbacks cannot affect the replacement.
 
 The interaction packet listener consumes only IDs in Graveyard's active interaction index and schedules all Bukkit validation on the main thread. It rechecks connection state, generated identity, world, server-side distance, line of sight, claim state, inventory scope, ownership/staff permission, and operation reservation. Attack actions are ignored.
 
@@ -148,12 +156,17 @@ Connection: feature-owned `graveyardOrm`, MySQL, access policy `player_data_rw`.
 
 Retention cleanup runs only under the active writer lease and never automatically removes `CORRUPT` graves.
 
-Entities/tables:
+Entities/tables (the feature does not read or migrate the former unprefixed development tables):
 
-- `graveyard_graves`: lightweight metadata, location, state, expiry, payload revision/checksum, and optimistic operation token;
-- `graveyard_payloads`: versioned payload BLOB separate from render/list metadata;
-- `graveyard_audit`: administrative and claim state transitions;
-- `graveyard_leases`: single-writer lease for `server_id + inventory_scope`.
+- `player_graveyard_graves`: lightweight metadata, location, state, expiry, payload revision/checksum, and optimistic operation token;
+- `player_graveyard_payloads`: versioned payload BLOB separate from render/list metadata;
+- `player_graveyard_audit`: administrative and claim state transitions;
+- `player_graveyard_leases`: single-writer lease for `server_id + inventory_scope`.
+
+The readable identifier is stored in `short_id` with sufficient room for owner, world, and the
+creation timestamp. It is stable across relocation; `/grave info` and `/grave locate` report the
+current coordinates separately. Existing unprefixed development tables can be removed by
+operators after confirming they are no longer needed.
 
 The owner UUID is always stored. Canonical DataRegistry identity can be resolved independently and is not required on the synchronous death path.
 

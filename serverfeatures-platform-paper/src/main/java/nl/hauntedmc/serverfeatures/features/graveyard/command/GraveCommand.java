@@ -12,6 +12,7 @@ import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.graveyard.ClaimReason;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveClaimOutcome;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveSnapshot;
+import GraveStatus;
 import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
@@ -79,14 +80,14 @@ public final class GraveCommand implements BrigadierCommand {
 
         root.then(Commands.literal("info")
                 .requires(source -> source.getSender().hasPermission(P_INFO))
-                .then(graveArgument(false).executes(context -> showInfo(
+                .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> showInfo(
                         context.getSource().getSender(),
                         StringArgumentType.getString(context, "grave_id")
                 ))));
 
         root.then(Commands.literal("locate")
                 .requires(source -> source.getSender().hasPermission(P_LOCATE))
-                .then(graveArgument(false).executes(context -> locate(
+                .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> locate(
                         context.getSource().getSender(),
                         StringArgumentType.getString(context, "grave_id")
                 ))));
@@ -96,14 +97,14 @@ public final class GraveCommand implements BrigadierCommand {
                 .then(Commands.literal("off").executes(context -> stopTracking(
                         context.getSource().getSender()
                 )))
-                .then(graveArgument(false).executes(context -> track(
+                .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> track(
                         context.getSource().getSender(),
                         StringArgumentType.getString(context, "grave_id")
                 ))));
 
         root.then(Commands.literal("claim")
                 .requires(source -> source.getSender().hasPermission(P_REMOTE_CLAIM))
-                .then(graveArgument(false).executes(context -> claimRemote(
+                .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> claimRemote(
                         context.getSource().getSender(),
                         StringArgumentType.getString(context, "grave_id")
                 ))));
@@ -127,45 +128,45 @@ public final class GraveCommand implements BrigadierCommand {
                         .executes(context -> diagnostics(context.getSource().getSender())))
                 .then(Commands.literal("info")
                         .requires(source -> hasPermission(source.getSender(), P_INSPECT))
-                        .then(graveArgument(true).executes(context -> showInfo(
+                        .then(graveArgument(SuggestionScope.ADMIN_INSPECTABLE).executes(context -> showInfo(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("teleport")
                         .requires(source -> hasPermission(source.getSender(), P_TELEPORT))
-                        .then(graveArgument(true).executes(context -> teleport(
+                        .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> teleport(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("relocate")
                         .requires(source -> hasPermission(source.getSender(), P_RELOCATE))
-                        .then(graveArgument(true).executes(context -> relocate(
+                        .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> relocate(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("deliver")
                         .requires(source -> hasPermission(source.getSender(), P_DELIVER))
-                        .then(graveArgument(true).executes(context -> deliver(
+                        .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> deliver(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id")
                         ))))
                 .then(Commands.literal("expire")
                         .requires(source -> hasPermission(source.getSender(), P_EXPIRE))
-                        .then(graveArgument(true).executes(context -> transition(
+                        .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> transition(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id"),
                                 AdminAction.EXPIRE
                         ))))
                 .then(Commands.literal("restore")
                         .requires(source -> hasPermission(source.getSender(), P_RESTORE))
-                        .then(graveArgument(true).executes(context -> transition(
+                        .then(graveArgument(SuggestionScope.ADMIN_RESTORABLE).executes(context -> transition(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "grave_id"),
                                 AdminAction.RESTORE
                         ))))
                 .then(Commands.literal("purge")
                         .requires(source -> hasPermission(source.getSender(), P_PURGE))
-                        .then(graveArgument(true)
+                        .then(graveArgument(SuggestionScope.ADMIN_PURGEABLE)
                                 .then(Commands.literal("confirm").executes(context -> transition(
                                         context.getSource().getSender(),
                                         StringArgumentType.getString(context, "grave_id"),
@@ -174,10 +175,10 @@ public final class GraveCommand implements BrigadierCommand {
     }
 
     private com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> graveArgument(
-            boolean allGraves
+            SuggestionScope scope
     ) {
         return Commands.argument("grave_id", StringArgumentType.word())
-                .suggests((context, builder) -> suggestGraves(context, builder, allGraves));
+                .suggests((context, builder) -> suggestGraves(context, builder, scope));
     }
 
     private int showOwnGraves(CommandSender sender, boolean listAll) {
@@ -239,7 +240,10 @@ public final class GraveCommand implements BrigadierCommand {
     }
 
     private int showInfo(CommandSender sender, String identifier) {
-        Grave grave = resolveAccessible(sender, identifier, hasPermission(sender, P_INSPECT));
+        SuggestionScope scope = hasPermission(sender, P_INSPECT)
+                ? SuggestionScope.ADMIN_INSPECTABLE
+                : SuggestionScope.OWNER_ACTIVE;
+        Grave grave = resolveAccessible(sender, identifier, scope);
         if (grave == null) {
             return 1;
         }
@@ -265,7 +269,7 @@ public final class GraveCommand implements BrigadierCommand {
     }
 
     private int locate(CommandSender sender, String identifier) {
-        Grave grave = resolveAccessible(sender, identifier, false);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.OWNER_ACTIVE);
         if (grave == null) {
             return 1;
         }
@@ -286,7 +290,7 @@ public final class GraveCommand implements BrigadierCommand {
             send(sender, "general.player_command");
             return 1;
         }
-        Grave grave = resolveAccessible(sender, identifier, false);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.OWNER_ACTIVE);
         if (grave == null || !manager.track(player, grave)) {
             send(sender, "graveyard.not_found");
             return 1;
@@ -314,7 +318,7 @@ public final class GraveCommand implements BrigadierCommand {
             send(sender, "general.player_command");
             return 1;
         }
-        Grave grave = resolveAccessible(sender, identifier, false);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.OWNER_ACTIVE);
         if (grave == null) {
             return 1;
         }
@@ -335,7 +339,7 @@ public final class GraveCommand implements BrigadierCommand {
             send(sender, "general.player_command");
             return 1;
         }
-        Grave grave = resolveAccessible(sender, identifier, true);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.ADMIN_ACTIVE);
         if (grave == null) {
             return 1;
         }
@@ -351,7 +355,7 @@ public final class GraveCommand implements BrigadierCommand {
             send(sender, "general.player_command");
             return 1;
         }
-        Grave grave = resolveAccessible(sender, identifier, true);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.ADMIN_ACTIVE);
         if (grave == null) {
             return 1;
         }
@@ -366,7 +370,7 @@ public final class GraveCommand implements BrigadierCommand {
             send(sender, "general.player_command");
             return 1;
         }
-        Grave grave = resolveAccessible(sender, identifier, true);
+        Grave grave = resolveAccessible(sender, identifier, SuggestionScope.ADMIN_ACTIVE);
         if (grave == null) {
             return 1;
         }
@@ -382,7 +386,12 @@ public final class GraveCommand implements BrigadierCommand {
     }
 
     private int transition(CommandSender sender, String identifier, AdminAction action) {
-        Grave grave = resolveAccessible(sender, identifier, true);
+        SuggestionScope scope = switch (action) {
+            case EXPIRE -> SuggestionScope.ADMIN_ACTIVE;
+            case RESTORE -> SuggestionScope.ADMIN_RESTORABLE;
+            case PURGE -> SuggestionScope.ADMIN_PURGEABLE;
+        };
+        Grave grave = resolveAccessible(sender, identifier, scope);
         if (grave == null) {
             return 1;
         }
@@ -405,17 +414,23 @@ public final class GraveCommand implements BrigadierCommand {
         return 1;
     }
 
-    private Grave resolveAccessible(CommandSender sender, String identifier, boolean admin) {
-        Grave grave = manager.findRuntime(identifier).orElse(null);
+    private Grave resolveAccessible(
+            CommandSender sender,
+            String identifier,
+            SuggestionScope scope
+    ) {
+        Grave grave = manager.findRuntime(identifier)
+                .filter(candidate -> scope.accepts(candidate.status()))
+                .orElse(null);
         if (grave == null) {
             send(sender, "graveyard.not_found");
             return null;
         }
-        if (!admin) {
-            if (!(sender instanceof Player player) || !grave.ownerUuid().equals(player.getUniqueId())) {
-                send(sender, "graveyard.not_found");
-                return null;
-            }
+        if (scope == SuggestionScope.OWNER_ACTIVE
+                && (!(sender instanceof Player player)
+                || !grave.ownerUuid().equals(player.getUniqueId()))) {
+            send(sender, "graveyard.not_found");
+            return null;
         }
         return grave;
     }
@@ -423,18 +438,27 @@ public final class GraveCommand implements BrigadierCommand {
     private CompletableFuture<Suggestions> suggestGraves(
             CommandContext<CommandSourceStack> context,
             SuggestionsBuilder builder,
-            boolean allGraves
+            SuggestionScope scope
     ) {
         CommandSender sender = context.getSource().getSender();
         String prefix = builder.getRemaining().toUpperCase(Locale.ROOT);
-        List<GraveSnapshot> candidates;
-        if (allGraves && hasAdminAccess(sender)) {
-            candidates = manager.allRuntimeGraves();
-        } else if (sender instanceof Player player) {
-            candidates = manager.findActiveByOwner(player.getUniqueId());
-        } else {
-            candidates = List.of();
-        }
+        List<GraveSnapshot> candidates = switch (scope) {
+            case OWNER_ACTIVE -> sender instanceof Player player
+                    ? manager.findActiveByOwner(player.getUniqueId())
+                    : List.of();
+            case ADMIN_INSPECTABLE -> hasAdminAccess(sender)
+                    ? manager.allRuntimeGraves()
+                    : List.of();
+            case ADMIN_ACTIVE -> hasAdminAccess(sender)
+                    ? manager.allActiveRuntimeGraves()
+                    : List.of();
+            case ADMIN_RESTORABLE -> hasAdminAccess(sender)
+                    ? manager.allRestorableRuntimeGraves()
+                    : List.of();
+            case ADMIN_PURGEABLE -> hasAdminAccess(sender)
+                    ? manager.allPurgeableRuntimeGraves()
+                    : List.of();
+        };
         for (GraveSnapshot grave : candidates) {
             if (grave.shortId().toUpperCase(Locale.ROOT).startsWith(prefix)) {
                 builder.suggest(grave.shortId());
@@ -492,6 +516,41 @@ public final class GraveCommand implements BrigadierCommand {
             return hours + "h " + minutes + "m";
         }
         return minutes + "m " + remainder + "s";
+    }
+
+    private enum SuggestionScope {
+        OWNER_ACTIVE {
+            @Override
+            boolean accepts(GraveStatus status) {
+                return GraveManager.isOwnerListable(status);
+            }
+        },
+        ADMIN_INSPECTABLE {
+            @Override
+            boolean accepts(GraveStatus status) {
+                return status != GraveStatus.PURGED;
+            }
+        },
+        ADMIN_ACTIVE {
+            @Override
+            boolean accepts(GraveStatus status) {
+                return GraveManager.isOwnerListable(status);
+            }
+        },
+        ADMIN_RESTORABLE {
+            @Override
+            boolean accepts(GraveStatus status) {
+                return GraveManager.isRestorable(status);
+            }
+        },
+        ADMIN_PURGEABLE {
+            @Override
+            boolean accepts(GraveStatus status) {
+                return GraveManager.isPurgeable(status);
+            }
+        };
+
+        abstract boolean accepts(GraveStatus status);
     }
 
     private enum AdminAction {

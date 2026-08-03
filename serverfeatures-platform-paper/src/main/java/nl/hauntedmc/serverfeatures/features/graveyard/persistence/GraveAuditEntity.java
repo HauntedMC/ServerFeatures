@@ -10,10 +10,10 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(
-        name = "graveyard_audit",
+        name = "player_graveyard_audit",
         indexes = {
-                @Index(name = "idx_grave_audit_grave", columnList = "grave_id, created_at"),
-                @Index(name = "idx_grave_audit_actor", columnList = "actor_uuid, created_at")
+                @Index(name = "idx_player_grave_audit_grave", columnList = "grave_id, created_at"),
+                @Index(name = "idx_player_grave_audit_actor", columnList = "actor_uuid, created_at")
         }
 )
 public class GraveAuditEntity {
