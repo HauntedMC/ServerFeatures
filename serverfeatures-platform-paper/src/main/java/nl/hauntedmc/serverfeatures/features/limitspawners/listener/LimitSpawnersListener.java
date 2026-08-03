@@ -137,7 +137,7 @@ public final class LimitSpawnersListener implements Listener {
             handler.schedulePlacementFinalization(position, () -> cancelled);
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
                     () -> PendingSpawnerPlacements.clear(position),
-                    BukkitTime.ticks(2)
+                    BukkitTime.ticks(1)
             );
         }, BukkitTime.ticks(1));
     }
