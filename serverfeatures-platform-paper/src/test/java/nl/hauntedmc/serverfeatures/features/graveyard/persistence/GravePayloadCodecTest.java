@@ -14,6 +14,7 @@ import java.util.UUID;
 import static nl.hauntedmc.serverfeatures.features.graveyard.GraveyardTestItemStacks.mockBinaryDeserialization;
 import static nl.hauntedmc.serverfeatures.features.graveyard.GraveyardTestItemStacks.stack;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GravePayloadCodecTest {
@@ -21,7 +22,8 @@ class GravePayloadCodecTest {
 
     @Test
     void roundTripsValidatedItemsAndExperience() throws Exception {
-        try (MockedStatic<ItemStack> ignored = mockBinaryDeserialization()) {
+        try (MockedStatic<ItemStack> itemStacks = mockBinaryDeserialization()) {
+            assertFalse(itemStacks.isClosed());
             GraveItemEntry entry = codec.createEntry(UUID.randomUUID(), 4, stack(Material.DIAMOND, 32));
             GravePayload source = new GravePayload(7L, List.of(entry), 125);
 
@@ -37,7 +39,8 @@ class GravePayloadCodecTest {
     @Test
     void rejectsDuplicateEntryIdentifiersAndChecksumMismatch() throws Exception {
         UUID entryId = UUID.randomUUID();
-        try (MockedStatic<ItemStack> ignored = mockBinaryDeserialization()) {
+        try (MockedStatic<ItemStack> itemStacks = mockBinaryDeserialization()) {
+            assertFalse(itemStacks.isClosed());
             GraveItemEntry first = codec.createEntry(entryId, 0, stack(Material.STONE, 1));
             GraveItemEntry second = codec.createEntry(entryId, 1, stack(Material.DIRT, 1));
             GravePayload duplicate = new GravePayload(0L, List.of(first, second), 0);
