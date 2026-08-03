@@ -17,6 +17,7 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     private static final String DEFAULT_STREAM = "proxy.votifier.vote";
     private static final String DEFAULT_STREAM_PATTERN = "{channel}.{server}";
     private static final String DEFAULT_SERVER_NAME = "server";
+    private static final String SERVER_NAME_PATTERN = "[A-Za-z0-9_.-]{1,64}";
     private static final String CONNECTION = "hauntedmc";
 
     private EventBusHandler eventBusHandler;
@@ -95,38 +96,41 @@ public class Votifier extends BukkitBaseFeature<Meta> {
     ) {
         return requireStreamPattern(streamPattern)
                 .replace("{channel}", requireStream(baseStream))
-                .replace("{server}", normalizeTargetServerName(requireServerName(serverName)));
+                .replace("{server}", normalizeTargetServerName(serverName));
     }
 
     static String resolveConsumerGroup(String configuredGroup, String serverName) {
-        String requiredServerName = requireServerName(serverName);
+        String normalizedServerName = normalizeTargetServerName(serverName);
         if (configuredGroup != null && !configuredGroup.isBlank()) {
             return normalizeConsumerKey(configuredGroup, "serverfeatures.votifier.server");
         }
         return normalizeConsumerKey(
-                "serverfeatures.votifier." + normalizeTargetServerName(requiredServerName),
+                "serverfeatures.votifier." + normalizedServerName,
                 "serverfeatures.votifier.server"
         );
     }
 
     static String normalizeTargetServerName(String value) {
-        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
-        normalized = normalized.replaceAll("[^a-z0-9_.-]", "_");
-        normalized = normalized.replaceAll("_+", "_");
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("server_name must not be blank");
-        }
-        return normalized.substring(0, Math.min(normalized.length(), 64));
+        String serverName = requireServerName(value);
+        return serverName.toLowerCase(Locale.ROOT);
     }
 
     private static String requireServerName(String value) {
-        String normalized = normalizeTargetServerName(value);
-        if (DEFAULT_SERVER_NAME.equals(normalized)) {
+        String serverName = value == null ? "" : value.trim();
+        if (serverName.isBlank()) {
+            throw new IllegalArgumentException("server_name must not be blank");
+        }
+        if (!serverName.matches(SERVER_NAME_PATTERN)) {
+            throw new IllegalArgumentException(
+                    "server_name must match " + SERVER_NAME_PATTERN + " and identify a registered Velocity backend"
+            );
+        }
+        if (DEFAULT_SERVER_NAME.equalsIgnoreCase(serverName)) {
             throw new IllegalStateException(
                     "Votifier requires a unique global 'server_name'; the default value \"server\" is not allowed."
             );
         }
-        return value.trim();
+        return serverName;
     }
 
     private static String requireStream(String value) {
