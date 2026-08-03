@@ -1,83 +1,76 @@
 package nl.hauntedmc.serverfeatures.features.bettercoral.recipe;
 
 import nl.hauntedmc.serverfeatures.features.bettercoral.BetterCoral;
+import nl.hauntedmc.serverfeatures.features.bettercoral.CoralConversion;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.FurnaceRecipe;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public final class CoralRecipes {
 
-    private final BetterCoral feature;
-    private final int cookTime;   // ticks
-    private final float exp;
+    private static final int MIN_COOK_TIME_TICKS = 1;
+    private static final int MAX_COOK_TIME_TICKS = 72_000;
 
-    private final Map<Material, Material> liveToDead = new EnumMap<>(Material.class);
-    private final List<NamespacedKey> keys = new ArrayList<>();
+    private final BetterCoral feature;
+    private final int cookTime;
+    private final float experience;
+    private final List<NamespacedKey> registeredKeys = new ArrayList<>();
 
     public CoralRecipes(BetterCoral feature) {
         this.feature = feature;
-        this.cookTime = feature.getConfigHandler().node("furnace").get("cook_time_ticks").as(Integer.class, 20);
-        this.exp = feature.getConfigHandler().node("furnace").get("experience").as(Float.class, 0.0F);
+        int configuredCookTime = feature.getConfigHandler().node("furnace").get("cook_time_ticks")
+                .as(Integer.class, 200);
+        double configuredExperience = feature.getConfigHandler().node("furnace").get("experience")
+                .as(Double.class, 0.0D);
 
-        put(Material.TUBE_CORAL_BLOCK, Material.DEAD_TUBE_CORAL_BLOCK);
-        put(Material.BRAIN_CORAL_BLOCK, Material.DEAD_BRAIN_CORAL_BLOCK);
-        put(Material.BUBBLE_CORAL_BLOCK, Material.DEAD_BUBBLE_CORAL_BLOCK);
-        put(Material.FIRE_CORAL_BLOCK, Material.DEAD_FIRE_CORAL_BLOCK);
-        put(Material.HORN_CORAL_BLOCK, Material.DEAD_HORN_CORAL_BLOCK);
-
-        put(Material.TUBE_CORAL, Material.DEAD_TUBE_CORAL);
-        put(Material.BRAIN_CORAL, Material.DEAD_BRAIN_CORAL);
-        put(Material.BUBBLE_CORAL, Material.DEAD_BUBBLE_CORAL);
-        put(Material.FIRE_CORAL, Material.DEAD_FIRE_CORAL);
-        put(Material.HORN_CORAL, Material.DEAD_HORN_CORAL);
-
-        put(Material.TUBE_CORAL_FAN, Material.DEAD_TUBE_CORAL_FAN);
-        put(Material.BRAIN_CORAL_FAN, Material.DEAD_BRAIN_CORAL_FAN);
-        put(Material.BUBBLE_CORAL_FAN, Material.DEAD_BUBBLE_CORAL_FAN);
-        put(Material.FIRE_CORAL_FAN, Material.DEAD_FIRE_CORAL_FAN);
-        put(Material.HORN_CORAL_FAN, Material.DEAD_HORN_CORAL_FAN);
-
-        put(Material.TUBE_CORAL_WALL_FAN, Material.DEAD_TUBE_CORAL_WALL_FAN);
-        put(Material.BRAIN_CORAL_WALL_FAN, Material.DEAD_BRAIN_CORAL_WALL_FAN);
-        put(Material.BUBBLE_CORAL_WALL_FAN, Material.DEAD_BUBBLE_CORAL_WALL_FAN);
-        put(Material.FIRE_CORAL_WALL_FAN, Material.DEAD_FIRE_CORAL_WALL_FAN);
-        put(Material.HORN_CORAL_WALL_FAN, Material.DEAD_HORN_CORAL_WALL_FAN);
-    }
-
-    private void put(Material live, Material dead) {
-        liveToDead.put(live, dead);
+        this.cookTime = Math.max(MIN_COOK_TIME_TICKS, Math.min(MAX_COOK_TIME_TICKS, configuredCookTime));
+        this.experience = (float) Math.max(0.0D, configuredExperience);
     }
 
     public void registerAll() {
-        for (Map.Entry<Material, Material> e : liveToDead.entrySet()) {
-            Material in = e.getKey();
-            Material out = e.getValue();
+        var server = feature.getPlugin().getServer();
 
-            NamespacedKey key = new NamespacedKey(feature.getPlugin(),
-                    "coral_burn_" + in.name().toLowerCase());
-            FurnaceRecipe r = new FurnaceRecipe(
+        for (Map.Entry<Material, Material> conversion : CoralConversion.itemConversions().entrySet()) {
+            Material input = conversion.getKey();
+            Material output = conversion.getValue();
+            NamespacedKey key = recipeKey(input);
+
+            // Remove a stale copy left by a plugin reload before registering the current definition.
+            server.removeRecipe(key);
+
+            FurnaceRecipe recipe = new FurnaceRecipe(
                     key,
-                    new org.bukkit.inventory.ItemStack(out),
-                    new RecipeChoice.MaterialChoice(in),
-                    exp,
+                    new ItemStack(output),
+                    new RecipeChoice.MaterialChoice(input),
+                    experience,
                     cookTime
             );
-            feature.getPlugin().getServer().addRecipe(r);
-            keys.add(key);
+
+            if (!server.addRecipe(recipe)) {
+                feature.getPlugin().getLogger().warning("Could not register BetterCoral recipe " + key);
+                continue;
+            }
+            registeredKeys.add(key);
         }
     }
 
     public void unregisterAll() {
         var server = feature.getPlugin().getServer();
-        for (NamespacedKey k : keys) {
-            server.removeRecipe(k);
+        for (NamespacedKey key : registeredKeys) {
+            server.removeRecipe(key);
         }
-        keys.clear();
+        registeredKeys.clear();
+    }
+
+    private NamespacedKey recipeKey(Material input) {
+        return new NamespacedKey(feature.getPlugin(),
+                "coral_dry_" + input.name().toLowerCase(Locale.ROOT));
     }
 }
