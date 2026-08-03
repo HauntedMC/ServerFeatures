@@ -19,8 +19,6 @@ import org.bukkit.entity.Player;
 
 public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
-    private boolean griefPreventionEnabled;
-
     public SpawnerToggle(FeatureContext<Meta> context) {
         super(context);
     }
@@ -51,7 +49,6 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        griefPreventionEnabled = Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
         getLifecycleManager().getListenerManager().registerListener(new SpawnerInteractListener(this));
     }
 
@@ -101,6 +98,6 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     }
 
     public boolean isGriefPreventionEnabled() {
-        return griefPreventionEnabled;
+        return Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
     }
 }
