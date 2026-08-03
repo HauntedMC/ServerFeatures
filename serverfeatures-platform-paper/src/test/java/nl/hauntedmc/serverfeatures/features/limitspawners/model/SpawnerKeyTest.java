@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpawnerKeyTest {
@@ -31,19 +30,30 @@ class SpawnerKeyTest {
     }
 
     @Test
-    void toStringAndFromStringRoundTrip() {
+    void serializedFormRoundTrips() {
         SpawnerKey key = new SpawnerKey(UUID.randomUUID(), 1, 2, 3);
-        String serialized = key.toString();
 
-        assertEquals(key, SpawnerKey.fromString(serialized));
-        assertEquals(key, SpawnerKey.parse(serialized).orElseThrow());
+        assertEquals(key, SpawnerKey.parse(key.toString()).orElseThrow());
     }
 
     @Test
     void malformedValuesAreRejectedWithoutThrowing() {
-        assertNull(SpawnerKey.fromString("invalid"));
+        assertTrue(SpawnerKey.parse("invalid").isEmpty());
         assertTrue(SpawnerKey.parse("not-a-uuid:1:2:3").isEmpty());
         assertTrue(SpawnerKey.parse(UUID.randomUUID() + ":x:2:3").isEmpty());
         assertTrue(SpawnerKey.parse(null).isEmpty());
+    }
+
+    @Test
+    void distanceUsesThreeDimensionsAndRejectsOtherWorlds() {
+        UUID worldId = UUID.randomUUID();
+        SpawnerKey first = new SpawnerKey(worldId, 0, 0, 0);
+        SpawnerKey second = new SpawnerKey(worldId, 3, 4, 12);
+
+        assertEquals(169L, first.distanceSquared(second));
+        assertEquals(
+                Long.MAX_VALUE,
+                first.distanceSquared(new SpawnerKey(UUID.randomUUID(), 0, 0, 0))
+        );
     }
 }
