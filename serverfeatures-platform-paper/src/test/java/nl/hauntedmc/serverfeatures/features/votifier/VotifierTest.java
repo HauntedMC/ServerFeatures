@@ -8,43 +8,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class VotifierTest {
 
     @Test
-    void resolveStreamFallsBackToDefaultWhenMissing() {
-        assertEquals("proxy.votifier.vote", Votifier.resolveStream(null));
-        assertEquals("proxy.votifier.vote", Votifier.resolveStream(""));
-        assertEquals("proxy.votifier.vote", Votifier.resolveStream("   "));
-    }
-
-    @Test
-    void resolveStreamUsesTrimmedConfiguredValue() {
-        assertEquals("proxy.custom.vote", Votifier.resolveStream(" proxy.custom.vote "));
-    }
-
-    @Test
-    void consumerGroupDefaultsToAStablePerServerName() {
-        assertEquals("serverfeatures.votifier.survival_eu", Votifier.resolveConsumerGroup("", " Survival EU "));
-        assertEquals("custom_votes", Votifier.resolveConsumerGroup(" Custom Votes ", "ignored"));
-    }
-
-    @Test
-    void legacyModeConsumesConfiguredChannelExactly() {
-        assertEquals(
-                "proxy.votifier.vote",
-                Votifier.resolveDeliveryStream(
-                        "proxy.votifier.vote",
-                        Votifier.DeliveryMode.LEGACY,
-                        "{channel}.{server}",
-                        "survival"
-                )
-        );
-    }
-
-    @Test
-    void targetedModeDerivesStreamFromServerName() {
+    void derivesPrivateStreamFromServerName() {
         assertEquals(
                 "proxy.votifier.vote.survival_eu",
                 Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
                         "{channel}.{server}",
                         " Survival EU "
                 )
@@ -52,13 +20,12 @@ class VotifierTest {
     }
 
     @Test
-    void targetedStreamNormalizationMatchesProxyTargets() {
+    void streamNormalizationMatchesProxyTargets() {
         assertEquals("survival_eu-2", Votifier.normalizeTargetServerName(" Survival:EU-2 "));
         assertEquals(
                 "proxy.votifier.vote.survival_eu-2",
                 Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
                         "{channel}.{server}",
                         " Survival:EU-2 "
                 )
@@ -66,12 +33,11 @@ class VotifierTest {
     }
 
     @Test
-    void targetedModeSupportsCustomPattern() {
+    void supportsCustomPrivateStreamPattern() {
         assertEquals(
                 "votes:skyblock:proxy.votifier.vote",
                 Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
                         "votes:{server}:{channel}",
                         "skyblock"
                 )
@@ -79,21 +45,19 @@ class VotifierTest {
     }
 
     @Test
-    void targetedModeRejectsDefaultServerIdentity() {
+    void rejectsAmbiguousServerIdentity() {
         assertThrows(
                 IllegalStateException.class,
                 () -> Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
                         "{channel}.{server}",
                         "server"
                 )
         );
         assertThrows(
-                IllegalStateException.class,
+                IllegalArgumentException.class,
                 () -> Votifier.resolveDeliveryStream(
                         "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
                         "{channel}.{server}",
                         ""
                 )
@@ -101,26 +65,42 @@ class VotifierTest {
     }
 
     @Test
-    void invalidTargetPatternFallsBackToDefaultPattern() {
-        assertEquals(
-                "proxy.votifier.vote.kitpvp",
-                Votifier.resolveDeliveryStream(
-                        "proxy.votifier.vote",
-                        Votifier.DeliveryMode.TARGETED,
-                        "one-stream",
-                        "kitpvp"
-                )
+    void rejectsInvalidStreamConfiguration() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveDeliveryStream("", "{channel}.{server}", "survival")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveDeliveryStream("proxy.votifier.vote", "", "survival")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveDeliveryStream("proxy.votifier.vote", "one-stream", "survival")
         );
     }
 
     @Test
-    void deliveryModeParsingIsStrictAndBackwardCompatible() {
-        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode(null));
-        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode(""));
-        assertEquals(Votifier.DeliveryMode.LEGACY, Votifier.parseDeliveryMode("legacy"));
-        assertEquals(Votifier.DeliveryMode.TARGETED, Votifier.parseDeliveryMode("targeted"));
-        assertEquals(Votifier.DeliveryMode.TARGETED, Votifier.parseDeliveryMode("per_server"));
-        assertThrows(IllegalArgumentException.class, () -> Votifier.parseDeliveryMode("targetted"));
-        assertThrows(IllegalArgumentException.class, () -> Votifier.parseDeliveryMode("unknown"));
+    void consumerGroupDefaultsToStableBackendIdentity() {
+        assertEquals(
+                "serverfeatures.votifier.survival_eu",
+                Votifier.resolveConsumerGroup("", " Survival EU ")
+        );
+        assertEquals(
+                "custom_votes",
+                Votifier.resolveConsumerGroup(" Custom Votes ", "survival")
+        );
+    }
+
+    @Test
+    void consumerGroupAlsoRejectsAmbiguousServerIdentity() {
+        assertThrows(
+                IllegalStateException.class,
+                () -> Votifier.resolveConsumerGroup("", "server")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> Votifier.resolveConsumerGroup("", "")
+        );
     }
 }
