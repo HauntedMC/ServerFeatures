@@ -23,7 +23,8 @@ class GraveClaimPlannerTest {
 
     @Test
     void restoresPreferredSlotThenMergesWithoutCreatingOverstackedItems() throws Exception {
-        try (MockedStatic<ItemStack> ignored = mockBinaryDeserialization()) {
+        try (MockedStatic<ItemStack> itemStacks = mockBinaryDeserialization()) {
+            assertFalse(itemStacks.isClosed());
             PlayerInventoryState inventory = new PlayerInventoryState();
             inventory.set(1, stack(Material.DIAMOND, 60));
             GraveItemEntry entry = codec.createEntry(UUID.randomUUID(), 0, stack(Material.DIAMOND, 70));
@@ -43,7 +44,8 @@ class GraveClaimPlannerTest {
 
     @Test
     void keepsOverflowInTheGraveAndAllOrNothingModeLeavesInventoryUntouched() throws Exception {
-        try (MockedStatic<ItemStack> ignored = mockBinaryDeserialization()) {
+        try (MockedStatic<ItemStack> itemStacks = mockBinaryDeserialization()) {
+            assertFalse(itemStacks.isClosed());
             PlayerInventoryState full = new PlayerInventoryState();
             for (int slot = 0; slot < 36; slot++) {
                 full.set(slot, stack(Material.COBBLESTONE, 64));
