@@ -33,10 +33,17 @@ import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
 public final class LimitSpawnersListener implements Listener {
 
     private final LimitSpawners feature;
     private final LimitSpawnersHandler handler;
+    private final Set<BlockPlaceEvent> ownedPlacementEvents = Collections.newSetFromMap(
+            new IdentityHashMap<>()
+    );
 
     public LimitSpawnersListener(LimitSpawners feature, LimitSpawnersHandler handler) {
         this.feature = feature;
@@ -101,6 +108,7 @@ public final class LimitSpawnersListener implements Listener {
             return;
         }
         PendingSpawnerPlacements.mark(position);
+        ownedPlacementEvents.add(event);
 
         LimitSpawnersHandler.PlacementDecision decision = handler.tryReservePlacement(
                 event.getPlayer(),
@@ -122,10 +130,10 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onSpawnerPlaceFinalState(BlockPlaceEvent event) {
-        SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
-        if (!PendingSpawnerPlacements.contains(position)) {
+        if (!ownedPlacementEvents.remove(event)) {
             return;
         }
+        SpawnerKey position = SpawnerKey.of(event.getBlockPlaced().getLocation());
 
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             boolean cancelled = event.isCancelled();
