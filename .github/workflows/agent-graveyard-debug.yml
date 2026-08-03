@@ -1,0 +1,26 @@
+name: Agent Graveyard debug workspace
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/graveyard-feature
+          fetch-depth: 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: graveyard-debug-source
+          path: |
+            .
+            !.git
+          include-hidden-files: true
+          retention-days: 1
