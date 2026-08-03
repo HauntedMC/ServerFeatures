@@ -2,11 +2,17 @@
 
 > Paper · Feature name `AutoPickup` · package `features.autopickup` · disabled by default
 
-AutoPickup is a persistent player preference that moves finalized item drops from a direct player block break into the player's normal 36-slot storage inventory. It preserves exact overflow on the original item entities, excludes indirect destruction, and never performs database work in the block-drop hot path.
+AutoPickup is a persistent player preference that moves finalized item drops from a direct player block break into the player's normal storage inventory and, when storage cannot accept more, the offhand slot. It preserves exact overflow on the original item entities, excludes indirect destruction, and never performs database work in the block-drop hot path.
 
 ## Player behavior
 
-When enabled, an eligible `BlockDropItemEvent` is processed after Paper and earlier plugins have finalized its item entities. Compatible partial stacks are filled before empty storage slots. Armor, offhand, crafting, cursor and result slots are never used.
+When enabled, an eligible `BlockDropItemEvent` is processed after Paper and earlier plugins have finalized its item entities. Insertion order is:
+
+1. compatible partial stacks in the 36 normal storage slots;
+2. empty normal storage slots;
+3. a compatible partial offhand stack or an empty offhand slot.
+
+The offhand is strictly a final fallback. An incompatible offhand item is never replaced. Armor, crafting, cursor and result slots are never used.
 
 For every handled drop the feature enforces:
 
@@ -26,7 +32,7 @@ Permission:
 serverfeatures.feature.autopickup.use
 ```
 
-The permission always controls command access. With `drop-policy.require-use-permission: true`, it also controls actual collection. Removing the permission then suspends AutoPickup without deleting the persisted preference. Set the option to `false` only when command access should remain permission-gated while collection is available to every player with an enabled preference.
+The permission always controls command access. With `drop-policy.require-use-permission: true`, it also controls actual collection. Removing the permission suspends AutoPickup without deleting the persisted preference.
 
 | Command | Behavior |
 |---|---|
@@ -38,7 +44,7 @@ The permission always controls command access. With `drop-policy.require-use-per
 
 The command is player-only and uses Paper's Brigadier command tree. There are no aliases or staff-targeting forms.
 
-Commands submitted while the database preference is loading are composed in order: explicit `on` or `off` supersedes older relative intent, while repeated toggles preserve their real parity. Explicit `on` or `off` can recover from a preference-load failure; an ambiguous toggle is rejected when the previous value could not be established. Repeating explicit `on` or `off` after a failed save retries persistence instead of only reporting that the state was already selected.
+Commands submitted while the database preference is loading are composed in order: explicit `on` or `off` supersedes older relative intent, while repeated toggles preserve their real parity. Explicit `on` or `off` can recover from a preference-load failure; an ambiguous toggle is rejected when the previous value could not be established. Repeating explicit `on` or `off` after a failed save retries persistence.
 
 ## Direct-break ownership
 
@@ -70,27 +76,30 @@ Paper does not expose a definitive source block for every individual item entity
 
 `AutoPickupTransferPlanner` works on detached clones only:
 
-1. capture a detached baseline of current storage;
+1. capture detached baselines of normal storage and offhand;
 2. process eligible drops in event order;
-3. merge compatible partial stacks;
+3. merge compatible partial storage stacks;
 4. fill empty storage slots;
-5. honor the lower of item and inventory maximum stack size;
-6. produce exact per-drop remainders;
-7. validate per-drop and aggregate conservation before any live mutation.
+5. use compatible or empty offhand capacity last;
+6. honor the lower of item and inventory maximum stack size;
+7. produce exact per-drop remainders;
+8. validate per-drop and aggregate conservation before any live mutation.
 
-`AutoPickupTransferCommitter` then snapshots the live storage, complete event item order and every original event stack. Before mutation it verifies that:
+`AutoPickupTransferCommitter` snapshots live storage, offhand, complete event item order and every original event stack. Before mutation it verifies that:
 
 - storage still matches the plan baseline;
+- offhand still matches the plan baseline;
 - every eligible entity is present exactly once by identity;
 - no eligible entity stack changed after planning.
 
-After mutation it verifies both the final inventory and the exact event membership, order and remainder stacks. If any ordinary runtime mutation or verification fails, it restores:
+After mutation it verifies final storage, final offhand, exact event membership/order and exact remainder stacks. If any ordinary runtime mutation or verification fails, it restores:
 
-- the original player storage;
-- the original event-list membership and order;
-- each original item entity stack.
+- original player storage;
+- original offhand;
+- original event-list membership and order;
+- every original item entity stack.
 
-A successful rollback leaves normal ground drops. If inventory restoration itself fails but the exact planned inventory survived, AutoPickup completes the matching event-side commit instead of restoring duplicate ground items. Any rollback that cannot be fully confirmed disables AutoPickup for the player's current session and surfaces a severe diagnostic. Fatal JVM errors are not swallowed by the transaction wrapper.
+A successful rollback leaves normal ground drops. If inventory restoration itself fails but the exact planned storage and offhand survived, AutoPickup completes the matching event-side commit instead of restoring duplicate ground items. Any rollback that cannot be fully confirmed disables AutoPickup for the player's current session and surfaces a severe diagnostic. Fatal JVM errors are not swallowed.
 
 No native pickup event is fabricated. Plugins listening for physical entity pickup should not treat AutoPickup as a normal collision pickup.
 
@@ -105,14 +114,14 @@ plugins/ServerFeatures/features/AutoPickup/config.yml
 | Key | Default | Meaning |
 |---|---:|---|
 | `enabled` | `false` | Loads the feature, ORM state, listeners and command. |
-| `default-enabled` | `false` | Effective preference when no row exists. A row is created lazily on the first explicit change. |
+| `default-enabled` | `false` | Effective preference when no row exists. |
 | `drop-policy.scope` | `STRICT_DIRECT` | `STRICT_DIRECT` or `EVENT_ALL`. |
 | `drop-policy.worlds.mode` | `BLACKLIST` | `BLACKLIST` or `WHITELIST`. |
 | `drop-policy.worlds.values` | `[]` | Case-insensitive world names. Blank values are rejected. |
 | `drop-policy.allowed-game-modes` | `SURVIVAL`, `ADVENTURE` | Exact Bukkit game-mode names. The list cannot be empty. |
 | `drop-policy.require-use-permission` | `true` | Require the use permission during collection as well as for the command. |
-| `notification.inventory-full.enabled` | `true` | Enables the targeted overflow actionbar. |
-| `notification.inventory-full.notify-on-partial` | `true` | Also notify when some, but not all, eligible items fitted. |
+| `notification.inventory-full.enabled` | `true` | Enables the targeted inventory-full actionbar. |
+| `notification.inventory-full.notify-on-partial` | `true` | Also notify when some eligible items fitted but overflow remains. |
 | `notification.inventory-full.cooldown-millis` | `3000` | Per-player monotonic warning cooldown. |
 | `notification.inventory-full.duration-seconds` | `2` | Targeted ActionBars override duration, from `0` through `60`. |
 | `effects.pickup-sound.enabled` | `true` | Plays a sound after a successful transfer. |
@@ -123,30 +132,31 @@ plugins/ServerFeatures/features/AutoPickup/config.yml
 | `persistence.retry.attempts` | `3` | Total write attempts, from `1` through `10`. |
 | `persistence.retry.initial-delay-millis` | `250` | First retry delay, from `0` through `60000`. |
 | `persistence.retry.maximum-delay-millis` | `2000` | Backoff cap, from `0` through `60000` and not below the initial delay. |
-| `persistence.join-recheck-delay-millis` | `3000` | One delayed, generation-fenced read after login to catch a write finishing on the previous backend. `0` disables it; maximum `60000`. |
-| `persistence.shutdown-drain-timeout-millis` | `1000` | Bounded wait for already-running ORM attempts during feature shutdown; maximum `10000`. |
+| `persistence.join-recheck-delay-millis` | `3000` | One delayed read after login; `0` disables it, maximum `60000`. |
+| `persistence.shutdown-drain-timeout-millis` | `1000` | Bounded shutdown drain, maximum `10000`. |
 | `diagnostics.warning-cooldown-millis` | `30000` | Per-player transfer/feedback error log cooldown. |
 
-Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values, timing overflow and unsafe scheduler or timeout ranges fail feature startup rather than producing partial runtime behavior. Feature reload is required to apply changes.
+Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values, timing overflow and unsafe scheduler or timeout ranges fail feature startup. Feature reload is required to apply changes.
 
 ## Inventory-full feedback
 
-Overflow is determined from actual planned remainders, never from `firstEmpty()`. An inventory with no empty slot may still accept an item into a partial compatible stack.
+Overflow is determined from actual planned remainders after both normal storage and offhand capacity have been considered. It is never inferred from `firstEmpty()`.
 
-At most one message is emitted for the complete block-drop event. Variables:
+At most one simple actionbar is emitted for the complete block-drop event:
 
-- `{remaining_amount}` — total eligible item amount left;
-- `{remaining_stacks}` — number of eligible event stacks with a remainder.
+```text
+Je inventaris zit vol.
+```
 
-The cooldown uses `System.nanoTime()`, so wall-clock adjustments do not reset or extend it.
+The message intentionally contains no item or stack counts. The cooldown uses `System.nanoTime()`, so wall-clock adjustments do not reset or extend it.
 
-The shared ActionBars API supports targeted timed overrides. `PauseMode.PAUSE_CYCLE` suppresses normal cycle frames only for the affected player while the warning is active; it does not pause the server-wide cycle for everybody. The new targeted API methods have safe interface defaults, so existing third-party `ActionBarAPI` implementations remain source and binary compatible.
+The shared ActionBars API supports targeted timed overrides. `PauseMode.PAUSE_CYCLE` suppresses normal cycle frames only for the affected player while the warning is active; it does not pause the server-wide cycle.
 
 ## Persistence
 
 Dependencies:
 
-- DataProvider;
+- DataProvider 3.1.10 or newer;
 - DataRegistry;
 - MySQL connection `autoPickupOrmConnection` using `player_data_rw`.
 
@@ -163,11 +173,7 @@ player_auto_pickup_settings
 | `updated_at` | Epoch milliseconds for diagnostics. |
 | `write_revision` | Monotonic request revision used to reject stale cross-backend writes. |
 
-The preference is network-scoped: any backend using the same player database restores the same value.
-
-### Required schema
-
-With the framework's recommended production ORM mode `validate`, provision the table before enabling the feature:
+Required production schema:
 
 ```sql
 CREATE TABLE player_auto_pickup_settings (
@@ -179,85 +185,65 @@ CREATE TABLE player_auto_pickup_settings (
 ) ENGINE=InnoDB;
 ```
 
-Alternatively, an explicitly managed deployment may temporarily use the framework global `dataprovider_orm_schema_mode: update` to let Hibernate create or update the table. `validate` is safer for normal production startup because unexpected schema drift causes the feature to fail closed.
+With production ORM mode `validate`, provision the table before enabling the feature. The `player_data_rw` access policy must share the connection with `ServerFeatures`.
 
-The `player_data_rw` DataProvider access policy must share the connection with `ServerFeatures`; otherwise ORM initialization is intentionally rejected.
+### Load and write ordering
 
-### Load ordering
+On join, the feature waits for canonical DataRegistry identity, loads the preference asynchronously and applies it on the Paper main thread only when the same state object and generation remain current. One configurable delayed recheck catches a write that completed on the previous backend just after the initial read.
 
-On join or feature enable for an already-online player:
-
-1. create an inactive `LOADING` runtime state;
-2. wait for canonical DataRegistry identity;
-3. load ORM state through the feature-scoped asynchronous scheduler;
-4. return to the Paper main thread;
-5. apply only when the same runtime-state object and generation are still current;
-6. perform one configurable delayed recheck to catch a preference write that completed on the previous backend just after the initial read.
-
-Quit, relog, feature reload, local writes and newer commands invalidate stale completions. The delayed recheck is skipped while a local write is active and only applies a strictly newer database revision.
-
-### Write ordering
-
-Runtime state changes immediately after a valid command. Each request captures the canonical player ID and receives a globally comparable, process-monotonic revision at request time. Per-player writes are serialized and rapid changes are coalesced to the newest unsaved request. The MySQL upsert changes the stored preference only when the incoming revision is newer; an old backend can therefore finish late without overwriting a newer command from another backend.
-
-The write path reads back the authoritative row in the same transaction after clearing Hibernate's managed state. If another backend won, the local runtime reconciles to that newer value. Bounded retries use exponential backoff. A final failure keeps the chosen setting active for the current session, marks it unconfirmed and tells the player it could not be stored.
+Each write request captures canonical player ID, desired state and a globally comparable process-monotonic revision. Per-player writes are serialized and rapid changes are coalesced. The MySQL upsert accepts only a newer revision, then reads back the authoritative database winner. A final failure keeps the selected setting active for the session, marks it unconfirmed and allows explicit retry.
 
 The block-drop listener never calls DataRegistry or ORM.
 
 ## Lifecycle
 
-Initialization:
+Initialization validates configuration, registers the DataProvider connection and ORM context, constructs services, registers listeners/command and initializes already-online players.
 
-1. validate configuration;
-2. initialize DataProvider ownership;
-3. register MySQL connection and validate the ORM entity/schema;
-4. construct transfer, origin and preference services;
-5. register player and block-drop listeners;
-6. register Brigadier command;
-7. initialize already-online players.
+Quit removes runtime preference and diagnostic state while immutable in-flight writes may finish. A fast relog carries the newest matching local request into the replacement session rather than loading stale database state.
 
-Quit removes runtime preference and notification/diagnostic state while immutable in-flight writes may finish. A fast relog on the same backend carries the newest local in-flight request into the replacement session rather than reloading stale database state.
-
-Disable closes new preference activity, performs an interrupt-safe bounded drain of already-running attempts, clears runtime maps and allows framework cleanup to unregister listeners, commands, delayed rechecks, ORM and DataProvider scopes.
+Disable closes new preference activity, performs an interrupt-safe bounded drain and allows framework cleanup to unregister listeners, commands, tasks, ORM and DataProvider scopes.
 
 ## Compatibility boundaries
 
 - **Protection plugins:** cancellation before AutoPickup's `HIGHEST` listener prevents collection. Same-priority ordering remains registration-order dependent.
 - **Custom loot plugins:** items added or changed before AutoPickup are processed; items added later remain ground drops.
-- **SilkSpawners:** its current direct `BlockBreakEvent` inventory grant is separate and is not intercepted or duplicated.
-- **Old Drop2Inventory plugin:** must be removed or fully disabled before deployment. Running both implementations simultaneously is unsupported.
+- **SilkSpawners:** its direct `BlockBreakEvent` inventory grant is separate and is not intercepted or duplicated.
+- **Old Drop2Inventory plugin:** must be removed or fully disabled. Running both implementations is unsupported.
 - **Pickup listeners/statistics:** AutoPickup does not synthesize physical pickup events or pickup statistics.
 
 ## Tests and operational verification
 
 Automated coverage includes:
 
-- detached partial/full insertion and custom stack limits;
-- multiple drops competing for capacity;
-- defensive cloning and randomized per-drop/aggregate conservation;
-- inventory changes between planning and commit;
+- storage-first insertion and empty/compatible/incompatible offhand behavior;
+- full and partial insertion with exact overflow;
+- custom and unstackable item limits;
+- multiple drops competing for storage and offhand capacity;
+- randomized per-drop and aggregate conservation;
+- storage, offhand and entity changes between planning and commit;
 - silent event-stack corruption detection;
-- complete inventory/event/stack rollback and conservation-preserving rollback fallback;
+- complete storage/offhand/event rollback and conservation-preserving fallback;
 - strict direct, bisected and bed-origin classification;
 - composed command intent while preference loading;
 - scheduler-facing configuration bounds and retry backoff;
 - monotonic and observed cross-backend write revisions;
 - backward-compatible targeted ActionBar defaults;
-- a bundled Paper/MySQL acceptance boot with AutoPickup enabled, scoped DataProvider access and the production table pre-provisioned.
+- bundled Paper/MySQL startup and clean shutdown with AutoPickup enabled.
 
 In game, verify:
 
-1. empty inventory and ordinary mining;
-2. no empty slots but a compatible partial stack;
-3. fully saturated storage;
-4. Fortune and Silk Touch;
-5. chests and shulker boxes;
-6. doors, beds and tall plants;
-7. support blocks with torches/signs under both scopes;
-8. TNT, creepers, pistons and fluids remain untouched;
-9. rapid toggles during initial login;
-10. immediate backend switch after toggling;
-11. database outage and retry/failure messages;
-12. permission removal while preference remains enabled;
-13. targeted overflow warning while a normal actionbar cycle is active;
-14. pickup sound enabled, disabled and customized.
+1. empty storage and ordinary mining;
+2. compatible partial storage stacks;
+3. full storage with an empty offhand;
+4. full storage with a compatible partial offhand stack;
+5. full storage with an incompatible or full offhand item;
+6. Fortune and Silk Touch;
+7. chests, shulker boxes, doors, beds and tall plants;
+8. support blocks with torches/signs under both scopes;
+9. TNT, creepers, pistons and fluids remain untouched;
+10. rapid toggles during initial login;
+11. immediate backend switch after toggling;
+12. database outage and retry/failure messages;
+13. permission removal while preference remains enabled;
+14. targeted overflow warning while a normal actionbar cycle is active;
+15. pickup sound enabled, disabled and customized.
