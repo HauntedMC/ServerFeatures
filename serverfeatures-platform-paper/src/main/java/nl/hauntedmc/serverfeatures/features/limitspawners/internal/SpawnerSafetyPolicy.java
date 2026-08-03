@@ -30,12 +30,12 @@ public final class SpawnerSafetyPolicy {
         }
 
         int minimumDelay = Math.max(spawner.getMinSpawnDelay(), config.minimumSpawnDelayTicks());
-        if (spawner.getMinSpawnDelay() != minimumDelay) {
-            spawner.setMinSpawnDelay(minimumDelay);
-            changed = true;
-        }
         if (spawner.getMaxSpawnDelay() < minimumDelay) {
             spawner.setMaxSpawnDelay(minimumDelay);
+            changed = true;
+        }
+        if (spawner.getMinSpawnDelay() != minimumDelay) {
+            spawner.setMinSpawnDelay(minimumDelay);
             changed = true;
         }
 
