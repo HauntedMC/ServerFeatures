@@ -9,6 +9,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.Entity;
@@ -32,6 +33,7 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -39,8 +41,11 @@ import java.util.Set;
 
 public final class LimitSpawnersListener implements Listener {
 
+    private static final String SOURCE_MARKER = "limitspawners_source_v3";
+
     private final LimitSpawners feature;
     private final LimitSpawnersHandler handler;
+    private final NamespacedKey sourceMarker;
     private final Set<BlockPlaceEvent> ownedPlacementEvents = Collections.newSetFromMap(
             new IdentityHashMap<>()
     );
@@ -48,6 +53,7 @@ public final class LimitSpawnersListener implements Listener {
     public LimitSpawnersListener(LimitSpawners feature, LimitSpawnersHandler handler) {
         this.feature = feature;
         this.handler = handler;
+        this.sourceMarker = new NamespacedKey(feature.getPlugin(), SOURCE_MARKER);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -169,12 +175,18 @@ public final class LimitSpawnersListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityDeath(EntityDeathEvent event) {
-        handler.handleEntityDeath(event.getEntity());
+        if (hasSourceMarker(event.getEntity())) {
+            handler.handleEntityDeath(event.getEntity());
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityRemove(EntityRemoveEvent event) {
         Entity entity = event.getEntity();
+        if (!hasSourceMarker(entity)) {
+            return;
+        }
+
         String cause = event.getCause().name();
         if (event.getCause() == EntityRemoveEvent.Cause.UNLOAD) {
             feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
@@ -190,6 +202,10 @@ public final class LimitSpawnersListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityTeleport(EntityTeleportEvent event) {
         Entity entity = event.getEntity();
+        if (!hasSourceMarker(entity)) {
+            return;
+        }
+
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
             if (event.isCancelled()) {
                 return;
@@ -236,6 +252,10 @@ public final class LimitSpawnersListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onWorldUnload(WorldUnloadEvent event) {
         handler.handleWorldUnload(event.getWorld());
+    }
+
+    private boolean hasSourceMarker(Entity entity) {
+        return entity.getPersistentDataContainer().has(sourceMarker, PersistentDataType.STRING);
     }
 
     private void scheduleDestroyedSpawners(Iterable<Block> blocks) {
