@@ -9,28 +9,51 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
 public final class GravePayloadCodec {
     public static final int CODEC_VERSION = 1;
     private static final int MAGIC = 0x47525631;
+    private static final ItemStackBinaryCodec PAPER_ITEM_CODEC = new ItemStackBinaryCodec() {
+        @Override
+        public byte[] serialize(ItemStack item) {
+            return item.serializeAsBytes();
+        }
+
+        @Override
+        public ItemStack deserialize(byte[] bytes) {
+            return ItemStack.deserializeBytes(bytes);
+        }
+    };
 
     private final int maximumEntries;
     private final int maximumItemBytes;
     private final int maximumPayloadBytes;
+    private final ItemStackBinaryCodec itemCodec;
 
     public GravePayloadCodec(int maximumEntries, int maximumItemBytes, int maximumPayloadBytes) {
+        this(maximumEntries, maximumItemBytes, maximumPayloadBytes, PAPER_ITEM_CODEC);
+    }
+
+    public GravePayloadCodec(
+            int maximumEntries,
+            int maximumItemBytes,
+            int maximumPayloadBytes,
+            ItemStackBinaryCodec itemCodec
+    ) {
         this.maximumEntries = maximumEntries;
         this.maximumItemBytes = maximumItemBytes;
         this.maximumPayloadBytes = maximumPayloadBytes;
+        this.itemCodec = Objects.requireNonNull(itemCodec, "itemCodec");
     }
 
     public GraveItemEntry createEntry(UUID entryId, int preferredSlot, ItemStack item) throws IOException {
@@ -38,19 +61,32 @@ public final class GravePayloadCodec {
             throw new IOException("Grave item entry is empty or incomplete");
         }
         validatePreferredSlot(preferredSlot);
-        byte[] serialized = item.serializeAsBytes();
+        byte[] serialized;
+        try {
+            serialized = itemCodec.serialize(item);
+        } catch (RuntimeException exception) {
+            throw new IOException("Could not serialize grave item " + entryId, exception);
+        }
+        if (serialized == null) {
+            throw new IOException("Grave item serializer returned no data for " + entryId);
+        }
         validateItemSize(serialized.length);
         return new GraveItemEntry(entryId, preferredSlot, serialized);
     }
 
     public ItemStack decodeItem(GraveItemEntry entry) throws IOException {
+        if (entry == null) {
+            throw new IOException("Grave item entry is missing");
+        }
         validateItemSize(entry.serializedItem().length);
         try {
-            ItemStack item = ItemStack.deserializeBytes(entry.serializedItem());
-            if (item.getType().isAir() || item.getAmount() <= 0) {
+            ItemStack item = itemCodec.deserialize(entry.serializedItem());
+            if (item == null || item.getType().isAir() || item.getAmount() <= 0) {
                 throw new IOException("Decoded grave item is empty");
             }
             return item;
+        } catch (IOException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
             throw new IOException("Could not decode grave item " + entry.entryId(), exception);
         }
@@ -166,5 +202,11 @@ public final class GravePayloadCodec {
         if (size <= 0 || size > maximumItemBytes) {
             throw new IOException("Invalid grave item size " + size);
         }
+    }
+
+    public interface ItemStackBinaryCodec {
+        byte[] serialize(ItemStack item);
+
+        ItemStack deserialize(byte[] bytes);
     }
 }
