@@ -1,0 +1,30 @@
+name: Agent Graveyard sync main
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/graveyard-feature
+          fetch-depth: 0
+      - name: Merge current main and remove workflow
+        run: |
+          set -euo pipefail
+          git config user.name "OpenAI Agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge --no-edit origin/main
+          rm -f .github/workflows/agent-graveyard-sync-main.yml
+          git add -A
+          git commit -m "Remove Graveyard branch sync workflow"
+          git push origin HEAD:agent/graveyard-feature
