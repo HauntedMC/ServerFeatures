@@ -2,9 +2,7 @@
 
 > Paper · Feature ID `votifier` · disabled by default · private durable Redis vote consumer
 
-ServerFeatures Votifier is the only supported backend ingress for votes. It consumes the backend's private durable stream, dispatches one native tracked `VoteEvent` on the Bukkit main thread, waits for all registered processing stages, and acknowledges the Redis delivery only after processing succeeds.
-
-It does not open a public vote port, consume a shared broadcast stream, emit third-party Votifier events, reflect into NuVotifier, select between source modes, or fall back to another transport.
+ServerFeatures Votifier is the backend ingress for votes. It consumes the backend's private durable stream, dispatches one native tracked `VoteEvent` on the Bukkit main thread, waits for all registered processing stages, and acknowledges the Redis delivery only after processing succeeds.
 
 ProxyFeatures Votifier is the required trusted producer.
 
@@ -12,7 +10,7 @@ ProxyFeatures Votifier is the required trusted producer.
 
 Votifier registers no command, permission, PlaceholderAPI expansion, database entity, audit table, or player-facing message.
 
-Redis Streams are the delivery boundary. Downstream features such as VoteReward own reward state and duplicate processing markers.
+Redis Streams are the delivery boundary. Downstream features such as VoteReward own reward state and duplicate-processing markers.
 
 ## Configuration
 
@@ -33,15 +31,13 @@ Votifier:
 | `stream_pattern` | `{channel}.{server}` | Private-stream template. Must contain `{server}`. |
 | `consumer_group` | empty | Explicit durable group. Empty derives `serverfeatures.votifier.<server_name>`. |
 
-The global `server_name` is mandatory for this feature. It must:
+The global `server_name` is mandatory. It must:
 
 - match `[A-Za-z0-9_.-]{1,64}`;
-- equal the registered Velocity backend identifier used by ProxyFeatures;
+- equal the registered Velocity backend identifier configured in ProxyFeatures;
 - not remain the framework default `server`.
 
-The stream suffix is the lower-case server identifier. No character-replacement fallback is performed.
-
-Examples:
+The stream suffix is the lower-case server identifier.
 
 | `server_name` | Resolved stream |
 |---|---|
@@ -49,11 +45,11 @@ Examples:
 | `SkyBlock` | `proxy.votifier.vote.skyblock` |
 | `survival_eu-2` | `proxy.votifier.vote.survival_eu-2` |
 
-Names containing spaces, colons, slashes, or other invalid characters fail startup rather than silently resolving to another stream.
+Names containing spaces, colons, slashes, or other invalid characters fail startup.
 
 ## Proxy mapping
 
-ProxyFeatures must list this exact Velocity server name:
+ProxyFeatures must list the exact Velocity server name:
 
 ```yaml
 Votifier:
@@ -66,28 +62,26 @@ Votifier:
       stream_pattern: "{channel}.{server}"
 ```
 
-Both sides must use the same base channel and stream pattern. ProxyFeatures verifies the configured name exists in Velocity; ServerFeatures verifies its local identity follows the same identifier contract.
+Both sides must use the same base channel and stream pattern. ProxyFeatures verifies that each configured target exists in Velocity; ServerFeatures verifies that its local identity follows the same identifier contract.
 
-## Redis provider and startup
+## Startup
 
 Initialization:
 
 1. initializes feature DataProvider resources;
 2. registers Redis messaging provider key `redis`, connection `hauntedmc`;
-3. fails initialization when Redis is unavailable;
+3. fails when Redis is unavailable;
 4. validates channel, pattern, global server identity, and consumer group;
 5. derives the private stream;
 6. creates `EventBusHandler`;
 7. starts one durable subscription;
 8. logs backend identity, stream, and group.
 
-A successful startup logs a line similar to:
+A successful startup logs:
 
 ```text
 Votifier backend="survival", stream="proxy.votifier.vote.survival", consumer_group="serverfeatures.votifier.survival".
 ```
-
-There is no optional-Redis state and no alternative event source.
 
 ## Consumer identity
 
@@ -99,10 +93,10 @@ serverfeatures.votifier.<lower-case server_name>
 
 An explicit group is normalized by:
 
-1. trim and lower-case;
-2. replace characters outside `[a-z0-9_.:-]` with `_`;
-3. collapse repeated underscores;
-4. truncate to 150 characters.
+1. trimming and lower-casing;
+2. replacing characters outside `[a-z0-9_.:-]` with `_`;
+3. collapsing repeated underscores;
+4. truncating to 150 characters.
 
 Every feature instance uses a unique consumer name:
 
@@ -110,7 +104,7 @@ Every feature instance uses a unique consumer name:
 <consumer-group>.<random UUID>
 ```
 
-Because every backend has a private stream, the group identifies only consumers for that backend. Cross-backend fan-out is performed by ProxyFeatures creating one durable event per private stream, not by sharing a stream among multiple groups.
+Each backend has its own stream. ProxyFeatures performs fan-out by creating one durable event per configured backend stream.
 
 ## Wire contract
 
@@ -129,9 +123,9 @@ Each delivery provides:
 - vote timestamp;
 - immutable durable processing key.
 
-Null service or username is structurally invalid. Such a delivery is logged and acknowledged so it cannot poison the pending queue indefinitely. A null address becomes `-` for the native payload.
+Null service or username is structurally invalid. Such a delivery is logged and acknowledged so it cannot poison the pending queue indefinitely. A null address becomes `-`.
 
-Blank or semantically invalid values are handled by downstream business validation, primarily VoteReward.
+The processing key is mandatory. `VotePayload` rejects a null or blank key instead of deriving a replacement.
 
 ## Dispatch and acknowledgement ordering
 
@@ -171,18 +165,13 @@ private Redis stream
 → Redis acknowledgement
 ```
 
-The event is not cancellable. A listener should:
-
-- complete successfully when the vote is terminally accepted or rejected and should be consumed;
-- complete exceptionally when processing must remain pending for retry.
-
-There is no external Votifier event bridge or ThreadLocal dispatch tracker.
+The event is not cancellable. A listener should complete successfully when a vote is terminally accepted or rejected, and exceptionally when processing must remain pending for retry.
 
 ## Processing identity
 
-The durable envelope processing key is the authoritative idempotency key. ProxyFeatures keeps this key unchanged across retries, proxy restarts, and fresh-timestamp replays.
+The durable envelope processing key is the authoritative idempotency key. ProxyFeatures keeps this key unchanged across Redis retries, proxy restarts, backend downtime, and fresh-timestamp replay.
 
-`VotePayload` can derive a deterministic fallback key only when constructed without one, but Redis deliveries always provide the durable key. Downstream processing must not use the replay timestamp as the duplicate key.
+Downstream processing must use this key rather than the payload timestamp. A vote without a durable processing key is invalid.
 
 ## Thread model
 
@@ -191,21 +180,20 @@ The durable envelope processing key is the authoritative idempotency key. ProxyF
 - Listener work: listener-defined; asynchronous work must be tracked.
 - Completion and acknowledgement: completion-stage context.
 
-No reflection or external plugin availability check occurs.
-
 ## Failure behavior
 
 | Failure | Acknowledged? | Result |
 |---|---|---|
 | Null service or username | Yes | Invalid delivery is discarded. |
+| Missing processing key | No | Payload construction fails and delivery remains pending. |
 | Main-thread scheduling failure | No | Logged and left pending. |
 | Native event dispatch throws | No | Logged and left pending. |
 | Tracked processing fails | No | Logged and left pending. |
 | No listener tracks work | Yes | Synchronous event dispatch is terminal. |
 | Ack future fails | Not confirmed | Logged; provider may redeliver. |
-| Consumer completion fails unexpectedly | — | Severe log; feature does not switch transport. |
+| Consumer completion fails unexpectedly | — | Severe log. |
 
-A structurally valid event whose listener consistently fails can remain pending according to DataProvider's durable recovery behavior. The feature does not dead-letter messages itself.
+A structurally valid event whose listener consistently fails remains pending according to DataProvider's durable recovery behavior. The feature does not dead-letter messages itself.
 
 ## Shutdown
 
@@ -222,13 +210,9 @@ Already-dispatched business stages are not synchronously awaited after subscript
 
 ## Security boundary
 
-This backend feature trusts records already present in its private Redis stream. It performs no public vote-site signature, token, or IP validation.
+This backend feature trusts records already present in its private Redis stream. ProxyFeatures owns vote ingress authentication and target selection. Redis access must remain restricted to trusted network components.
 
-ProxyFeatures owns vote ingress authentication and target selection. Redis access must remain restricted to trusted network components.
-
-## Required integration with VoteReward
-
-VoteReward now has one ingress source and requires this feature to be enabled:
+## VoteReward integration
 
 ```yaml
 Votifier:
@@ -238,7 +222,7 @@ VoteReward:
   enabled: true
 ```
 
-There is no `vote_source` key and no external Votifier listener.
+VoteReward listens to the native tracked event and requires Votifier to be enabled.
 
 ## Verification checklist
 
@@ -252,12 +236,12 @@ There is no `vote_source` key and no external Votifier listener.
 8. Stop the backend, submit a vote, restore it, and verify ProxyFeatures replay.
 9. Confirm replay has a fresh timestamp but unchanged processing key.
 10. Disable during an in-flight delivery and verify clean subscription closure and safe redelivery.
-11. Verify invalid server identity, channel, pattern, or Redis availability prevents startup.
+11. Verify invalid server identity, channel, pattern, key, or Redis availability prevents successful processing.
 
 ## Source map
 
 - Configuration, identity, provider, and subscription startup: `features/votifier/Votifier.java`
 - Durable dispatch, acknowledgement, and shutdown: `features/votifier/internal/EventBusHandler.java`
 - Native tracked completion contract: `features/votifier/event/VoteEvent.java`
-- Payload and fallback key: `features/votifier/event/VotePayload.java`
+- Strict durable payload: `features/votifier/event/VotePayload.java`
 - Shared wire contract: ProxyFeatures contracts `VoteMessage`
