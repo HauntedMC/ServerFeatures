@@ -28,17 +28,16 @@ public final class SpawnerPositionIndex {
         }
         for (SpawnerKey spawner : stored) {
             if (spawner != null) {
-                add(spawner);
+                addInternal(spawner);
             }
         }
     }
 
     public boolean add(SpawnerKey spawner) {
-        if (!positions.add(spawner)) {
+        if (PendingSpawnerPlacements.contains(spawner)) {
             return false;
         }
-        byChunk.computeIfAbsent(spawner.chunkKey(), ignored -> new LinkedHashSet<>()).add(spawner);
-        return true;
+        return addInternal(spawner);
     }
 
     public boolean remove(SpawnerKey spawner) {
@@ -107,5 +106,13 @@ public final class SpawnerPositionIndex {
     public void clear() {
         positions.clear();
         byChunk.clear();
+    }
+
+    private boolean addInternal(SpawnerKey spawner) {
+        if (!positions.add(spawner)) {
+            return false;
+        }
+        byChunk.computeIfAbsent(spawner.chunkKey(), ignored -> new LinkedHashSet<>()).add(spawner);
+        return true;
     }
 }
