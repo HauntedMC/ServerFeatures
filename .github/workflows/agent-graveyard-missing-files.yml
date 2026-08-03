@@ -23,7 +23,7 @@ jobs:
           git config user.name "OpenAI Agent"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           actual="$(sha256sum .agent/graveyard-missing-files.patch.gz.b64 | cut -d' ' -f1)"
-          test "$actual" = "b1f674cb43fbeb4c70fcb82ac4f0fc8332eb27e8017f4ea116a54b85d0a66abc"
+          test "$actual" = "0f0ec8a89b14f88813cda8fc79605f91910d0e01294cdbbbe10862d8411f5a47"
           base64 --decode .agent/graveyard-missing-files.patch.gz.b64 | gzip --decompress > /tmp/graveyard-missing-files.patch
           git apply --binary /tmp/graveyard-missing-files.patch
           rm -f .agent/graveyard-missing-files.patch.gz.b64
