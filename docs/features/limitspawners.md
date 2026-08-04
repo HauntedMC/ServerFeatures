@@ -1,6 +1,6 @@
 # LimitSpawners
 
-> Paper · feature name `LimitSpawners` · version `3.0.0` · disabled by default
+> Paper · feature name `LimitSpawners` · version `3.0.1` · disabled by default
 
 LimitSpawners is a performance controller for block-spawner farms. It limits active descendants per
 exact source spawner, shares a stronger cap across nearby sources, enforces world/server ceilings,
@@ -18,11 +18,39 @@ enabled: false
 farm_radius: 32
 block_spawner_minecarts: true
 
+spawner_safety:
+  enabled: true
+  max_spawn_count: 4
+  minimum_spawn_delay_ticks: 200
+  max_required_player_range: 16
+  max_spawn_range: 4
+  max_nearby_entities: 100
+
+placement_control:
+  enabled: true
+  default_limit: 2
+  hard_limit: 25
+  bypass_soft_limit_permission: serverfeatures.feature.limitspawners.placement.bypass
+  bypass_hard_limit_permission: serverfeatures.feature.limitspawners.placement.hardbypass
+  tiers:
+    tier_1:
+      permission: serverfeatures.feature.limitspawners.placement.elite
+      limit: 5
+    tier_2:
+      permission: serverfeatures.feature.limitspawners.placement.legend
+      limit: 15
+    tier_3:
+      permission: serverfeatures.feature.limitspawners.placement.supreme
+      limit: 25
+
+position_index:
+  save_debounce_ticks: 20
+
 mob_control:
   per_spawner_limit: 4
-  per_area_limit: 16
-  per_world_limit: 256
-  server_limit: 512
+  per_area_limit: 100
+  per_world_limit: 1024
+  server_limit: 2048
   blocked_retry_delay_ticks: 200
   maintenance_interval_ticks: 100
   outside_radius_grace_seconds: 30
@@ -30,37 +58,6 @@ mob_control:
   maximum_lifetime_seconds: 0
   type_overrides: {}
   # MAGMA_CUBE: 2
-
-placement_control:
-  enabled: true
-  default_limit: 2
-  hard_limit: 6
-  bypass_soft_limit_permission: serverfeatures.feature.limitspawners.placement.bypass
-  bypass_hard_limit_permission: serverfeatures.feature.limitspawners.placement.hardbypass
-  tiers:
-    tier_1:
-      permission: serverfeatures.feature.limitspawners.placement.tier1
-      limit: 3
-    tier_2:
-      permission: serverfeatures.feature.limitspawners.placement.tier2
-      limit: 4
-    tier_3:
-      permission: serverfeatures.feature.limitspawners.placement.tier3
-      limit: 5
-    tier_4:
-      permission: serverfeatures.feature.limitspawners.placement.tier4
-      limit: 6
-
-spawner_safety:
-  enabled: true
-  max_spawn_count: 4
-  minimum_spawn_delay_ticks: 200
-  max_required_player_range: 16
-  max_spawn_range: 4
-  max_nearby_entities: 6
-
-position_index:
-  save_debounce_ticks: 20
 ```
 
 There is no compatibility parser for earlier LimitSpawners schemas. Invalid or missing values receive
