@@ -88,8 +88,8 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 | `storage.payload.maximum_entries` | `64` | Defensive payload item-entry limit. |
 | `storage.payload.maximum_item_bytes` | `2097152` | Maximum serialized bytes for one item entry. |
 | `storage.payload.maximum_total_bytes` | `8388608` | Maximum encoded payload size. |
-| `storage.retention.expired` | `1h` | Maximum support window for expired payloads before cleanup. |
-| `storage.retention.claimed` | `1h` | Maximum retention for claimed or administratively completed records before cleanup. |
+| `storage.retention.expired` | `1h` | Maximum support window for expired payloads before cleanup. Values above one hour are capped. |
+| `storage.retention.claimed` | `1h` | Maximum retention for claimed or administratively completed records. Values above one hour are capped. |
 | `storage.retention.purge_interval` | `10m` | Interval between bounded retention sweeps; minimum one minute. |
 | `storage.retention.purge_batch_size` | `100` | Maximum records removed per transaction. |
 | `lifetime.duration` | `10m` | Grave lifetime measured by the plugin active-server clock, not wall time. |
@@ -120,7 +120,7 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 
 Durations accept positive raw milliseconds or `ms`, `s`, `m`, `h` and `d` suffixes. Invalid or non-positive values fall back to the defaults above.
 
-Generated defaults apply to new or missing keys. An existing configuration that explicitly contains the old duration values remains authoritative until those values are changed to `10m`, `1h` and `1h`.
+Generated defaults apply to new or missing keys. An existing explicit `lifetime.duration` remains authoritative until it is changed to `10m`. Claimed and expired retention are capped at `1h` even when an existing configuration contains a larger value.
 
 ## Rendering and timer lifecycle
 
