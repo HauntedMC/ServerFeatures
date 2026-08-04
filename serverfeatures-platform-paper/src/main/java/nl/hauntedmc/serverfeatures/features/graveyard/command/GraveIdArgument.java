@@ -2,17 +2,19 @@ package nl.hauntedmc.serverfeatures.features.graveyard.command;
 
 import com.mojang.brigadier.StringReader;
 import com.mojang.brigadier.arguments.ArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-
-import java.util.Collection;
-import java.util.List;
+import io.papermc.paper.command.brigadier.argument.CustomArgumentType;
 
 /**
  * Parses one non-whitespace grave identifier while allowing timestamp separators such as colons.
+ *
+ * <p>The native single-word argument is synchronized to clients, while this wrapper performs the
+ * more permissive server-side parsing required by friendly grave identifiers.</p>
  */
-final class GraveIdArgument implements ArgumentType<String> {
+final class GraveIdArgument implements CustomArgumentType<String, String> {
     private static final SimpleCommandExceptionType EXPECTED_IDENTIFIER =
             new SimpleCommandExceptionType(() -> "Expected grave identifier");
 
@@ -40,7 +42,7 @@ final class GraveIdArgument implements ArgumentType<String> {
     }
 
     @Override
-    public Collection<String> getExamples() {
-        return List.of("RemyMine-10:27:15");
+    public ArgumentType<String> getNativeType() {
+        return StringArgumentType.word();
     }
 }

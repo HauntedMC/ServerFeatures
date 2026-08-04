@@ -1,10 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.graveyard.command;
 
 import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GraveIdArgumentTest {
@@ -22,5 +24,10 @@ class GraveIdArgumentTest {
                 CommandSyntaxException.class,
                 () -> GraveIdArgument.graveId().parse(new StringReader(""))
         );
+    }
+
+    @Test
+    void exposesNativeArgumentForClientSynchronization() {
+        assertInstanceOf(StringArgumentType.class, GraveIdArgument.graveId().getNativeType());
     }
 }
