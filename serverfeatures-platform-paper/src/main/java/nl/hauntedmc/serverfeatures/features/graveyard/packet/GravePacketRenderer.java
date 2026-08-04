@@ -13,10 +13,12 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.features.graveyard.config.GraveyardSettings;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -46,30 +48,44 @@ public final class GravePacketRenderer {
         Component title = Component.text(grave.ownerName() + "'s Grave", NamedTextColor.GRAY);
 
         try {
-            sendSpawn(viewer, identity.baseEntityId(), identity.baseEntityUuid(), EntityTypes.BLOCK_DISPLAY, packetLocation);
-            sendMetadata(viewer, identity.baseEntityId(), metadataFactory.block(
+            spawnBlock(
+                    viewer,
+                    identity.baseEntityId(),
+                    identity.baseEntityUuid(),
+                    packetLocation,
                     world,
                     settings.baseMaterial(),
-                    new com.github.retrooper.packetevents.util.Vector3f(-0.75f, 0.0f, -0.45f),
-                    new com.github.retrooper.packetevents.util.Vector3f(1.5f, 0.5f, 0.9f),
+                    GraveVisualLayout.BASE,
                     glowRgb
-            ));
-            sendSpawn(
+            );
+            spawnBlock(
                     viewer,
                     identity.headstoneEntityId(),
                     identity.headstoneEntityUuid(),
-                    EntityTypes.BLOCK_DISPLAY,
-                    packetLocation
-            );
-            sendMetadata(viewer, identity.headstoneEntityId(), metadataFactory.block(
+                    packetLocation,
                     world,
                     settings.headstoneMaterial(),
-                    new com.github.retrooper.packetevents.util.Vector3f(-0.25f, 0.15f, 0.25f),
-                    new com.github.retrooper.packetevents.util.Vector3f(0.5f, 1.1f, 0.25f),
+                    GraveVisualLayout.HEADSTONE_STEM,
+                    glowRgb
+            );
+            spawnBlock(
+                    viewer,
+                    identity.crossbarEntityId(),
+                    identity.crossbarEntityUuid(),
+                    packetLocation,
+                    world,
+                    settings.headstoneMaterial(),
+                    GraveVisualLayout.HEADSTONE_CROSSBAR,
+                    glowRgb
+            );
+            sendSpawn(viewer, identity.textEntityId(), identity.textEntityUuid(), EntityTypes.TEXT_DISPLAY, packetLocation);
+            sendMetadata(viewer, identity.textEntityId(), metadataFactory.text(
+                    world,
+                    title,
+                    timer,
+                    GraveVisualLayout.TEXT_OFFSET_Y,
                     glowRgb
             ));
-            sendSpawn(viewer, identity.textEntityId(), identity.textEntityUuid(), EntityTypes.TEXT_DISPLAY, packetLocation);
-            sendMetadata(viewer, identity.textEntityId(), metadataFactory.text(world, title, timer, glowRgb));
             sendSpawn(
                     viewer,
                     identity.interactionEntityId(),
@@ -80,7 +96,11 @@ public final class GravePacketRenderer {
             sendMetadata(
                     viewer,
                     identity.interactionEntityId(),
-                    metadataFactory.interaction(world, 1.6f, 1.4f)
+                    metadataFactory.interaction(
+                            world,
+                            GraveVisualLayout.INTERACTION_WIDTH,
+                            GraveVisualLayout.INTERACTION_HEIGHT
+                    )
             );
         } catch (RuntimeException exception) {
             try {
@@ -122,10 +142,30 @@ public final class GravePacketRenderer {
         }
     }
 
+    private void spawnBlock(
+            Player viewer,
+            int entityId,
+            UUID entityUuid,
+            Location packetLocation,
+            World world,
+            Material material,
+            GraveVisualLayout.Part part,
+            int glowRgb
+    ) {
+        sendSpawn(viewer, entityId, entityUuid, EntityTypes.BLOCK_DISPLAY, packetLocation);
+        sendMetadata(viewer, entityId, metadataFactory.block(
+                world,
+                material,
+                part.translation(),
+                part.scale(),
+                glowRgb
+        ));
+    }
+
     private void sendSpawn(
             Player viewer,
             int entityId,
-            java.util.UUID entityUuid,
+            UUID entityUuid,
             EntityType entityType,
             Location location
     ) {
