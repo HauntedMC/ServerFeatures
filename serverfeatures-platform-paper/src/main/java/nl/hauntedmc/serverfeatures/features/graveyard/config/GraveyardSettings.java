@@ -15,11 +15,11 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class GraveyardSettings {
-    private static final long DEFAULT_LIFETIME_MILLIS = 1_800_000L;
+    private static final long DEFAULT_LIFETIME_MILLIS = 600_000L;
     private static final long DEFAULT_LEASE_MILLIS = 20_000L;
     private static final long DEFAULT_LEASE_HEARTBEAT_MILLIS = 5_000L;
-    private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 7L * 24L * 60L * 60L * 1_000L;
-    private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 24L * 60L * 60L * 1_000L;
+    private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 60L * 60L * 1_000L;
+    private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 60L * 60L * 1_000L;
     private static final long DEFAULT_PURGE_INTERVAL_MILLIS = 10L * 60L * 1_000L;
 
     private final GraveyardMode mode;
