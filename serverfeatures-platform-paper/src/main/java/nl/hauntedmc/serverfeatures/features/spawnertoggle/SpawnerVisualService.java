@@ -33,9 +33,11 @@ public final class SpawnerVisualService {
     public void refresh(Player viewer, CreatureSpawner spawner) {
         Objects.requireNonNull(viewer, "viewer");
         Objects.requireNonNull(spawner, "spawner");
+        Chunk chunk = spawner.getChunk();
         if (!viewer.isOnline()
+                || !chunk.isLoaded()
                 || !viewer.getWorld().equals(spawner.getWorld())
-                || !viewer.isChunkSent(spawner.getChunk())) {
+                || !viewer.isChunkSent(chunk)) {
             return;
         }
 
@@ -53,6 +55,7 @@ public final class SpawnerVisualService {
         Objects.requireNonNull(viewer, "viewer");
         Objects.requireNonNull(chunk, "chunk");
         if (!viewer.isOnline()
+                || !chunk.isLoaded()
                 || !viewer.getWorld().equals(chunk.getWorld())
                 || !viewer.isChunkSent(chunk)) {
             return;
@@ -68,10 +71,14 @@ public final class SpawnerVisualService {
     public void restoreActual(CreatureSpawner spawner) {
         Objects.requireNonNull(spawner, "spawner");
         World world = spawner.getWorld();
+        Chunk chunk = spawner.getChunk();
+        if (!chunk.isLoaded()) {
+            return;
+        }
         for (Player viewer : world.getPlayers()) {
             if (viewer.isOnline()
                     && viewer.getWorld().equals(world)
-                    && viewer.isChunkSent(spawner.getChunk())) {
+                    && viewer.isChunkSent(chunk)) {
                 viewer.sendBlockUpdate(spawner.getLocation(), spawner);
             }
         }
