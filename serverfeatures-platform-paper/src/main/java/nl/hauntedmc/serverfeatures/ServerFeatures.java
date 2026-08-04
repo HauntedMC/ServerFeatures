@@ -18,6 +18,7 @@ import nl.hauntedmc.serverfeatures.framework.listener.PreviewUIListener;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.framework.time.ServerActiveClock;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -32,6 +33,7 @@ public class ServerFeatures extends JavaPlugin {
     private ConfigService configService;
     private FeatureLifecycleFactory featureLifecycleFactory;
     private FeatureScopeFactory featureScopeFactory;
+    private ServerActiveClock serverActiveClock;
 
     // Keep if other parts of your framework still use dispatcher (features registering their own brig nodes).
     private BrigadierDispatcher brigadierDispatcher;
@@ -53,6 +55,8 @@ public class ServerFeatures extends JavaPlugin {
                 localizationHandler,
                 featureLifecycleFactory
         );
+        serverActiveClock = new ServerActiveClock(this);
+        serverActiveClock.start();
         featureLoadManager = FeatureLoadManager.create(this);
 
         // Optional: if your feature system still needs direct dispatcher access elsewhere
@@ -92,6 +96,10 @@ public class ServerFeatures extends JavaPlugin {
         ((PaperActionBarAPI) ActionBars.service()).shutdown();
         ActionBars.shutdown();
 
+        if (serverActiveClock != null) {
+            serverActiveClock.close();
+        }
+
         getLogger().info("ServerFeatures is shutting down...");
     }
 
@@ -129,6 +137,10 @@ public class ServerFeatures extends JavaPlugin {
 
     public BrigadierDispatcher getBrigadierDispatcher() {
         return brigadierDispatcher;
+    }
+
+    public ServerActiveClock getServerActiveClock() {
+        return serverActiveClock;
     }
 
     public Optional<DataRegistryApi> getDataRegistry() {
