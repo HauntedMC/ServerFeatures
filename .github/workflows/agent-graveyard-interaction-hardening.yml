@@ -1,0 +1,57 @@
+name: Agent Graveyard interaction hardening
+
+on:
+  push:
+    branches:
+      - agent/graveyard-feature
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/graveyard-feature
+          fetch-depth: 0
+      - name: Tighten interaction identity and documentation
+        run: |
+          set -euo pipefail
+          git config user.name "OpenAI Agent"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 - <<'PY'
+          from pathlib import Path
+
+          manager_path = Path("serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/runtime/GraveManager.java")
+          manager = manager_path.read_text()
+          old = """                || state == null
+                || !state.spawned()
+"""
+          new = """                || state == null
+                || identity.interactionEntityId() != entityId
+                || !state.spawned()
+"""
+          if manager.count(old) != 1:
+              raise SystemExit("Unexpected GraveManager interaction guard")
+          manager_path.write_text(manager.replace(old, new, 1))
+
+          docs_path = Path("docs/features/graveyard.md")
+          docs = docs_path.read_text()
+          old_flow = "6. The owner right-clicks the virtual interaction entity. Items restore to preferred slots where safe, merge into compatible stacks, then use empty slots. Nothing is overwritten or dropped."
+          new_flow = "6. The owner right- or left-clicks the virtual interaction entity. Items restore to preferred slots where safe, merge into compatible stacks, then use empty slots. Nothing is overwritten or dropped."
+          if docs.count(old_flow) != 1:
+              raise SystemExit("Unexpected Graveyard player-flow documentation")
+          docs = docs.replace(old_flow, new_flow, 1)
+
+          old_contract = "The interaction packet listener consumes only IDs in Graveyard's active interaction index and schedules all Bukkit validation on the main thread. It rechecks connection state, generated identity, world, server-side distance, line of sight, claim state, inventory scope, ownership/staff permission, and operation reservation. Attack actions are ignored."
+          new_contract = "The interaction packet listener consumes only IDs in Graveyard's active interaction index and schedules all Bukkit validation on the main thread. It rechecks connection state, the exact current-generation hitbox ID, generated identity, world, server-side distance, line of sight, claim state, inventory scope, ownership/staff permission, and operation reservation. Right-click `INTERACT`/`INTERACT_AT` and left-click `ATTACK` actions are accepted; duplicate packets are serialized by the grave and owner operation locks."
+          if docs.count(old_contract) != 1:
+              raise SystemExit("Unexpected Graveyard interaction-contract documentation")
+          docs_path.write_text(docs.replace(old_contract, new_contract, 1))
+          PY
+          rm -f .github/workflows/agent-graveyard-interaction-hardening.yml
+          git add -A
+          git commit -m "Harden virtual grave interaction validation"
+          git push origin HEAD:agent/graveyard-feature
