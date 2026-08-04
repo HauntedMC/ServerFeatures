@@ -9,6 +9,9 @@ import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
 import org.bukkit.entity.Player;
 
+/**
+ * Converts client interaction packets for virtual grave hitboxes into main-thread claim attempts.
+ */
 public final class GraveInteractionPacketListener extends PacketListenerAbstract {
     private final Graveyard feature;
     private final GraveManager manager;
@@ -29,10 +32,11 @@ public final class GraveInteractionPacketListener extends PacketListenerAbstract
         if (!manager.isInteractionEntity(entityId)) {
             return;
         }
+
+        // Vanilla cannot resolve a packet-only entity. Consume every packet targeting one of our
+        // interaction IDs, then perform all authoritative validation on the Bukkit main thread.
         event.setCancelled(true);
-        WrapperPlayClientInteractEntity.InteractAction action = wrapper.getAction();
-        if (action != WrapperPlayClientInteractEntity.InteractAction.INTERACT
-                && action != WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT) {
+        if (!isClaimInteraction(wrapper.getAction())) {
             return;
         }
         Object rawPlayer = event.getPlayer();
@@ -42,5 +46,11 @@ public final class GraveInteractionPacketListener extends PacketListenerAbstract
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(
                 () -> manager.handleInteraction(player, entityId)
         );
+    }
+
+    static boolean isClaimInteraction(WrapperPlayClientInteractEntity.InteractAction action) {
+        return action == WrapperPlayClientInteractEntity.InteractAction.INTERACT
+                || action == WrapperPlayClientInteractEntity.InteractAction.INTERACT_AT
+                || action == WrapperPlayClientInteractEntity.InteractAction.ATTACK;
     }
 }
