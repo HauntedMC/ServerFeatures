@@ -128,8 +128,8 @@ public final class GraveyardSettings {
                 String.class,
                 List.of("CREATIVE", "SPECTATOR")
         ));
-        baseMaterial = material(feature, "render.base.material", Material.POLISHED_BLACKSTONE_BRICK_SLAB);
-        headstoneMaterial = material(feature, "render.headstone.material", Material.POLISHED_BLACKSTONE_BRICK_WALL);
+        baseMaterial = material(feature, "render.base.material", Material.DARK_OAK_SLAB);
+        headstoneMaterial = material(feature, "render.headstone.material", Material.DARK_OAK_PLANKS);
         claimParticle = particle(feature, "particles.claim.type", Particle.SCULK_SOUL);
         expiryParticle = particle(feature, "particles.expiry.type", Particle.SCULK_SOUL);
         claimSound = sound(feature, "sounds.claim.sound", "block.respawn_anchor.charge", Sound.BLOCK_RESPAWN_ANCHOR_CHARGE);
