@@ -31,41 +31,33 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
         config.put("farm_radius", 32);
         config.put("block_spawner_minecarts", true);
 
-        Map<String, Object> mobControl = new LinkedHashMap<>();
-        mobControl.put("per_spawner_limit", 4);
-        mobControl.put("per_area_limit", 16);
-        mobControl.put("per_world_limit", 256);
-        mobControl.put("server_limit", 512);
-        mobControl.put("blocked_retry_delay_ticks", 200);
-        mobControl.put("maintenance_interval_ticks", 100);
-        mobControl.put("outside_radius_grace_seconds", 30);
-        mobControl.put("inactive_source_grace_seconds", 30);
-        mobControl.put("maximum_lifetime_seconds", 0);
-        mobControl.put("type_overrides", Map.of());
-        config.put("mob_control", mobControl);
+        Map<String, Object> safety = new LinkedHashMap<>();
+        safety.put("enabled", true);
+        safety.put("max_spawn_count", 4);
+        safety.put("minimum_spawn_delay_ticks", 200);
+        safety.put("max_required_player_range", 16);
+        safety.put("max_spawn_range", 4);
+        safety.put("max_nearby_entities", 100);
+        config.put("spawner_safety", safety);
 
         Map<String, Object> tiers = new LinkedHashMap<>();
         tiers.put("tier_1", permissionTier(
-                "serverfeatures.feature.limitspawners.placement.tier1",
-                3
-        ));
-        tiers.put("tier_2", permissionTier(
-                "serverfeatures.feature.limitspawners.placement.tier2",
-                4
-        ));
-        tiers.put("tier_3", permissionTier(
-                "serverfeatures.feature.limitspawners.placement.tier3",
+                "serverfeatures.feature.limitspawners.placement.elite",
                 5
         ));
-        tiers.put("tier_4", permissionTier(
-                "serverfeatures.feature.limitspawners.placement.tier4",
-                6
+        tiers.put("tier_2", permissionTier(
+                "serverfeatures.feature.limitspawners.placement.legend",
+                15
+        ));
+        tiers.put("tier_3", permissionTier(
+                "serverfeatures.feature.limitspawners.placement.supreme",
+                25
         ));
 
         Map<String, Object> placementControl = new LinkedHashMap<>();
         placementControl.put("enabled", true);
         placementControl.put("default_limit", 2);
-        placementControl.put("hard_limit", 6);
+        placementControl.put("hard_limit", 25);
         placementControl.put(
                 "bypass_soft_limit_permission",
                 "serverfeatures.feature.limitspawners.placement.bypass"
@@ -77,16 +69,20 @@ public final class LimitSpawners extends BukkitBaseFeature<Meta> {
         placementControl.put("tiers", tiers);
         config.put("placement_control", placementControl);
 
-        Map<String, Object> safety = new LinkedHashMap<>();
-        safety.put("enabled", true);
-        safety.put("max_spawn_count", 4);
-        safety.put("minimum_spawn_delay_ticks", 200);
-        safety.put("max_required_player_range", 16);
-        safety.put("max_spawn_range", 4);
-        safety.put("max_nearby_entities", 6);
-        config.put("spawner_safety", safety);
-
         config.put("position_index", Map.of("save_debounce_ticks", 20));
+
+        Map<String, Object> mobControl = new LinkedHashMap<>();
+        mobControl.put("per_spawner_limit", 4);
+        mobControl.put("per_area_limit", 100);
+        mobControl.put("per_world_limit", 1024);
+        mobControl.put("server_limit", 2048);
+        mobControl.put("blocked_retry_delay_ticks", 200);
+        mobControl.put("maintenance_interval_ticks", 100);
+        mobControl.put("outside_radius_grace_seconds", 30);
+        mobControl.put("inactive_source_grace_seconds", 30);
+        mobControl.put("maximum_lifetime_seconds", 0);
+        mobControl.put("type_overrides", Map.of());
+        config.put("mob_control", mobControl);
         return config;
     }
 
