@@ -28,6 +28,7 @@ public class VoteHandler {
     private final VoteReward feature;
     private final PlayerIdentityResolver playerResolver;
     private final CacheDirectory playerCacheDirectory;
+    private final Map<String, FileCacheStore> cacheStores = new ConcurrentHashMap<>();
     private final FileCacheStore processedVoteStore;
     private final Set<String> processedVoteKeys = ConcurrentHashMap.newKeySet();
     private final Map<String, CompletableFuture<Void>> voteProcessing = new ConcurrentHashMap<>();
@@ -310,7 +311,8 @@ public class VoteHandler {
     }
 
     private FileCacheStore cacheStore(String key) {
-        return (FileCacheStore) playerCacheDirectory.getStore(key, CacheType.JSON);
+        return cacheStores.computeIfAbsent(key, cacheKey ->
+                (FileCacheStore) playerCacheDirectory.getStore(cacheKey, CacheType.JSON));
     }
 
     private CompletionStage<Void> markProcessed(String processingKey) {
