@@ -101,6 +101,32 @@ class ServerActiveClockTest {
         assertThrows(IllegalStateException.class, clock::start);
     }
 
+    @Test
+    void closingAnUnstartedClockDoesNotOverwriteAnExistingCheckpoint() throws Exception {
+        Plugin plugin = plugin();
+        BukkitScheduler scheduler = mock(BukkitScheduler.class);
+        BukkitTask task = mock(BukkitTask.class);
+        when(scheduler.runTaskTimerAsynchronously(
+                eq(plugin), any(Runnable.class), eq(100L), eq(100L)
+        )).thenReturn(task);
+        AtomicLong nanos = new AtomicLong(1_000_000_000L);
+
+        try (MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
+            ServerActiveClock writer = new ServerActiveClock(plugin, nanos::get);
+            writer.start();
+            nanos.addAndGet(TimeUnit.SECONDS.toNanos(2L));
+            writer.close();
+
+            new ServerActiveClock(plugin, nanos::get).close();
+
+            ServerActiveClock reader = new ServerActiveClock(plugin, nanos::get);
+            reader.start();
+            assertEquals(2_000L, reader.nowMillis());
+            reader.close();
+        }
+    }
+
     private Plugin plugin() {
         Plugin plugin = mock(Plugin.class);
         when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());

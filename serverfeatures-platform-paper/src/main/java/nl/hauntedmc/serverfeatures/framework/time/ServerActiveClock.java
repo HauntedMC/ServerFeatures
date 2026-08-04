@@ -113,7 +113,10 @@ public final class ServerActiveClock implements AutoCloseable {
                 StandardOpenOption.TRUNCATE_EXISTING,
                 StandardOpenOption.WRITE
         )) {
-            channel.write(ByteBuffer.wrap(bytes));
+            ByteBuffer buffer = ByteBuffer.wrap(bytes);
+            while (buffer.hasRemaining()) {
+                channel.write(buffer);
+            }
             channel.force(true);
         }
         try {
