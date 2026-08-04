@@ -11,18 +11,9 @@ import com.github.retrooper.packetevents.util.Vector3f;
  * from drifting apart when the design changes.</p>
  */
 final class GraveVisualLayout {
-    static final Part BASE = new Part(
-            new Vector3f(-0.55f, 0.0f, -1.10f),
-            new Vector3f(1.10f, 0.55f, 2.20f)
-    );
-    static final Part HEADSTONE_STEM = new Part(
-            new Vector3f(-0.16f, 0.18f, 0.72f),
-            new Vector3f(0.32f, 1.70f, 0.28f)
-    );
-    static final Part HEADSTONE_CROSSBAR = new Part(
-            new Vector3f(-0.58f, 1.24f, 0.72f),
-            new Vector3f(1.16f, 0.30f, 0.28f)
-    );
+    static final Part BASE = new Part(-0.55f, 0.0f, -1.10f, 1.10f, 0.55f, 2.20f);
+    static final Part HEADSTONE_STEM = new Part(-0.16f, 0.18f, 0.72f, 0.32f, 1.70f, 0.28f);
+    static final Part HEADSTONE_CROSSBAR = new Part(-0.58f, 1.24f, 0.72f, 1.16f, 0.30f, 0.28f);
 
     static final float TEXT_OFFSET_Y = 2.18f;
     static final float INTERACTION_WIDTH = 2.35f;
@@ -31,28 +22,34 @@ final class GraveVisualLayout {
     private GraveVisualLayout() {
     }
 
-    record Part(Vector3f translation, Vector3f scale) {
+    record Part(float x, float y, float z, float width, float height, float depth) {
         Part {
-            if (translation == null || scale == null) {
-                throw new IllegalArgumentException("Grave visual vectors must not be null");
+            if (!Float.isFinite(x) || !Float.isFinite(y) || !Float.isFinite(z)) {
+                throw new IllegalArgumentException("Grave visual translation must be finite");
             }
-            if (!positiveFinite(scale.getX())
-                    || !positiveFinite(scale.getY())
-                    || !positiveFinite(scale.getZ())) {
-                throw new IllegalArgumentException("Grave visual scale must be positive and finite");
+            if (!positiveFinite(width) || !positiveFinite(height) || !positiveFinite(depth)) {
+                throw new IllegalArgumentException("Grave visual dimensions must be positive and finite");
             }
+        }
+
+        Vector3f translation() {
+            return new Vector3f(x, y, z);
+        }
+
+        Vector3f scale() {
+            return new Vector3f(width, height, depth);
         }
 
         float maximumX() {
-            return translation.getX() + scale.getX();
+            return x + width;
         }
 
         float maximumY() {
-            return translation.getY() + scale.getY();
+            return y + height;
         }
 
         float maximumZ() {
-            return translation.getZ() + scale.getZ();
+            return z + depth;
         }
 
         private static boolean positiveFinite(float value) {
