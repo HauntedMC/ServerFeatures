@@ -1,6 +1,6 @@
 # ServerFeatures Feature Reference
 
-This directory documents all **58** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
+This directory documents all **59** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
 
 ## How to use these pages
 
@@ -75,6 +75,7 @@ This directory documents all **58** feature modules currently present in ServerF
 - [VoteReward](votereward.md) — Consumes vote events or queued vote state and grants configured rewards, including delayed delivery on join.
 - [ChatLog](chatlog.md) — Persists local chat messages and provides a report workflow for moderation review.
 - [PlayerCount](playercount.md) — Receives validated, versioned PlayerCount snapshots from ProxyFeatures and exposes local APIs and PlaceholderAPI values without Redis access on placeholder reads.
+- [Capacity](capacity.md) — Receives validated authoritative Capacity snapshots and exposes network, gameplay, group and exact-server PlaceholderAPI values without I/O on placeholder reads.
 - [CommandRelay](commandrelay.md) — Relays allowlisted commands between Paper servers/proxy components with authentication, replay protection, result handling, and database audit logging.
 - [CommandLogger](commandlogger.md) — Records commands executed on the Paper server for audit and moderation purposes.
 - [LagMonitor](lagmonitor.md) — Monitors server performance indicators and surfaces configured lag warnings or diagnostics.
