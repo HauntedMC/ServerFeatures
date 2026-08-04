@@ -1,9 +1,9 @@
 name: Agent Graveyard interaction hardening
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/graveyard-feature
+      - main
 
 permissions:
   contents: write
