@@ -83,15 +83,13 @@ public final class GraveyardSettings {
                 Math.max(1_000L, leaseDurationMillis / 2L),
                 duration(feature, "identity.lease_heartbeat", DEFAULT_LEASE_HEARTBEAT_MILLIS)
         ));
-        expiredRetentionMillis = duration(
-                feature,
-                "storage.retention.expired",
-                DEFAULT_EXPIRED_RETENTION_MILLIS
+        expiredRetentionMillis = Math.min(
+                DEFAULT_EXPIRED_RETENTION_MILLIS,
+                duration(feature, "storage.retention.expired", DEFAULT_EXPIRED_RETENTION_MILLIS)
         );
-        claimedRetentionMillis = duration(
-                feature,
-                "storage.retention.claimed",
-                DEFAULT_CLAIMED_RETENTION_MILLIS
+        claimedRetentionMillis = Math.min(
+                DEFAULT_CLAIMED_RETENTION_MILLIS,
+                duration(feature, "storage.retention.claimed", DEFAULT_CLAIMED_RETENTION_MILLIS)
         );
         purgeIntervalMillis = Math.max(60_000L, duration(
                 feature,
