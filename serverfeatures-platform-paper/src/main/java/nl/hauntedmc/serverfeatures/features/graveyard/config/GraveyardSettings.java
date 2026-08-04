@@ -32,6 +32,7 @@ public final class GraveyardSettings {
     private final long claimedRetentionMillis;
     private final long purgeIntervalMillis;
     private final int purgeBatchSize;
+    private final ExperienceRecoveryMode experienceMode;
     private final int experiencePercentage;
     private final int horizontalSearchRadius;
     private final int verticalSearchBelow;
@@ -101,7 +102,17 @@ public final class GraveyardSettings {
                 1,
                 1_000
         );
-        experiencePercentage = clamp(feature.getConfigHandler().get("experience.recovery_percentage", Integer.class, 50), 0, 100);
+        experienceMode = enumSetting(
+                feature,
+                "experience.mode",
+                ExperienceRecoveryMode.class,
+                ExperienceRecoveryMode.NATIVE
+        );
+        experiencePercentage = clamp(
+                feature.getConfigHandler().get("experience.recovery_percentage", Integer.class, 50),
+                0,
+                100
+        );
         horizontalSearchRadius = clamp(feature.getConfigHandler().get("placement.horizontal_search_radius", Integer.class, 8), 0, 32);
         verticalSearchBelow = clamp(feature.getConfigHandler().get("placement.vertical_search_below", Integer.class, 4), 0, 16);
         verticalSearchAbove = clamp(feature.getConfigHandler().get("placement.vertical_search_above", Integer.class, 6), 0, 16);
@@ -151,6 +162,7 @@ public final class GraveyardSettings {
     public long claimedRetentionMillis() { return claimedRetentionMillis; }
     public long purgeIntervalMillis() { return purgeIntervalMillis; }
     public int purgeBatchSize() { return purgeBatchSize; }
+    public ExperienceRecoveryMode experienceMode() { return experienceMode; }
     public int experiencePercentage() { return experiencePercentage; }
     public int horizontalSearchRadius() { return horizontalSearchRadius; }
     public int verticalSearchBelow() { return verticalSearchBelow; }
