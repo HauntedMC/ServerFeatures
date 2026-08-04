@@ -59,11 +59,6 @@ public final class GraveCommand implements BrigadierCommand {
     }
 
     @Override
-    public List<String> aliases() {
-        return List.of("graves");
-    }
-
-    @Override
     public String description() {
         return "Find and recover virtual death graves.";
     }
@@ -82,14 +77,14 @@ public final class GraveCommand implements BrigadierCommand {
                 .requires(source -> source.getSender().hasPermission(P_INFO))
                 .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> showInfo(
                         context.getSource().getSender(),
-                        StringArgumentType.getString(context, "grave_id")
+                        GraveIdArgument.get(context, "grave_id")
                 ))));
 
         root.then(Commands.literal("locate")
                 .requires(source -> source.getSender().hasPermission(P_LOCATE))
                 .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> locate(
                         context.getSource().getSender(),
-                        StringArgumentType.getString(context, "grave_id")
+                        GraveIdArgument.get(context, "grave_id")
                 ))));
 
         root.then(Commands.literal("track")
@@ -99,14 +94,14 @@ public final class GraveCommand implements BrigadierCommand {
                 )))
                 .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> track(
                         context.getSource().getSender(),
-                        StringArgumentType.getString(context, "grave_id")
+                        GraveIdArgument.get(context, "grave_id")
                 ))));
 
         root.then(Commands.literal("claim")
                 .requires(source -> source.getSender().hasPermission(P_REMOTE_CLAIM))
                 .then(graveArgument(SuggestionScope.OWNER_ACTIVE).executes(context -> claimRemote(
                         context.getSource().getSender(),
-                        StringArgumentType.getString(context, "grave_id")
+                        GraveIdArgument.get(context, "grave_id")
                 ))));
 
         root.then(adminTree());
@@ -130,38 +125,38 @@ public final class GraveCommand implements BrigadierCommand {
                         .requires(source -> hasPermission(source.getSender(), P_INSPECT))
                         .then(graveArgument(SuggestionScope.ADMIN_INSPECTABLE).executes(context -> showInfo(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id")
+                                GraveIdArgument.get(context, "grave_id")
                         ))))
                 .then(Commands.literal("teleport")
                         .requires(source -> hasPermission(source.getSender(), P_TELEPORT))
                         .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> teleport(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id")
+                                GraveIdArgument.get(context, "grave_id")
                         ))))
                 .then(Commands.literal("relocate")
                         .requires(source -> hasPermission(source.getSender(), P_RELOCATE))
                         .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> relocate(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id")
+                                GraveIdArgument.get(context, "grave_id")
                         ))))
                 .then(Commands.literal("deliver")
                         .requires(source -> hasPermission(source.getSender(), P_DELIVER))
                         .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> deliver(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id")
+                                GraveIdArgument.get(context, "grave_id")
                         ))))
                 .then(Commands.literal("expire")
                         .requires(source -> hasPermission(source.getSender(), P_EXPIRE))
                         .then(graveArgument(SuggestionScope.ADMIN_ACTIVE).executes(context -> transition(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id"),
+                                GraveIdArgument.get(context, "grave_id"),
                                 AdminAction.EXPIRE
                         ))))
                 .then(Commands.literal("restore")
                         .requires(source -> hasPermission(source.getSender(), P_RESTORE))
                         .then(graveArgument(SuggestionScope.ADMIN_RESTORABLE).executes(context -> transition(
                                 context.getSource().getSender(),
-                                StringArgumentType.getString(context, "grave_id"),
+                                GraveIdArgument.get(context, "grave_id"),
                                 AdminAction.RESTORE
                         ))))
                 .then(Commands.literal("purge")
@@ -169,7 +164,7 @@ public final class GraveCommand implements BrigadierCommand {
                         .then(graveArgument(SuggestionScope.ADMIN_PURGEABLE)
                                 .then(Commands.literal("confirm").executes(context -> transition(
                                         context.getSource().getSender(),
-                                        StringArgumentType.getString(context, "grave_id"),
+                                        GraveIdArgument.get(context, "grave_id"),
                                         AdminAction.PURGE
                                 )))));
     }
@@ -177,7 +172,7 @@ public final class GraveCommand implements BrigadierCommand {
     private com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, String> graveArgument(
             SuggestionScope scope
     ) {
-        return Commands.argument("grave_id", StringArgumentType.word())
+        return Commands.argument("grave_id", GraveIdArgument.graveId())
                 .suggests((context, builder) -> suggestGraves(context, builder, scope));
     }
 
