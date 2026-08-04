@@ -22,6 +22,19 @@ public final class GraveIdentifier {
         return create(ownerName, createdWallMillis, ZoneId.systemDefault());
     }
 
+    public static String create(String ownerName, String worldName, long createdWallMillis) {
+        return create(ownerName, createdWallMillis);
+    }
+
+    static String create(
+            String ownerName,
+            String worldName,
+            long createdWallMillis,
+            ZoneId zoneId
+    ) {
+        return create(ownerName, createdWallMillis, zoneId);
+    }
+
     static String create(
             String ownerName,
             long createdWallMillis,
