@@ -12,9 +12,9 @@ class GraveVisualLayoutTest {
     void graveBedHasHumanReadableProportionsAndStaysCentered() {
         GraveVisualLayout.Part base = GraveVisualLayout.BASE;
 
-        assertTrue(base.scale().getZ() >= base.scale().getX() * 2.0f);
-        assertEquals(-base.maximumX(), base.translation().getX(), EPSILON);
-        assertEquals(-base.maximumZ(), base.translation().getZ(), EPSILON);
+        assertTrue(base.depth() >= base.width() * 2.0f);
+        assertEquals(-base.maximumX(), base.x(), EPSILON);
+        assertEquals(-base.maximumZ(), base.z(), EPSILON);
     }
 
     @Test
@@ -23,20 +23,20 @@ class GraveVisualLayoutTest {
         GraveVisualLayout.Part stem = GraveVisualLayout.HEADSTONE_STEM;
         GraveVisualLayout.Part crossbar = GraveVisualLayout.HEADSTONE_CROSSBAR;
 
-        assertTrue(stem.scale().getY() >= 1.5f);
-        assertTrue(crossbar.scale().getX() >= stem.scale().getX() * 3.0f);
-        assertTrue(crossbar.translation().getX() < stem.translation().getX());
+        assertTrue(stem.height() >= 1.5f);
+        assertTrue(crossbar.width() >= stem.width() * 3.0f);
+        assertTrue(crossbar.x() < stem.x());
         assertTrue(crossbar.maximumX() > stem.maximumX());
-        assertTrue(crossbar.translation().getY() > stem.translation().getY() + stem.scale().getY() / 2.0f);
+        assertTrue(crossbar.y() > stem.y() + stem.height() / 2.0f);
         assertTrue(crossbar.maximumY() < stem.maximumY());
-        assertTrue(stem.translation().getZ() > 0.0f);
+        assertTrue(stem.z() > 0.0f);
         assertTrue(stem.maximumZ() <= base.maximumZ());
     }
 
     @Test
     void labelAndInteractionBoundsCoverTheCompleteDesign() {
         float memorialTop = GraveVisualLayout.HEADSTONE_STEM.maximumY();
-        float bedLength = GraveVisualLayout.BASE.scale().getZ();
+        float bedLength = GraveVisualLayout.BASE.depth();
 
         assertTrue(GraveVisualLayout.TEXT_OFFSET_Y > memorialTop);
         assertTrue(GraveVisualLayout.INTERACTION_WIDTH > bedLength);
