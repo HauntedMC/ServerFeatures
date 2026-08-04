@@ -20,13 +20,14 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.Player;
 
+import java.util.Objects;
+
 public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
-    private final SpawnerVisualService visualService;
+    private SpawnerVisualService visualService;
 
     public SpawnerToggle(FeatureContext<Meta> context) {
         super(context);
-        this.visualService = new SpawnerVisualService(this::isDisabled);
     }
 
     @Override
@@ -55,6 +56,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        visualService = new SpawnerVisualService(this::isDisabled);
         getLifecycleManager().getListenerManager().registerListener(new SpawnerInteractListener(this));
         getLifecycleManager().getTaskManager().scheduleDelayedTask(
                 this::refreshLoadedVisuals,
@@ -64,7 +66,11 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        restoreLoadedVisuals();
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            restoreLoadedVisuals(service);
+            visualService = null;
+        }
     }
 
     public void toggleSpawner(Player player, Block block) {
@@ -76,7 +82,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         boolean disabled = !SpawnerToggleState.isDisabled(spawner, getPlugin());
         SpawnerToggleState.setDisabled(spawner, getPlugin(), disabled);
         spawner.update(true, false);
-        visualService.refresh(spawner);
+        visualService().refresh(spawner);
 
         Component status = getLocalizationHandler()
                 .getMessage(disabled
@@ -96,7 +102,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     }
 
     public void refreshChunkVisuals(Player viewer, Chunk chunk) {
-        visualService.refreshChunk(viewer, chunk);
+        visualService().refreshChunk(viewer, chunk);
     }
 
     public boolean mayToggle(Player player) {
@@ -117,12 +123,19 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         return Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
     }
 
-    private void refreshLoadedVisuals() {
-        forEachLoadedDisabledSpawner(visualService::refresh);
+    private SpawnerVisualService visualService() {
+        return Objects.requireNonNull(visualService, "SpawnerToggle is not initialized");
     }
 
-    private void restoreLoadedVisuals() {
-        forEachLoadedDisabledSpawner(visualService::restoreActual);
+    private void refreshLoadedVisuals() {
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            forEachLoadedDisabledSpawner(service::refresh);
+        }
+    }
+
+    private void restoreLoadedVisuals(SpawnerVisualService service) {
+        forEachLoadedDisabledSpawner(service::restoreActual);
     }
 
     private void forEachLoadedDisabledSpawner(
