@@ -2,14 +2,14 @@
 
 > Paper · Feature name `Graveyard` · feature package `features.graveyard` · disabled by default
 
-Graveyard replaces physical death chests with durable, packet-only graves. A successful capture transfers the final death-event drops and a configurable share of dropped experience into a checksummed payload. Nearby clients receive virtual block displays, a text display and an invisible interaction entity; no block or Bukkit entity is placed in the world.
+Graveyard replaces physical death chests with durable, packet-only graves. A successful capture transfers the final death-event drops and stores experience according to `experience.mode`: the exact final Minecraft drop by default, or a configurable percentage. Nearby clients receive virtual block displays, a localized text display and an invisible interaction entity; no block or Bukkit entity is placed in the world.
 
 The implementation is fail-safe. Death drops are changed only after a local `PREPARED` journal record has been synchronously forced to disk. Claims use a second journal plus a receipt persisted in playerdata, so a restart between inventory delivery and database finalization cannot deliver the same entries twice.
 
 ## Player flow
 
 1. `PlayerDeathEvent` is snapshotted at `LOWEST` and evaluated at `HIGHEST` after other plugins have adjusted drops, retained items, XP or keep-inventory.
-2. The final drops are matched deterministically back to preferred inventory, armour and offhand slots.
+2. The final drops are matched deterministically back to preferred inventory, armour and offhand slots. Grave XP is calculated from the final `PlayerDeathEvent#getDroppedExp()` value using the configured recovery mode.
 3. A reachable virtual-grave location is selected without loading or generating chunks. A recent safe location is preferred when the death position is hazardous; otherwise the grave becomes remote-only.
 4. The payload and `PREPARED` capture journal are forced to disk. Only then are normal drops suppressed and the intended post-death inventory saved to playerdata.
 5. New graves receive a readable identifier in the exact form `<player>-<HH:mm:ss>`, using the server timezone. The internal UUID remains the durable unique identity.
@@ -45,7 +45,7 @@ Grave identifiers contain colons and are accepted directly without quotes, for e
 | `/grave admin deliver <id>` | `.admin.deliver` | Delivers to the owner or queues durable delivery when the owner is offline. |
 | `/grave admin expire <id>` | `.admin.expire` | Expires a recoverable grave while retaining its payload. |
 | `/grave admin restore <id>` | `.admin.restore` | Restores an expired or orphaned grave with a fresh lifetime. |
-| `/grave admin purge <id> confirm` | `.admin.purge` | Permanently purges a grave through a guarded action. |
+| `/grave admin purge confirm <id>` | `.admin.purge` | Permanently purges a grave through a guarded action. |
 | `/grave admin diagnostics` | `.admin.diagnostics` | Shows lease, runtime cache, journal backlog, pending claims and rendered-pair counts. |
 
 Permission nodes:
@@ -95,7 +95,8 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 | `lifetime.duration` | `10m` | Grave lifetime measured by the plugin active-server clock, not wall time. |
 | `eligibility.disabled_worlds` | empty | Case-insensitive world names or namespaced keys excluded from Graveyard. |
 | `eligibility.disabled_gamemodes` | `CREATIVE`, `SPECTATOR` | Game modes that keep normal death behaviour. |
-| `experience.recovery_percentage` | `50` | Percentage of final dropped XP captured, clamped to `0..100`. |
+| `experience.mode` | `NATIVE` | `NATIVE` stores exactly the final XP Minecraft and other death listeners would drop; `PERCENTAGE` applies `experience.recovery_percentage` to that final value. |
+| `experience.recovery_percentage` | `50` | Percentage used only in `PERCENTAGE` mode, clamped to `0..100` and rounded down. |
 | `placement.horizontal_search_radius` | `8` | Loaded-block horizontal candidate radius. |
 | `placement.vertical_search_below` | `4` | Candidate search below the death position. |
 | `placement.vertical_search_above` | `6` | Candidate search above the death position. |
@@ -105,7 +106,7 @@ File: `plugins/ServerFeatures/features/Graveyard/config.yml`.
 | `render.reconciliation_interval_ticks` | `20` | Central viewer and timer refresh interval. The default is once per second. |
 | `render.spawn_settle_delay_ticks` | `2` | Delay before rebuilding a viewer after world or teleport transitions. |
 | `render.max_rendered_per_viewer` | `64` | Visual cap; own and nearest graves are prioritized. |
-| `render.base.material` | `DARK_OAK_SLAB` | Virtual grave-bed material. |
+| `render.base.material` | `POLISHED_BLACKSTONE_BRICK_SLAB` | Virtual grave-bed material. |
 | `render.headstone.material` | `DARK_OAK_PLANKS` | Virtual memorial and cross material. |
 | `render.glow.owner_rgb` | `55FFFF` | Owner glow override. |
 | `render.glow.staff_rgb` | `FFD700` | Staff glow override. |
@@ -122,6 +123,18 @@ Durations accept positive raw milliseconds or `ms`, `s`, `m`, `h` and `d` suffix
 
 Generated defaults apply to new or missing keys. An existing explicit `lifetime.duration` remains authoritative until it is changed to `10m`. Claimed and expired retention are capped at `1h` even when an existing configuration contains a larger value.
 
+## Localization
+
+All direct player-facing Graveyard text is resolved through the feature localization handler. This includes chat messages, command status names, formatted durations, the tracking action bar, the hologram title and every hologram timer state. Language files can override the corresponding `graveyard.*` message keys without changing renderer configuration or code.
+
+The default localization keys additionally include:
+
+- `graveyard.hologram.title`;
+- `graveyard.timer.*`;
+- `graveyard.tracking.*`;
+- `graveyard.duration.*`;
+- `graveyard.status.*`.
+
 ## Rendering and timer lifecycle
 
 A visual generation contains globally allocated packet entity IDs and random UUIDs for:
@@ -134,7 +147,7 @@ A visual generation contains globally allocated packet entity IDs and random UUI
 
 Every visual is packet-only. Partial spawn failure triggers best-effort destruction, and all five packet entities are removed together on claim, expiry, relocation, reload, viewer transition and shutdown.
 
-Timer metadata is derived from active-server time and only sent when the displayed value changes. With the default 20-tick reconciliation interval, the complete ten-minute countdown updates once per second rather than rounding to ten-second steps.
+Hologram text is built separately for each viewer, so its title, timer and duration format follow that viewer's selected language. Timer metadata is derived from active-server time and only sent when the displayed second changes. With the default 20-tick reconciliation interval, the complete ten-minute countdown updates once per second rather than rounding to ten-second steps.
 
 ## Active-server clock
 
@@ -162,7 +175,7 @@ The readable `<player>-<HH:mm:ss>` identifier is stable across relocation. The i
 
 Capture protocol:
 
-1. Encode the final drops and XP.
+1. Encode the final drops and configured XP amount.
 2. Force a `PREPARED` capture record to disk.
 3. Persist a player receipt.
 4. Apply the intended post-death inventory and suppress normal drops.

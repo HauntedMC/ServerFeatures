@@ -50,13 +50,13 @@ final class GraveDisplayMetadataFactory {
     List<EntityData<?>> text(
             World world,
             Component title,
-            String timer,
+            Component timer,
             float verticalOffset,
             int glowRgb
     ) {
         TextDisplay display = world.createEntity(templateLocation(world), TextDisplay.class);
         configureDisplay(display, glowRgb, 2.5f, verticalOffset + 0.5f);
-        display.text(title.append(Component.newline()).append(Component.text(timer)));
+        display.text(title.append(Component.newline()).append(timer));
         display.setBillboard(Display.Billboard.CENTER);
         display.setSeeThrough(true);
         display.setShadowed(true);
@@ -73,7 +73,7 @@ final class GraveDisplayMetadataFactory {
         return metadata;
     }
 
-    List<EntityData<?>> timer(World world, Component title, String timer) {
+    List<EntityData<?>> timer(World world, Component title, Component timer) {
         Integer index = textComponentIndex;
         if (index == null) {
             TextDisplay template = world.createEntity(templateLocation(world), TextDisplay.class);
@@ -84,7 +84,7 @@ final class GraveDisplayMetadataFactory {
         return List.of(new EntityData<>(
                 index,
                 EntityDataTypes.ADV_COMPONENT,
-                title.append(Component.newline()).append(Component.text(timer))
+                title.append(Component.newline()).append(timer)
         ));
     }
 

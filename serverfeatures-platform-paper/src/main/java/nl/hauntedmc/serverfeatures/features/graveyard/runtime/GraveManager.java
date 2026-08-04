@@ -1,7 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.graveyard.runtime;
 
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import nl.hauntedmc.serverfeatures.api.graveyard.ClaimReason;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveClaimOutcome;
 import nl.hauntedmc.serverfeatures.api.graveyard.GraveClaimResult;
@@ -31,6 +29,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.EncodedGravePa
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadCodec;
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GraveRepository;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
+import nl.hauntedmc.serverfeatures.features.graveyard.text.GraveyardText;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.Location;
@@ -96,6 +95,7 @@ public final class GraveManager implements GraveyardService {
     private final GravePayloadCodec payloadCodec;
     private final GraveClaimPlanner claimPlanner;
     private final GravePlacementService placementService;
+    private final GraveyardText text;
     private final GravePacketRenderer renderer;
     private final GraveSpatialIndex spatialIndex = new GraveSpatialIndex();
 
@@ -147,7 +147,8 @@ public final class GraveManager implements GraveyardService {
         this.payloadCodec = payloadCodec;
         this.claimPlanner = new GraveClaimPlanner(payloadCodec, settings.partialClaims());
         this.placementService = placementService;
-        this.renderer = new GravePacketRenderer(settings, feature.getPlugin().getLogger());
+        this.text = new GraveyardText(feature);
+        this.renderer = new GravePacketRenderer(feature, settings, feature.getPlugin().getLogger());
         this.leaseScopeKey = settings.serverId() + ":" + settings.inventoryScope();
     }
 
@@ -1475,14 +1476,15 @@ public final class GraveManager implements GraveyardService {
                 viewer.getUniqueId(),
                 ignored -> new GraveViewerState()
         );
-        String timer = timerText(grave);
+        long remainingMillis = remainingMillis(grave);
+        String timerFingerprint = text.timerFingerprint(grave, remainingMillis);
         if (!state.spawned() || state.generation() != identity.generation()) {
             if (state.spawned()) {
                 renderer.destroy(identity, viewer);
             }
             try {
-                renderer.spawn(grave, identity, viewer, timer, glowColor(grave, viewer));
-                state.markSpawned(identity.generation(), timer);
+                renderer.spawn(grave, identity, viewer, remainingMillis, glowColor(grave, viewer));
+                state.markSpawned(identity.generation(), timerFingerprint);
             } catch (RuntimeException exception) {
                 state.markHidden();
                 feature.getLogger().warning(
@@ -1492,10 +1494,10 @@ public final class GraveManager implements GraveyardService {
             }
             return;
         }
-        if (!timer.equals(state.renderedTimer())) {
+        if (!timerFingerprint.equals(state.renderedTimer())) {
             try {
-                renderer.updateTimer(grave, identity, viewer, timer);
-                state.setRenderedTimer(timer);
+                renderer.updateTimer(grave, identity, viewer, remainingMillis);
+                state.setRenderedTimer(timerFingerprint);
             } catch (RuntimeException exception) {
                 feature.getLogger().warning(
                         "Could not update grave timer " + grave.graveId() + " for " + viewer.getName()
@@ -2033,15 +2035,8 @@ public final class GraveManager implements GraveyardService {
         return settings.otherGlowRgb();
     }
 
-    private String timerText(Grave grave) {
-        long remaining = grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
-        if (grave.status() == GraveStatus.DELIVERY_PENDING) {
-            return "Delivery pending";
-        }
-        if (grave.status() == GraveStatus.ORPHANED_WORLD) {
-            return "Remote recovery available";
-        }
-        return "Disappears in " + formatDuration(remaining);
+    private long remainingMillis(Grave grave) {
+        return grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
     }
 
     private void updateTracking(Player player) {
@@ -2054,20 +2049,14 @@ public final class GraveManager implements GraveyardService {
             trackedGraves.remove(player.getUniqueId());
             return;
         }
+        long remainingMillis = remainingMillis(grave);
         Optional<Location> location = grave.location().resolve();
         if (location.isEmpty() || !player.getWorld().equals(location.get().getWorld())) {
-            player.sendActionBar(Component.text(
-                    "Grave " + grave.shortId() + " · " + grave.location().worldKey()
-                            + " · " + timerText(grave),
-                    NamedTextColor.AQUA
-            ));
+            player.sendActionBar(text.tracking(grave, player, null, remainingMillis));
             return;
         }
         int distance = (int) Math.round(player.getLocation().distance(location.get()));
-        player.sendActionBar(Component.text(
-                "Grave " + grave.shortId() + " · " + distance + "m · " + timerText(grave),
-                NamedTextColor.AQUA
-        ));
+        player.sendActionBar(text.tracking(grave, player, distance, remainingMillis));
     }
 
     private void playEffect(Grave grave, Particle particle, Sound sound, int count) {
@@ -2098,15 +2087,6 @@ public final class GraveManager implements GraveyardService {
                 .filter(location -> location.getWorld().equals(player.getWorld()))
                 .map(location -> player.getLocation().distanceSquared(location))
                 .orElse(Double.MAX_VALUE);
-    }
-
-    static String formatDuration(long millis) {
-        long seconds = Math.max(0L, (millis + 999L) / 1_000L);
-        if (seconds >= 3_600L) {
-            long roundedMinutes = (seconds + 59L) / 60L;
-            return roundedMinutes / 60L + "h " + roundedMinutes % 60L + "m";
-        }
-        return seconds / 60L + "m " + seconds % 60L + "s";
     }
 
     private static String normalizeShortId(String shortId) {

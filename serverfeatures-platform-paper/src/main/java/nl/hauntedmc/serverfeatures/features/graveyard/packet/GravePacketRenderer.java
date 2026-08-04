@@ -10,9 +10,10 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.config.GraveyardSettings;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
+import nl.hauntedmc.serverfeatures.features.graveyard.text.GraveyardText;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -26,11 +27,13 @@ import java.util.logging.Logger;
  */
 public final class GravePacketRenderer {
     private final GraveyardSettings settings;
+    private final GraveyardText text;
     private final GraveDisplayMetadataFactory metadataFactory = new GraveDisplayMetadataFactory();
     private final Logger logger;
 
-    public GravePacketRenderer(GraveyardSettings settings, Logger logger) {
+    public GravePacketRenderer(Graveyard feature, GraveyardSettings settings, Logger logger) {
         this.settings = settings;
+        this.text = new GraveyardText(feature);
         this.logger = logger;
     }
 
@@ -38,14 +41,15 @@ public final class GravePacketRenderer {
             Grave grave,
             GravePacketIdentity identity,
             Player viewer,
-            String timer,
+            long remainingMillis,
             int glowRgb
     ) {
         org.bukkit.Location bukkitLocation = grave.location().resolve()
                 .orElseThrow(() -> new IllegalStateException("Cannot render a grave in an unavailable world"));
         World world = bukkitLocation.getWorld();
         Location packetLocation = SpigotConversionUtil.fromBukkitLocation(bukkitLocation);
-        Component title = Component.text(grave.ownerName() + "'s Grave", NamedTextColor.GRAY);
+        Component title = text.hologramTitle(grave, viewer);
+        Component timer = text.timer(grave, viewer, remainingMillis);
 
         try {
             spawnBlock(
@@ -116,11 +120,12 @@ public final class GravePacketRenderer {
             Grave grave,
             GravePacketIdentity identity,
             Player viewer,
-            String timer
+            long remainingMillis
     ) {
         org.bukkit.Location location = grave.location().resolve()
                 .orElseThrow(() -> new IllegalStateException("Cannot update a grave in an unavailable world"));
-        Component title = Component.text(grave.ownerName() + "'s Grave", NamedTextColor.GRAY);
+        Component title = text.hologramTitle(grave, viewer);
+        Component timer = text.timer(grave, viewer, remainingMillis);
         sendMetadata(
                 viewer,
                 identity.textEntityId(),
