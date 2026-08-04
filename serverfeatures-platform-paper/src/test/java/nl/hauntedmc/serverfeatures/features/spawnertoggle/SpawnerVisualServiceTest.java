@@ -29,6 +29,7 @@ class SpawnerVisualServiceTest {
         when(spawner.getChunk()).thenReturn(chunk);
         when(spawner.getLocation()).thenReturn(location);
         when(spawner.copy()).thenReturn(visualState);
+        when(chunk.isLoaded()).thenReturn(true);
         when(viewer.isOnline()).thenReturn(true);
         when(viewer.getWorld()).thenReturn(world);
         when(viewer.isChunkSent(chunk)).thenReturn(true);
@@ -53,6 +54,7 @@ class SpawnerVisualServiceTest {
         when(spawner.getWorld()).thenReturn(world);
         when(spawner.getChunk()).thenReturn(chunk);
         when(spawner.getLocation()).thenReturn(location);
+        when(chunk.isLoaded()).thenReturn(true);
         when(viewer.isOnline()).thenReturn(true);
         when(viewer.getWorld()).thenReturn(world);
         when(viewer.isChunkSent(chunk)).thenReturn(true);
@@ -72,6 +74,7 @@ class SpawnerVisualServiceTest {
         Chunk chunk = mock(Chunk.class);
         when(spawner.getWorld()).thenReturn(world);
         when(spawner.getChunk()).thenReturn(chunk);
+        when(chunk.isLoaded()).thenReturn(true);
         when(viewer.isOnline()).thenReturn(true);
         when(viewer.getWorld()).thenReturn(world);
         when(viewer.isChunkSent(chunk)).thenReturn(false);
@@ -81,5 +84,19 @@ class SpawnerVisualServiceTest {
 
         verify(spawner, never()).copy();
         verify(viewer, never()).sendBlockUpdate(any(Location.class), any(TileState.class));
+    }
+
+    @Test
+    void doesNotInspectUnloadedChunks() {
+        CreatureSpawner spawner = mock(CreatureSpawner.class);
+        Player viewer = mock(Player.class);
+        Chunk chunk = mock(Chunk.class);
+        when(viewer.isOnline()).thenReturn(true);
+        when(chunk.isLoaded()).thenReturn(false);
+        SpawnerVisualService service = new SpawnerVisualService(ignored -> true);
+
+        service.refreshChunk(viewer, chunk);
+
+        verify(chunk, never()).getTileEntities();
     }
 }
