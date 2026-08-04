@@ -16,6 +16,7 @@ import nl.hauntedmc.serverfeatures.api.graveyard.GraveStatus;
 import nl.hauntedmc.serverfeatures.features.graveyard.Graveyard;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
+import nl.hauntedmc.serverfeatures.features.graveyard.text.GraveyardText;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -47,10 +48,12 @@ public final class GraveCommand implements BrigadierCommand {
 
     private final Graveyard feature;
     private final GraveManager manager;
+    private final GraveyardText text;
 
     public GraveCommand(Graveyard feature, GraveManager manager) {
         this.feature = feature;
         this.manager = manager;
+        this.text = new GraveyardText(feature);
     }
 
     @Override
@@ -195,12 +198,12 @@ public final class GraveCommand implements BrigadierCommand {
             sender.sendMessage(feature.getLocalizationHandler()
                     .getMessage("graveyard.list_entry")
                     .with("grave_id", grave.shortId())
-                    .with("state", grave.status().name())
+                    .with("state", text.status(grave.status(), sender))
                     .with("world", grave.worldKey())
                     .with("x", coordinate(grave.x()))
                     .with("y", coordinate(grave.y()))
                     .with("z", coordinate(grave.z()))
-                    .with("remaining", formatDuration(grave.remainingActiveMillis()))
+                    .with("remaining", text.duration(grave.remainingActiveMillis(), sender))
                     .forAudience(sender)
                     .build());
         }
@@ -222,12 +225,12 @@ public final class GraveCommand implements BrigadierCommand {
             sender.sendMessage(feature.getLocalizationHandler()
                     .getMessage("graveyard.list_entry")
                     .with("grave_id", grave.shortId())
-                    .with("state", grave.status().name())
+                    .with("state", text.status(grave.status(), sender))
                     .with("world", grave.worldKey())
                     .with("x", coordinate(grave.x()))
                     .with("y", coordinate(grave.y()))
                     .with("z", coordinate(grave.z()))
-                    .with("remaining", formatDuration(grave.remainingActiveMillis()))
+                    .with("remaining", text.duration(grave.remainingActiveMillis(), sender))
                     .forAudience(sender)
                     .build());
         }
@@ -251,14 +254,14 @@ public final class GraveCommand implements BrigadierCommand {
                 .getMessage("graveyard.info")
                 .with("grave_id", grave.shortId())
                 .with("player", grave.ownerName())
-                .with("state", grave.status().name())
+                .with("state", text.status(grave.status(), sender))
                 .with("world", grave.worldKey())
                 .with("x", coordinate(grave.x()))
                 .with("y", coordinate(grave.y()))
                 .with("z", coordinate(grave.z()))
                 .with("items", grave.itemEntryCount())
                 .with("xp", grave.remainingExperience())
-                .with("remaining", formatDuration(grave.remainingActiveMillis()))
+                .with("remaining", text.duration(grave.remainingActiveMillis(), sender))
                 .forAudience(sender)
                 .build());
     }
@@ -500,17 +503,6 @@ public final class GraveCommand implements BrigadierCommand {
 
     private static String coordinate(double value) {
         return Integer.toString((int) Math.floor(value));
-    }
-
-    private static String formatDuration(long millis) {
-        long seconds = Math.max(0L, (millis + 999L) / 1_000L);
-        long hours = seconds / 3_600L;
-        long minutes = seconds % 3_600L / 60L;
-        long remainder = seconds % 60L;
-        if (hours > 0L) {
-            return hours + "h " + minutes + "m";
-        }
-        return minutes + "m " + remainder + "s";
     }
 
     private enum SuggestionScope {
