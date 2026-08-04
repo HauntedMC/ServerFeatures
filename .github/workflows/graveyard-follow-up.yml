@@ -1,0 +1,340 @@
+name: Graveyard follow-up patch
+
+on:
+  push:
+    branches:
+      - agent/fix-graveyard-sound-resolution
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: agent/fix-graveyard-sound-resolution
+
+      - name: Apply Graveyard follow-up
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path_name: str, old: str, new: str) -> None:
+              path = Path(path_name)
+              text = path.read_text()
+              if old not in text:
+                  raise SystemExit(f"Expected text not found in {path_name}: {old!r}")
+              path.write_text(text.replace(old, new))
+
+          Path("serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/model/GraveIdentifier.java").write_text('''package nl.hauntedmc.serverfeatures.features.graveyard.model;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
+import java.util.Objects;
+
+/**
+ * Builds compact, human-readable command identifiers for graves.
+ */
+public final class GraveIdentifier {
+    public static final int MAXIMUM_LENGTH = 25;
+    private static final int MAXIMUM_OWNER_LENGTH = 16;
+    private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter
+            .ofPattern("HH:mm:ss", Locale.ROOT);
+
+    private GraveIdentifier() {
+    }
+
+    public static String create(String ownerName, long createdWallMillis) {
+        return create(ownerName, createdWallMillis, ZoneId.systemDefault());
+    }
+
+    static String create(
+            String ownerName,
+            long createdWallMillis,
+            ZoneId zoneId
+    ) {
+        String owner = owner(ownerName);
+        String time = TIMESTAMP.withZone(Objects.requireNonNull(zoneId, "zoneId"))
+                .format(Instant.ofEpochMilli(createdWallMillis));
+        return owner + "-" + time;
+    }
+
+    private static String owner(String value) {
+        String normalized = Objects.requireNonNullElse(value, "")
+                .trim()
+                .replaceAll("[^A-Za-z0-9_]", "");
+        if (normalized.isEmpty()) {
+            normalized = "player";
+        }
+        return normalized.substring(0, Math.min(normalized.length(), MAXIMUM_OWNER_LENGTH));
+    }
+}
+''')
+
+          replace(
+              "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/capture/GraveCaptureService.java",
+              '''        String shortId = GraveIdentifier.create(
+                player.getName(),
+                snapshot.deathLocation().getWorld().getName(),
+                createdWallMillis
+        );''',
+              '''        String shortId = GraveIdentifier.create(player.getName(), createdWallMillis);'''
+          )
+
+          Path("serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/features/graveyard/model/GraveIdentifierTest.java").write_text('''package nl.hauntedmc.serverfeatures.features.graveyard.model;
+
+import org.junit.jupiter.api.Test;
+
+import java.time.ZoneId;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class GraveIdentifierTest {
+    @Test
+    void createsFriendlyPlayerTimeIdentifier() {
+        String identifier = GraveIdentifier.create(
+                "RemyMine",
+                1_722_720_312_222L,
+                ZoneId.of("Europe/Amsterdam")
+        );
+
+        assertEquals("RemyMine-23:25:12", identifier);
+    }
+
+    @Test
+    void sanitizesInvalidOwnerName() {
+        assertEquals(
+                "player-00:00:00",
+                GraveIdentifier.create(" !!! ", 0L, ZoneId.of("UTC"))
+        );
+        assertEquals(
+                "VeryLongPlayerNa-00:00:00",
+                GraveIdentifier.create("VeryLongPlayerName!!!", 0L, ZoneId.of("UTC"))
+        );
+    }
+}
+''')
+
+          Path("serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/command/GraveIdArgument.java").write_text('''package nl.hauntedmc.serverfeatures.features.graveyard.command;
+
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.arguments.ArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
+
+import java.util.Collection;
+import java.util.List;
+
+/**
+ * Parses one non-whitespace grave identifier while allowing timestamp separators such as colons.
+ */
+final class GraveIdArgument implements ArgumentType<String> {
+    private static final SimpleCommandExceptionType EXPECTED_IDENTIFIER =
+            new SimpleCommandExceptionType(() -> "Expected grave identifier");
+
+    private GraveIdArgument() {
+    }
+
+    static GraveIdArgument graveId() {
+        return new GraveIdArgument();
+    }
+
+    static <S> String get(CommandContext<S> context, String name) {
+        return context.getArgument(name, String.class);
+    }
+
+    @Override
+    public String parse(StringReader reader) throws CommandSyntaxException {
+        int start = reader.getCursor();
+        while (reader.canRead() && !Character.isWhitespace(reader.peek())) {
+            reader.skip();
+        }
+        if (reader.getCursor() == start) {
+            throw EXPECTED_IDENTIFIER.createWithContext(reader);
+        }
+        return reader.getString().substring(start, reader.getCursor());
+    }
+
+    @Override
+    public Collection<String> getExamples() {
+        return List.of("RemyMine-10:27:15");
+    }
+}
+''')
+
+          Path("serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/features/graveyard/command/GraveIdArgumentTest.java").write_text('''package nl.hauntedmc.serverfeatures.features.graveyard.command;
+
+import com.mojang.brigadier.StringReader;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class GraveIdArgumentTest {
+    @Test
+    void acceptsColonSeparatedTimeWithoutQuotes() throws CommandSyntaxException {
+        StringReader reader = new StringReader("RemyMine-10:27:15 confirm");
+
+        assertEquals("RemyMine-10:27:15", GraveIdArgument.graveId().parse(reader));
+        assertEquals(' ', reader.peek());
+    }
+
+    @Test
+    void rejectsMissingIdentifier() {
+        assertThrows(
+                CommandSyntaxException.class,
+                () -> GraveIdArgument.graveId().parse(new StringReader(""))
+        );
+    }
+}
+''')
+
+          command_path = Path("serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/command/GraveCommand.java")
+          command = command_path.read_text()
+          alias_block = '''    @Override
+    public List<String> aliases() {
+        return List.of("graves");
+    }
+
+'''
+          if alias_block not in command:
+              raise SystemExit("Expected /graves alias block was not found")
+          command = command.replace(alias_block, "")
+          command = command.replace(
+              'StringArgumentType.getString(context, "grave_id")',
+              'GraveIdArgument.get(context, "grave_id")'
+          )
+          old_argument = 'Commands.argument("grave_id", StringArgumentType.word())'
+          if old_argument not in command:
+              raise SystemExit("Expected grave_id word argument was not found")
+          command = command.replace(old_argument, 'Commands.argument("grave_id", GraveIdArgument.graveId())')
+          command_path.write_text(command)
+
+          replace(
+              "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/Graveyard.java",
+              'defaults.put("storage.retention.expired", "7d");',
+              'defaults.put("storage.retention.expired", "1h");'
+          )
+          replace(
+              "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/Graveyard.java",
+              'defaults.put("storage.retention.claimed", "24h");',
+              'defaults.put("storage.retention.claimed", "1h");'
+          )
+          replace(
+              "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/Graveyard.java",
+              'defaults.put("lifetime.duration", "30m");',
+              'defaults.put("lifetime.duration", "10m");'
+          )
+
+          settings_path = "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/config/GraveyardSettings.java"
+          replace(
+              settings_path,
+              'private static final long DEFAULT_LIFETIME_MILLIS = 1_800_000L;',
+              'private static final long DEFAULT_LIFETIME_MILLIS = 600_000L;'
+          )
+          replace(
+              settings_path,
+              'private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 7L * 24L * 60L * 60L * 1_000L;',
+              'private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 60L * 60L * 1_000L;'
+          )
+          replace(
+              settings_path,
+              'private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 24L * 60L * 60L * 1_000L;',
+              'private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 60L * 60L * 1_000L;'
+          )
+
+          manager_path = "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/runtime/GraveManager.java"
+          replace(
+              manager_path,
+              '''        if (seconds >= 300L) {
+            seconds = ((seconds + 9L) / 10L) * 10L;
+        }
+''',
+              ""
+          )
+          replace(
+              manager_path,
+              '    private static String formatDuration(long millis) {',
+              '    static String formatDuration(long millis) {'
+          )
+
+          Path("serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/features/graveyard/runtime/GraveTimerFormattingTest.java").write_text('''package nl.hauntedmc.serverfeatures.features.graveyard.runtime;
+
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class GraveTimerFormattingTest {
+    @Test
+    void keepsSecondPrecisionAcrossTheWholeDefaultLifetime() {
+        assertEquals("10m 0s", GraveManager.formatDuration(600_000L));
+        assertEquals("9m 59s", GraveManager.formatDuration(599_000L));
+        assertEquals("5m 1s", GraveManager.formatDuration(301_000L));
+        assertEquals("5m 0s", GraveManager.formatDuration(300_000L));
+    }
+}
+''')
+
+          replace(
+              "serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/graveyard/meta/Meta.java",
+              'return "1.1.0";',
+              'return "1.2.0";'
+          )
+
+          docs_path = Path("docs/features/graveyard.md")
+          docs = docs_path.read_text()
+          docs = docs.replace(
+              '<player>-<world>-<yyyyMMdd-HHmmss-SSS>',
+              '<player>-<HH:mm:ss>'
+          )
+          docs = docs.replace(
+              'The timestamp uses the server timezone and millisecond precision, so normal\n   command use never exposes the internal UUID.',
+              'The timestamp uses the server timezone and second precision, while the internal UUID remains the durable unique identity.'
+          )
+          docs = docs.replace(
+              'Root commands: `/grave` and `/graves`.',
+              'Root command: `/grave`.'
+          )
+          docs = docs.replace(
+              '| `storage.retention.expired` | `7d` |',
+              '| `storage.retention.expired` | `1h` |'
+          )
+          docs = docs.replace(
+              '| `storage.retention.claimed` | `24h` |',
+              '| `storage.retention.claimed` | `1h` |'
+          )
+          docs = docs.replace(
+              '| `lifetime.duration` | `30m` |',
+              '| `lifetime.duration` | `10m` |'
+          )
+          docs = docs.replace(
+              'Text uses minute granularity above one hour, ten-second granularity from five minutes to one hour, and second granularity below five minutes.',
+              'Text countdowns refresh at one-second precision for the complete grave lifetime.'
+          )
+          docs = docs.replace(
+              'The readable identifier is stored in `short_id` with sufficient room for owner, world, and the\ncreation timestamp.',
+              'The readable identifier is stored in `short_id` as `<player>-<HH:mm:ss>`; the internal UUID remains the durable identity.'
+          )
+          docs_path.write_text(docs)
+
+          workflow = Path(".github/workflows/graveyard-follow-up.yml")
+          workflow.unlink()
+          PY
+
+      - name: Commit follow-up
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Improve Graveyard names and timing defaults"
+          git push
