@@ -4,9 +4,11 @@ import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.CreatureSpawner;
+import org.bukkit.block.TileState;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -78,9 +80,6 @@ class SpawnerVisualServiceTest {
         service.refresh(viewer, spawner);
 
         verify(spawner, never()).copy();
-        verify(viewer, never()).sendBlockUpdate(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()
-        );
+        verify(viewer, never()).sendBlockUpdate(any(Location.class), any(TileState.class));
     }
 }
