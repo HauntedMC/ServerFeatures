@@ -1,7 +1,8 @@
 package nl.hauntedmc.serverfeatures.api.io.cache.impl;
 
-import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.Strictness;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -139,7 +140,10 @@ class JsonCacheFileTest {
 
     private static void assertStrictJson(Path file) throws Exception {
         String json = Files.readString(file, StandardCharsets.UTF_8);
-        JsonElement parsed = assertDoesNotThrow(() -> new Gson().fromJson(json, JsonElement.class));
+        JsonElement parsed = assertDoesNotThrow(() -> new GsonBuilder()
+                .setStrictness(Strictness.STRICT)
+                .create()
+                .fromJson(json, JsonElement.class));
         assertTrue(parsed.isJsonObject());
     }
 
