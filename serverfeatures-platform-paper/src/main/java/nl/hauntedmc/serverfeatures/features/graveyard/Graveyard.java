@@ -78,8 +78,8 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         defaults.put("render.reconciliation_interval_ticks", 20L);
         defaults.put("render.spawn_settle_delay_ticks", 2L);
         defaults.put("render.max_rendered_per_viewer", 64);
-        defaults.put("render.base.material", "POLISHED_BLACKSTONE_BRICK_SLAB");
-        defaults.put("render.headstone.material", "POLISHED_BLACKSTONE_BRICK_WALL");
+        defaults.put("render.base.material", "DARK_OAK_SLAB");
+        defaults.put("render.headstone.material", "DARK_OAK_PLANKS");
         defaults.put("render.glow.owner_rgb", "55FFFF");
         defaults.put("render.glow.other_rgb", "00AAAA");
         defaults.put("render.glow.staff_rgb", "FFD700");
