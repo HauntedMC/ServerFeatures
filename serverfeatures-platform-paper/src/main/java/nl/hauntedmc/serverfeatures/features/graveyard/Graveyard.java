@@ -68,6 +68,7 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         defaults.put("lifetime.duration", "10m");
         defaults.put("eligibility.disabled_worlds", List.of());
         defaults.put("eligibility.disabled_gamemodes", List.of("CREATIVE", "SPECTATOR"));
+        defaults.put("experience.mode", "NATIVE");
         defaults.put("experience.recovery_percentage", 50);
         defaults.put("placement.horizontal_search_radius", 8);
         defaults.put("placement.vertical_search_below", 4);
@@ -135,12 +136,12 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         messages.add("graveyard.admin_list_empty", "&7Geen bekende herstelbare graven voor deze speler.");
         messages.add(
                 "graveyard.list_entry",
-                "&b{grave_id} &7- {state} - &f{world} {x}, {y}, {z} &7- {remaining}"
+                "&b{grave_id} &7- {state} &7- &f{world} {x}, {y}, {z} &7- {remaining}"
         );
         messages.add(
                 "graveyard.info",
-                "&b{grave_id}&7: eigenaar=&f{player}&7, status=&f{state}&7, wereld=&f{world}&7, "
-                        + "locatie=&f{x}, {y}, {z}&7, items=&f{items}&7, xp=&f{xp}&7, tijd=&f{remaining}"
+                "&b{grave_id}&7: eigenaar=&f{player}&7, status={state}&7, wereld=&f{world}&7, "
+                        + "locatie=&f{x}, {y}, {z}&7, items=&f{items}&7, xp=&f{xp}&7, tijd={remaining}"
         );
         messages.add("graveyard.locate", "&7Graf &b{grave_id}&7 staat op &f{world} {x}, {y}, {z}&7.");
         messages.add("graveyard.track_started", "&aJe volgt nu graf {grave_id}.");
@@ -150,6 +151,31 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         messages.add("graveyard.admin_failed", "&cGraveyard actie kon niet worden uitgevoerd voor {grave_id}.");
         messages.add("graveyard.admin_diagnostics", "&7Graveyard diagnostics: &f{details}");
         messages.add("graveyard.usage", "&7Gebruik: /grave [list|info|locate|track|claim|admin]");
+
+        messages.add("graveyard.hologram.title", "&7Graf van &f{player}");
+        messages.add("graveyard.timer.remaining", "&7Verdwijnt over {remaining}");
+        messages.add("graveyard.timer.delivery_pending", "&eBezorging in afwachting");
+        messages.add("graveyard.timer.remote_recovery", "&eHerstel op afstand beschikbaar");
+        messages.add(
+                "graveyard.tracking.same_world",
+                "&bGraf {grave_id} &8· &b{distance}m &8· {timer}"
+        );
+        messages.add(
+                "graveyard.tracking.other_world",
+                "&bGraf {grave_id} &8· &b{world} &8· {timer}"
+        );
+        messages.add("graveyard.duration.hours_minutes", "{hours}u {minutes}m");
+        messages.add("graveyard.duration.minutes_seconds", "{minutes}m {seconds}s");
+
+        messages.add("graveyard.status.active", "&aactief");
+        messages.add("graveyard.status.partial", "&egegedeeltelijk");
+        messages.add("graveyard.status.orphaned_world", "&eoffline wereld");
+        messages.add("graveyard.status.delivery_pending", "&ebezorging in afwachting");
+        messages.add("graveyard.status.claimed", "&ageclaimd");
+        messages.add("graveyard.status.expired", "&cverlopen");
+        messages.add("graveyard.status.corrupt", "&cbeschadigd");
+        messages.add("graveyard.status.admin_recovered", "&adoor beheer hersteld");
+        messages.add("graveyard.status.purged", "&8verwijderd");
         return messages;
     }
 
