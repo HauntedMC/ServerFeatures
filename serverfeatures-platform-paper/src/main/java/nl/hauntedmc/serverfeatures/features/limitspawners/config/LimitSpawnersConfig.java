@@ -43,7 +43,7 @@ public record LimitSpawnersConfig(
                 positive(safetyNode, "minimum_spawn_delay_ticks", 200),
                 positive(safetyNode, "max_required_player_range", 16),
                 nonNegative(safetyNode, "max_spawn_range", 4),
-                nonNegative(safetyNode, "max_nearby_entities", 6)
+                nonNegative(safetyNode, "max_nearby_entities", 100)
         );
 
         int configuredRadius = positive(root, "farm_radius", 32);
@@ -57,8 +57,8 @@ public record LimitSpawnersConfig(
         }
 
         ConfigNode mobNode = root.get("mob_control");
-        int perWorldLimit = nonNegative(mobNode, "per_world_limit", 256);
-        int configuredServerLimit = nonNegative(mobNode, "server_limit", 512);
+        int perWorldLimit = nonNegative(mobNode, "per_world_limit", 1024);
+        int configuredServerLimit = nonNegative(mobNode, "server_limit", 2048);
         int serverLimit = Math.max(perWorldLimit, configuredServerLimit);
         if (serverLimit != configuredServerLimit) {
             feature.getLogger().warning(
@@ -69,7 +69,7 @@ public record LimitSpawnersConfig(
 
         MobControl mobControl = new MobControl(
                 nonNegative(mobNode, "per_spawner_limit", 4),
-                nonNegative(mobNode, "per_area_limit", 16),
+                nonNegative(mobNode, "per_area_limit", 100),
                 perWorldLimit,
                 serverLimit,
                 positive(mobNode, "blocked_retry_delay_ticks", 200),
@@ -86,7 +86,7 @@ public record LimitSpawnersConfig(
         );
 
         ConfigNode placementNode = root.get("placement_control");
-        int hardLimit = nonNegative(placementNode, "hard_limit", 6);
+        int hardLimit = nonNegative(placementNode, "hard_limit", 25);
         int defaultLimit = Math.min(
                 hardLimit,
                 nonNegative(placementNode, "default_limit", 2)
