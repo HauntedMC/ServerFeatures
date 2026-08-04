@@ -1,7 +1,9 @@
 package nl.hauntedmc.serverfeatures.api.io.cache.impl;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonParseException;
+import com.google.gson.Strictness;
 import com.google.gson.reflect.TypeToken;
 import nl.hauntedmc.serverfeatures.api.io.cache.CacheValue;
 import nl.hauntedmc.serverfeatures.api.io.cache.FileCacheStore;
@@ -38,7 +40,7 @@ public class JsonCacheFile implements FileCacheStore {
 
     private final File file;
     private final Path path;
-    private final Gson gson = new Gson();
+    private final Gson gson = new GsonBuilder().setStrictness(Strictness.STRICT).create();
     private final ReentrantLock fileLock;
     private Map<String, Map<String, Object>> rawMap = new LinkedHashMap<>();
 
@@ -283,7 +285,7 @@ public class JsonCacheFile implements FileCacheStore {
             backup = path.resolveSibling(path.getFileName()
                     + ".corrupt-" + timestamp + '-' + suffix + ".bak");
         }
-        return Files.copy(path, backup, StandardCopyOption.COPY_ATTRIBUTES);
+        return Files.copy(path, backup);
     }
 
     private static String firstCompleteJsonObject(String json) {
@@ -333,11 +335,7 @@ public class JsonCacheFile implements FileCacheStore {
         Path temporary = null;
         try {
             Files.createDirectories(path.getParent());
-            temporary = Files.createTempFile(
-                    path.getParent(),
-                    path.getFileName().toString() + '.',
-                    ".tmp"
-            );
+            temporary = Files.createTempFile(path.getParent(), temporaryFilePrefix(), ".tmp");
             try (FileOutputStream output = new FileOutputStream(temporary.toFile());
                  Writer writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
                 gson.toJson(rawMap, writer);
@@ -366,6 +364,11 @@ public class JsonCacheFile implements FileCacheStore {
                 }
             }
         }
+    }
+
+    private String temporaryFilePrefix() {
+        String prefix = path.getFileName().toString() + '.';
+        return prefix.length() >= 3 ? prefix : (prefix + "___").substring(0, 3);
     }
 
     private void cleanupExpiredLocked() {
