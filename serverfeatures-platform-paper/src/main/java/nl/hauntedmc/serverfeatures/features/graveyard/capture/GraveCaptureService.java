@@ -140,7 +140,7 @@ public final class GraveCaptureService {
                 snapshot.deathLocation().getWorld().getName(),
                 createdWallMillis
         );
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         GravePayload payload = new GravePayload(0L, entries, experience);
         EncodedGravePayload encoded = payloadCodec.encode(payload);
         GraveLocation deathLocation = GraveLocation.from(snapshot.deathLocation());

@@ -26,6 +26,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GraveRepositor
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.LastSafeLocationTracker;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
+import nl.hauntedmc.serverfeatures.framework.time.ServerActiveClock;
 
 import java.io.IOException;
 import java.util.List;
@@ -43,6 +44,7 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
     private GravePlacementService placementService;
     private GraveManager manager;
     private GraveInteractionPacketListener packetListener;
+    private ServerActiveClock activeClock;
 
     public Graveyard(FeatureContext<Meta> context) {
         super(context);
@@ -182,6 +184,8 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
     @Override
     public void initialize() {
         settings = GraveyardSettings.load(this);
+        activeClock = new ServerActiveClock(getPlugin());
+        activeClock.start();
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection(
                 DATABASE_IDENTIFIER,
@@ -276,6 +280,17 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
             }
             packetListener = null;
         }
+        if (activeClock != null) {
+            try {
+                activeClock.close();
+            } catch (Throwable throwable) {
+                if (failure == null) {
+                    failure = throwable;
+                } else {
+                    failure.addSuppressed(throwable);
+                }
+            }
+        }
         if (failure != null) {
             throwUnchecked(failure);
         }
@@ -287,6 +302,10 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
 
     public GraveManager getManager() {
         return manager;
+    }
+
+    public ServerActiveClock getActiveClock() {
+        return activeClock;
     }
 
     @SuppressWarnings("unchecked")

@@ -151,11 +151,12 @@ Hologram text is built separately for each viewer, so its title, timer and durat
 
 ## Active-server clock
 
-`ServerActiveClock` is owned by the ServerFeatures plugin bootstrap. It uses monotonic process time plus an atomically replaced local checkpoint.
+`ServerActiveClock` is owned by the Graveyard feature lifecycle. It uses monotonic process time plus an atomically replaced local checkpoint. Reads use one immutable volatile state snapshot and never wait for checkpoint filesystem I/O.
 
 Consequences:
 
 - ordinary feature reload does not reset grave time;
+- time while the Graveyard feature is disabled does not consume grave lifetime;
 - server downtime does not consume grave lifetime;
 - after a hard crash, at most one checkpoint interval is omitted, making a grave live slightly longer rather than expiring early;
 - wall-clock corrections do not alter active grave lifetime.

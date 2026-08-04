@@ -239,7 +239,7 @@ public final class GraveManager implements GraveyardService {
         Grave grave = graves.get(graveId);
         return grave == null
                 ? Optional.empty()
-                : Optional.of(grave.snapshot(feature.getPlugin().getServerActiveClock().nowMillis()));
+                : Optional.of(grave.snapshot(feature.getActiveClock().nowMillis()));
     }
 
     @Override
@@ -265,7 +265,7 @@ public final class GraveManager implements GraveyardService {
 
     @Override
     public List<GraveSnapshot> findActiveByOwner(UUID ownerUuid) {
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         return ownerIndex.getOrDefault(ownerUuid, Set.of()).stream()
                 .map(graves::get)
                 .filter(java.util.Objects::nonNull)
@@ -286,7 +286,7 @@ public final class GraveManager implements GraveyardService {
         } catch (IllegalArgumentException ignored) {
             // Fall back to the last known owner name stored with the grave.
         }
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         UUID resolvedUuid = ownerUuid;
         return graves.values().stream()
                 .filter(grave -> isOwnerListable(grave.status()))
@@ -299,7 +299,7 @@ public final class GraveManager implements GraveyardService {
     }
 
     public List<GraveSnapshot> allRuntimeGraves() {
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         return graves.values().stream()
                 .filter(grave -> grave.status() != GraveStatus.PURGED)
                 .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
@@ -324,7 +324,7 @@ public final class GraveManager implements GraveyardService {
     }
 
     private List<GraveSnapshot> snapshotsForStates(Set<GraveStatus> states) {
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         return graves.values().stream()
                 .filter(grave -> states.contains(grave.status()))
                 .sorted(Comparator.comparingLong(Grave::createdWallMillis).reversed())
@@ -419,7 +419,7 @@ public final class GraveManager implements GraveyardService {
         if (!beginAdministrativeOperation(grave, result)) {
             return result;
         }
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         boolean worldAvailable = grave.location().resolve().isPresent();
         repository.restore(
                 grave,
@@ -520,9 +520,10 @@ public final class GraveManager implements GraveyardService {
     }
 
     public void onWorldUnload(World world) {
+        long activeNow = feature.getActiveClock().nowMillis();
         for (Grave grave : graves.values()) {
             if (grave.location().worldUuid().equals(world.getUID())) {
-                pauseForOrphanedWorld(grave);
+                pauseForOrphanedWorld(grave, activeNow);
             }
         }
     }
@@ -531,7 +532,7 @@ public final class GraveManager implements GraveyardService {
         if (!canMutate()) {
             return;
         }
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
+        long activeNow = feature.getActiveClock().nowMillis();
         for (Grave grave : graves.values()) {
             if (!grave.location().worldUuid().equals(world.getUID())
                     || !grave.location().worldKey().equals(world.getKey().asString())) {
@@ -945,7 +946,7 @@ public final class GraveManager implements GraveyardService {
             result.complete(result(grave.graveId(), GraveClaimOutcome.BUSY, "Grave is busy or read-only"));
             return;
         }
-        long remaining = grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
+        long remaining = grave.remainingActiveMillis(feature.getActiveClock().nowMillis());
         repository.pauseForState(
                 grave,
                 EnumSet.of(GraveStatus.ACTIVE, GraveStatus.PARTIAL, GraveStatus.ORPHANED_WORLD),
@@ -1224,19 +1225,20 @@ public final class GraveManager implements GraveyardService {
         if (shuttingDown.get()) {
             return;
         }
+        long activeNow = feature.getActiveClock().nowMillis();
         loadPersistedGraves();
-        pauseUnavailableWorlds();
+        pauseUnavailableWorlds(activeNow);
         retryPendingWorldPauses();
-        resumeAvailableOrphans();
-        expireDueGraves();
+        resumeAvailableOrphans(activeNow);
+        expireDueGraves(activeNow);
         retryUnprojectedCaptures();
         retryPendingOperationReleases();
         retryUnresolvedClaimSavesForOnlineOwners();
         retryPendingClaimsForOnlineOwners();
         purgeRetainedGraves();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            reconcileViewer(player);
-            updateTracking(player);
+            reconcileViewer(player, activeNow);
+            updateTracking(player, activeNow);
         }
     }
 
@@ -1280,12 +1282,12 @@ public final class GraveManager implements GraveyardService {
         }));
     }
 
-    private void pauseUnavailableWorlds() {
+    private void pauseUnavailableWorlds(long activeNow) {
         for (Grave grave : graves.values()) {
             if (EXPIRABLE_STATES.contains(grave.status())
                     && grave.placementType() != GravePlacementType.REMOTE_ONLY
                     && grave.location().resolve().isEmpty()) {
-                pauseForOrphanedWorld(grave);
+                pauseForOrphanedWorld(grave, activeNow);
             }
         }
     }
@@ -1319,11 +1321,10 @@ public final class GraveManager implements GraveyardService {
         }
     }
 
-    private void resumeAvailableOrphans() {
+    private void resumeAvailableOrphans(long activeNow) {
         if (!canMutate()) {
             return;
         }
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
         for (Grave grave : graves.values()) {
             if (grave.status() != GraveStatus.ORPHANED_WORLD
                     || grave.pausedRemainingMillis() == null
@@ -1364,11 +1365,10 @@ public final class GraveManager implements GraveyardService {
         }));
     }
 
-    private void expireDueGraves() {
+    private void expireDueGraves(long activeNow) {
         if (!canMutate()) {
             return;
         }
-        long activeNow = feature.getPlugin().getServerActiveClock().nowMillis();
         for (Grave grave : graves.values()) {
             if (!EXPIRABLE_STATES.contains(grave.status())
                     || grave.remainingActiveMillis(activeNow) > 0L
@@ -1400,6 +1400,10 @@ public final class GraveManager implements GraveyardService {
     }
 
     private void reconcileViewer(Player viewer) {
+        reconcileViewer(viewer, feature.getActiveClock().nowMillis());
+    }
+
+    private void reconcileViewer(Player viewer, long activeNow) {
         if (!viewer.isOnline()) {
             return;
         }
@@ -1430,7 +1434,7 @@ public final class GraveManager implements GraveyardService {
             }
             desired.add(grave.graveId());
             rendered++;
-            ensureShown(grave, viewer);
+            ensureShown(grave, viewer, activeNow);
         }
 
         for (Map.Entry<UUID, Map<UUID, GraveViewerState>> entry : viewerStates.entrySet()) {
@@ -1463,7 +1467,7 @@ public final class GraveManager implements GraveyardService {
                 || hasAdminPermission(viewer, INSPECT_PERMISSION);
     }
 
-    private void ensureShown(Grave grave, Player viewer) {
+    private void ensureShown(Grave grave, Player viewer, long activeNow) {
         GravePacketIdentity identity = packetIdentities.computeIfAbsent(
                 grave.graveId(),
                 ignored -> createPacketIdentity(grave)
@@ -1476,7 +1480,7 @@ public final class GraveManager implements GraveyardService {
                 viewer.getUniqueId(),
                 ignored -> new GraveViewerState()
         );
-        long remainingMillis = remainingMillis(grave);
+        long remainingMillis = grave.remainingActiveMillis(activeNow);
         String timerFingerprint = text.timerFingerprint(grave, remainingMillis);
         if (!state.spawned() || state.generation() != identity.generation()) {
             if (state.spawned()) {
@@ -1590,12 +1594,16 @@ public final class GraveManager implements GraveyardService {
     }
 
     private void pauseForOrphanedWorld(Grave grave) {
+        pauseForOrphanedWorld(grave, feature.getActiveClock().nowMillis());
+    }
+
+    private void pauseForOrphanedWorld(Grave grave, long activeNow) {
         hideGrave(grave.graveId());
         spatialIndex.remove(grave.graveId());
         if (!EXPIRABLE_STATES.contains(grave.status())) {
             return;
         }
-        long remaining = grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
+        long remaining = grave.remainingActiveMillis(activeNow);
         GraveStatus previousStatus = grave.status();
         CaptureJournalRecord local = unprojectedCaptures.get(grave.graveId());
         if (local != null) {
@@ -1970,9 +1978,10 @@ public final class GraveManager implements GraveyardService {
     private void reconcileNearby(Grave grave) {
         grave.location().resolve().ifPresent(location -> {
             double radiusSquared = settings.despawnDistance() * settings.despawnDistance();
+            long activeNow = feature.getActiveClock().nowMillis();
             for (Player player : location.getWorld().getPlayers()) {
                 if (player.getLocation().distanceSquared(location) <= radiusSquared) {
-                    reconcileViewer(player);
+                    reconcileViewer(player, activeNow);
                 }
             }
         });
@@ -2035,11 +2044,7 @@ public final class GraveManager implements GraveyardService {
         return settings.otherGlowRgb();
     }
 
-    private long remainingMillis(Grave grave) {
-        return grave.remainingActiveMillis(feature.getPlugin().getServerActiveClock().nowMillis());
-    }
-
-    private void updateTracking(Player player) {
+    private void updateTracking(Player player, long activeNow) {
         UUID graveId = trackedGraves.get(player.getUniqueId());
         if (graveId == null) {
             return;
@@ -2049,7 +2054,7 @@ public final class GraveManager implements GraveyardService {
             trackedGraves.remove(player.getUniqueId());
             return;
         }
-        long remainingMillis = remainingMillis(grave);
+        long remainingMillis = grave.remainingActiveMillis(activeNow);
         Optional<Location> location = grave.location().resolve();
         if (location.isEmpty() || !player.getWorld().equals(location.get().getWorld())) {
             player.sendActionBar(text.tracking(grave, player, null, remainingMillis));

@@ -13,12 +13,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import java.util.logging.Level;
 
 /**
- * Plugin-scoped monotonic clock that advances only while this backend process is online.
+ * Persistent monotonic clock that advances only while its owning feature is active.
  *
  * <p>The checkpoint intentionally excludes unflushed crash time. Consumers can therefore live a few
  * seconds longer after a hard crash, but can never expire early because wall-clock time advanced while
@@ -30,25 +29,34 @@ public final class ServerActiveClock implements AutoCloseable {
 
     private final Plugin plugin;
     private final Path checkpointPath;
-    private final AtomicLong accumulatedMillis = new AtomicLong();
-    private final AtomicBoolean closed = new AtomicBoolean();
+    private final LongSupplier nanoTime;
 
-    private volatile long sessionStartedNanos;
+    private volatile ActiveTimeState state = ActiveTimeState.stopped(0L);
     private volatile BukkitTask checkpointTask;
+    private boolean started;
+    private boolean closed;
 
     public ServerActiveClock(Plugin plugin) {
+        this(plugin, System::nanoTime);
+    }
+
+    ServerActiveClock(Plugin plugin, LongSupplier nanoTime) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
+        this.nanoTime = Objects.requireNonNull(nanoTime, "nanoTime");
         this.checkpointPath = plugin.getDataFolder().toPath()
                 .resolve("runtime")
                 .resolve("server-active-clock.bin");
     }
 
     public synchronized void start() {
-        if (sessionStartedNanos != 0L) {
+        if (state.running()) {
             return;
         }
-        accumulatedMillis.set(readCheckpoint());
-        sessionStartedNanos = System.nanoTime();
+        if (closed) {
+            throw new IllegalStateException("A closed active clock cannot be restarted");
+        }
+        state = ActiveTimeState.running(readCheckpoint(), nanoTime.getAsLong());
+        started = true;
         checkpointTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin,
                 this::checkpointSafely,
@@ -57,22 +65,21 @@ public final class ServerActiveClock implements AutoCloseable {
         );
     }
 
-    public synchronized long nowMillis() {
-        long started = sessionStartedNanos;
-        if (started == 0L) {
-            return accumulatedMillis.get();
-        }
-        long elapsedNanos = Math.max(0L, System.nanoTime() - started);
-        return Math.addExact(accumulatedMillis.get(), elapsedNanos / 1_000_000L);
+    /**
+     * Returns a coherent active-time snapshot without acquiring the checkpoint lifecycle monitor.
+     */
+    public long nowMillis() {
+        return state.atNanos(nanoTime.getAsLong());
     }
 
     public synchronized void checkpoint() throws IOException {
-        if (closed.get()) {
+        ActiveTimeState snapshot = state;
+        if (closed || !snapshot.running()) {
             return;
         }
-        long current = nowMillis();
-        accumulatedMillis.set(current);
-        sessionStartedNanos = System.nanoTime();
+        long checkpointNanos = nanoTime.getAsLong();
+        long current = snapshot.atNanos(checkpointNanos);
+        state = ActiveTimeState.running(current, checkpointNanos);
         writeCheckpoint(current);
     }
 
@@ -140,21 +147,43 @@ public final class ServerActiveClock implements AutoCloseable {
 
     @Override
     public synchronized void close() {
-        if (!closed.compareAndSet(false, true)) {
+        if (closed) {
             return;
         }
+        closed = true;
         BukkitTask task = checkpointTask;
         checkpointTask = null;
         if (task != null) {
             task.cancel();
         }
-        long current = nowMillis();
-        accumulatedMillis.set(current);
-        sessionStartedNanos = 0L;
+        if (!started) {
+            return;
+        }
+        ActiveTimeState snapshot = state;
+        long current = snapshot.atNanos(nanoTime.getAsLong());
+        state = ActiveTimeState.stopped(current);
         try {
             writeCheckpoint(current);
         } catch (IOException exception) {
             plugin.getLogger().log(Level.SEVERE, "Could not write the final server active-clock checkpoint.", exception);
+        }
+    }
+
+    private record ActiveTimeState(long accumulatedMillis, long sessionStartedNanos, boolean running) {
+        private static ActiveTimeState running(long accumulatedMillis, long sessionStartedNanos) {
+            return new ActiveTimeState(accumulatedMillis, sessionStartedNanos, true);
+        }
+
+        private static ActiveTimeState stopped(long accumulatedMillis) {
+            return new ActiveTimeState(accumulatedMillis, 0L, false);
+        }
+
+        private long atNanos(long currentNanos) {
+            if (!running) {
+                return accumulatedMillis;
+            }
+            long elapsedNanos = Math.max(0L, currentNanos - sessionStartedNanos);
+            return Math.addExact(accumulatedMillis, elapsedNanos / 1_000_000L);
         }
     }
 }
