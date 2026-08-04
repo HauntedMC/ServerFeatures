@@ -2100,14 +2100,11 @@ public final class GraveManager implements GraveyardService {
                 .orElse(Double.MAX_VALUE);
     }
 
-    private static String formatDuration(long millis) {
+    static String formatDuration(long millis) {
         long seconds = Math.max(0L, (millis + 999L) / 1_000L);
         if (seconds >= 3_600L) {
             long roundedMinutes = (seconds + 59L) / 60L;
             return roundedMinutes / 60L + "h " + roundedMinutes % 60L + "m";
-        }
-        if (seconds >= 300L) {
-            seconds = ((seconds + 9L) / 10L) * 10L;
         }
         return seconds / 60L + "m " + seconds % 60L + "s";
     }
