@@ -1,0 +1,31 @@
+package nl.hauntedmc.serverfeatures.features.limitspawners.model;
+
+/**
+ * Aggregated operational counters. Routine events are intentionally not logged individually.
+ */
+public enum LimitMetric {
+    SPAWN_BLOCKED_SOURCE_CAP,
+    SPAWN_BLOCKED_AREA_CAP,
+    SPAWN_BLOCKED_WORLD_CAP,
+    SPAWN_BLOCKED_SERVER_CAP,
+    SPAWN_BLOCKED_DISABLED_SOURCE,
+    SPAWNER_MINECART_BLOCKED,
+    PLACEMENT_BLOCKED,
+    CANCELLED_SPAWN,
+    DEATH,
+    DESPAWN,
+    PLUGIN_REMOVAL,
+    MOB_CHUNK_UNLOAD,
+    SOURCE_CHUNK_UNLOAD,
+    SOURCE_REMOVED,
+    SOURCE_DISABLED,
+    OUTSIDE_RADIUS,
+    INACTIVE_SOURCE,
+    MAXIMUM_LIFETIME,
+    CROSS_WORLD_TELEPORT,
+    TRANSFORMATION,
+    SLIME_SPLIT,
+    SHULKER_DUPLICATION,
+    FEATURE_DISABLE,
+    CRASH_RECOVERY
+}

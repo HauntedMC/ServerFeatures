@@ -1,12 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.limitspawners.listener;
 
+import io.papermc.paper.event.entity.ShulkerDuplicateEvent;
 import nl.hauntedmc.serverfeatures.features.limitspawners.internal.LimitSpawnersHandler;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTransformEvent;
+import org.bukkit.event.entity.SlimeSplitEvent;
 
 public final class TransformListener implements Listener {
 
@@ -18,12 +18,35 @@ public final class TransformListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onTransform(EntityTransformEvent event) {
-        if (event.getTransformedEntities().isEmpty()) return;
+        if (!handler.reserveTransform(event.getEntity(), event.getTransformedEntities())) {
+            event.setCancelled(true);
+        }
+    }
 
-        Entity original = event.getEntity();
-        Entity first = event.getTransformedEntities().getFirst();
-        if (!(first instanceof LivingEntity le)) return;
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onTransformFinalState(EntityTransformEvent event) {
+        handler.scheduleTransformFinalization(event.getEntity(), event::isCancelled);
+    }
 
-        handler.transferTracking(original, le);
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSlimeSplit(SlimeSplitEvent event) {
+        int accepted = handler.prepareSlimeSplit(event.getEntity(), event.getCount());
+        if (accepted <= 0) {
+            event.setCancelled(true);
+        } else if (accepted != event.getCount()) {
+            event.setCount(accepted);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onShulkerDuplicate(ShulkerDuplicateEvent event) {
+        if (!handler.tryReserveShulkerChild(event.getParent(), event.getEntity())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onShulkerDuplicateFinalState(ShulkerDuplicateEvent event) {
+        handler.scheduleSpawnFinalization(event.getEntity(), event::isCancelled);
     }
 }
