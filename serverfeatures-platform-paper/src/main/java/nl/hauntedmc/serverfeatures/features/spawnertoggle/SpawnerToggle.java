@@ -146,7 +146,10 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     ) {
         for (World world : Bukkit.getWorlds()) {
             for (Chunk chunk : world.getLoadedChunks()) {
-                for (BlockState state : chunk.getTileEntities()) {
+                for (BlockState state : chunk.getTileEntities(
+                        block -> block.getType() == Material.SPAWNER,
+                        false
+                )) {
                     if (state instanceof CreatureSpawner spawner && isDisabled(spawner)) {
                         action.accept(spawner);
                     }

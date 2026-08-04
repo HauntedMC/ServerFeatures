@@ -929,7 +929,10 @@ public final class LimitSpawnersHandler {
 
     private int reconcileSpawnerChunk(Chunk chunk, SpawnerKey excluded) {
         Set<SpawnerKey> actual = new HashSet<>();
-        for (BlockState state : chunk.getTileEntities()) {
+        for (BlockState state : chunk.getTileEntities(
+                block -> block.getType() == Material.SPAWNER,
+                false
+        )) {
             if (state instanceof CreatureSpawner spawner) {
                 SpawnerKey key = SpawnerKey.of(spawner.getLocation());
                 if (key.equals(excluded)) {
