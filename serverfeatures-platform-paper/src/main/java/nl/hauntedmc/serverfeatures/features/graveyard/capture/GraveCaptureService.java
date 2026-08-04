@@ -123,9 +123,9 @@ public final class GraveCaptureService {
                     allocation.item()
             ));
         }
-        int experience = Math.max(
-                0,
-                (int) Math.floor(event.getDroppedExp() * (settings.experiencePercentage() / 100.0))
+        int experience = settings.experienceMode().capturedExperience(
+                event.getDroppedExp(),
+                settings.experiencePercentage()
         );
         if (entries.isEmpty() && experience == 0) {
             return null;
@@ -333,7 +333,6 @@ public final class GraveCaptureService {
                 .map(ItemStack::clone)
                 .toList();
     }
-
 
     private record PreparedCapture(CaptureJournalRecord record, GravePayload payload) {
     }
