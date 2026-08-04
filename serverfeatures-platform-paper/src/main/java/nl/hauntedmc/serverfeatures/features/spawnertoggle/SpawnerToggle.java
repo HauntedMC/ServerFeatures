@@ -102,7 +102,10 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
     }
 
     public void refreshChunkVisuals(Player viewer, Chunk chunk) {
-        visualService().refreshChunk(viewer, chunk);
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            service.refreshChunk(viewer, chunk);
+        }
     }
 
     public boolean mayToggle(Player player) {
