@@ -25,6 +25,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadEn
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GraveRepository;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.LastSafeLocationTracker;
+import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveExpiryNotifier;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
 import nl.hauntedmc.serverfeatures.framework.time.ServerActiveClock;
 
@@ -43,6 +44,7 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
     private LastSafeLocationTracker safeLocationTracker;
     private GravePlacementService placementService;
     private GraveManager manager;
+    private GraveExpiryNotifier expiryNotifier;
     private GraveInteractionPacketListener packetListener;
     private ServerActiveClock activeClock;
 
@@ -119,6 +121,11 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
                 "graveyard.claim_recovery_pending",
                 "&eDe claim van graf {grave_id} is opgeslagen en wordt veilig afgerond."
         );
+        messages.add(
+                "graveyard.expiry_warning",
+                "&eJe graf &b{grave_id}&e verdwijnt binnen &f{seconds} seconden&e."
+        );
+        messages.add("graveyard.expired", "&cJe graf &b{grave_id}&c is verlopen en verdwenen.");
         messages.add("graveyard.keep_inventory", "&aJe inventory is behouden; er is geen graf gemaakt.");
         messages.add("graveyard.claimed", "&aGraf {grave_id} is volledig teruggehaald.");
         messages.add(
@@ -256,6 +263,8 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         packetListener = new GraveInteractionPacketListener(this, manager);
         PacketEvents.getAPI().getEventManager().registerListener(packetListener);
         manager.initialize();
+        expiryNotifier = new GraveExpiryNotifier(this, manager);
+        expiryNotifier.start();
     }
 
     @Override
