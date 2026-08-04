@@ -51,10 +51,11 @@ final class GraveDisplayMetadataFactory {
             World world,
             Component title,
             String timer,
+            float verticalOffset,
             int glowRgb
     ) {
         TextDisplay display = world.createEntity(templateLocation(world), TextDisplay.class);
-        configureDisplay(display, glowRgb, 2.5f, 1.5f);
+        configureDisplay(display, glowRgb, 2.5f, verticalOffset + 0.5f);
         display.text(title.append(Component.newline()).append(Component.text(timer)));
         display.setBillboard(Display.Billboard.CENTER);
         display.setSeeThrough(true);
@@ -62,7 +63,7 @@ final class GraveDisplayMetadataFactory {
         display.setBackgroundColor(Color.fromARGB(112, 0, 0, 0));
         display.setLineWidth(180);
         display.setTransformation(new Transformation(
-                new Vector3f(0.0f, 1.55f, 0.0f),
+                new Vector3f(0.0f, verticalOffset, 0.0f),
                 new Quaternionf(),
                 new Vector3f(1.0f, 1.0f, 1.0f),
                 new Quaternionf()
