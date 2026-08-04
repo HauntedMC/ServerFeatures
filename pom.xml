@@ -62,7 +62,7 @@
     </modules>
 
     <properties>
-        <revision>3.1.9</revision>
+        <revision>3.1.10</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.build.outputTimestamp>2026-07-26T00:00:00Z</project.build.outputTimestamp>
