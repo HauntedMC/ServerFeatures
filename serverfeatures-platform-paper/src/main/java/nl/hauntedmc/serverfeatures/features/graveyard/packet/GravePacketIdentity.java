@@ -13,6 +13,8 @@ public record GravePacketIdentity(
         UUID baseEntityUuid,
         int headstoneEntityId,
         UUID headstoneEntityUuid,
+        int crossbarEntityId,
+        UUID crossbarEntityUuid,
         int textEntityId,
         UUID textEntityUuid,
         int interactionEntityId,
@@ -29,15 +31,29 @@ public record GravePacketIdentity(
                 SpigotReflectionUtil.generateEntityId(world),
                 UUID.randomUUID(),
                 SpigotReflectionUtil.generateEntityId(world),
+                UUID.randomUUID(),
+                SpigotReflectionUtil.generateEntityId(world),
                 UUID.randomUUID()
         );
     }
 
     public int[] entityIds() {
-        return new int[] {baseEntityId, headstoneEntityId, textEntityId, interactionEntityId};
+        return new int[] {
+                baseEntityId,
+                headstoneEntityId,
+                crossbarEntityId,
+                textEntityId,
+                interactionEntityId
+        };
     }
 
     public List<Integer> entityIdList() {
-        return List.of(baseEntityId, headstoneEntityId, textEntityId, interactionEntityId);
+        return List.of(
+                baseEntityId,
+                headstoneEntityId,
+                crossbarEntityId,
+                textEntityId,
+                interactionEntityId
+        );
     }
 }
