@@ -1,7 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.spawnertoggle.listener;
 
+import io.papermc.paper.event.packet.PlayerChunkLoadEvent;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.SpawnerToggle;
+import org.bukkit.Chunk;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.CreatureSpawner;
@@ -64,6 +66,16 @@ public final class SpawnerInteractListener implements Listener {
             }
             feature.toggleSpawner(player, current);
         }, BukkitTime.ticks(1));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChunkLoad(PlayerChunkLoadEvent event) {
+        Player player = event.getPlayer();
+        Chunk chunk = event.getChunk();
+        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                () -> feature.refreshChunkVisuals(player, chunk),
+                BukkitTime.ticks(1)
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

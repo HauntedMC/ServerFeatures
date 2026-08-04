@@ -5,19 +5,26 @@ import me.ryanhamshire.GriefPrevention.GriefPrevention;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.listener.SpawnerInteractListener;
 import nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta;
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.CreatureSpawner;
 import org.bukkit.entity.Player;
 
+import java.util.Objects;
+
 public class SpawnerToggle extends BukkitBaseFeature<Meta> {
+
+    private SpawnerVisualService visualService;
 
     public SpawnerToggle(FeatureContext<Meta> context) {
         super(context);
@@ -49,11 +56,21 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        visualService = new SpawnerVisualService(this::isDisabled);
         getLifecycleManager().getListenerManager().registerListener(new SpawnerInteractListener(this));
+        getLifecycleManager().getTaskManager().scheduleDelayedTask(
+                this::refreshLoadedVisuals,
+                BukkitTime.ticks(1)
+        );
     }
 
     @Override
     public void disable() {
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            restoreLoadedVisuals(service);
+            visualService = null;
+        }
     }
 
     public void toggleSpawner(Player player, Block block) {
@@ -65,6 +82,7 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         boolean disabled = !SpawnerToggleState.isDisabled(spawner, getPlugin());
         SpawnerToggleState.setDisabled(spawner, getPlugin(), disabled);
         spawner.update(true, false);
+        visualService().refresh(spawner);
 
         Component status = getLocalizationHandler()
                 .getMessage(disabled
@@ -83,6 +101,13 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
         return SpawnerToggleState.isDisabled(spawner, getPlugin());
     }
 
+    public void refreshChunkVisuals(Player viewer, Chunk chunk) {
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            service.refreshChunk(viewer, chunk);
+        }
+    }
+
     public boolean mayToggle(Player player) {
         String permission = getConfigHandler()
                 .node("toggle_permission")
@@ -99,5 +124,34 @@ public class SpawnerToggle extends BukkitBaseFeature<Meta> {
 
     public boolean isGriefPreventionEnabled() {
         return Bukkit.getPluginManager().isPluginEnabled("GriefPrevention");
+    }
+
+    private SpawnerVisualService visualService() {
+        return Objects.requireNonNull(visualService, "SpawnerToggle is not initialized");
+    }
+
+    private void refreshLoadedVisuals() {
+        SpawnerVisualService service = visualService;
+        if (service != null) {
+            forEachLoadedDisabledSpawner(service::refresh);
+        }
+    }
+
+    private void restoreLoadedVisuals(SpawnerVisualService service) {
+        forEachLoadedDisabledSpawner(service::restoreActual);
+    }
+
+    private void forEachLoadedDisabledSpawner(
+            java.util.function.Consumer<CreatureSpawner> action
+    ) {
+        for (World world : Bukkit.getWorlds()) {
+            for (Chunk chunk : world.getLoadedChunks()) {
+                for (BlockState state : chunk.getTileEntities()) {
+                    if (state instanceof CreatureSpawner spawner && isDisabled(spawner)) {
+                        action.accept(spawner);
+                    }
+                }
+            }
+        }
     }
 }
