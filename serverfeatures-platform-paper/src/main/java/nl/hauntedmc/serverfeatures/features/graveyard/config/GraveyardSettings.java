@@ -195,17 +195,42 @@ public final class GraveyardSettings {
 
     private static Sound sound(Graveyard feature, String key, String fallbackKey, Sound fallback) {
         String configured = feature.getConfigHandler().get(key, String.class, fallbackKey);
-        String normalized = configured.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.contains(":")) {
-            normalized = "minecraft:" + normalized.replace('_', '.');
-        }
-        NamespacedKey namespacedKey = NamespacedKey.fromString(normalized);
-        Sound resolved = namespacedKey == null ? null : Registry.SOUNDS.get(namespacedKey);
+        Sound resolved = resolveSound(configured);
         if (resolved == null) {
             feature.getLogger().warning("Invalid Graveyard setting " + key + "=" + configured + "; using " + fallbackKey);
             return fallback;
         }
         return resolved;
+    }
+
+    static Sound resolveSound(String configured) {
+        if (configured == null || configured.isBlank()) {
+            return null;
+        }
+        String normalized = configured.trim().toLowerCase(Locale.ROOT);
+        NamespacedKey namespacedKey = NamespacedKey.fromString(
+                normalized.contains(":") ? normalized : "minecraft:" + normalized
+        );
+        Sound resolved = namespacedKey == null ? null : Registry.SOUNDS.get(namespacedKey);
+        if (resolved != null) {
+            return resolved;
+        }
+
+        String legacyName = normalized.startsWith("minecraft:")
+                ? normalized.substring("minecraft:".length())
+                : normalized;
+        legacyName = legacyName.toUpperCase(Locale.ROOT);
+        for (Sound candidate : Registry.SOUNDS) {
+            NamespacedKey candidateKey = Registry.SOUNDS.getKey(candidate);
+            if (candidateKey != null && legacySoundName(candidateKey).equals(legacyName)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    static String legacySoundName(NamespacedKey soundKey) {
+        return soundKey.getKey().replace('.', '_').toUpperCase(Locale.ROOT);
     }
 
     private static <E extends Enum<E>> E enumSetting(
