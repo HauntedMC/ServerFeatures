@@ -15,11 +15,11 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class GraveyardSettings {
-    private static final long DEFAULT_LIFETIME_MILLIS = 1_800_000L;
+    private static final long DEFAULT_LIFETIME_MILLIS = 600_000L;
     private static final long DEFAULT_LEASE_MILLIS = 20_000L;
     private static final long DEFAULT_LEASE_HEARTBEAT_MILLIS = 5_000L;
-    private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 7L * 24L * 60L * 60L * 1_000L;
-    private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 24L * 60L * 60L * 1_000L;
+    private static final long DEFAULT_EXPIRED_RETENTION_MILLIS = 60L * 60L * 1_000L;
+    private static final long DEFAULT_CLAIMED_RETENTION_MILLIS = 60L * 60L * 1_000L;
     private static final long DEFAULT_PURGE_INTERVAL_MILLIS = 10L * 60L * 1_000L;
 
     private final GraveyardMode mode;
@@ -83,15 +83,13 @@ public final class GraveyardSettings {
                 Math.max(1_000L, leaseDurationMillis / 2L),
                 duration(feature, "identity.lease_heartbeat", DEFAULT_LEASE_HEARTBEAT_MILLIS)
         ));
-        expiredRetentionMillis = duration(
-                feature,
-                "storage.retention.expired",
-                DEFAULT_EXPIRED_RETENTION_MILLIS
+        expiredRetentionMillis = Math.min(
+                DEFAULT_EXPIRED_RETENTION_MILLIS,
+                duration(feature, "storage.retention.expired", DEFAULT_EXPIRED_RETENTION_MILLIS)
         );
-        claimedRetentionMillis = duration(
-                feature,
-                "storage.retention.claimed",
-                DEFAULT_CLAIMED_RETENTION_MILLIS
+        claimedRetentionMillis = Math.min(
+                DEFAULT_CLAIMED_RETENTION_MILLIS,
+                duration(feature, "storage.retention.claimed", DEFAULT_CLAIMED_RETENTION_MILLIS)
         );
         purgeIntervalMillis = Math.max(60_000L, duration(
                 feature,
@@ -195,17 +193,42 @@ public final class GraveyardSettings {
 
     private static Sound sound(Graveyard feature, String key, String fallbackKey, Sound fallback) {
         String configured = feature.getConfigHandler().get(key, String.class, fallbackKey);
-        String normalized = configured.trim().toLowerCase(Locale.ROOT);
-        if (!normalized.contains(":")) {
-            normalized = "minecraft:" + normalized.replace('_', '.');
-        }
-        NamespacedKey namespacedKey = NamespacedKey.fromString(normalized);
-        Sound resolved = namespacedKey == null ? null : Registry.SOUNDS.get(namespacedKey);
+        Sound resolved = resolveSound(configured);
         if (resolved == null) {
             feature.getLogger().warning("Invalid Graveyard setting " + key + "=" + configured + "; using " + fallbackKey);
             return fallback;
         }
         return resolved;
+    }
+
+    static Sound resolveSound(String configured) {
+        if (configured == null || configured.isBlank()) {
+            return null;
+        }
+        String normalized = configured.trim().toLowerCase(Locale.ROOT);
+        NamespacedKey namespacedKey = NamespacedKey.fromString(
+                normalized.contains(":") ? normalized : "minecraft:" + normalized
+        );
+        Sound resolved = namespacedKey == null ? null : Registry.SOUNDS.get(namespacedKey);
+        if (resolved != null) {
+            return resolved;
+        }
+
+        String legacyName = normalized.startsWith("minecraft:")
+                ? normalized.substring("minecraft:".length())
+                : normalized;
+        legacyName = legacyName.toUpperCase(Locale.ROOT);
+        for (Sound candidate : Registry.SOUNDS) {
+            NamespacedKey candidateKey = Registry.SOUNDS.getKey(candidate);
+            if (candidateKey != null && legacySoundName(candidateKey).equals(legacyName)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    static String legacySoundName(NamespacedKey soundKey) {
+        return soundKey.getKey().replace('.', '_').toUpperCase(Locale.ROOT);
     }
 
     private static <E extends Enum<E>> E enumSetting(

@@ -61,11 +61,11 @@ public final class Graveyard extends BukkitBaseFeature<Meta> {
         defaults.put("storage.payload.maximum_entries", 64);
         defaults.put("storage.payload.maximum_item_bytes", 2_097_152);
         defaults.put("storage.payload.maximum_total_bytes", 8_388_608);
-        defaults.put("storage.retention.expired", "7d");
-        defaults.put("storage.retention.claimed", "24h");
+        defaults.put("storage.retention.expired", "1h");
+        defaults.put("storage.retention.claimed", "1h");
         defaults.put("storage.retention.purge_interval", "10m");
         defaults.put("storage.retention.purge_batch_size", 100);
-        defaults.put("lifetime.duration", "30m");
+        defaults.put("lifetime.duration", "10m");
         defaults.put("eligibility.disabled_worlds", List.of());
         defaults.put("eligibility.disabled_gamemodes", List.of("CREATIVE", "SPECTATOR"));
         defaults.put("experience.recovery_percentage", 50);
