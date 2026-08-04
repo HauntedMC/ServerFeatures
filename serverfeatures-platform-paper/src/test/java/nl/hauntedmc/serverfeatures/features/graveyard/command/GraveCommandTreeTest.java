@@ -45,9 +45,12 @@ class GraveCommandTreeTest {
                 mock(GraveManager.class)
         ).buildTree();
 
-        CommandNode<CommandSourceStack> admin = assertNotNull(root.getChild("admin"));
-        CommandNode<CommandSourceStack> purge = assertNotNull(admin.getChild("purge"));
-        CommandNode<CommandSourceStack> confirm = assertNotNull(purge.getChild("confirm"));
+        CommandNode<CommandSourceStack> admin = root.getChild("admin");
+        assertNotNull(admin);
+        CommandNode<CommandSourceStack> purge = admin.getChild("purge");
+        assertNotNull(purge);
+        CommandNode<CommandSourceStack> confirm = purge.getChild("confirm");
+        assertNotNull(confirm);
         assertNotNull(confirm.getChild("grave_id"));
     }
 
