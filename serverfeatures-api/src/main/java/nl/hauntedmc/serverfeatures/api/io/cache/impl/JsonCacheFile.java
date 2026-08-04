@@ -22,7 +22,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -31,10 +30,11 @@ public class JsonCacheFile implements FileCacheStore {
     private static final Logger LOGGER = Logger.getLogger(JsonCacheFile.class.getName());
     private static final String EXP_TS = "expirationTimestamp";
     private static final String VALUE = "value";
+    private static final int FILE_LOCK_STRIPES = 256;
     private static final Type RAW_MAP_TYPE =
             new TypeToken<Map<String, Map<String, Object>>>() {
             }.getType();
-    private static final Map<Path, ReentrantLock> FILE_LOCKS = new ConcurrentHashMap<>();
+    private static final ReentrantLock[] FILE_LOCKS = createFileLocks();
 
     private final File file;
     private final Path path;
@@ -45,7 +45,7 @@ public class JsonCacheFile implements FileCacheStore {
     public JsonCacheFile(File file) {
         this.path = Objects.requireNonNull(file, "file").toPath().toAbsolutePath().normalize();
         this.file = path.toFile();
-        this.fileLock = FILE_LOCKS.computeIfAbsent(path, ignored -> new ReentrantLock());
+        this.fileLock = FILE_LOCKS[Math.floorMod(path.hashCode(), FILE_LOCKS.length)];
 
         fileLock.lock();
         try {
@@ -197,6 +197,14 @@ public class JsonCacheFile implements FileCacheStore {
         } finally {
             fileLock.unlock();
         }
+    }
+
+    private static ReentrantLock[] createFileLocks() {
+        ReentrantLock[] locks = new ReentrantLock[FILE_LOCK_STRIPES];
+        for (int index = 0; index < locks.length; index++) {
+            locks[index] = new ReentrantLock();
+        }
+        return locks;
     }
 
     private void ensureFileExistsLocked() {
