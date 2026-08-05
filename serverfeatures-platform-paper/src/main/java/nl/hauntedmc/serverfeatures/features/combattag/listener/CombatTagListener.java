@@ -6,7 +6,6 @@ import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver.ResolvedCombatSource;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -14,7 +13,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
@@ -25,17 +23,13 @@ import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
-import java.util.HashSet;
 import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
 
 public final class CombatTagListener implements Listener {
 
     private final CombatTagSettings settings;
     private final CombatTagService service;
     private final CombatSourceResolver sourceResolver;
-    private final Set<UUID> spawnExcludedMobs = new HashSet<>();
 
     public CombatTagListener(
             CombatTagSettings settings,
@@ -57,7 +51,9 @@ public final class CombatTagListener implements Listener {
             return;
         }
         ResolvedCombatSource resolved = source.get();
-        if (!resolved.playerSource() && spawnExcludedMobs.contains(resolved.damageSourceId())) {
+        if (!resolved.playerSource()
+                && resolved.spawnReason() != null
+                && settings.attribution().mobSpawnExclusions().contains(resolved.spawnReason())) {
             return;
         }
         applyCombat(resolved, target);
@@ -75,28 +71,20 @@ public final class CombatTagListener implements Listener {
                 CombatSourceResolver.opponent(fisher),
                 fisher.getUniqueId(),
                 fisher,
-                CombatTagReason.FISHING_HOOK
+                CombatTagReason.FISHING_HOOK,
+                null
         );
         applyCombat(source, target);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onCreatureSpawn(CreatureSpawnEvent event) {
-        if (settings.attribution().mobSpawnExclusions().contains(event.getSpawnReason())) {
-            spawnExcludedMobs.add(event.getEntity().getUniqueId());
-        }
-    }
-
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        spawnExcludedMobs.remove(event.getPlayer().getUniqueId());
         service.handlePlayerDeath(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
         Entity entity = event.getEntity();
-        spawnExcludedMobs.remove(entity.getUniqueId());
         if (!(entity instanceof Player)) {
             service.handleOpponentDeath(entity);
         }
@@ -149,14 +137,6 @@ public final class CombatTagListener implements Listener {
         service.handleQuit(event.getPlayer());
     }
 
-    public void pruneSpawnExclusions() {
-        spawnExcludedMobs.removeIf(entityId -> Bukkit.getEntity(entityId) == null);
-    }
-
-    public void clear() {
-        spawnExcludedMobs.clear();
-    }
-
     private void applyCombat(ResolvedCombatSource source, LivingEntity target) {
         if (target instanceof Player targetPlayer) {
             boolean enabled = source.playerSource()
@@ -165,7 +145,7 @@ public final class CombatTagListener implements Listener {
             if (!enabled) {
                 return;
             }
-            service.tag(
+            service.tagIncoming(
                     targetPlayer,
                     source.opponent(),
                     source.damageSourceId(),
@@ -182,7 +162,7 @@ public final class CombatTagListener implements Listener {
             if (!settings.tagging().pvpEnabled()) {
                 return;
             }
-            service.tag(
+            service.tagOutgoing(
                     sourcePlayer,
                     CombatSourceResolver.opponent(targetPlayer),
                     targetPlayer.getUniqueId(),
@@ -192,7 +172,7 @@ public final class CombatTagListener implements Listener {
         }
 
         if (settings.tagging().mobsEnabled()) {
-            service.tag(
+            service.tagOutgoing(
                     sourcePlayer,
                     CombatSourceResolver.opponent(target),
                     target.getUniqueId(),
