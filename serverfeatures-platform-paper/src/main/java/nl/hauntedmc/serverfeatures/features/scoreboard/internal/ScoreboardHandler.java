@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
@@ -25,7 +25,6 @@ import java.util.logging.Level;
 public class ScoreboardHandler {
     private static final int MAX_LINES = 15;
     private static final String[] LINE_KEYS = createLineKeys();
-    private static final PlainTextComponentSerializer PLAIN_TEXT = PlainTextComponentSerializer.plainText();
     private static final long WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
     private final Scoreboard feature;
@@ -56,7 +55,9 @@ public class ScoreboardHandler {
             }
             String plain;
             try {
-                plain = PLAIN_TEXT.serialize(line);
+                plain = ComponentFormatter.serialize(line)
+                        .format(ComponentFormatter.Serializer.Format.PLAIN)
+                        .build();
             } catch (RuntimeException | LinkageError failure) {
                 reportFailure(player, messageKey + ".serialize", failure);
                 continue;
