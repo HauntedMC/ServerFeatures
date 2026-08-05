@@ -1,7 +1,11 @@
 package nl.hauntedmc.serverfeatures.api.combat;
 
 /**
- * Describes the source that most recently refreshed a combat tag.
+ * Describes the interaction source currently represented by a combat tag.
+ *
+ * <p>This is normally the latest qualifying interaction. When a dead displayed opponent is
+ * replaced by a still-live retained incoming attacker, the reason follows that surviving
+ * opponent instead.</p>
  */
 public enum CombatTagReason {
     MELEE,
