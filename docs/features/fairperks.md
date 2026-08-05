@@ -103,7 +103,7 @@ Feature dependency metadata ensures CombatTag loads first. Reloading or disablin
 The following restrictions can be enabled independently:
 
 - player-versus-player damage while in effective god mode or active flight;
-- damage by a protected player's tamed pets against other entities;
+- damage by a protected player's tamed pets against every entity;
 - direct and indirect damage against hostile mobs;
 - hostile targeting of protected players;
 - exploding beds outside the Overworld;
@@ -116,7 +116,7 @@ The following restrictions can be enabled independently:
 
 Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs, player-sourced TNT and area-effect clouds, evoker fangs, tamed mobs, and fireworks. This prevents changing the damage delivery mechanism from bypassing the same fairness policy.
 
-When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or active FairPerks flight cannot damage another entity. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies. Damage against the owner is not blocked by this rule.
+When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or active FairPerks flight cannot damage any entity, including its owner. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies.
 
 Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
 
@@ -223,7 +223,7 @@ Empty game-mode sets and invalid enum values fail configuration loading instead 
 - Enable god mode at low health and hunger and verify neither value changes.
 - Verify native CombatTag blocks activation and both activation-bypass permissions work.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
-- Verify a protected owner's wolf cannot damage players, neutral mobs, or hostile mobs; verify the restrictions bypass and owner exception.
+- Verify a protected owner's wolf cannot damage players, neutral mobs, hostile mobs, or its owner; verify the restrictions bypass.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
 - Verify spawner mobs remain exempt when configured.
 - Reload CombatTag while FairPerks state is active and confirm dependent reload restores both features cleanly.
