@@ -27,10 +27,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class CombatTagService implements CombatTagApi {
 
     private static final double LOGOUT_DAMAGE = 10_000.0D;
+    private static final Pattern COMMAND_PLACEHOLDER_PATTERN =
+            Pattern.compile("\\{([a-z_]+)}");
 
     private final CombatTag feature;
     private final CombatTagSettings settings;
@@ -195,6 +199,7 @@ public final class CombatTagService implements CombatTagApi {
     }
 
     public boolean resetTimer(Player player) {
+        requirePrimaryThread();
         if (player == null) {
             return false;
         }
@@ -230,6 +235,7 @@ public final class CombatTagService implements CombatTagApi {
     }
 
     public boolean untag(Player player, CombatUntagReason reason, boolean notify) {
+        requirePrimaryThread();
         return untagInternal(player, reason, notify);
     }
 
@@ -301,7 +307,7 @@ public final class CombatTagService implements CombatTagApi {
         actionBarFrames.remove(player.getUniqueId());
         if (session == null
                 || player.hasPermission(CombatTag.BYPASS_PERMISSION)
-                || kicked && !settings.logout().punishKickedPlayers()) {
+                || (kicked && !settings.logout().punishKickedPlayers())) {
             return;
         }
         punishLogout(player, session);
@@ -380,7 +386,7 @@ public final class CombatTagService implements CombatTagApi {
         }
     }
 
-    public void shutdown(boolean preserveForReload) {
+    public void shutdown() {
         for (UUID playerId : actionBarFrames.keySet()) {
             Player player = feature.getPlugin().getServer().getPlayer(playerId);
             if (player != null) {
@@ -495,7 +501,7 @@ public final class CombatTagService implements CombatTagApi {
             try {
                 boolean handled = feature.getPlugin().getServer().dispatchCommand(
                         feature.getPlugin().getServer().getConsoleSender(),
-                        replace(command, placeholders)
+                        replaceCommandPlaceholders(command, placeholders)
                 );
                 if (!handled) {
                     feature.reportFailure(
@@ -556,12 +562,27 @@ public final class CombatTagService implements CombatTagApi {
         return Map.copyOf(placeholders);
     }
 
-    private static String replace(String value, Map<String, String> placeholders) {
-        String result = value;
-        for (Map.Entry<String, String> placeholder : placeholders.entrySet()) {
-            result = result.replace("{" + placeholder.getKey() + "}", placeholder.getValue());
+    private static String replaceCommandPlaceholders(
+            String command,
+            Map<String, String> placeholders
+    ) {
+        Matcher matcher = COMMAND_PLACEHOLDER_PATTERN.matcher(command);
+        StringBuilder result = new StringBuilder(command.length());
+        while (matcher.find()) {
+            String replacement = placeholders.get(matcher.group(1));
+            if (replacement == null) {
+                replacement = matcher.group();
+            } else {
+                replacement = sanitizeCommandValue(replacement);
+            }
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
         }
-        return result;
+        matcher.appendTail(result);
+        return result.toString();
+    }
+
+    private static String sanitizeCommandValue(String value) {
+        return value.replace('\r', ' ').replace('\n', ' ').replace('\0', ' ');
     }
 
     private CombatTagSnapshot snapshot(Session session, long remainingNanos) {
