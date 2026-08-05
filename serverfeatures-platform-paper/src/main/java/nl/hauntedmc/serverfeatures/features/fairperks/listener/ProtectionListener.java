@@ -99,8 +99,9 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
-        if (event.hasChangedBlock() && event.getPlayer().isOnGround()) {
-            feature.stateService().clearFallDamageGrace(event.getPlayer());
+        Player player = event.getPlayer();
+        if (event.hasChangedBlock() && ((Entity) player).isOnGround()) {
+            feature.stateService().clearFallDamageGrace(player);
         }
     }
 
