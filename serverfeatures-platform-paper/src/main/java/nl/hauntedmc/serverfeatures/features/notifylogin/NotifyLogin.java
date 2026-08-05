@@ -22,11 +22,11 @@ public final class NotifyLogin extends BukkitBaseFeature<Meta> {
     private static final String DEFAULT_QUIT_MESSAGE =
             "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>] {name}";
     private static final String SUPREME_PLUS_JOIN_MESSAGE =
-            "<color:#aab2c9>[<color:#ffd79c>+<color:#aab2c9>]  "
+            "<color:#aab2c9>[<color:#ffd79c>+<color:#aab2c9>] "
                     + "<gradient:#3B8585:#3B8585:#2B9D9D:#2B9D9D:#43B1B1:#43B1B1:#44D6D6:#EAEAEA:#44D6D6>"
                     + "[Supreme+]</gradient> <color:#aab2c9>%serverfeatures_nickname%";
     private static final String SUPREME_PLUS_QUIT_MESSAGE =
-            "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>]  "
+            "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>] "
                     + "<gradient:#3B8585:#3B8585:#2B9D9D:#2B9D9D:#43B1B1:#43B1B1:#44D6D6:#EAEAEA:#44D6D6>"
                     + "[Supreme+]</gradient> <color:#aab2c9>%serverfeatures_nickname%";
 
