@@ -1,10 +1,13 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.policy;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -12,6 +15,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +58,18 @@ class HostileEntityClassifierTest {
         when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(enemy));
 
         assertTrue(classifier.hasNearbyHostile(player, 16, 8));
+    }
+
+    @Test
+    void malformedSpawnerMarkerIsTreatedAsUnmarked() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Entity entity = mock(Entity.class);
+        PersistentDataContainer data = mock(PersistentDataContainer.class);
+        when(entity.getPersistentDataContainer()).thenReturn(data);
+        when(data.get(any(NamespacedKey.class), eq(PersistentDataType.BYTE)))
+                .thenThrow(new IllegalArgumentException("wrong persistent type"));
+
+        assertFalse(classifier.isExemptSpawnerMob(entity));
     }
 
     private static HostileEntityClassifier classifier(
