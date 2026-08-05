@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -119,17 +120,23 @@ public final class ProtectionListener implements Listener {
             return false;
         }
         Player owner = DamageSourceResolver.resolveTamedOwner(event.getDamager());
-        if (owner == null
-                || owner.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
-                || !feature.stateService().isRestricted(owner)) {
+        if (owner == null || owner.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)) {
+            return false;
+        }
+
+        boolean godEnabled = feature.stateService().isGodEffective(owner);
+        boolean flightEnabled = feature.stateService().isDesired(owner, PerkType.FLY)
+                && feature.policy().allowsEnvironment(owner, PerkType.FLY);
+        if (!godEnabled && !flightEnabled) {
             return false;
         }
 
         event.setCancelled(true);
         feature.sendActionBar(
                 owner,
-                "fairperks.restriction.pet."
-                        + feature.stateService().activeRestrictionMessageSuffix(owner)
+                godEnabled
+                        ? "fairperks.restriction.pet.god"
+                        : "fairperks.restriction.pet.flying"
         );
         return true;
     }
