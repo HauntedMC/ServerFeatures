@@ -34,7 +34,7 @@ class CombatTagServiceTest {
 
         assertEquals(
                 CombatTagResult.TAGGED,
-                fixture.service().tag(
+                fixture.service().tagIncoming(
                         fixture.player(),
                         first,
                         first.uniqueId(),
@@ -44,7 +44,7 @@ class CombatTagServiceTest {
         fixture.nanoTime().addAndGet(5_000_000_000L);
         assertEquals(
                 CombatTagResult.RETAGGED,
-                fixture.service().tag(
+                fixture.service().tagIncoming(
                         fixture.player(),
                         second,
                         second.uniqueId(),
@@ -59,10 +59,36 @@ class CombatTagServiceTest {
     }
 
     @Test
+    void outgoingRetagKeepsTheLastIncomingAttackerForLogoutAttribution() {
+        Fixture fixture = fixture(false);
+        CombatOpponent attacker = opponent("attacker", EntityType.ZOMBIE);
+        CombatOpponent attacked = opponent("attacked", EntityType.SKELETON);
+
+        fixture.service().tagIncoming(
+                fixture.player(),
+                attacker,
+                attacker.uniqueId(),
+                CombatTagReason.MELEE
+        );
+        fixture.service().tagOutgoing(
+                fixture.player(),
+                attacked,
+                attacked.uniqueId(),
+                CombatTagReason.MELEE
+        );
+
+        var visible = fixture.service().getTag(fixture.player()).orElseThrow();
+        var stored = fixture.service().snapshotForReload().get(fixture.player().getUniqueId());
+        assertEquals(attacked, visible.opponent());
+        assertEquals(attacker, stored.logoutOpponent());
+        assertEquals(attacker.uniqueId(), stored.logoutDamageSourceId());
+    }
+
+    @Test
     void expiredTagIsNotReportedByTheApi() {
         Fixture fixture = fixture(false);
         CombatOpponent opponent = opponent("zombie", EntityType.ZOMBIE);
-        fixture.service().tag(
+        fixture.service().tagIncoming(
                 fixture.player(),
                 opponent,
                 opponent.uniqueId(),
@@ -81,7 +107,7 @@ class CombatTagServiceTest {
 
         assertEquals(
                 CombatTagResult.BYPASSED,
-                fixture.service().tag(
+                fixture.service().tagIncoming(
                         fixture.player(),
                         opponent,
                         opponent.uniqueId(),
@@ -95,7 +121,7 @@ class CombatTagServiceTest {
     void reloadSnapshotPreservesOnlyTheRemainingDuration() {
         Fixture fixture = fixture(false);
         CombatOpponent opponent = opponent("zombie", EntityType.ZOMBIE);
-        fixture.service().tag(
+        fixture.service().tagIncoming(
                 fixture.player(),
                 opponent,
                 opponent.uniqueId(),
