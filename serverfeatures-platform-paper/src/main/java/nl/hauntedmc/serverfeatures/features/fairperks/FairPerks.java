@@ -22,9 +22,11 @@ import nl.hauntedmc.serverfeatures.features.fairperks.policy.HostileEntityClassi
 import nl.hauntedmc.serverfeatures.features.fairperks.service.PerkStateService;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.PluginIdentifiableCommand;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -183,8 +185,7 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         );
         stateService = new PerkStateService(this, settings, policy);
 
-        warnAboutCommandCollision("fly");
-        warnAboutCommandCollision("god");
+        validateCommandOwnership();
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new PerkCommand(this, PerkType.FLY));
         getLifecycleManager().getCommandManager().registerBrigadierCommand(new PerkCommand(this, PerkType.GOD));
         if (settings.godMacro().enabled()) {
@@ -197,9 +198,6 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         getLifecycleManager().getListenerManager().registerListener(new ProtectionListener(this));
         getLifecycleManager().getListenerManager().registerListener(new InteractionRestrictionListener(this));
 
-        for (Player player : getPlugin().getServer().getOnlinePlayers()) {
-            stateService.initialize(player);
-        }
         getLogger().info("FairPerks loaded with native flight and god-mode ownership; Essentials is not used.");
     }
 
@@ -270,15 +268,60 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         actionBarFeedback.remove(player.getUniqueId());
     }
 
-    private void warnAboutCommandCollision(String label) {
-        Command command = getPlugin().getServer().getCommandMap().getCommand(label);
-        if (command != null) {
-            getLogger().severe(
-                    "Cannot own /" + label + " while it is registered by '" + command.getLabel()
-                            + "'. Disable the Essentials " + label
-                            + " command before enabling FairPerks. The feature will not replace another plugin's command silently."
+    private void validateCommandOwnership() {
+        Map<String, String> labels = new LinkedHashMap<>();
+        registerCommandLabel(labels, "fly", "fly command");
+        registerCommandLabels(labels, settings.commands().flyAliases(), "fly alias");
+        registerCommandLabel(labels, "god", "god command");
+        registerCommandLabels(labels, settings.commands().godAliases(), "god alias");
+        registerCommandLabel(labels, "fairperks", "administration command");
+        if (settings.godMacro().enabled()) {
+            registerCommandLabel(labels, "godmacro", "god macro command");
+            registerCommandLabels(labels, settings.commands().godMacroAliases(), "god macro alias");
+        }
+
+        for (Map.Entry<String, String> entry : labels.entrySet()) {
+            ensureCommandAvailable(entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static void registerCommandLabels(
+            Map<String, String> labels,
+            List<String> configuredLabels,
+            String purpose
+    ) {
+        for (String label : configuredLabels) {
+            registerCommandLabel(labels, label, purpose);
+        }
+    }
+
+    private static void registerCommandLabel(Map<String, String> labels, String label, String purpose) {
+        String previous = labels.putIfAbsent(label, purpose);
+        if (previous != null) {
+            throw new IllegalArgumentException(
+                    "FairPerks command label '" + label + "' is configured more than once ("
+                            + previous + " and " + purpose + ")."
             );
         }
+    }
+
+    private void ensureCommandAvailable(String label, String purpose) {
+        Command command = getPlugin().getServer().getCommandMap().getCommand(label);
+        if (command == null) {
+            return;
+        }
+        if (command instanceof PluginIdentifiableCommand identifiable
+                && identifiable.getPlugin().equals(getPlugin())) {
+            return;
+        }
+        String owner = command instanceof PluginIdentifiableCommand identifiable
+                ? identifiable.getPlugin().getName()
+                : command.getClass().getName();
+        throw new IllegalStateException(
+                "FairPerks cannot register the " + purpose + " '/" + label
+                        + "' because it is already owned by " + owner
+                        + ". Disable the conflicting command before enabling FairPerks."
+        );
     }
 
     public record ReloadSnapshot(Map<UUID, PerkStateService.PlayerSnapshot> players)
