@@ -83,7 +83,7 @@ class CombatTagSettingsTest {
                         false,
                         false
                 ),
-                new CombatTagSettings.LogoutSettings(true, true, true, commands),
+                new CombatTagSettings.LogoutSettings(true, true, true, false, commands),
                 new CombatTagSettings.DisplaySettings(
                         true,
                         true,
@@ -93,6 +93,7 @@ class CombatTagSettingsTest {
         );
         commands.clear();
 
+        assertFalse(settings.logout().punishKickedPlayers());
         assertTrue(settings.logout().commands().contains("say logged out"));
         assertThrows(
                 UnsupportedOperationException.class,
