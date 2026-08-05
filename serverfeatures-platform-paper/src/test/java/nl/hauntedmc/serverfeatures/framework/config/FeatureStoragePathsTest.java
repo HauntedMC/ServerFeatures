@@ -19,9 +19,34 @@ class FeatureStoragePathsTest {
     }
 
     @Test
+    void buildsSafeLocalDataPaths() {
+        assertEquals(
+                "local/commandscheduler.yml",
+                FeatureStoragePaths.localDataPath(" commandscheduler.yml ")
+        );
+        assertEquals("local/recipes.yaml", FeatureStoragePaths.localDataPath("recipes.yaml"));
+    }
+
+    @Test
     void rejectsUnsafeFeatureNames() {
         assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath("../Demo"));
         assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath("Demo/Child"));
         assertThrows(IllegalArgumentException.class, () -> FeatureStoragePaths.configPath(" "));
+    }
+
+    @Test
+    void rejectsUnsafeLocalDataFileNames() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FeatureStoragePaths.localDataPath("../commandscheduler.yml")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FeatureStoragePaths.localDataPath("nested/commandscheduler.yml")
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> FeatureStoragePaths.localDataPath("commandscheduler.txt")
+        );
     }
 }
