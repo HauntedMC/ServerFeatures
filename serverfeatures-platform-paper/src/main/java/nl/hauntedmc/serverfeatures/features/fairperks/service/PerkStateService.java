@@ -58,8 +58,8 @@ public final class PerkStateService {
 
         boolean storedFlight = readBoolean(player, FLY_ENABLED_KEY);
         boolean hadStaleFlight = storedFlight
-                || readBoolean(player, FLY_OWNED_KEY)
-                || (!isNativeFlightMode(player) && (player.getAllowFlight() || player.isFlying()));
+                || readBoolean(player, FLY_ACTIVE_KEY)
+                || readBoolean(player, FLY_OWNED_KEY);
         boolean canRestoreFlight = player.hasPermission(FairPerks.FLY_USE_PERMISSION)
                 && player.hasPermission(FairPerks.FLY_PERSIST_PERMISSION)
                 && settings.flight().persistenceEnabled();
@@ -228,6 +228,9 @@ public final class PerkStateService {
 
         state.flyDesired = false;
         revokeFlight(player, state, false, true);
+        if (!isNativeFlightMode(player) && player.isFlying()) {
+            player.setFlying(false);
+        }
         clearFlightPersistence(player);
         feature.sendMessage(player, "fairperks.fly.disabled");
         return true;
