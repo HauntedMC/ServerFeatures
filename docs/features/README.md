@@ -1,6 +1,6 @@
 # ServerFeatures Feature Reference
 
-This directory documents all **59** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
+This directory documents all **60** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
 
 ## How to use these pages
 
@@ -70,6 +70,7 @@ This directory documents all **59** feature modules currently present in ServerF
 
 - [Backup](backup.md) — Runs controlled server backup work from the Paper side, with feature-owned scheduling and shutdown cleanup.
 - [Restart](restart.md) — Coordinates announced, cancellable server restarts, blocks unsafe late joins, evacuates connected players, and then performs the configured restart action.
+- [CommandScheduler](commandscheduler.md) — Executes daily or weekly console-command schedules in ordered sequence or random-choice mode with live administrative management.
 - [Sanitize](sanitize.md) — Applies startup-time hardening and cleanup to server configuration files such as `bukkit.yml` and `spigot.yml`.
 - [Broadcast](broadcast.md) — Allows authorized senders to broadcast a formatted message to the current Paper server.
 - [Votifier](votifier.md) — Receives vote notifications on the Paper side and publishes or persists them for network reward processing.
