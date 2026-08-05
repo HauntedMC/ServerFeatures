@@ -2,7 +2,9 @@ package nl.hauntedmc.serverfeatures.features.combattag.source;
 
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
+import org.bukkit.Server;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
@@ -42,6 +44,24 @@ class CombatSourceResolverTest {
         assertSame(player, source.player());
         assertEquals(player.getUniqueId(), source.opponent().uniqueId());
         assertEquals(CombatTagReason.PROJECTILE, source.reason());
+    }
+
+    @Test
+    void fireworkUsesItsSpawningPlayerInsteadOfGenericProjectileHandling() {
+        Player owner = player("Rocketeer");
+        Server server = mock(Server.class);
+        Firework firework = mock(Firework.class);
+        UUID ownerId = owner.getUniqueId();
+        when(firework.getSpawningEntity()).thenReturn(ownerId);
+        when(firework.getServer()).thenReturn(server);
+        when(server.getPlayer(ownerId)).thenReturn(owner);
+        CombatSourceResolver resolver = resolver(true, true, true, Set.of());
+
+        var source = resolver.resolve(firework).orElseThrow();
+
+        assertSame(owner, source.player());
+        assertEquals(ownerId, source.opponent().uniqueId());
+        assertEquals(CombatTagReason.FIREWORK, source.reason());
     }
 
     @Test
