@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 
@@ -54,6 +55,10 @@ public class LotteryPlayerStatsEntity {
 
     @Column(name = "updated_at", nullable = false)
     private long updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     public String getId() {
         return id;
@@ -149,5 +154,9 @@ public class LotteryPlayerStatsEntity {
 
     public void setUpdatedAt(long updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public long getVersion() {
+        return version;
     }
 }
