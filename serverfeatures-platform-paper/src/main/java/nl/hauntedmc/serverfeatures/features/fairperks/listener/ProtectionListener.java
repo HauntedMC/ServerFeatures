@@ -121,7 +121,6 @@ public final class ProtectionListener implements Listener {
         Player owner = DamageSourceResolver.resolveTamedOwner(event.getDamager());
         if (owner == null
                 || owner.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
-                || event.getEntity().getUniqueId().equals(owner.getUniqueId())
                 || !feature.stateService().isRestricted(owner)) {
             return false;
         }
