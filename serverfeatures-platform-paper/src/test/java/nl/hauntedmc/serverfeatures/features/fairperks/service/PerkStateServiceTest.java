@@ -128,6 +128,30 @@ class PerkStateServiceTest {
     }
 
     @Test
+    void combatCleanupDoesNotStopUnownedActiveFlight() {
+        Fixture fixture = fixture();
+        when(fixture.policy().isCombatTagged(fixture.player())).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        UUID playerId = fixture.player().getUniqueId();
+
+        fixture.service().restore(Map.of(
+                playerId,
+                new PerkStateService.PlayerSnapshot(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false
+                )
+        ));
+
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+        verify(fixture.player(), never()).setFlying(false);
+    }
+
+    @Test
     void enteringGloballyBlockedWorldDisablesAllFairPerksState() {
         Fixture fixture = fixture();
         fixture.service().initialize(fixture.player());
