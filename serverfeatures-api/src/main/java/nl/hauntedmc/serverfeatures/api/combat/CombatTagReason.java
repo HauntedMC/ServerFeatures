@@ -12,5 +12,7 @@ public enum CombatTagReason {
     AREA_EFFECT,
     FIREWORK,
     EVOKER_FANGS,
+    EXPLOSION,
+    INDIRECT,
     EXTERNAL
 }
