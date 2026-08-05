@@ -64,6 +64,25 @@ class CombatTagServiceTest {
         assertEquals(second, snapshot.opponent());
         assertEquals(CombatTagReason.PROJECTILE, snapshot.reason());
         assertEquals(15L, snapshot.remaining().toSeconds());
+        verify(fixture.feature()).publishAppliedTag(fixture.player(), CombatTagResult.TAGGED);
+        verify(fixture.feature()).publishAppliedTag(fixture.player(), CombatTagResult.RETAGGED);
+    }
+
+    @Test
+    void publicApiTagsPublishTheSameAppliedTransition() {
+        Fixture fixture = fixture(false);
+        Entity opponent = mock(Entity.class);
+        UUID opponentId = UUID.randomUUID();
+        when(opponent.getUniqueId()).thenReturn(opponentId);
+        when(opponent.getType()).thenReturn(EntityType.ZOMBIE);
+        when(opponent.getName()).thenReturn("Zombie");
+
+        assertEquals(
+                CombatTagResult.TAGGED,
+                fixture.service().tag(fixture.player(), opponent, CombatTagReason.EXTERNAL)
+        );
+
+        verify(fixture.feature()).publishAppliedTag(fixture.player(), CombatTagResult.TAGGED);
     }
 
     @Test
@@ -201,6 +220,10 @@ class CombatTagServiceTest {
                 )
         );
         assertFalse(fixture.service().isTagged(fixture.player()));
+        verify(fixture.feature(), never()).publishAppliedTag(
+                fixture.player(),
+                CombatTagResult.BYPASSED
+        );
     }
 
     @Test
@@ -300,7 +323,7 @@ class CombatTagServiceTest {
                 nanoTime::get,
                 Clock.fixed(Instant.parse("2026-08-05T15:00:00Z"), ZoneOffset.UTC)
         );
-        return new Fixture(player, nanoTime, service);
+        return new Fixture(feature, player, nanoTime, service);
     }
 
     private static CombatTagSettings settings() {
@@ -351,6 +374,7 @@ class CombatTagServiceTest {
     }
 
     private record Fixture(
+            CombatTag feature,
             Player player,
             AtomicLong nanoTime,
             CombatTagService service
