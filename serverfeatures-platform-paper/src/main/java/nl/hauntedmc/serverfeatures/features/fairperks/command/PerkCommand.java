@@ -118,7 +118,8 @@ public final class PerkCommand implements BrigadierCommand {
         PerkChangeResult result = apply(
                 player,
                 intent,
-                player.hasPermission(bypassPermission())
+                player.hasPermission(bypassPermission()),
+                false
         );
         sendSelfResult(player, result);
         return result.success() ? 1 : 0;
@@ -142,7 +143,8 @@ public final class PerkCommand implements BrigadierCommand {
         PerkChangeResult result = apply(
                 target,
                 intent,
-                actor.hasPermission(bypassPermission())
+                actor.hasPermission(bypassPermission()),
+                true
         );
         if (!result.success()) {
             sendDenied(actor, result.status());
@@ -173,11 +175,33 @@ public final class PerkCommand implements BrigadierCommand {
         return 1;
     }
 
-    private PerkChangeResult apply(Player player, Intent intent, boolean bypassActivationGuard) {
+    private PerkChangeResult apply(
+            Player player,
+            Intent intent,
+            boolean bypassActivationGuard,
+            boolean bypassUsePermission
+    ) {
         return switch (intent) {
-            case ENABLE -> feature.stateService().set(player, perk, true, bypassActivationGuard);
-            case DISABLE -> feature.stateService().set(player, perk, false, bypassActivationGuard);
-            case TOGGLE -> feature.stateService().toggle(player, perk, bypassActivationGuard);
+            case ENABLE -> feature.stateService().set(
+                    player,
+                    perk,
+                    true,
+                    bypassActivationGuard,
+                    bypassUsePermission
+            );
+            case DISABLE -> feature.stateService().set(
+                    player,
+                    perk,
+                    false,
+                    bypassActivationGuard,
+                    bypassUsePermission
+            );
+            case TOGGLE -> feature.stateService().toggle(
+                    player,
+                    perk,
+                    bypassActivationGuard,
+                    bypassUsePermission
+            );
             case STATUS -> throw new IllegalStateException("Status is handled before state mutation");
         };
     }
