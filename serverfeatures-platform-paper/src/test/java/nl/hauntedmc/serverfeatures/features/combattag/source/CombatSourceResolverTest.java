@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features.combattag.source;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import org.bukkit.Server;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
@@ -11,6 +13,8 @@ import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -31,6 +35,40 @@ class CombatSourceResolverTest {
         CombatSourceResolver resolver = resolver(true, true, true, Set.of(EntityType.EGG));
 
         assertTrue(resolver.resolve(projectile).isEmpty());
+    }
+
+    @Test
+    void ignoredProjectileDoesNotFallBackToThePaperCausingEntity() {
+        Player shooter = player("Shooter");
+        Projectile projectile = mock(Projectile.class);
+        DamageSource damageSource = mock(DamageSource.class);
+        EntityDamageByEntityEvent event = mock(EntityDamageByEntityEvent.class);
+        when(projectile.getType()).thenReturn(EntityType.EGG);
+        when(event.getDamageSource()).thenReturn(damageSource);
+        when(event.getDamager()).thenReturn(projectile);
+        when(damageSource.getDirectEntity()).thenReturn(projectile);
+        when(damageSource.getCausingEntity()).thenReturn(shooter);
+        CombatSourceResolver resolver = resolver(true, true, true, Set.of(EntityType.EGG));
+
+        assertTrue(resolver.resolve(event).isEmpty());
+    }
+
+    @Test
+    void paperCausingEntityLinksPlayerCausedExplosionsWithoutARecognizedCarrier() {
+        Player player = player("CrystalUser");
+        Entity crystal = mock(Entity.class);
+        DamageSource damageSource = mock(DamageSource.class);
+        EntityDamageEvent event = mock(EntityDamageEvent.class);
+        when(event.getDamageSource()).thenReturn(damageSource);
+        when(event.getCause()).thenReturn(EntityDamageEvent.DamageCause.ENTITY_EXPLOSION);
+        when(damageSource.getDirectEntity()).thenReturn(crystal);
+        when(damageSource.getCausingEntity()).thenReturn(player);
+        CombatSourceResolver resolver = resolver(true, true, true, Set.of());
+
+        var source = resolver.resolve(event).orElseThrow();
+
+        assertSame(player, source.player());
+        assertEquals(CombatTagReason.EXPLOSION, source.reason());
     }
 
     @Test
@@ -103,7 +141,7 @@ class CombatSourceResolverTest {
         when(pet.getOwner()).thenReturn(owner);
         CombatSourceResolver resolver = resolver(true, true, true, Set.of());
 
-        var source = resolver.resolve((org.bukkit.entity.Entity) pet).orElseThrow();
+        var source = resolver.resolve((Entity) pet).orElseThrow();
 
         assertSame(owner, source.player());
         assertEquals(owner.getUniqueId(), source.opponent().uniqueId());
