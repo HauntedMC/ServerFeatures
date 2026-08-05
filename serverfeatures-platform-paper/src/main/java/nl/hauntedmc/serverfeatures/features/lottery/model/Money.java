@@ -9,8 +9,8 @@ public record Money(BigDecimal amount) implements Comparable<Money> {
 
     public static final int SCALE = 2;
     public static final RoundingMode ROUNDING = RoundingMode.DOWN;
-    public static final Money ZERO = new Money(BigDecimal.ZERO);
     private static final BigDecimal MAXIMUM = new BigDecimal("1000000000.00");
+    public static final Money ZERO = new Money(BigDecimal.ZERO);
 
     public Money {
         Objects.requireNonNull(amount, "amount");
