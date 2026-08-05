@@ -2,10 +2,12 @@ package nl.hauntedmc.serverfeatures.features.combattag.listener;
 
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.api.combat.CombatUntagReason;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver.ResolvedCombatSource;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -35,16 +37,20 @@ public final class CombatTagListener implements Listener {
     private final CombatTagSettings settings;
     private final CombatTagService service;
     private final CombatSourceResolver sourceResolver;
+    private final FeatureTaskManager taskManager;
     private final Set<UUID> pendingKicks = new HashSet<>();
+    private final Set<UUID> explodingCreepers = new HashSet<>();
 
     public CombatTagListener(
             CombatTagSettings settings,
             CombatTagService service,
-            CombatSourceResolver sourceResolver
+            CombatSourceResolver sourceResolver,
+            FeatureTaskManager taskManager
     ) {
         this.settings = java.util.Objects.requireNonNull(settings, "settings");
         this.service = java.util.Objects.requireNonNull(service, "service");
         this.sourceResolver = java.util.Objects.requireNonNull(sourceResolver, "sourceResolver");
+        this.taskManager = java.util.Objects.requireNonNull(taskManager, "taskManager");
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -57,6 +63,9 @@ public final class CombatTagListener implements Listener {
             return;
         }
         ResolvedCombatSource resolved = source.get();
+        if (explodingCreepers.contains(resolved.damageSourceId())) {
+            return;
+        }
         if (!resolved.playerSource()
                 && resolved.spawnReason() != null
                 && settings.attribution().mobSpawnExclusions().contains(resolved.spawnReason())) {
@@ -91,6 +100,7 @@ public final class CombatTagListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
         Entity entity = event.getEntity();
+        explodingCreepers.remove(entity.getUniqueId());
         if (!(entity instanceof Player)) {
             service.handleOpponentDeath(entity);
         }
@@ -98,9 +108,16 @@ public final class CombatTagListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onExplosionPrime(ExplosionPrimeEvent event) {
-        if (event.getEntity() instanceof Creeper) {
-            service.handleOpponentDeath(event.getEntity());
+        if (!(event.getEntity() instanceof Creeper creeper)) {
+            return;
         }
+        UUID creeperId = creeper.getUniqueId();
+        explodingCreepers.add(creeperId);
+        service.handleOpponentDeath(creeper);
+        taskManager.scheduleDelayedTask(
+                () -> explodingCreepers.remove(creeperId),
+                BukkitTime.ticks(20L)
+        );
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -156,6 +173,7 @@ public final class CombatTagListener implements Listener {
 
     public void clear() {
         pendingKicks.clear();
+        explodingCreepers.clear();
     }
 
     private void applyCombat(ResolvedCombatSource source, LivingEntity target) {
