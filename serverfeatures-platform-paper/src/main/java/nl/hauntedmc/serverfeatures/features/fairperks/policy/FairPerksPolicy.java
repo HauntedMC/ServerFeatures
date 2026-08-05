@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.policy;
 
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagApi;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
@@ -11,16 +12,16 @@ public final class FairPerksPolicy {
 
     private final FairPerksSettings settings;
     private final HostileEntityClassifier hostileClassifier;
-    private final CombatStatusProvider combatStatusProvider;
+    private final CombatTagApi combatTagApi;
 
     public FairPerksPolicy(
             FairPerksSettings settings,
             HostileEntityClassifier hostileClassifier,
-            CombatStatusProvider combatStatusProvider
+            CombatTagApi combatTagApi
     ) {
         this.settings = Objects.requireNonNull(settings, "settings");
         this.hostileClassifier = Objects.requireNonNull(hostileClassifier, "hostileClassifier");
-        this.combatStatusProvider = Objects.requireNonNull(combatStatusProvider, "combatStatusProvider");
+        this.combatTagApi = Objects.requireNonNull(combatTagApi, "combatTagApi");
     }
 
     public PerkChangeResult.Status canEnable(Player player, PerkType perk, boolean bypassActivationGuard) {
@@ -35,15 +36,8 @@ public final class FairPerksPolicy {
         }
 
         FairPerksSettings.ActivationGuardSettings guard = settings.activationGuard();
-        if (guard.combatEnabled()) {
-            CombatStatusProvider.CombatStatus combatStatus = combatStatusProvider.status(player);
-            if (combatStatus == CombatStatusProvider.CombatStatus.IN_COMBAT) {
-                return PerkChangeResult.Status.COMBAT_TAGGED;
-            }
-            if (combatStatus == CombatStatusProvider.CombatStatus.UNAVAILABLE
-                    && !guard.allowWhenCombatUnavailable()) {
-                return PerkChangeResult.Status.COMBAT_TAGGED;
-            }
+        if (guard.combatEnabled() && combatTagApi.isTagged(player)) {
+            return PerkChangeResult.Status.COMBAT_TAGGED;
         }
 
         if (guard.hostileNearbyEnabled()
