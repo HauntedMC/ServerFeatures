@@ -40,6 +40,9 @@ public final class LotteryDrawEngine {
         Objects.requireNonNull(round, "round");
         Objects.requireNonNull(sourceEntries, "sourceEntries");
         Objects.requireNonNull(settings, "settings");
+        if (!commitment(round.seedReveal()).equals(round.seedCommitment())) {
+            throw new IllegalArgumentException("Lottery seed reveal does not match its commitment");
+        }
 
         List<Entry> entries = sourceEntries.stream()
                 .filter(entry -> entry.ticketCount() > 0)

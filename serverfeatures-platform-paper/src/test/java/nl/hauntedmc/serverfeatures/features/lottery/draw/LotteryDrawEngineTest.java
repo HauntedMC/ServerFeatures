@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LotteryDrawEngineTest {
 
@@ -56,6 +57,21 @@ class LotteryDrawEngineTest {
         assertEquals(first.payoutTotal(), first.winners().stream()
                 .map(winner -> winner.amount())
                 .reduce(Money.ZERO, Money::add));
+    }
+
+    @Test
+    void rejectsASeedThatDoesNotMatchThePublishedCommitment() {
+        LotteryDrawEngine engine = new LotteryDrawEngine();
+        String seed = "5a".repeat(32);
+        RoundSnapshot round = new RoundSnapshot(
+                "survival", "round", RoundStatus.DRAWING, 0L, 1L,
+                Money.parse("1.00"), Money.parse("10.00"), Money.ZERO,
+                Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO,
+                0, 0, 0, 0L,
+                engine.commitment("6b".repeat(32)), seed, false
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> engine.draw(round, List.of(), settings()));
     }
 
     private static LotterySettings settings() {

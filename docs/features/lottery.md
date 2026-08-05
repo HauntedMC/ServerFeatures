@@ -20,7 +20,7 @@ The four tables are:
 - `system_lottery_payouts` — pending, paying, paid or failed wins/refunds;
 - `system_lottery_player_stats` — totals used by leaderboards.
 
-`lottery_key` defaults to `$server`, so each backend receives an independent lottery. A round row is pessimistically locked while tickets, donations, drawing, pausing, cancellation or pot additions are changed. Marking a round `DRAWING` prevents a second server from drawing it twice.
+`lottery_key` defaults to `$server`, so each backend receives an independent lottery. A round row is pessimistically locked while tickets, donations, drawing, pausing, cancellation or pot additions are changed. A nullable unique `active_key` permits exactly one active round per lottery. The active row is pessimistically locked for all round mutations.
 
 Vault calls remain on the Paper main thread. A purchase or donation is withdrawn first and stored immediately afterwards. If the database write fails, the amount is refunded. Payout rows use `PENDING -> PAYING -> PAID`; a definite Vault failure returns the row to `PENDING`, while an uncertain result becomes `FAILED` and is logged instead of being repeated automatically.
 
@@ -98,7 +98,7 @@ history:
 
 ## Draw fairness
 
-Entries are sorted by UUID and assigned ticket ranges. The feature uses a random 256-bit seed, publishes its SHA-256 commitment before the draw, and later stores the seed reveal and an entry digest. SHA-256 rejection sampling avoids modulo bias. Prize rounding remainder is assigned to the first actual winner so the full payout is conserved.
+Entries are sorted by UUID and assigned ticket ranges. The feature uses a random 256-bit seed, publishes its SHA-256 commitment before the draw, and verifies the stored reveal against that commitment before drawing. The result is recomputed deterministically before persistence, and an entry digest is stored. SHA-256 rejection sampling avoids modulo bias. Prize rounding remainder is assigned to the first actual winner so the full payout is conserved.
 
 ## PlaceholderAPI
 

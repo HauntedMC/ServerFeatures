@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;
+import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.DonationReceipt;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.DrawResult;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.Entry;
@@ -46,14 +47,19 @@ public final class LotteryRepository {
     }
 
     public RoundSnapshot ensureOpenRound(
-            LotterySettings settings,
-            String seed,
-            String commitment,
-            long now
-    ) {
+        LotterySettings settings,
+        String seed,
+        String commitment,
+        long now
+) {
+    try {
         return orm.runInTransaction(session -> {
             failStalePayouts(session, settings.lotteryKey(), now);
-            LotteryRoundEntity current = findCurrentRound(session, settings.lotteryKey(), true).orElse(null);
+            LotteryRoundEntity current = findCurrentRound(
+                    session,
+                    settings.lotteryKey(),
+                    true
+            ).orElse(null);
             if (current != null && RoundStatus.DRAWING.name().equals(current.getStatus())
                     && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
                 current.setStatus(RoundStatus.OPEN.name());
@@ -66,7 +72,13 @@ public final class LotteryRepository {
             session.persist(created);
             return snapshot(created);
         });
+    } catch (RuntimeException failure) {
+        if (!activeRoundConstraintFailure(failure)) {
+            throw failure;
+        }
+        return currentRound(settings.lotteryKey()).orElseThrow(() -> failure);
     }
+}
 
     public Optional<RoundSnapshot> currentRound(String lotteryKey) {
         return orm.runInTransaction(session -> findCurrentRound(session, lotteryKey, false).map(this::snapshot));
@@ -205,6 +217,16 @@ public final class LotteryRepository {
             String nextCommitment,
             long now
     ) {
+        DrawResult expected = new LotteryDrawEngine().draw(
+            prepared.round(),
+            prepared.entries(),
+            settings
+    );
+    if (!expected.equals(result)) {
+        throw new LotteryStateException(
+                "draw result does not match the configured deterministic draw"
+        );
+    }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = requiredRound(
                     session,
@@ -224,6 +246,7 @@ public final class LotteryRepository {
             }
 
             round.setStatus(RoundStatus.COMPLETED.name());
+            round.setActiveKey(null);
             round.setDrawnAt(now);
             round.setPayoutTotal(result.payoutTotal().amount());
             round.setRetainedTotal(result.retainedTotal().amount());
@@ -359,10 +382,12 @@ public final class LotteryRepository {
             RoundSnapshot before = snapshot(round);
             Money carry = before.grossPot().subtract(refunds);
             round.setStatus(RoundStatus.CANCELLED.name());
+            round.setActiveKey(null);
             round.setDrawnAt(now);
             round.setPayoutTotal(refunds.amount());
             round.setRetainedTotal(carry.amount());
             round.setUpdatedAt(now);
+            session.flush();
             LotteryRoundEntity next = newRound(settings, carry, nextSeed, nextCommitment, now);
             session.persist(next);
             return new CancelledRound(snapshot(next), refunds);
@@ -523,21 +548,22 @@ public final class LotteryRepository {
         });
     }
 
-    private Optional<LotteryRoundEntity> findCurrentRound(Session session, String lotteryKey, boolean lock) {
-        var query = session.createSelectionQuery(
-                        "from LotteryRoundEntity round where round.lotteryKey = :key "
-                                + "and round.status in (:open, :drawing) order by round.openedAt desc",
-                        LotteryRoundEntity.class
-                )
-                .setParameter("key", lotteryKey)
-                .setParameter("open", RoundStatus.OPEN.name())
-                .setParameter("drawing", RoundStatus.DRAWING.name())
-                .setMaxResults(1);
-        if (lock) {
-            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
-        }
-        return query.getResultStream().findFirst();
+    private Optional<LotteryRoundEntity> findCurrentRound(
+        Session session,
+        String lotteryKey,
+        boolean lock
+) {
+    var query = session.createSelectionQuery(
+                    "from LotteryRoundEntity round where round.activeKey = :key",
+                    LotteryRoundEntity.class
+            )
+            .setParameter("key", lotteryKey)
+            .setMaxResults(1);
+    if (lock) {
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
     }
+    return query.getResultStream().findFirst();
+}
 
     private LotteryRoundEntity requiredRound(Session session, String id, String lotteryKey, boolean lock) {
         LotteryRoundEntity round = lock
@@ -566,6 +592,7 @@ public final class LotteryRepository {
         round.setId(UUID.randomUUID().toString());
         round.setLotteryKey(settings.lotteryKey());
         round.setStatus(RoundStatus.OPEN.name());
+        round.setActiveKey(settings.lotteryKey());
         round.setOpenedAt(now);
         round.setClosesAt(settings.nextCloseAt(now));
         round.setDrawnAt(0L);
@@ -701,6 +728,19 @@ public final class LotteryRepository {
                 -1L,
                 Money.of(payout.getAmount())
         );
+    }
+
+    private static boolean activeRoundConstraintFailure(Throwable failure) {
+        Throwable current = failure;
+        while (current != null) {
+            String message = current.getMessage();
+            if (message != null && (message.contains("uq_lottery_active_round")
+                    || message.contains("active_key"))) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private static String entryId(String roundId, UUID playerUuid) {

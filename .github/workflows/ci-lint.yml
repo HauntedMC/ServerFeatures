@@ -2,9 +2,13 @@ name: CI Lint
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   lint:
@@ -16,307 +20,35 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          server-id: github
-          server-username: PACKAGES_USER
-          server-password: PACKAGES_TOKEN
-      - run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
-      - run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
 
-  finalize-lottery:
-    name: Finalize simplified Lottery
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/lottery-feature'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      packages: read
-    env:
-      PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
-      PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: agent/lottery-feature
-          fetch-depth: 0
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          server-id: github
-          server-username: PACKAGES_USER
-          server-password: PACKAGES_TOKEN
-      - name: Apply safeguards and validate
-        shell: bash
+      - name: Validate package token
         run: |
-          set -euo pipefail
-          test -n "$PACKAGES_USER"
-          test -n "$PACKAGES_TOKEN"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ -z "$PACKAGES_USER" ]; then
+            echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2
+            exit 1
+          fi
+          if [ -z "$PACKAGES_TOKEN" ]; then
+            echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN (requires read:packages)." >&2
+            exit 1
+          fi
 
-          python3 - <<'PY'
-          from pathlib import Path
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          server-id: github
+          server-username: PACKAGES_USER
+          server-password: PACKAGES_TOKEN
 
-          root = Path('serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/lottery')
-
-          draw = root / 'draw/LotteryDrawEngine.java'
-          source = draw.read_text(encoding='utf-8')
-          if 'Lottery seed reveal does not match its commitment' not in source:
-              anchor = '        Objects.requireNonNull(settings, "settings");\n'
-              addition = '''        if (!commitment(round.seedReveal()).equals(round.seedCommitment())) {
-                      throw new IllegalArgumentException("Lottery seed reveal does not match its commitment");
-                  }
-          '''
-              position = source.index(anchor) + len(anchor)
-              source = source[:position] + addition + source[position:]
-          draw.write_text(source, encoding='utf-8')
-
-          repository = root / 'persistence/LotteryRepository.java'
-          source = repository.read_text(encoding='utf-8')
-          if 'import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;' not in source:
-              source = source.replace(
-                  'import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;\n',
-                  'import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;\n'
-                  'import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;\n',
-                  1
-              )
-
-          start = source.index('    public RoundSnapshot ensureOpenRound(')
-          end = source.index('    public Optional<RoundSnapshot> currentRound(', start)
-          source = source[:start] + '''    public RoundSnapshot ensureOpenRound(
-                  LotterySettings settings,
-                  String seed,
-                  String commitment,
-                  long now
-          ) {
-              try {
-                  return orm.runInTransaction(session -> {
-                      failStalePayouts(session, settings.lotteryKey(), now);
-                      LotteryRoundEntity current = findCurrentRound(
-                              session,
-                              settings.lotteryKey(),
-                              true
-                      ).orElse(null);
-                      if (current != null && RoundStatus.DRAWING.name().equals(current.getStatus())
-                              && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
-                          current.setStatus(RoundStatus.OPEN.name());
-                          current.setUpdatedAt(now);
-                      }
-                      if (current != null) {
-                          return snapshot(current);
-                      }
-                      LotteryRoundEntity created = newRound(settings, Money.ZERO, seed, commitment, now);
-                      session.persist(created);
-                      return snapshot(created);
-                  });
-              } catch (RuntimeException failure) {
-                  if (!activeRoundConstraintFailure(failure)) {
-                      throw failure;
-                  }
-                  return currentRound(settings.lotteryKey()).orElseThrow(() -> failure);
-              }
-          }
-
-          ''' + source[end:]
-
-          complete_start = source.index('    public RoundSnapshot completeDraw(')
-          complete_body = source.index('        return orm.runInTransaction', complete_start)
-          if 'draw result does not match the configured deterministic draw' not in source[complete_start:complete_body]:
-              verification = '''        DrawResult expected = new LotteryDrawEngine().draw(
-                      prepared.round(),
-                      prepared.entries(),
-                      settings
-              );
-              if (!expected.equals(result)) {
-                  throw new LotteryStateException(
-                          "draw result does not match the configured deterministic draw"
-                  );
-              }
-          '''
-              source = source[:complete_body] + verification + source[complete_body:]
-
-          source = source.replace(
-              '            round.setStatus(RoundStatus.COMPLETED.name());\n'
-              '            round.setDrawnAt(now);',
-              '            round.setStatus(RoundStatus.COMPLETED.name());\n'
-              '            round.setActiveKey(null);\n'
-              '            round.setDrawnAt(now);',
-              1
-          )
-          complete_next = '''            LotteryRoundEntity next = newRound(
-                      settings,
-                      result.nextCarry(),
-                      nextSeed,
-                      nextCommitment,
-                      now
-              );
-              session.persist(next);'''
-          if complete_next in source:
-              source = source.replace(complete_next, '            session.flush();\n' + complete_next, 1)
-
-          source = source.replace(
-              '            round.setStatus(RoundStatus.CANCELLED.name());\n'
-              '            round.setDrawnAt(now);',
-              '            round.setStatus(RoundStatus.CANCELLED.name());\n'
-              '            round.setActiveKey(null);\n'
-              '            round.setDrawnAt(now);',
-              1
-          )
-          cancel_next = (
-              '            LotteryRoundEntity next = newRound(settings, carry, nextSeed, nextCommitment, now);\n'
-              '            session.persist(next);'
-          )
-          if cancel_next in source:
-              source = source.replace(cancel_next, '            session.flush();\n' + cancel_next, 1)
-
-          current_start = source.index('    private Optional<LotteryRoundEntity> findCurrentRound(')
-          current_end = source.index('    private LotteryRoundEntity requiredRound(', current_start)
-          source = source[:current_start] + '''    private Optional<LotteryRoundEntity> findCurrentRound(
-                  Session session,
-                  String lotteryKey,
-                  boolean lock
-          ) {
-              var query = session.createSelectionQuery(
-                              "from LotteryRoundEntity round where round.activeKey = :key",
-                              LotteryRoundEntity.class
-                      )
-                      .setParameter("key", lotteryKey)
-                      .setMaxResults(1);
-              if (lock) {
-                  query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
-              }
-              return query.getResultStream().findFirst();
-          }
-
-          ''' + source[current_end:]
-
-          if 'round.setActiveKey(settings.lotteryKey());' not in source:
-              target = (
-                  '        round.setLotteryKey(settings.lotteryKey());\n'
-                  '        round.setStatus(RoundStatus.OPEN.name());\n'
-                  '        round.setOpenedAt(now);'
-              )
-              replacement = (
-                  '        round.setLotteryKey(settings.lotteryKey());\n'
-                  '        round.setStatus(RoundStatus.OPEN.name());\n'
-                  '        round.setActiveKey(settings.lotteryKey());\n'
-                  '        round.setOpenedAt(now);'
-              )
-              if target not in source:
-                  raise SystemExit('LotteryRepository newRound anchor is missing')
-              source = source.replace(target, replacement, 1)
-
-          if 'private static boolean activeRoundConstraintFailure' not in source:
-              helper = '''    private static boolean activeRoundConstraintFailure(Throwable failure) {
-                  Throwable current = failure;
-                  while (current != null) {
-                      String message = current.getMessage();
-                      if (message != null && (message.contains("uq_lottery_active_round")
-                              || message.contains("active_key"))) {
-                          return true;
-                      }
-                      current = current.getCause();
-                  }
-                  return false;
-              }
-
-          '''
-              anchor = '    private static String entryId(String roundId, UUID playerUuid) {\n'
-              source = source.replace(anchor, helper + anchor, 1)
-          repository.write_text(source, encoding='utf-8')
-
-          draw_test = Path(
-              'serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/'
-              'features/lottery/draw/LotteryDrawEngineTest.java'
-          )
-          source = draw_test.read_text(encoding='utf-8')
-          if 'assertThrows' not in source:
-              source = source.replace(
-                  'import static org.junit.jupiter.api.Assertions.assertEquals;\n',
-                  'import static org.junit.jupiter.api.Assertions.assertEquals;\n'
-                  'import static org.junit.jupiter.api.Assertions.assertThrows;\n',
-                  1
-              )
-          if 'rejectsASeedThatDoesNotMatchThePublishedCommitment' not in source:
-              test = '''
-              @Test
-              void rejectsASeedThatDoesNotMatchThePublishedCommitment() {
-                  LotteryDrawEngine engine = new LotteryDrawEngine();
-                  String seed = "5a".repeat(32);
-                  RoundSnapshot round = new RoundSnapshot(
-                          "survival", "round", RoundStatus.DRAWING, 0L, 1L,
-                          Money.parse("1.00"), Money.parse("10.00"), Money.ZERO,
-                          Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO, Money.ZERO,
-                          0, 0, 0, 0L,
-                          engine.commitment("6b".repeat(32)), seed, false
-                  );
-
-                  assertThrows(IllegalArgumentException.class, () -> engine.draw(round, List.of(), settings()));
-              }
-          '''
-              source = source.replace('\n    private static LotterySettings settings() {', test + '\n    private static LotterySettings settings() {', 1)
-          draw_test.write_text(source, encoding='utf-8')
-
-          schema_test = Path(
-              'serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/'
-              'features/lottery/persistence/LotteryEntitySchemaTest.java'
-          )
-          source = schema_test.read_text(encoding='utf-8')
-          if 'import jakarta.persistence.Version;' not in source:
-              source = source.replace('import jakarta.persistence.Table;\n', 'import jakarta.persistence.Table;\nimport jakarta.persistence.Version;\n', 1)
-          if 'assertTrue' not in source:
-              source = source.replace(
-                  'import static org.junit.jupiter.api.Assertions.assertNotNull;\n',
-                  'import static org.junit.jupiter.api.Assertions.assertNotNull;\n'
-                  'import static org.junit.jupiter.api.Assertions.assertTrue;\n',
-                  1
-              )
-          source = source.replace(
-              '    void usesFourNormalOrmEntities() {',
-              '    void usesFourNormalOrmEntities() throws NoSuchFieldException {'
-          )
-          if 'roundTable.uniqueConstraints()' not in source:
-              assertions = '''
-                  Table roundTable = LotteryRoundEntity.class.getAnnotation(Table.class);
-                  assertTrue(List.of(roundTable.uniqueConstraints()).stream()
-                          .anyMatch(constraint -> List.of(constraint.columnNames()).contains("active_key")));
-                  assertNotNull(LotteryRoundEntity.class.getDeclaredField("version").getAnnotation(Version.class));
-                  assertNotNull(LotteryPlayerStatsEntity.class.getDeclaredField("version").getAnnotation(Version.class));
-          '''
-              source = source.replace('        }\n    }\n}', '        }\n' + assertions + '    }\n}', 1)
-          schema_test.write_text(source, encoding='utf-8')
-
-          docs = Path('docs/features/lottery.md')
-          source = docs.read_text(encoding='utf-8')
-          source = source.replace(
-              'Marking a round `DRAWING` prevents a second server from drawing it twice.',
-              'A nullable unique `active_key` permits exactly one active round per lottery. '
-              'The active row is pessimistically locked for all round mutations.'
-          )
-          source = source.replace(
-              'and later stores the seed reveal and an entry digest.',
-              'and verifies the stored reveal against that commitment before drawing. '
-              'The result is recomputed deterministically before persistence, and an entry digest is stored.'
-          )
-          docs.write_text(source, encoding='utf-8')
-          PY
-
-          rm -f .lottery-build-failure.md
-          git diff --check
-          ./mvnw -U -B -ntp -DskipTests checkstyle:check
-          ./mvnw -U -B -ntp verify
-          ./mvnw -U -B -ntp -Pplatform-acceptance verify
-
-          git show origin/main:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
-          git add -A
-          git commit -m 'Finalize simplified Lottery correctness'
-          git push origin HEAD:agent/lottery-feature
+      - name: Run Checkstyle
+        run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
+      - name: Lint release and acceptance scripts
+        run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
