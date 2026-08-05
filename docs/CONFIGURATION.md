@@ -165,19 +165,6 @@ Framework and feature messages are split intentionally.
 - Use partial language files with only the entries you want to customize.
 - Missing feature translations fall back to that feature's `messages.yml`, then to framework messages.
 
-## Migration
-
-Legacy installs are migrated during feature discovery:
-
-- `config.yml -> features.<FeatureName>` moves to `features/<FeatureName>/config.yml`;
-- feature-owned message roots move from `lang/messages*.yml` to the matching feature directory;
-- `config.yml` keeps only global settings after migration.
-
-Existing target values win over legacy values and newly injected defaults, including when old and new branch types
-conflict. Missing children within an existing section are still filled. Legacy source data is removed only after the
-destination write succeeds, so an interrupted migration is safe to retry. Back up the plugin directory before the
-first 3.0 startup as you would for any configuration migration.
-
 ## Troubleshooting Tips
 
 - If a feature does not enable, verify plugin dependencies and feature dependencies first.

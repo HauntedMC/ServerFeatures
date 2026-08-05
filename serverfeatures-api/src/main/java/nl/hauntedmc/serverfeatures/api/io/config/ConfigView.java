@@ -247,5 +247,4 @@ public class ConfigView {
 
     /** Convenience views */
     public ConfigView globals() { return at("global"); }
-    public ConfigView features() { return at("features"); }
 }

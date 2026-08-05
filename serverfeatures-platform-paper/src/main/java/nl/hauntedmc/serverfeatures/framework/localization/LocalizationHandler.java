@@ -13,7 +13,7 @@ import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.format.TextFormatter;
 import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
-import nl.hauntedmc.serverfeatures.framework.config.ConfigMigrationMerger;
+import nl.hauntedmc.serverfeatures.framework.config.ConfigDefaultsMerger;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureStoragePaths;
 import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -24,10 +24,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
@@ -108,43 +106,6 @@ public final class LocalizationHandler {
                     ? "Registered missing framework localization defaults."
                     : "Registered missing localization defaults for feature '" + featureName + "'.");
         }
-    }
-
-    public void migrateLegacyFeatureMessages(MessageMap messageMap) {
-        if (featureName == null || frameworkFallback == null
-                || messageMap == null || messageMap.getMessages().isEmpty()) {
-            return;
-        }
-        Set<String> ownedRoots = collectOwnedRoots(messageMap);
-        moveOwnedRootsFromLegacyStore(frameworkFallback.defaultMessagesView, defaultMessagesView, ownedRoots);
-        for (Language language : Language.values()) {
-            ConfigView source = frameworkFallback.languageViews.get(language);
-            if (source == null || ownedRoots.stream().noneMatch(root -> !source.node(root).isNull())) {
-                continue;
-            }
-            moveOwnedRootsFromLegacyStore(source, languageView(language, true), ownedRoots);
-        }
-        staticPlayerMessages.clear();
-    }
-
-    /**
-     * Moves one feature-owned message key without overwriting an already customized destination.
-     */
-    public void migrateMessageKey(
-            String oldKey,
-            String newKey,
-            String legacyDefault,
-            String newDefault
-    ) {
-        if (featureName == null || oldKey == null || oldKey.isBlank()
-                || newKey == null || newKey.isBlank() || oldKey.equals(newKey)) {
-            return;
-        }
-        migrateMessageKey(defaultMessagesView, oldKey, newKey, legacyDefault, newDefault, true);
-        for (ConfigView languageView : languageViews.values()) {
-            migrateMessageKey(languageView, oldKey, newKey, legacyDefault, newDefault, false);
-        }
-        staticPlayerMessages.clear();
     }
 
     public MessageBuilder getMessage(String key) {
@@ -326,52 +287,6 @@ public final class LocalizationHandler {
         return frameworkFallback == null ? "&cMessage not found: " + key : frameworkFallback.missingMessage(key);
     }
 
-    private void migrateMessageKey(
-            ConfigView view,
-            String oldKey,
-            String newKey,
-            String legacyDefault,
-            String newDefault,
-            boolean defaultView
-    ) {
-        String oldValue = view.get(oldKey, String.class);
-        if (oldValue == null) {
-            return;
-        }
-
-        String currentNewValue = view.get(newKey, String.class);
-        boolean destinationUntouched = currentNewValue == null || Objects.equals(currentNewValue, newDefault);
-        boolean preserveOldValue = !defaultView || !Objects.equals(oldValue, legacyDefault);
-        view.batch(batch -> {
-            if (destinationUntouched) {
-                if (preserveOldValue) {
-                    batch.put(newKey, oldValue);
-                } else if (currentNewValue == null && newDefault != null) {
-                    batch.put(newKey, newDefault);
-                }
-            }
-            batch.remove(oldKey);
-        });
-        logger.info("[ServerFeatures] [Localization] Migrated message key '" + oldKey
-                + "' to '" + newKey + "' for feature '" + featureName + "'.");
-    }
-
-    private void moveOwnedRootsFromLegacyStore(ConfigView source, ConfigView target, Set<String> ownedRoots) {
-        Map<String, Object> legacyValues = new LinkedHashMap<>();
-        for (String root : ownedRoots) {
-            ConfigNode sourceNode = source.node(root);
-            if (!sourceNode.isNull()) {
-                legacyValues.put(root, sourceNode.raw());
-            }
-        }
-        if (!legacyValues.isEmpty()) {
-            ConfigMigrationMerger.mergeMissing(target, legacyValues);
-            source.batch(batch -> legacyValues.keySet().forEach(batch::remove));
-            logger.info("[ServerFeatures] [Localization] Migrated legacy message overrides for feature '"
-                    + featureName + "' to '" + defaultMessagesPath() + "'");
-        }
-    }
-
     private void registerBundledFrameworkDefaults() {
         mergeBundledDefaultsInto(defaultMessagesView, defaultMessagesPath());
         for (Language language : Language.values()) {
@@ -383,7 +298,9 @@ public final class LocalizationHandler {
     private void mergeBundledDefaultsInto(ConfigView target, String resourcePath) {
         ConfigNode bundled = loadBundledResource(resourcePath);
         if (bundled != null && !bundled.isNull()) {
-            ConfigMigrationMerger.mergeMissing(target, bundled.raw());
+            Map<String, Object> defaults = new LinkedHashMap<>();
+            bundled.children().forEach((key, node) -> defaults.put(key, node.raw()));
+            ConfigDefaultsMerger.mergeMissingPaths(target, defaults);
         }
     }
 
@@ -403,18 +320,6 @@ public final class LocalizationHandler {
         }
     }
 
-    private Set<String> collectOwnedRoots(MessageMap messageMap) {
-        Set<String> roots = new LinkedHashSet<>();
-        for (String key : messageMap.getMessages().keySet()) {
-            if (key == null || key.isBlank()) {
-                continue;
-            }
-            int dot = key.indexOf('.');
-            roots.add(dot >= 0 ? key.substring(0, dot) : key);
-        }
-        return roots;
-    }
-
     private void reloadLanguageViews() {
         languageViews.clear();
         for (Language language : Language.values()) {
@@ -430,16 +335,6 @@ public final class LocalizationHandler {
                 });
             }
         }
-    }
-
-    private ConfigView languageView(Language language, boolean createIfMissing) {
-        ConfigView existing = languageViews.get(language);
-        if (existing != null || !createIfMissing) {
-            return existing;
-        }
-        ConfigView created = configService.view(languagePath(language), false);
-        languageViews.put(language, created);
-        return created;
     }
 
     private String defaultMessagesPath() {

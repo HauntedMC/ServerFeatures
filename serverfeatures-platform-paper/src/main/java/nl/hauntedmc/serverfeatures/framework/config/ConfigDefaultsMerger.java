@@ -10,53 +10,34 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Merges legacy configuration into a newer store without overwriting or reshaping target data.
+ * Adds missing configuration defaults without overwriting or reshaping existing data.
  */
-public final class ConfigMigrationMerger {
+public final class ConfigDefaultsMerger {
 
-    private ConfigMigrationMerger() {
+    private ConfigDefaultsMerger() {
     }
 
     /**
-     * Copies values that are absent from {@code target}, saving the target at most once.
+     * Adds entries whose keys are configuration paths, saving the target at most once. Map values
+     * are recursively expanded so partially configured target sections still receive missing
+     * nested defaults.
      *
      * <p>An existing target branch always wins. In particular, an existing scalar or list is not
-     * replaced when the legacy source contains a map at the same path.</p>
-     *
-     * @return the number of paths added to the target
-     */
-    public static int mergeMissing(ConfigView target, Object source) {
-        Objects.requireNonNull(target, "target");
-        ConfigNode sourceNode = ConfigNode.ofRaw(source, "<migration-source>");
-        if (sourceNode.isNull()) {
-            return 0;
-        }
-
-        Map<String, Object> additions = new LinkedHashMap<>();
-        collectMissing(sourceNode, target.node(), "", additions);
-        if (!additions.isEmpty()) {
-            target.batch(batch -> additions.forEach(batch::put));
-        }
-        return additions.size();
-    }
-
-    /**
-     * Merges entries whose keys are configuration paths. Map values are recursively expanded so
-     * partially configured target sections still receive missing nested defaults.
+     * replaced when the defaults contain a map at the same path.</p>
      *
      * @return the paths added to the target
      */
-    public static Set<String> mergeMissingPaths(ConfigView target, Map<String, ?> sourcePaths) {
+    public static Set<String> mergeMissingPaths(ConfigView target, Map<String, ?> defaultPaths) {
         Objects.requireNonNull(target, "target");
-        Objects.requireNonNull(sourcePaths, "sourcePaths");
+        Objects.requireNonNull(defaultPaths, "defaultPaths");
         ConfigNode targetRoot = target.node();
         Map<String, Object> additions = new LinkedHashMap<>();
-        sourcePaths.forEach((path, value) -> {
+        defaultPaths.forEach((path, value) -> {
             if (path == null || path.isBlank() || value == null) {
                 return;
             }
             collectMissing(
-                    ConfigNode.ofRaw(value, "<migration-source>." + path),
+                    ConfigNode.ofRaw(value, "<defaults>." + path),
                     targetRoot.getAt(path),
                     path,
                     additions
@@ -69,17 +50,17 @@ public final class ConfigMigrationMerger {
     }
 
     private static void collectMissing(
-            ConfigNode source,
+            ConfigNode defaults,
             ConfigNode target,
             String path,
             Map<String, Object> additions
     ) {
-        Map<String, ConfigNode> sourceChildren = source.children();
-        if (!sourceChildren.isEmpty()) {
+        Map<String, ConfigNode> defaultChildren = defaults.children();
+        if (!defaultChildren.isEmpty()) {
             if (!target.isNull() && !(target.raw() instanceof Map<?, ?>)) {
                 return;
             }
-            for (Map.Entry<String, ConfigNode> entry : sourceChildren.entrySet()) {
+            for (Map.Entry<String, ConfigNode> entry : defaultChildren.entrySet()) {
                 String childPath = path.isEmpty() ? entry.getKey() : path + "." + entry.getKey();
                 collectMissing(entry.getValue(), target.get(entry.getKey()), childPath, additions);
             }
@@ -87,7 +68,7 @@ public final class ConfigMigrationMerger {
         }
 
         if (target.isNull() && !path.isEmpty()) {
-            additions.put(path, source.raw());
+            additions.put(path, defaults.raw());
         }
     }
 }

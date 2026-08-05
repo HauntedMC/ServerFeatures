@@ -101,8 +101,6 @@ notifylogin:
       quit: "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>]  <gradient:#3B8585:#3B8585:#2B9D9D:#2B9D9D:#43B1B1:#43B1B1:#44D6D6:#EAEAEA:#44D6D6>[Supreme+]</gradient> <color:#aab2c9>%serverfeatures_nickname%"
 ```
 
-The legacy `notifylogin.supremeplus` key is migrated to `notifylogin.group.supremeplus.join`. A customized old value is preserved when the new destination still contains its generated default; the obsolete key is then removed. Existing customized destination values are never overwritten, and language-specific legacy values are migrated in their own files.
-
 ## Placeholders and localization
 
 Explicit subject placeholders:

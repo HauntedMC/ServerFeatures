@@ -46,8 +46,8 @@ public final class YamlFile {
     /**
      * Persist to disk using a same-directory temporary file and atomic replacement when supported.
      *
-     * <p>Persistence failures are deliberately propagated. Callers such as migration code must not
-     * continue by deleting source data after a destination write failed.</p>
+     * <p>Persistence failures are deliberately propagated so callers cannot mistake a failed write
+     * for durable state.</p>
      */
     void saveNow() {
         Path parent = path.getParent();

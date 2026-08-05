@@ -15,8 +15,6 @@ import java.util.Map;
 
 public final class NotifyLogin extends BukkitBaseFeature<Meta> {
 
-    private static final String LEGACY_SUPREME_PLUS_MESSAGE =
-            "&3[Supreme&f+&3] {name} heeft de server gejoined!";
     private static final String DEFAULT_JOIN_MESSAGE =
             "<color:#aab2c9>[<color:#ffd79c>+<color:#aab2c9>] {name}";
     private static final String DEFAULT_QUIT_MESSAGE =
@@ -71,12 +69,6 @@ public final class NotifyLogin extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        getLocalizationHandler().migrateMessageKey(
-                "notifylogin.supremeplus",
-                "notifylogin.group.supremeplus.join",
-                LEGACY_SUPREME_PLUS_MESSAGE,
-                SUPREME_PLUS_JOIN_MESSAGE
-        );
         ConnectionMessageSettings settings = ConnectionMessageSettings.from(
                 getConfigHandler().node(),
                 message -> getLogger().warning(message)
