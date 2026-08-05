@@ -95,7 +95,7 @@ public record CombatTagSettings(
                 config.get("logout-punishment.kill-player", Boolean.class, true),
                 config.get("logout-punishment.broadcast", Boolean.class, true),
                 config.get("logout-punishment.punish-kicked-players", Boolean.class, false),
-                immutableCommands(config.getList("logout-punishment.commands", String.class, List.of()))
+                config.getList("logout-punishment.commands", String.class, List.of())
         );
 
         DisplaySettings display = new DisplaySettings(
@@ -130,7 +130,7 @@ public record CombatTagSettings(
         return new CombatTagSettings(tagging, attribution, lifecycle, teleport, logout, display, feedback);
     }
 
-    private static List<String> immutableCommands(List<String> configured) {
+    private static List<String> normalizeCommands(List<String> configured) {
         Objects.requireNonNull(configured, "configured");
         List<String> commands = new ArrayList<>(configured.size());
         for (String command : configured) {
@@ -138,7 +138,15 @@ public record CombatTagSettings(
                 throw new IllegalArgumentException("logout-punishment.commands cannot contain blank commands");
             }
             String normalized = command.trim();
-            commands.add(normalized.startsWith("/") ? normalized.substring(1) : normalized);
+            while (normalized.startsWith("/")) {
+                normalized = normalized.substring(1).trim();
+            }
+            if (normalized.isBlank()) {
+                throw new IllegalArgumentException(
+                        "logout-punishment.commands cannot contain slash-only commands"
+                );
+            }
+            commands.add(normalized);
         }
         return List.copyOf(commands);
     }
@@ -305,7 +313,12 @@ public record CombatTagSettings(
             this.killPlayer = killPlayer;
             this.broadcast = broadcast;
             this.punishKickedPlayers = punishKickedPlayers;
-            this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
+            this.commands = normalizeCommands(commands);
+            if (enabled && !killPlayer && !broadcast && this.commands.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Enabled logout punishment must kill, broadcast, or execute at least one command"
+                );
+            }
         }
 
         public boolean enabled() {
