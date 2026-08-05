@@ -8,6 +8,8 @@ import java.util.regex.Pattern;
 public final class FeatureStoragePaths {
 
     private static final Pattern VALID_FEATURE_NAME = Pattern.compile("[A-Za-z0-9_-]+");
+    private static final Pattern VALID_LOCAL_DATA_FILE =
+            Pattern.compile("[A-Za-z0-9_-]+\\.ya?ml", Pattern.CASE_INSENSITIVE);
 
     private FeatureStoragePaths() {
     }
@@ -27,6 +29,14 @@ public final class FeatureStoragePaths {
     public static String messagesPath(String featureName, Language language) {
         Objects.requireNonNull(language, "language");
         return featureDirectory(featureName) + "/" + language.getFileName();
+    }
+
+    public static String localDataPath(String fileName) {
+        String normalized = Objects.requireNonNull(fileName, "fileName").trim();
+        if (!VALID_LOCAL_DATA_FILE.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("Invalid local YAML file name: " + fileName);
+        }
+        return "local/" + normalized;
     }
 
     public static String normalizeFeatureName(String featureName) {
