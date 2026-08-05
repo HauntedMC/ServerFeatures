@@ -55,7 +55,8 @@ public final class CombatTagListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof LivingEntity target)) {
+        if (!(event.getEntity() instanceof LivingEntity target)
+                || !(event.getFinalDamage() > 0.0D)) {
             return;
         }
         Optional<ResolvedCombatSource> source = sourceResolver.resolve(event);
