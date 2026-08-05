@@ -313,7 +313,7 @@ public record CombatTagSettings(
         }
 
         public List<String> commands() {
-            return commands;
+            return List.copyOf(commands);
         }
     }
 
@@ -365,7 +365,7 @@ public record CombatTagSettings(
         }
 
         public Set<String> values() {
-            return values;
+            return Set.copyOf(values);
         }
 
         public boolean allows(World world) {
