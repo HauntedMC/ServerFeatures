@@ -103,6 +103,7 @@ public final class PerkCommand implements BrigadierCommand {
             return 0;
         }
 
+        feature.stateService().initializeIfAbsent(player);
         boolean current = feature.stateService().isDesired(player, perk);
         boolean mayOperateWithoutPermission = current
                 && (intent == Intent.DISABLE || intent == Intent.TOGGLE || intent == Intent.STATUS);
@@ -135,6 +136,7 @@ public final class PerkCommand implements BrigadierCommand {
             feature.sendMessage(actor, "fairperks.player_not_found", Map.of("target", targetName));
             return 0;
         }
+        feature.stateService().initializeIfAbsent(target);
         if (intent == Intent.STATUS) {
             sendStatus(actor, target);
             return 1;
