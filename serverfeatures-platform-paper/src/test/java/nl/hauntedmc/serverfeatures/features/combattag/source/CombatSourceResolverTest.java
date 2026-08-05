@@ -5,10 +5,12 @@ import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import org.bukkit.Server;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TNTPrimed;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -52,6 +54,7 @@ class CombatSourceResolverTest {
         Server server = mock(Server.class);
         Firework firework = mock(Firework.class);
         UUID ownerId = owner.getUniqueId();
+        when(firework.getType()).thenReturn(EntityType.FIREWORK_ROCKET);
         when(firework.getSpawningEntity()).thenReturn(ownerId);
         when(firework.getServer()).thenReturn(server);
         when(server.getPlayer(ownerId)).thenReturn(owner);
@@ -62,6 +65,31 @@ class CombatSourceResolverTest {
         assertSame(owner, source.player());
         assertEquals(ownerId, source.opponent().uniqueId());
         assertEquals(CombatTagReason.FIREWORK, source.reason());
+    }
+
+    @Test
+    void disabledProjectileLinkingAlsoIgnoresFireworks() {
+        Firework firework = mock(Firework.class);
+        when(firework.getType()).thenReturn(EntityType.FIREWORK_ROCKET);
+        CombatSourceResolver resolver = resolver(true, false, true, Set.of());
+
+        assertTrue(resolver.resolve(firework).isEmpty());
+    }
+
+    @Test
+    void directMobSourceRetainsItsPersistentSpawnReason() {
+        LivingEntity mob = mock(LivingEntity.class);
+        UUID mobId = UUID.randomUUID();
+        when(mob.getUniqueId()).thenReturn(mobId);
+        when(mob.getType()).thenReturn(EntityType.ZOMBIE);
+        when(mob.getName()).thenReturn("Zombie");
+        when(mob.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.SPAWNER);
+        CombatSourceResolver resolver = resolver(true, true, true, Set.of());
+
+        var source = resolver.resolve(mob).orElseThrow();
+
+        assertEquals(mobId, source.damageSourceId());
+        assertEquals(CreatureSpawnEvent.SpawnReason.SPAWNER, source.spawnReason());
     }
 
     @Test
