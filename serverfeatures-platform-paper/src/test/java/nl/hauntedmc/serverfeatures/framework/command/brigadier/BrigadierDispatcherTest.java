@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.framework.command.brigadier;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.tree.CommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
@@ -13,6 +14,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,6 +40,34 @@ class BrigadierDispatcherTest {
         assertFalse(BrigadierDispatcher.removeRootLiteral(dispatcher, ""));
         assertFalse(BrigadierDispatcher.removeRootLiteral(dispatcher, null));
         assertFalse(BrigadierDispatcher.removeRootLiteral(null, "x"));
+    }
+
+    @Test
+    void takesAndRestoresAnExistingRootNode() {
+        CommandDispatcher<CommandSourceStack> commandDispatcher = new CommandDispatcher<>();
+        CommandNode<CommandSourceStack> original = commandDispatcher.register(
+                LiteralArgumentBuilder.<CommandSourceStack>literal("god")
+        );
+        BrigadierDispatcher dispatcher = dispatcher(commandDispatcher);
+
+        CommandNode<CommandSourceStack> taken = dispatcher.takeRootLiteral("god");
+
+        assertSame(original, taken);
+        assertNull(commandDispatcher.getRoot().getChild("god"));
+        assertTrue(dispatcher.restoreRootLiteral("god", taken));
+        assertSame(original, commandDispatcher.getRoot().getChild("god"));
+    }
+
+    @Test
+    void restoreRefusesToReplaceANewerRoot() {
+        CommandDispatcher<CommandSourceStack> commandDispatcher = new CommandDispatcher<>();
+        CommandNode<CommandSourceStack> original = LiteralArgumentBuilder
+                .<CommandSourceStack>literal("god")
+                .build();
+        commandDispatcher.register(LiteralArgumentBuilder.<CommandSourceStack>literal("god"));
+        BrigadierDispatcher dispatcher = dispatcher(commandDispatcher);
+
+        assertFalse(dispatcher.restoreRootLiteral("god", original));
     }
 
     @Test
