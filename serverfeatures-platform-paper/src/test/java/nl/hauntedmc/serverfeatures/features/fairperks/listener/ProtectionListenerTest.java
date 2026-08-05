@@ -2,6 +2,8 @@ package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
+import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
 import nl.hauntedmc.serverfeatures.features.fairperks.service.PerkStateService;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureLifecycleManager;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
@@ -61,10 +63,11 @@ class ProtectionListenerTest {
     }
 
     @Test
-    void protectedOwnersCannotDamageOtherEntitiesThroughTamedPets() {
+    void godOwnersCannotDamageOtherEntitiesThroughTamedPets() {
         PetDamageFixture fixture = petDamageFixture();
         Entity target = mock(Entity.class);
         when(fixture.event().getEntity()).thenReturn(target);
+        when(fixture.stateService().isGodEffective(fixture.owner())).thenReturn(true);
 
         fixture.listener().onPerkDamage(fixture.event());
 
@@ -76,9 +79,27 @@ class ProtectionListenerTest {
     }
 
     @Test
+    void groundedOwnersWithFlyEnabledCannotDamageThroughTamedPets() {
+        PetDamageFixture fixture = petDamageFixture();
+        Entity target = mock(Entity.class);
+        when(fixture.event().getEntity()).thenReturn(target);
+        when(fixture.stateService().isDesired(fixture.owner(), PerkType.FLY)).thenReturn(true);
+        when(fixture.policy().allowsEnvironment(fixture.owner(), PerkType.FLY)).thenReturn(true);
+
+        fixture.listener().onPerkDamage(fixture.event());
+
+        verify(fixture.event()).setCancelled(true);
+        verify(fixture.feature()).sendActionBar(
+                fixture.owner(),
+                "fairperks.restriction.pet.flying"
+        );
+    }
+
+    @Test
     void protectedOwnersCannotBeDamagedByTheirOwnTamedPets() {
         PetDamageFixture fixture = petDamageFixture();
         when(fixture.event().getEntity()).thenReturn(fixture.owner());
+        when(fixture.stateService().isGodEffective(fixture.owner())).thenReturn(true);
 
         fixture.listener().onPerkDamage(fixture.event());
 
@@ -93,20 +114,22 @@ class ProtectionListenerTest {
         FairPerks feature = mock(FairPerks.class);
         FairPerksSettings settings = mock(FairPerksSettings.class);
         PerkStateService stateService = mock(PerkStateService.class);
+        FairPerksPolicy policy = mock(FairPerksPolicy.class);
         Player owner = mock(Player.class);
         Tameable pet = mock(Tameable.class);
         EntityDamageByEntityEvent event = mock(EntityDamageByEntityEvent.class);
 
         when(feature.settings()).thenReturn(settings);
         when(feature.stateService()).thenReturn(stateService);
+        when(feature.policy()).thenReturn(policy);
         when(settings.restrictions()).thenReturn(restrictions(true));
         when(pet.getOwner()).thenReturn(owner);
         when(event.getDamager()).thenReturn((Entity) pet);
-        when(stateService.isRestricted(owner)).thenReturn(true);
-        when(stateService.activeRestrictionMessageSuffix(owner)).thenReturn("god");
 
         return new PetDamageFixture(
                 feature,
+                stateService,
+                policy,
                 owner,
                 event,
                 new ProtectionListener(feature)
@@ -137,6 +160,8 @@ class ProtectionListenerTest {
 
     private record PetDamageFixture(
             FairPerks feature,
+            PerkStateService stateService,
+            FairPerksPolicy policy,
             Player owner,
             EntityDamageByEntityEvent event,
             ProtectionListener listener
