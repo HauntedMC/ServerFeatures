@@ -91,7 +91,7 @@ class ProtectionListenerTest {
         verify(fixture.event()).setCancelled(true);
         verify(fixture.feature()).sendActionBar(
                 fixture.owner(),
-                "fairperks.restriction.pet.flying"
+                "fairperks.restriction.pet.fly_enabled"
         );
     }
 
