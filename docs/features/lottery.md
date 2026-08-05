@@ -20,7 +20,7 @@ The four tables are:
 - `system_lottery_payouts` — pending, paying, paid or failed wins/refunds;
 - `system_lottery_player_stats` — totals used by leaderboards.
 
-`lottery_key` defaults to `$server`, so each backend receives an independent lottery. A round row is pessimistically locked while tickets, donations, drawing, pausing, cancellation or pot additions are changed. A nullable unique `active_key` permits exactly one active round per lottery. The active row is pessimistically locked for all round mutations.
+`lottery_key` defaults to `$server`, so each backend receives an independent lottery. A nullable unique `active_key` permits exactly one active round per lottery. That active round is pessimistically locked while tickets, donations, drawing, pausing, cancellation or pot additions are changed. Player totals use ordinary optimistic entity versioning to reject conflicting concurrent updates rather than silently losing data.
 
 Vault calls remain on the Paper main thread. A purchase or donation is withdrawn first and stored immediately afterwards. If the database write fails, the amount is refunded. Payout rows use `PENDING -> PAYING -> PAID`; a definite Vault failure returns the row to `PENDING`, while an uncertain result becomes `FAILED` and is logged instead of being repeated automatically.
 
