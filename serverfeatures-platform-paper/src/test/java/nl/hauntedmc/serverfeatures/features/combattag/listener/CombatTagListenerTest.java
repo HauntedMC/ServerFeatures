@@ -4,11 +4,14 @@ import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
+import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -86,6 +89,23 @@ class CombatTagListenerTest {
         );
     }
 
+    @Test
+    void kickStateIsForwardedToTheQuitPolicy() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Player player = player("Kicked");
+        PlayerKickEvent kick = mock(PlayerKickEvent.class);
+        PlayerQuitEvent quit = mock(PlayerQuitEvent.class);
+        when(kick.getPlayer()).thenReturn(player);
+        when(quit.getPlayer()).thenReturn(player);
+
+        listener.onKick(kick);
+        listener.onQuit(quit);
+
+        verify(service).handleQuit(player, true);
+    }
+
     private static CombatTagListener listener(
             CombatTagSettings settings,
             CombatTagService service
@@ -102,8 +122,12 @@ class CombatTagListenerTest {
             LivingEntity target
     ) {
         EntityDamageByEntityEvent event = mock(EntityDamageByEntityEvent.class);
+        DamageSource damageSource = mock(DamageSource.class);
         when(event.getDamager()).thenReturn(damager);
         when(event.getEntity()).thenReturn(target);
+        when(event.getDamageSource()).thenReturn(damageSource);
+        when(damageSource.getDirectEntity()).thenReturn(damager);
+        when(damageSource.getCausingEntity()).thenReturn(damager);
         return event;
     }
 
@@ -143,7 +167,7 @@ class CombatTagListenerTest {
                 ),
                 new CombatTagSettings.LifecycleSettings(true, true),
                 new CombatTagSettings.TeleportSettings(true, true, Set.of(), false, false),
-                new CombatTagSettings.LogoutSettings(false, false, false, List.of()),
+                new CombatTagSettings.LogoutSettings(false, false, false, false, List.of()),
                 new CombatTagSettings.DisplaySettings(
                         false,
                         false,
