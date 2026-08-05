@@ -136,7 +136,7 @@ public final class ProtectionListener implements Listener {
                 owner,
                 godEnabled
                         ? "fairperks.restriction.pet.god"
-                        : "fairperks.restriction.pet.flying"
+                        : "fairperks.restriction.pet.fly_enabled"
         );
         return true;
     }
