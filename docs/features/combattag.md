@@ -1,6 +1,6 @@
 # CombatTag
 
-CombatTag is the native ServerFeatures combat-state authority. It replaces CombatLogX and has no external plugin dependency.
+CombatTag is the native ServerFeatures combat-state authority and has no external combat plugin dependency.
 
 ## Behavior
 
@@ -22,7 +22,7 @@ The fixed bypass permission is:
 serverfeatures.feature.combattag.bypass
 ```
 
-A bypassed player is not tagged, restricted, or punished. The bypass does not prevent that player from being recorded as the opponent of a non-bypassed player they attack.
+It defaults to operators. A bypassed player is not tagged, restricted, or punished. The bypass does not prevent that player from being recorded as the opponent of a non-bypassed player they attack.
 
 ## Attribution
 
