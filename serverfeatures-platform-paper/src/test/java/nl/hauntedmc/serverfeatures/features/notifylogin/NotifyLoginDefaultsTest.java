@@ -65,13 +65,13 @@ class NotifyLoginDefaultsTest {
                 messages.get("notifylogin.default.quit")
         );
         assertEquals(
-                "<color:#aab2c9>[<color:#ffd79c>+<color:#aab2c9>]  "
+                "<color:#aab2c9>[<color:#ffd79c>+<color:#aab2c9>] "
                         + "<gradient:#3B8585:#3B8585:#2B9D9D:#2B9D9D:#43B1B1:#43B1B1:#44D6D6:#EAEAEA:#44D6D6>"
                         + "[Supreme+]</gradient> <color:#aab2c9>%serverfeatures_nickname%",
                 messages.get("notifylogin.group.supremeplus.join")
         );
         assertEquals(
-                "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>]  "
+                "<color:#aab2c9>[<color:#ffd79c>-<color:#aab2c9>] "
                         + "<gradient:#3B8585:#3B8585:#2B9D9D:#2B9D9D:#43B1B1:#43B1B1:#44D6D6:#EAEAEA:#44D6D6>"
                         + "[Supreme+]</gradient> <color:#aab2c9>%serverfeatures_nickname%",
                 messages.get("notifylogin.group.supremeplus.quit")
