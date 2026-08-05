@@ -64,7 +64,11 @@ public record FairPerksSettings(
         );
 
         GodSettings god = new GodSettings(
-                gameModes(config, "god.allowed-game-modes", List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR")),
+                gameModes(
+                        config,
+                        "god.allowed-game-modes",
+                        List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR")
+                ),
                 worldRule(config, "god.worlds", WorldMode.BLACKLIST),
                 config.get("god.persistence.enabled", Boolean.class, true),
                 config.get("god.damage.protect-void", Boolean.class, false)
@@ -72,7 +76,6 @@ public record FairPerksSettings(
 
         ActivationGuardSettings activationGuard = new ActivationGuardSettings(
                 config.get("activation-guard.combat.enabled", Boolean.class, true),
-                config.get("activation-guard.combat.allow-when-unavailable", Boolean.class, true),
                 config.get("activation-guard.hostile-nearby.enabled", Boolean.class, true),
                 boundedInt(
                         config.get("activation-guard.hostile-nearby.horizontal-radius", Integer.class, 16),
@@ -90,6 +93,7 @@ public record FairPerksSettings(
 
         RestrictionSettings restrictions = new RestrictionSettings(
                 config.get("restrictions.pvp", Boolean.class, true),
+                config.get("restrictions.tamed-pet-damage", Boolean.class, true),
                 config.get("restrictions.hostile-melee", Boolean.class, true),
                 config.get("restrictions.hostile-projectiles", Boolean.class, true),
                 config.get("restrictions.hostile-targeting", Boolean.class, true),
@@ -337,7 +341,6 @@ public record FairPerksSettings(
 
     public record ActivationGuardSettings(
             boolean combatEnabled,
-            boolean allowWhenCombatUnavailable,
             boolean hostileNearbyEnabled,
             int horizontalRadius,
             int verticalRadius
@@ -346,6 +349,7 @@ public record FairPerksSettings(
 
     public record RestrictionSettings(
             boolean pvp,
+            boolean tamedPetDamage,
             boolean hostileMelee,
             boolean hostileProjectiles,
             boolean hostileTargeting,
