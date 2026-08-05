@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.fairperks;
 
+import nl.hauntedmc.serverfeatures.api.combat.CombatTags;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
@@ -17,7 +18,6 @@ import nl.hauntedmc.serverfeatures.features.fairperks.listener.PlayerLifecycleLi
 import nl.hauntedmc.serverfeatures.features.fairperks.listener.ProtectionListener;
 import nl.hauntedmc.serverfeatures.features.fairperks.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
-import nl.hauntedmc.serverfeatures.features.fairperks.policy.CombatStatusProvider;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.HostileEntityClassifier;
 import nl.hauntedmc.serverfeatures.features.fairperks.service.PerkStateService;
@@ -84,12 +84,12 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         config.put("god.damage.protect-void", false);
 
         config.put("activation-guard.combat.enabled", true);
-        config.put("activation-guard.combat.allow-when-unavailable", true);
         config.put("activation-guard.hostile-nearby.enabled", true);
         config.put("activation-guard.hostile-nearby.horizontal-radius", 16);
         config.put("activation-guard.hostile-nearby.vertical-radius", 16);
 
         config.put("restrictions.pvp", true);
+        config.put("restrictions.tamed-pet-damage", true);
         config.put("restrictions.hostile-melee", true);
         config.put("restrictions.hostile-projectiles", true);
         config.put("restrictions.hostile-targeting", true);
@@ -149,7 +149,10 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         messages.add("fairperks.fly.status_disabled_other", "&7Fly mode staat voor {target} uitgeschakeld.");
         messages.add("fairperks.fly.target_enabled", "&a{actor} heeft Fly mode voor je ingeschakeld.");
         messages.add("fairperks.fly.target_disabled", "&7{actor} heeft Fly mode voor je uitgeschakeld.");
-        messages.add("fairperks.flight.removed_permission", "&cFly mode is verwijderd omdat je bij het inloggen niet de vereiste permissies had.");
+        messages.add(
+                "fairperks.flight.removed_permission",
+                "&cFly mode is verwijderd omdat je bij het inloggen niet de vereiste permissies had."
+        );
 
         messages.add("fairperks.god.enabled", "&aGod mode is ingeschakeld.");
         messages.add("fairperks.god.disabled", "&7God mode is uitgeschakeld.");
@@ -165,7 +168,10 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         messages.add("fairperks.god.status_disabled_other", "&7God mode staat voor {target} uitgeschakeld.");
         messages.add("fairperks.god.target_enabled", "&a{actor} heeft god mode voor je ingeschakeld.");
         messages.add("fairperks.god.target_disabled", "&7{actor} heeft god mode voor je uitgeschakeld.");
-        messages.add("fairperks.god.removed_permission", "&cGod mode is verwijderd omdat je bij het inloggen niet de vereiste permissies had.");
+        messages.add(
+                "fairperks.god.removed_permission",
+                "&cGod mode is verwijderd omdat je bij het inloggen niet de vereiste permissies had."
+        );
 
         messages.add("fairperks.godmacro.enabled", "&aDe dubbele-shift god macro is ingeschakeld.");
         messages.add("fairperks.godmacro.disabled", "&7De dubbele-shift god macro is uitgeschakeld.");
@@ -176,14 +182,36 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
 
         messages.add("fairperks.restriction.pvp.god", "&cJe kunt spelers niet aanvallen terwijl god mode actief is.");
         messages.add("fairperks.restriction.pvp.flying", "&cJe kunt spelers niet aanvallen terwijl je vliegt.");
-        messages.add("fairperks.restriction.hostile.god", "&cJe kunt vijandige mobs niet aanvallen terwijl god mode actief is.");
-        messages.add("fairperks.restriction.hostile.flying", "&cJe kunt vijandige mobs niet aanvallen terwijl je vliegt.");
-        messages.add("fairperks.restriction.interaction.god", "&cDeze actie is niet toegestaan terwijl god mode actief is.");
-        messages.add("fairperks.restriction.interaction.flying", "&cDeze actie is niet toegestaan terwijl je vliegt.");
+        messages.add(
+                "fairperks.restriction.pet.god",
+                "&cJe huisdieren kunnen geen andere entities aanvallen terwijl god mode actief is."
+        );
+        messages.add(
+                "fairperks.restriction.pet.flying",
+                "&cJe huisdieren kunnen geen andere entities aanvallen terwijl je vliegt."
+        );
+        messages.add(
+                "fairperks.restriction.hostile.god",
+                "&cJe kunt vijandige mobs niet aanvallen terwijl god mode actief is."
+        );
+        messages.add(
+                "fairperks.restriction.hostile.flying",
+                "&cJe kunt vijandige mobs niet aanvallen terwijl je vliegt."
+        );
+        messages.add(
+                "fairperks.restriction.interaction.god",
+                "&cDeze actie is niet toegestaan terwijl god mode actief is."
+        );
+        messages.add(
+                "fairperks.restriction.interaction.flying",
+                "&cDeze actie is niet toegestaan terwijl je vliegt."
+        );
 
         messages.add(
                 "fairperks.inspect",
-                "&7FairPerks voor &e{target}&7: fly desired=&f{fly_desired}&7, effective=&f{fly_effective}&7, owned=&f{fly_owned}&7; god desired=&f{god_desired}&7, effective=&f{god_effective}&7; macro=&f{macro}&7; fall grace=&f{fall_grace}&7."
+                "&7FairPerks voor &e{target}&7: fly desired=&f{fly_desired}&7, effective=&f{fly_effective}&7, "
+                        + "owned=&f{fly_owned}&7; god desired=&f{god_desired}&7, effective=&f{god_effective}&7; "
+                        + "macro=&f{macro}&7; fall grace=&f{fall_grace}&7."
         );
         return messages;
     }
@@ -195,7 +223,7 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         policy = new FairPerksPolicy(
                 settings,
                 hostileClassifier,
-                CombatStatusProvider.resolve(this)
+                CombatTags.service()
         );
         stateService = new PerkStateService(this, settings, policy);
 
@@ -212,7 +240,7 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         getLifecycleManager().getListenerManager().registerListener(new InteractionRestrictionListener(this));
         getLifecycleManager().getTaskManager().scheduleOneTimeTask(this::initializeOnlinePlayers);
 
-        getLogger().info("FairPerks loaded with native flight and god-mode ownership.");
+        getLogger().info("FairPerks loaded with native flight, god-mode, and CombatTag integration.");
     }
 
     @Override
