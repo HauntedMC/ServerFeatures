@@ -60,9 +60,7 @@ public final class PlayerLifecycleListener implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSpawnerMob(CreatureSpawnEvent event) {
-        boolean shouldMarkSpawnerMobs = feature.settings().hostiles().spawnerMobsExempt()
-                || feature.settings().hostiles().markSpawnerMobs();
-        if (shouldMarkSpawnerMobs
+        if (feature.settings().hostiles().markSpawnerMobs()
                 && event.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER
                 && feature.hostileClassifier().isHostile(event.getEntity())) {
             feature.hostileClassifier().markSpawnerMob(event.getEntity());
