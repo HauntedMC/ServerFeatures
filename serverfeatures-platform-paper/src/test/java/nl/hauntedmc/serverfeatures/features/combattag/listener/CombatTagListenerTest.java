@@ -4,12 +4,15 @@ import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
+import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.damage.DamageSource;
+import org.bukkit.entity.Creeper;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.junit.jupiter.api.Test;
@@ -90,6 +93,29 @@ class CombatTagListenerTest {
     }
 
     @Test
+    void explodingCreeperIsClearedAndCannotImmediatelyRetagItsVictim() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        FeatureTaskManager taskManager = mock(FeatureTaskManager.class);
+        CombatTagListener listener = listener(settings, service, taskManager);
+        Creeper creeper = mock(Creeper.class);
+        UUID creeperId = UUID.randomUUID();
+        when(creeper.getUniqueId()).thenReturn(creeperId);
+        when(creeper.getType()).thenReturn(EntityType.CREEPER);
+        when(creeper.getName()).thenReturn("Creeper");
+        when(creeper.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.NATURAL);
+        ExplosionPrimeEvent prime = mock(ExplosionPrimeEvent.class);
+        when(prime.getEntity()).thenReturn(creeper);
+        Player target = player("Target");
+
+        listener.onExplosionPrime(prime);
+        listener.onDamage(damageEvent(creeper, target));
+
+        verify(service).handleOpponentDeath(creeper);
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+    }
+
+    @Test
     void kickStateIsForwardedToTheQuitPolicy() {
         CombatTagSettings settings = settings(Set.of());
         CombatTagService service = mock(CombatTagService.class);
@@ -110,10 +136,19 @@ class CombatTagListenerTest {
             CombatTagSettings settings,
             CombatTagService service
     ) {
+        return listener(settings, service, mock(FeatureTaskManager.class));
+    }
+
+    private static CombatTagListener listener(
+            CombatTagSettings settings,
+            CombatTagService service,
+            FeatureTaskManager taskManager
+    ) {
         return new CombatTagListener(
                 settings,
                 service,
-                new CombatSourceResolver(settings.attribution())
+                new CombatSourceResolver(settings.attribution()),
+                taskManager
         );
     }
 
