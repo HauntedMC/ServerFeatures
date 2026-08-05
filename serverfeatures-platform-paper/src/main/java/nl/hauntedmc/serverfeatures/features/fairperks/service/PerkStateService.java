@@ -222,13 +222,16 @@ public final class PerkStateService {
 
     public boolean disableFlightForCombat(Player player) {
         SessionState state = stateFor(player);
+        boolean stopActiveFlight = state.flyOwned
+                || readBoolean(player, FLY_ACTIVE_KEY)
+                || readBoolean(player, FLY_OWNED_KEY);
         if (!hasManagedFlight(player, state)) {
             return false;
         }
 
         state.flyDesired = false;
         revokeFlight(player, state, false, true);
-        if (!isNativeFlightMode(player) && player.isFlying()) {
+        if (stopActiveFlight && !isNativeFlightMode(player) && player.isFlying()) {
             player.setFlying(false);
         }
         clearFlightPersistence(player);
