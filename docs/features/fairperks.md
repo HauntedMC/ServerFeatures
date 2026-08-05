@@ -60,7 +60,8 @@ Permission node names are intentionally fixed in code.
 FairPerks distinguishes desired flight from active flight.
 
 - `/fly on` records a desired state and grants `allowFlight` in permitted worlds and game modes.
-- Restrictions apply only while the player is actually flying.
+- Direct player combat and interaction restrictions apply only while the player is actually flying.
+- Tamed-pet damage is the deliberate exception: pets are blocked whenever fly mode is enabled in an allowed environment, even while the owner is standing on the ground.
 - Creative and spectator flight are native Minecraft capabilities and are never removed by FairPerks.
 - When FairPerks grants flight, it records ownership so disabling the perk restores any pre-existing non-FairPerks capability instead of blindly clearing it.
 - Persistent flight requires both the use and persist permissions.
@@ -116,7 +117,7 @@ The following restrictions can be enabled independently:
 
 Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs, player-sourced TNT and area-effect clouds, evoker fangs, tamed mobs, and fireworks. This prevents changing the damage delivery mechanism from bypassing the same fairness policy.
 
-When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or active FairPerks flight cannot damage any entity, including its owner. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies.
+When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or enabled FairPerks flight in an allowed environment cannot damage any entity, including its owner. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies.
 
 Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
 
@@ -223,7 +224,8 @@ Empty game-mode sets and invalid enum values fail configuration loading instead 
 - Enable god mode at low health and hunger and verify neither value changes.
 - Verify native CombatTag blocks activation and both activation-bypass permissions work.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
-- Verify a protected owner's wolf cannot damage players, neutral mobs, hostile mobs, or its owner; verify the restrictions bypass.
+- Enable fly mode while standing on the ground and verify the owner's pet cannot damage players, neutral mobs, hostile mobs, or its owner; repeat while actively flying and with god mode.
+- Verify the restrictions bypass allows pet damage in every state.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
 - Verify spawner mobs remain exempt when configured.
 - Reload CombatTag while FairPerks state is active and confirm dependent reload restores both features cleanly.
