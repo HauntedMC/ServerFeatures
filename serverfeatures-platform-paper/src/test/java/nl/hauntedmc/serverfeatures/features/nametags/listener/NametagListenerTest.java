@@ -102,8 +102,10 @@ class NametagListenerTest {
         NametagManager manager = mock(NametagManager.class);
         Player player = mock(Player.class);
         PlayerTeleportEvent event = mock(PlayerTeleportEvent.class);
-        Location from = new Location(mock(World.class), 0.0, 64.0, 0.0);
-        Location to = new Location(mock(World.class), 0.0, 64.0, 0.0);
+        World fromWorld = mock(World.class);
+        World toWorld = mock(World.class);
+        Location from = new Location(fromWorld, 0.0, 64.0, 0.0);
+        Location to = new Location(toWorld, 0.0, 64.0, 0.0);
         when(feature.getNametagManager()).thenReturn(manager);
         when(event.getPlayer()).thenReturn(player);
         when(event.getFrom()).thenReturn(from);
