@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.combattag;
 
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTags;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
@@ -13,6 +14,7 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.combattag.command.CombatTagCommand;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.combattag.listener.CombatTagListener;
 import nl.hauntedmc.serverfeatures.features.combattag.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
@@ -218,6 +220,16 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     public CombatTagService service() {
         return service;
+    }
+
+    public void publishAppliedTag(Player player, CombatTagResult result) {
+        try {
+            getPlugin().getServer().getPluginManager().callEvent(
+                    new CombatTagAppliedEvent(player, result)
+            );
+        } catch (RuntimeException exception) {
+            reportFailure("Could not publish CombatTag applied event for " + player.getName(), exception);
+        }
     }
 
     public void sendMessage(CommandSender audience, String key) {
