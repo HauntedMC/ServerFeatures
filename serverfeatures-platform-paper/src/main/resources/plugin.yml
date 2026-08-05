@@ -18,6 +18,15 @@ permissions:
   serverfeatures.feature.combattag.bypass:
     description: Bypass CombatTag tagging, restrictions, and logout punishment.
     default: op
+  serverfeatures.feature.combattag.command.status:
+    description: View your own CombatTag status.
+    default: true
+  serverfeatures.feature.combattag.command.status.others:
+    description: View another online player's CombatTag status.
+    default: op
+  serverfeatures.feature.combattag.command.untag:
+    description: Administratively remove another player's CombatTag.
+    default: op
   serverfeatures.feature.invtools.command.inventory.open.inspect:
     description: Inspect online and offline player inventories with /inv inventory open.
     default: false
