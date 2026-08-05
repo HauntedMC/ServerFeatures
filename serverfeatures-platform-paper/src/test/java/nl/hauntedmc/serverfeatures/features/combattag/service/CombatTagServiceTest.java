@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
 import nl.hauntedmc.serverfeatures.features.combattag.CombatTag;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,7 @@ class CombatTagServiceTest {
         var stored = fixture.service().snapshotForReload().get(fixture.player().getUniqueId());
         assertNull(stored.logoutOpponent());
         assertNull(stored.logoutDamageSourceId());
+        assertNull(stored.logoutReason());
     }
 
     @Test
@@ -92,7 +94,7 @@ class CombatTagServiceTest {
                 fixture.player(),
                 attacker,
                 attacker.uniqueId(),
-                CombatTagReason.MELEE
+                CombatTagReason.PROJECTILE
         );
         fixture.service().tagOutgoing(
                 fixture.player(),
@@ -106,6 +108,66 @@ class CombatTagServiceTest {
         assertEquals(attacked, visible.opponent());
         assertEquals(attacker, stored.logoutOpponent());
         assertEquals(attacker.uniqueId(), stored.logoutDamageSourceId());
+        assertEquals(CombatTagReason.PROJECTILE, stored.logoutReason());
+    }
+
+    @Test
+    void displayedOpponentDeathFallsBackToTheRetainedIncomingAttacker() {
+        Fixture fixture = fixture(false);
+        CombatOpponent attacker = opponent("attacker", EntityType.ZOMBIE);
+        CombatOpponent attacked = opponent("attacked", EntityType.SKELETON);
+
+        fixture.service().tagIncoming(
+                fixture.player(),
+                attacker,
+                attacker.uniqueId(),
+                CombatTagReason.PROJECTILE
+        );
+        fixture.service().tagOutgoing(
+                fixture.player(),
+                attacked,
+                attacked.uniqueId(),
+                CombatTagReason.MELEE
+        );
+
+        fixture.service().handleOpponentDeath(entity(attacked));
+
+        var visible = fixture.service().getTag(fixture.player()).orElseThrow();
+        var stored = fixture.service().snapshotForReload().get(fixture.player().getUniqueId());
+        assertEquals(attacker, visible.opponent());
+        assertEquals(CombatTagReason.PROJECTILE, visible.reason());
+        assertEquals(attacker, stored.logoutOpponent());
+        assertEquals(CombatTagReason.PROJECTILE, stored.logoutReason());
+    }
+
+    @Test
+    void retainedIncomingAttackerDeathKeepsTheOutgoingTagWithoutStaleAttribution() {
+        Fixture fixture = fixture(false);
+        CombatOpponent attacker = opponent("attacker", EntityType.ZOMBIE);
+        CombatOpponent attacked = opponent("attacked", EntityType.SKELETON);
+
+        fixture.service().tagIncoming(
+                fixture.player(),
+                attacker,
+                attacker.uniqueId(),
+                CombatTagReason.PROJECTILE
+        );
+        fixture.service().tagOutgoing(
+                fixture.player(),
+                attacked,
+                attacked.uniqueId(),
+                CombatTagReason.MELEE
+        );
+
+        fixture.service().handleOpponentDeath(entity(attacker));
+
+        var visible = fixture.service().getTag(fixture.player()).orElseThrow();
+        var stored = fixture.service().snapshotForReload().get(fixture.player().getUniqueId());
+        assertEquals(attacked, visible.opponent());
+        assertEquals(CombatTagReason.MELEE, visible.reason());
+        assertNull(stored.logoutOpponent());
+        assertNull(stored.logoutDamageSourceId());
+        assertNull(stored.logoutReason());
     }
 
     @Test
@@ -280,6 +342,12 @@ class CombatTagServiceTest {
 
     private static CombatOpponent opponent(String name, EntityType type) {
         return new CombatOpponent(UUID.randomUUID(), type, name, false);
+    }
+
+    private static Entity entity(CombatOpponent opponent) {
+        Entity entity = mock(Entity.class);
+        when(entity.getUniqueId()).thenReturn(opponent.uniqueId());
+        return entity;
     }
 
     private record Fixture(
