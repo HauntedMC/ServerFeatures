@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.combattag;
 
-import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTags;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
@@ -35,6 +34,8 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     public static final String STATUS_OTHERS_PERMISSION =
             "serverfeatures.feature.combattag.command.status.others";
     public static final String UNTAG_PERMISSION = "serverfeatures.feature.combattag.command.untag";
+
+    private static final String ACTION_BAR_OWNER = "serverfeatures:combattag";
 
     private CombatTagSettings settings;
     private CombatTagService service;
@@ -241,11 +242,12 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
             Map<String, String> placeholders
     ) {
         try {
-            ActionBars.service().send(
+            ActionBars.service().sendOverride(
                     player,
                     buildMessage(player, key, placeholders),
                     2,
-                    PauseMode.PAUSE_CYCLE
+                    PauseMode.PAUSE_CYCLE,
+                    ACTION_BAR_OWNER
             );
         } catch (RuntimeException exception) {
             reportFailure("Could not send CombatTag action bar to " + player.getName(), exception);
@@ -254,7 +256,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     public void clearActionBar(Player player) {
         try {
-            ActionBars.service().sendOnce(player, Component.empty());
+            ActionBars.service().clearOverride(player, ACTION_BAR_OWNER);
         } catch (RuntimeException exception) {
             reportFailure("Could not clear CombatTag action bar for " + player.getName(), exception);
         }
@@ -275,7 +277,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         }
     }
 
-    private Component buildMessage(
+    private net.kyori.adventure.text.Component buildMessage(
             CommandSender audience,
             String key,
             Map<String, String> placeholders
