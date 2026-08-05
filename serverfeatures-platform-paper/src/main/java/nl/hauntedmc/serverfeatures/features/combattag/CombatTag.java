@@ -29,7 +29,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     private CombatTagSettings settings;
     private CombatTagService service;
-    private CombatTagListener listener;
     private boolean reloadSnapshotCaptured;
 
     public CombatTag(FeatureContext<Meta> context) {
@@ -120,7 +119,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     public void initialize() {
         settings = CombatTagSettings.load(getConfigHandler());
         service = new CombatTagService(this, settings);
-        listener = new CombatTagListener(
+        CombatTagListener listener = new CombatTagListener(
                 settings,
                 service,
                 new CombatSourceResolver(settings.attribution())
@@ -130,10 +129,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 service::tick,
                 BukkitTime.ticks(settings.display().actionBar().updateIntervalTicks())
-        );
-        getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                listener::pruneSpawnExclusions,
-                BukkitTime.ticks(200L)
         );
 
         CombatTags.bootstrap(service);
@@ -148,9 +143,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         if (service != null) {
             CombatTags.shutdown(service);
             service.shutdown(reloadSnapshotCaptured);
-        }
-        if (listener != null) {
-            listener.clear();
         }
     }
 
