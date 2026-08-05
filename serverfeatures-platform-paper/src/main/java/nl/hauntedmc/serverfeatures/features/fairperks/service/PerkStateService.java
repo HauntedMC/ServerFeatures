@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
 import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -477,7 +478,7 @@ public final class PerkStateService {
     }
 
     private static boolean isAirborne(Player player) {
-        return !player.isOnGround()
+        return !((Entity) player).isOnGround()
                 && !player.isGliding()
                 && !player.isSwimming()
                 && player.getVehicle() == null;
