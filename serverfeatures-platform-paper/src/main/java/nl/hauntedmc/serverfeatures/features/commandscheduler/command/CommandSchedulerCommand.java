@@ -612,7 +612,7 @@ public final class CommandSchedulerCommand extends FeatureCommand {
             case "set" -> canUse(sender, MANAGE_PERMISSION)
                     ? completeSet(args) : List.of();
             case "command" -> canView(sender)
-                    ? completeCommand(args) : List.of();
+                    ? completeCommand(sender, args) : List.of();
             default -> List.of();
         };
     }
@@ -685,14 +685,21 @@ public final class CommandSchedulerCommand extends FeatureCommand {
         return List.of();
     }
 
-    private List<String> completeCommand(String[] args) {
+    private List<String> completeCommand(CommandSender sender, String[] args) {
+        boolean canManage = canUse(sender, MANAGE_PERMISSION);
         if (args.length == 2) {
-            return filterPrefix(List.of("list", "add", "set", "remove"), args[1]);
+            List<String> actions = canManage
+                    ? List.of("list", "add", "set", "remove")
+                    : List.of("list");
+            return filterPrefix(actions, args[1]);
+        }
+        if (!args[1].equalsIgnoreCase("list") && !canManage) {
+            return List.of();
         }
         if (args.length == 3) {
             return scheduleIds(args[2]);
         }
-        if (args.length == 4
+        if (args.length == 4 && canManage
                 && (args[1].equalsIgnoreCase("set") || args[1].equalsIgnoreCase("remove"))) {
             Optional<CommandSchedule> schedule = service.find(args[2]);
             if (schedule.isEmpty()) {
