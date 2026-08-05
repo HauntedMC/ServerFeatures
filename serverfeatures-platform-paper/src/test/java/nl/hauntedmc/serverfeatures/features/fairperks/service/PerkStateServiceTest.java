@@ -19,6 +19,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -55,6 +58,33 @@ class PerkStateServiceTest {
                 eq(PersistentDataType.BYTE),
                 eq((byte) 1)
         );
+    }
+
+    @Test
+    void administrativeOverrideCanGrantSessionFlightWithoutTargetUsePermission() {
+        Fixture fixture = fixture();
+        fixture.service().initialize(fixture.player());
+        when(fixture.player().hasPermission(FairPerks.FLY_USE_PERMISSION)).thenReturn(false);
+        when(fixture.player().hasPermission(FairPerks.FLY_PERSIST_PERMISSION)).thenReturn(false);
+
+        PerkChangeResult denied = fixture.service().set(
+                fixture.player(),
+                PerkType.FLY,
+                true,
+                true
+        );
+        assertEquals(PerkChangeResult.Status.NO_PERMISSION, denied.status());
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+
+        PerkChangeResult granted = fixture.service().set(
+                fixture.player(),
+                PerkType.FLY,
+                true,
+                true,
+                true
+        );
+        assertTrue(granted.success());
+        assertTrue(fixture.service().isDesired(fixture.player(), PerkType.FLY));
     }
 
     private static boolean isActiveFlightKey(NamespacedKey key) {
