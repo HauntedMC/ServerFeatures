@@ -1,6 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
 import org.bukkit.entity.Entity;
@@ -19,6 +21,20 @@ public final class ProtectionListener implements Listener {
 
     public ProtectionListener(FairPerks feature) {
         this.feature = feature;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatTagApplied(CombatTagAppliedEvent event) {
+        Player player = event.getPlayer();
+        PerkChangeResult result = feature.stateService().set(
+                player,
+                PerkType.FLY,
+                false,
+                false
+        );
+        if (result.status() == PerkChangeResult.Status.CHANGED) {
+            feature.sendMessage(player, "fairperks.fly.disabled");
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
