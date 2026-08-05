@@ -84,7 +84,9 @@ A player who has only dealt damage is still combat tagged and can still be punis
 
 Administrative or server kicks are not punished by default. Set `punish-kicked-players: true` only when kicks should be treated exactly like voluntary disconnects.
 
-Kill, broadcast, and command actions are failure-isolated. An exception or unknown console command is logged without preventing the remaining configured actions.
+Server shutdowns are never punished, independently of the kick setting. CombatTag checks Paper's explicit server-stopping state so scheduled restarts cannot kill players, broadcast combat-log messages, or execute logout commands.
+
+Kill, broadcast, and command actions are failure-isolated. An exception or unknown console command is logged without preventing the remaining configured actions. Command placeholders are replaced in a single pass and control characters are removed before console dispatch.
 
 Command placeholders:
 
@@ -210,6 +212,7 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 11. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
 12. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
 13. Kick a tagged player with `punish-kicked-players` disabled and enabled.
-14. Test status, other-player status, administrative untagging, and all associated permissions.
-15. Reload CombatTag and confirm active timers preserve only their remaining time.
-16. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
+14. Stop or restart the server with tagged players online and confirm no logout punishment runs.
+15. Test status, other-player status, administrative untagging, and all associated permissions.
+16. Reload CombatTag and confirm active timers preserve only their remaining time.
+17. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
