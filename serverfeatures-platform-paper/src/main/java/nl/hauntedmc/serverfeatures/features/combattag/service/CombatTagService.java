@@ -78,7 +78,7 @@ public final class CombatTagService implements CombatTagApi {
         if (player == null || opponent == null || reason == null) {
             return CombatTagResult.INVALID;
         }
-        return tag(
+        return tagIncoming(
                 player,
                 CombatSourceResolver.opponent(opponent),
                 opponent.getUniqueId(),
@@ -86,11 +86,30 @@ public final class CombatTagService implements CombatTagApi {
         );
     }
 
-    public CombatTagResult tag(
+    public CombatTagResult tagIncoming(
             Player player,
             CombatOpponent opponent,
             UUID damageSourceId,
             CombatTagReason reason
+    ) {
+        return tag(player, opponent, damageSourceId, reason, true);
+    }
+
+    public CombatTagResult tagOutgoing(
+            Player player,
+            CombatOpponent opponent,
+            UUID damageSourceId,
+            CombatTagReason reason
+    ) {
+        return tag(player, opponent, damageSourceId, reason, false);
+    }
+
+    private CombatTagResult tag(
+            Player player,
+            CombatOpponent opponent,
+            UUID damageSourceId,
+            CombatTagReason reason,
+            boolean replaceLogoutAttribution
     ) {
         if (player == null || opponent == null || damageSourceId == null || reason == null) {
             return CombatTagResult.INVALID;
@@ -112,11 +131,20 @@ public final class CombatTagService implements CombatTagApi {
         Instant now = clock.instant();
         Session previous = sessions.get(player.getUniqueId());
         boolean retagged = previous != null && previous.expiresAtNanos() > nowNanos;
+        CombatOpponent logoutOpponent = opponent;
+        UUID logoutDamageSourceId = damageSourceId;
+        if (retagged && !replaceLogoutAttribution) {
+            logoutOpponent = previous.logoutOpponent();
+            logoutDamageSourceId = previous.logoutDamageSourceId();
+        }
+
         Session session = new Session(
                 player.getUniqueId(),
                 opponent,
                 damageSourceId,
                 reason,
+                logoutOpponent,
+                logoutDamageSourceId,
                 now,
                 now.plusSeconds(settings.tagging().durationSeconds()),
                 saturatedAdd(nowNanos, durationNanos)
@@ -140,7 +168,22 @@ public final class CombatTagService implements CombatTagApi {
         if (session == null) {
             return false;
         }
-        tag(player, session.opponent(), session.damageSourceId(), session.reason());
+        long nowNanos = nanoTime.getAsLong();
+        Instant now = clock.instant();
+        sessions.put(
+                player.getUniqueId(),
+                new Session(
+                        session.playerId(),
+                        session.opponent(),
+                        session.damageSourceId(),
+                        session.reason(),
+                        session.logoutOpponent(),
+                        session.logoutDamageSourceId(),
+                        now,
+                        now.plusSeconds(settings.tagging().durationSeconds()),
+                        saturatedAdd(nowNanos, durationNanos)
+                )
+        );
         return true;
     }
 
@@ -238,6 +281,8 @@ public final class CombatTagService implements CombatTagApi {
                                 session.opponent(),
                                 session.damageSourceId(),
                                 session.reason(),
+                                session.logoutOpponent(),
+                                session.logoutDamageSourceId(),
                                 remainingNanos
                         )
                 );
@@ -270,6 +315,8 @@ public final class CombatTagService implements CombatTagApi {
                             stored.opponent(),
                             stored.damageSourceId(),
                             stored.reason(),
+                            stored.logoutOpponent(),
+                            stored.logoutDamageSourceId(),
                             now,
                             now.plusNanos(remaining),
                             saturatedAdd(nowNanos, remaining)
@@ -317,7 +364,10 @@ public final class CombatTagService implements CombatTagApi {
     private void showActionBar(Player player, Session session, long remainingNanos) {
         CombatTagSettings.ActionBarSettings actionBar = settings.display().actionBar();
         double fraction = Math.min(1.0D, Math.max(0.0D, (double) remainingNanos / durationNanos));
-        int filled = Math.min(actionBar.segments(), Math.max(0, (int) Math.ceil(fraction * actionBar.segments())));
+        int filled = Math.min(
+                actionBar.segments(),
+                Math.max(0, (int) Math.ceil(fraction * actionBar.segments()))
+        );
         String filledBar = actionBar.filledSymbol().repeat(filled);
         String emptyBar = actionBar.emptySymbol().repeat(actionBar.segments() - filled);
         long seconds = Math.max(1L, (remainingNanos + 999_999_999L) / 1_000_000_000L);
@@ -339,9 +389,9 @@ public final class CombatTagService implements CombatTagApi {
             return;
         }
 
-        Entity attacker = Bukkit.getEntity(session.damageSourceId());
+        Entity attacker = Bukkit.getEntity(session.logoutDamageSourceId());
         if (attacker == null) {
-            attacker = Bukkit.getEntity(session.opponent().uniqueId());
+            attacker = Bukkit.getEntity(session.logoutOpponent().uniqueId());
         }
         Map<String, String> placeholders = placeholders(player, session, attacker);
 
@@ -369,9 +419,9 @@ public final class CombatTagService implements CombatTagApi {
         Map<String, String> placeholders = new LinkedHashMap<>();
         placeholders.put("player", player.getName());
         placeholders.put("uuid", player.getUniqueId().toString());
-        placeholders.put("attacker", session.opponent().displayName());
-        placeholders.put("attacker_uuid", session.opponent().uniqueId().toString());
-        placeholders.put("attacker_type", session.opponent().entityType().name());
+        placeholders.put("attacker", session.logoutOpponent().displayName());
+        placeholders.put("attacker_uuid", session.logoutOpponent().uniqueId().toString());
+        placeholders.put("attacker_type", session.logoutOpponent().entityType().name());
         placeholders.put("world", location.getWorld() == null ? "unknown" : location.getWorld().getName());
         placeholders.put("x", Integer.toString(location.getBlockX()));
         placeholders.put("y", Integer.toString(location.getBlockY()));
@@ -412,6 +462,8 @@ public final class CombatTagService implements CombatTagApi {
             CombatOpponent opponent,
             UUID damageSourceId,
             CombatTagReason reason,
+            CombatOpponent logoutOpponent,
+            UUID logoutDamageSourceId,
             Instant taggedAt,
             Instant expiresAt,
             long expiresAtNanos
@@ -422,12 +474,16 @@ public final class CombatTagService implements CombatTagApi {
             CombatOpponent opponent,
             UUID damageSourceId,
             CombatTagReason reason,
+            CombatOpponent logoutOpponent,
+            UUID logoutDamageSourceId,
             long remainingNanos
     ) {
         public StoredSession {
             java.util.Objects.requireNonNull(opponent, "opponent");
             java.util.Objects.requireNonNull(damageSourceId, "damageSourceId");
             java.util.Objects.requireNonNull(reason, "reason");
+            java.util.Objects.requireNonNull(logoutOpponent, "logoutOpponent");
+            java.util.Objects.requireNonNull(logoutDamageSourceId, "logoutDamageSourceId");
             if (remainingNanos < 0L) {
                 remainingNanos = 0L;
             }
