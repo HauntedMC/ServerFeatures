@@ -1,16 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.combattag.listener;
 
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
 import nl.hauntedmc.serverfeatures.api.combat.CombatUntagReason;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver.ResolvedCombatSource;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -88,7 +92,8 @@ public final class CombatTagListener implements Listener {
                 fisher.getUniqueId(),
                 fisher,
                 CombatTagReason.FISHING_HOOK,
-                null
+                null,
+                fisher
         );
         applyCombat(source, target);
     }
@@ -181,14 +186,19 @@ public final class CombatTagListener implements Listener {
             boolean enabled = source.playerSource()
                     ? settings.tagging().pvpEnabled()
                     : settings.tagging().mobsEnabled();
-            if (!enabled) {
+            if (!enabled
+                    || (!source.playerSource()
+                    && !isEnemyCombatant(source.sourceEntity(), targetPlayer))) {
                 return;
             }
-            service.tagIncoming(
+            publishAppliedTag(
                     targetPlayer,
-                    source.opponent(),
-                    source.damageSourceId(),
-                    source.reason()
+                    service.tagIncoming(
+                            targetPlayer,
+                            source.opponent(),
+                            source.damageSourceId(),
+                            source.reason()
+                    )
             );
         }
 
@@ -201,23 +211,43 @@ public final class CombatTagListener implements Listener {
             if (!settings.tagging().pvpEnabled()) {
                 return;
             }
-            service.tagOutgoing(
+            publishAppliedTag(
                     sourcePlayer,
-                    CombatSourceResolver.opponent(targetPlayer),
-                    targetPlayer.getUniqueId(),
-                    source.reason()
+                    service.tagOutgoing(
+                            sourcePlayer,
+                            CombatSourceResolver.opponent(targetPlayer),
+                            targetPlayer.getUniqueId(),
+                            source.reason()
+                    )
             );
             return;
         }
 
-        if (settings.tagging().mobsEnabled()) {
-            service.tagOutgoing(
+        if (settings.tagging().mobsEnabled() && isEnemyCombatant(target, sourcePlayer)) {
+            publishAppliedTag(
                     sourcePlayer,
-                    CombatSourceResolver.opponent(target),
-                    target.getUniqueId(),
-                    source.reason()
+                    service.tagOutgoing(
+                            sourcePlayer,
+                            CombatSourceResolver.opponent(target),
+                            target.getUniqueId(),
+                            source.reason()
+                    )
             );
         }
+    }
+
+    private static boolean isEnemyCombatant(Entity entity, Player opposingPlayer) {
+        if (entity instanceof Enemy) {
+            return true;
+        }
+        return entity instanceof Mob mob && opposingPlayer.equals(mob.getTarget());
+    }
+
+    private static void publishAppliedTag(Player player, CombatTagResult result) {
+        if (result != CombatTagResult.TAGGED && result != CombatTagResult.RETAGGED) {
+            return;
+        }
+        player.getServer().getPluginManager().callEvent(new CombatTagAppliedEvent(player, result));
     }
 
     private static boolean isPortalCause(PlayerTeleportEvent.TeleportCause cause) {
