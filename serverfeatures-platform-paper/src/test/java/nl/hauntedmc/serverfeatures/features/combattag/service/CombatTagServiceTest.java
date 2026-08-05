@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -56,6 +58,23 @@ class CombatTagServiceTest {
         assertEquals(second, snapshot.opponent());
         assertEquals(CombatTagReason.PROJECTILE, snapshot.reason());
         assertEquals(15L, snapshot.remaining().toSeconds());
+    }
+
+    @Test
+    void outgoingOnlyTagDoesNotInventALogoutAttacker() {
+        Fixture fixture = fixture(false);
+        CombatOpponent target = opponent("target", EntityType.ZOMBIE);
+
+        fixture.service().tagOutgoing(
+                fixture.player(),
+                target,
+                target.uniqueId(),
+                CombatTagReason.MELEE
+        );
+
+        var stored = fixture.service().snapshotForReload().get(fixture.player().getUniqueId());
+        assertNull(stored.logoutOpponent());
+        assertNull(stored.logoutDamageSourceId());
     }
 
     @Test
@@ -135,6 +154,30 @@ class CombatTagServiceTest {
         assertEquals(11L, snapshot.get(fixture.player().getUniqueId()).remainingNanos() / 1_000_000_000L);
     }
 
+    @Test
+    void publicWritesFailFastAwayFromTheServerThread() {
+        CombatTag feature = mock(CombatTag.class);
+        Player player = mock(Player.class);
+        CombatTagService service = new CombatTagService(
+                feature,
+                settings(),
+                System::nanoTime,
+                Clock.systemUTC(),
+                () -> false
+        );
+        CombatOpponent opponent = opponent("zombie", EntityType.ZOMBIE);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.tagIncoming(
+                        player,
+                        opponent,
+                        opponent.uniqueId(),
+                        CombatTagReason.MELEE
+                )
+        );
+    }
+
     private static Fixture fixture(boolean bypass) {
         CombatTag feature = mock(CombatTag.class);
         Player player = mock(Player.class);
@@ -171,7 +214,7 @@ class CombatTagServiceTest {
                 ),
                 new CombatTagSettings.LifecycleSettings(true, true),
                 new CombatTagSettings.TeleportSettings(true, true, Set.of(), false, false),
-                new CombatTagSettings.LogoutSettings(false, false, false, List.of()),
+                new CombatTagSettings.LogoutSettings(false, false, false, false, List.of()),
                 new CombatTagSettings.DisplaySettings(
                         false,
                         false,
