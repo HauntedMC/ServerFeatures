@@ -50,6 +50,30 @@ class HostileEntityClassifierTest {
     }
 
     @Test
+    void legacyNonEnemyEntityTypesRemainHostile() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Entity skeletonHorse = mock(Entity.class);
+        Entity nautilus = mock(Entity.class);
+        Entity zombieNautilus = mock(Entity.class);
+        when(skeletonHorse.getType()).thenReturn(EntityType.SKELETON_HORSE);
+        when(nautilus.getType()).thenReturn(EntityType.NAUTILUS);
+        when(zombieNautilus.getType()).thenReturn(EntityType.ZOMBIE_NAUTILUS);
+
+        assertTrue(classifier.isHostile(skeletonHorse));
+        assertTrue(classifier.isHostile(nautilus));
+        assertTrue(classifier.isHostile(zombieNautilus));
+    }
+
+    @Test
+    void configuredExclusionCanOverrideLegacyCompatibility() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of(EntityType.SKELETON_HORSE));
+        Entity skeletonHorse = mock(Entity.class);
+        when(skeletonHorse.getType()).thenReturn(EntityType.SKELETON_HORSE);
+
+        assertFalse(classifier.isHostile(skeletonHorse));
+    }
+
+    @Test
     void nearbyLookupUsesConfiguredClassifier() {
         HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
         Player player = mock(Player.class);
