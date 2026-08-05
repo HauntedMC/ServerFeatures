@@ -125,7 +125,7 @@ event.quitMessage(null);
 
 This happens even when the selected custom value is empty. Enabling the feature therefore fully replaces Paper's standard local join and quit chat presentation.
 
-The joining player receives their own join message. The quitting player is excluded from the quit broadcast. Recipients that cannot see the subject through Bukkit visibility are skipped. A rendering or delivery failure for one recipient is logged and does not prevent delivery to the remaining recipients.
+The joining player receives their own join message. The quitting player is excluded only from a real disconnect quit broadcast. Synthetic join and quit messages caused by explicit Vanish toggles are also delivered to the affected staff member, so they see the same public-presence transition shown to other players. Recipients that cannot see the subject through Bukkit visibility are skipped. A rendering or delivery failure for one recipient is logged and does not prevent delivery to the remaining recipients.
 
 ## Vanish integration
 
@@ -140,8 +140,8 @@ NotifyLogin retains the result needed for a rapid quit. Vanish clears its runtim
 
 With `announce_vanish_state_changes: true`, explicit Vanish changes are presented as connection changes using the same player, permission and default message resolution:
 
-- entering vanish broadcasts the configured quit message immediately before normal players lose Bukkit visibility of the staff member;
-- leaving vanish restores Bukkit visibility first and then broadcasts the configured join message;
+- entering vanish broadcasts the configured quit message to visible recipients and the affected staff member immediately before normal players lose Bukkit visibility of the staff member;
+- leaving vanish restores Bukkit visibility first and then broadcasts the configured join message, including to the affected staff member;
 - a transition while the initial join is still pending is fenced, so entering vanish cannot produce a leave for a player who was never announced;
 - persisted vanish restoration during a real login and vanish restoration during feature reload remain silent and never produce a misleading extra leave;
 - setting the option to `false` disables only these synthetic messages; normal join/quit replacement and vanish privacy tracking remain active.
@@ -163,8 +163,8 @@ Configuration is parsed and validated once during feature initialization. Pendin
 5. Verify a missing event field falls through while `""` suppresses it.
 6. Verify UUID overrides beat name and permission overrides.
 7. Join and quit while persisted vanished; neither real connection message may be public.
-8. Enter vanish while visible and verify one configured quit message appears before the player becomes hidden.
-9. Leave vanish and verify one configured join message appears after the player becomes visible.
+8. Enter vanish while visible and verify one configured quit message appears for normal players and the vanishing player before Bukkit visibility is removed.
+9. Leave vanish and verify one configured join message appears for normal players and the unvanishing player after Bukkit visibility is restored.
 10. Set `announce_vanish_state_changes: false` and verify explicit vanish toggles no longer announce connection changes.
 11. Test multiple recipient languages while the subject nickname remains correct.
 12. Reload during a pending join and confirm no stale announcement is delivered.
