@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -56,8 +57,8 @@ class CombatTagSettingsTest {
     }
 
     @Test
-    void nestedSettingsDefensivelyCopyCollections() {
-        List<String> commands = new ArrayList<>(List.of("say logged out"));
+    void nestedSettingsDefensivelyCopyAndNormalizeCollections() {
+        List<String> commands = new ArrayList<>(List.of(" /say logged out "));
         CombatTagSettings settings = new CombatTagSettings(
                 new CombatTagSettings.TaggingSettings(
                         CombatTagSettings.TagMode.BOTH,
@@ -94,10 +95,38 @@ class CombatTagSettingsTest {
         commands.clear();
 
         assertFalse(settings.logout().punishKickedPlayers());
-        assertTrue(settings.logout().commands().contains("say logged out"));
+        assertEquals(List.of("say logged out"), settings.logout().commands());
         assertThrows(
                 UnsupportedOperationException.class,
                 () -> settings.logout().commands().add("other")
+        );
+    }
+
+    @Test
+    void slashOnlyLogoutCommandsAreRejected() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CombatTagSettings.LogoutSettings(
+                        false,
+                        false,
+                        false,
+                        false,
+                        List.of("///")
+                )
+        );
+    }
+
+    @Test
+    void enabledLogoutPunishmentRequiresAtLeastOneAction() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new CombatTagSettings.LogoutSettings(
+                        true,
+                        false,
+                        false,
+                        false,
+                        List.of()
+                )
         );
     }
 
