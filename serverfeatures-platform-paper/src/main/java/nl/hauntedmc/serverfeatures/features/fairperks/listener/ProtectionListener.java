@@ -1,11 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
-import org.bukkit.entity.AreaEffectCloud;
+import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
-import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -13,7 +11,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
 public final class ProtectionListener implements Listener {
 
@@ -46,7 +43,7 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPerkDamage(EntityDamageByEntityEvent event) {
-        Player attacker = resolvePlayerDamager(event.getDamager());
+        Player attacker = DamageSourceResolver.resolvePlayer(event.getDamager());
         if (attacker == null
                 || attacker.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
                 || !feature.stateService().isRestricted(attacker)) {
@@ -103,25 +100,5 @@ public final class ProtectionListener implements Listener {
         if (event.hasChangedBlock() && ((Entity) player).isOnGround()) {
             feature.stateService().clearFallDamageGrace(player);
         }
-    }
-
-    private static Player resolvePlayerDamager(Entity damager) {
-        if (damager instanceof Player player) {
-            return player;
-        }
-        if (damager instanceof Projectile projectile) {
-            return resolveProjectileSource(projectile.getShooter());
-        }
-        if (damager instanceof TNTPrimed tnt) {
-            return tnt.getSource() instanceof Player player ? player : null;
-        }
-        if (damager instanceof AreaEffectCloud cloud) {
-            return resolveProjectileSource(cloud.getSource());
-        }
-        return null;
-    }
-
-    private static Player resolveProjectileSource(ProjectileSource source) {
-        return source instanceof Player player ? player : null;
     }
 }
