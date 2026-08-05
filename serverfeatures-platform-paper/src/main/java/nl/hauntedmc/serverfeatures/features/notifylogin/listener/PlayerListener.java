@@ -2,10 +2,15 @@ package nl.hauntedmc.serverfeatures.features.notifylogin.listener;
 
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 
-public class PlayerListener implements Listener {
+/**
+ * Replaces Paper's local connection messages with NotifyLogin-owned messages.
+ */
+public final class PlayerListener implements Listener {
 
     private final NotifyLogin feature;
 
@@ -13,9 +18,13 @@ public class PlayerListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        feature.getNotificationHandler().notify(event.getPlayer());
+        feature.getNotificationHandler().handleJoin(event);
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        feature.getNotificationHandler().handleQuit(event);
+    }
 }

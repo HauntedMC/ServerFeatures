@@ -1,11 +1,11 @@
 package nl.hauntedmc.serverfeatures.framework.localization;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
-import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
@@ -84,6 +84,96 @@ class LocalizationHandlerTest {
     }
 
     @Test
+    void messageKeyMigrationPreservesCustomizedLegacyValueOverGeneratedDestination() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("localization-test"));
+        ConfigService service = new ConfigService(plugin);
+        LocalizationHandler framework = new LocalizationHandler(plugin, service);
+        ConfigView target = service.view("features/Demo/messages.yml", false);
+        target.put("demo.old", "custom legacy value");
+        target.put("demo.new", "new generated default");
+
+        LocalizationHandler feature = framework.openFeatureLocalization("Demo");
+        feature.migrateMessageKey(
+                "demo.old",
+                "demo.new",
+                "old generated default",
+                "new generated default"
+        );
+
+        assertNull(target.get("demo.old"));
+        assertEquals("custom legacy value", target.get("demo.new", String.class));
+    }
+
+    @Test
+    void messageKeyMigrationInstallsNewDefaultWhenDestinationIsMissing() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("localization-test"));
+        ConfigService service = new ConfigService(plugin);
+        LocalizationHandler framework = new LocalizationHandler(plugin, service);
+        ConfigView target = service.view("features/Demo/messages.yml", false);
+        target.put("demo.old", "old generated default");
+
+        LocalizationHandler feature = framework.openFeatureLocalization("Demo");
+        feature.migrateMessageKey(
+                "demo.old",
+                "demo.new",
+                "old generated default",
+                "new generated default"
+        );
+
+        assertNull(target.get("demo.old"));
+        assertEquals("new generated default", target.get("demo.new", String.class));
+    }
+
+    @Test
+    void messageKeyMigrationDoesNotOverwriteCustomizedDestination() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("localization-test"));
+        ConfigService service = new ConfigService(plugin);
+        LocalizationHandler framework = new LocalizationHandler(plugin, service);
+        ConfigView target = service.view("features/Demo/messages.yml", false);
+        target.put("demo.old", "custom legacy value");
+        target.put("demo.new", "custom destination value");
+
+        LocalizationHandler feature = framework.openFeatureLocalization("Demo");
+        feature.migrateMessageKey(
+                "demo.old",
+                "demo.new",
+                "old generated default",
+                "new generated default"
+        );
+
+        assertNull(target.get("demo.old"));
+        assertEquals("custom destination value", target.get("demo.new", String.class));
+    }
+
+    @Test
+    void messageKeyMigrationPreservesLanguageSpecificLegacyValue() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("localization-test"));
+        ConfigService service = new ConfigService(plugin);
+        LocalizationHandler framework = new LocalizationHandler(plugin, service);
+        ConfigView language = service.view("features/Demo/messages_EN.yml", false);
+        language.put("demo.old", "translated legacy value");
+
+        LocalizationHandler feature = framework.openFeatureLocalization("Demo");
+        feature.migrateMessageKey(
+                "demo.old",
+                "demo.new",
+                "old generated default",
+                "new generated default"
+        );
+
+        assertNull(language.get("demo.old"));
+        assertEquals("translated legacy value", language.get("demo.new", String.class));
+    }
+
+    @Test
     void playerMessageContextReusesStaticComponentsAndObservesTemplateChanges() {
         ServerFeatures plugin = mock(ServerFeatures.class);
         when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
@@ -114,8 +204,15 @@ class LocalizationHandlerTest {
     }
 
     private static String plain(Component component) {
-        return ComponentFormatter.serialize(component)
-                .format(ComponentFormatter.Serializer.Format.PLAIN)
-                .build();
+        StringBuilder output = new StringBuilder();
+        appendText(component, output);
+        return output.toString();
+    }
+
+    private static void appendText(Component component, StringBuilder output) {
+        if (component instanceof TextComponent text) {
+            output.append(text.content());
+        }
+        component.children().forEach(child -> appendText(child, output));
     }
 }

@@ -4,9 +4,10 @@ import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 
 /**
- * Public API other features can use to query vanish-aware player stats.
+ * Public API other features can use to query vanish-aware player state.
  */
 public class VanishAPI {
 
@@ -32,5 +33,15 @@ public class VanishAPI {
 
     public boolean isVanished(UUID uuid) {
         return feature.getService().isVanished(uuid);
+    }
+
+    /**
+     * Completes after Vanish has resolved and applied the initial state for the active connection.
+     *
+     * <p>The completion is fenced to the current player session. Reconnects, disconnects and explicit
+     * state changes invalidate stale persistence results.</p>
+     */
+    public CompletionStage<Boolean> resolveInitialVanishState(UUID uuid) {
+        return feature.getService().awaitInitialVanishState(uuid);
     }
 }

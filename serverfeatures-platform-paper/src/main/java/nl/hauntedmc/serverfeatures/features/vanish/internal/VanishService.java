@@ -3,8 +3,10 @@ package nl.hauntedmc.serverfeatures.features.vanish.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
+import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotifyLoginAPI;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
+import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -16,6 +18,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class VanishService {
@@ -26,6 +29,7 @@ public class VanishService {
     private final Vanish feature;
     private final Set<UUID> vanished = ConcurrentHashMap.newKeySet();
     private final Map<UUID, Long> playerIds = new ConcurrentHashMap<>();
+    private final VanishJoinStateTracker joinStateTracker = new VanishJoinStateTracker();
 
     public VanishService(Vanish feature) {
         this.feature = feature;
@@ -73,11 +77,23 @@ public class VanishService {
             if (player != null && player.isOnline()) {
                 vanished.add(playerId);
                 applyVanish(player);
+                joinStateTracker.override(playerId, true);
             }
         }
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             applyToNewViewer(viewer);
         }
+    }
+
+    public long beginJoin(Player player) {
+        if (player == null || !player.isOnline()) {
+            return -1L;
+        }
+        return joinStateTracker.begin(player.getUniqueId());
+    }
+
+    public CompletionStage<Boolean> awaitInitialVanishState(UUID playerUuid) {
+        return joinStateTracker.await(playerUuid);
     }
 
     public void setVanished(Player target, boolean value) {
@@ -104,13 +120,20 @@ public class VanishService {
 
         if (value) {
             vanished.add(playerUuid);
+            if (persist) {
+                notifyConnectionVisibilityChange(target, true);
+            }
             applyVanish(target);
         } else {
             vanished.remove(playerUuid);
             removeVanish(target);
+            if (persist) {
+                notifyConnectionVisibilityChange(target, false);
+            }
         }
 
         if (persist) {
+            joinStateTracker.override(playerUuid, value);
             Long playerId = playerIds.get(playerUuid);
             if (playerId == null) {
                 playerId = feature.getRepository().findExistingPlayerId(playerUuid.toString());
@@ -139,38 +162,87 @@ public class VanishService {
         if (player == null || !player.isOnline()) {
             return;
         }
-        Long playerId = feature.getRepository().findExistingPlayerId(player.getUniqueId().toString());
-        if (playerId == null) {
-            applyJoinState(player.getUniqueId(), false);
+        long generation = beginJoin(player);
+        if (generation < 0L) {
             return;
         }
-        handleJoin(player, new PlayerIdentity(playerId, player.getUniqueId(), player.getName()));
+
+        Long playerId = feature.getRepository().findExistingPlayerId(player.getUniqueId().toString());
+        if (playerId == null) {
+            try {
+                if (!joinStateTracker.isCurrent(player.getUniqueId(), generation)) {
+                    return;
+                }
+                applyJoinState(player.getUniqueId(), false);
+                joinStateTracker.complete(player.getUniqueId(), generation, false);
+            } catch (Throwable throwable) {
+                failJoinState(player.getUniqueId(), generation, throwable);
+            }
+            return;
+        }
+        handleJoin(player, new PlayerIdentity(playerId, player.getUniqueId(), player.getName()), generation);
     }
 
     public void handleJoin(Player player, PlayerIdentity identity) {
-        if (player == null || !player.isOnline() || identity == null || identity.playerId() <= 0L) {
+        long generation = beginJoin(player);
+        if (generation >= 0L) {
+            handleJoin(player, identity, generation);
+        }
+    }
+
+    public void handleJoin(Player player, PlayerIdentity identity, long generation) {
+        if (player == null) {
             return;
         }
 
         UUID playerUuid = player.getUniqueId();
-        playerIds.put(playerUuid, identity.playerId());
-        feature.getLifecycleManager().getTaskManager().supplyAsync(
-                () -> feature.getRepository().isPersistedVanished(identity.playerId())
-        ).whenComplete((persistedVanished, throwable) -> {
-            if (throwable != null) {
-                feature.getLogger().warning("Kon vanish persistentie niet lezen: " + rootMessage(throwable));
-                return;
-            }
-            feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(
-                    () -> applyJoinState(playerUuid, Boolean.TRUE.equals(persistedVanished))
+        if (!player.isOnline() || identity == null || identity.playerId() <= 0L) {
+            failJoinState(
+                    playerUuid,
+                    generation,
+                    new IllegalStateException("Valid player identity is required for Vanish join restoration.")
             );
-        });
+            return;
+        }
+        if (!joinStateTracker.isCurrent(playerUuid, generation)) {
+            return;
+        }
+
+        playerIds.put(playerUuid, identity.playerId());
+        try {
+            feature.getLifecycleManager().getTaskManager().supplyAsync(
+                    () -> feature.getRepository().isPersistedVanished(identity.playerId())
+            ).whenComplete((persistedVanished, throwable) -> {
+                if (throwable != null) {
+                    failJoinState(playerUuid, generation, throwable);
+                    return;
+                }
+                try {
+                    feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> {
+                        if (!joinStateTracker.isCurrent(playerUuid, generation)) {
+                            return;
+                        }
+                        try {
+                            boolean restoredVanish = Boolean.TRUE.equals(persistedVanished);
+                            applyJoinState(playerUuid, restoredVanish);
+                            joinStateTracker.complete(playerUuid, generation, restoredVanish);
+                        } catch (Throwable applyFailure) {
+                            failJoinState(playerUuid, generation, applyFailure);
+                        }
+                    });
+                } catch (Throwable schedulingFailure) {
+                    failJoinState(playerUuid, generation, schedulingFailure);
+                }
+            });
+        } catch (Throwable startFailure) {
+            failJoinState(playerUuid, generation, startFailure);
+        }
     }
 
     private void applyJoinState(UUID playerUuid, boolean persistedVanished) {
         Player player = Bukkit.getPlayer(playerUuid);
         if (player == null || !player.isOnline()) {
-            return;
+            throw new IllegalStateException("Player disconnected before Vanish join state could be applied.");
         }
 
         if (persistedVanished) {
@@ -196,6 +268,13 @@ public class VanishService {
             removeVanish(player);
         }
         applyToNewViewer(player);
+    }
+
+    private void failJoinState(UUID playerUuid, long generation, Throwable throwable) {
+        if (joinStateTracker.fail(playerUuid, generation, throwable)) {
+            feature.getLogger().warning("Kon vanish persistentie niet lezen of toepassen voor "
+                    + playerUuid + ": " + rootMessage(throwable));
+        }
     }
 
     private void applyVanish(Player player) {
@@ -301,6 +380,7 @@ public class VanishService {
     }
 
     public void cleanupOnDisable() {
+        joinStateTracker.clear();
         for (UUID id : new HashSet<>(vanished)) {
             Player player = Bukkit.getPlayer(id);
             if (player != null && player.isOnline()) {
@@ -309,6 +389,16 @@ public class VanishService {
         }
         vanished.clear();
         playerIds.clear();
+    }
+
+    private void notifyConnectionVisibilityChange(Player target, boolean vanishedState) {
+        try {
+            FeatureServices.find(feature, NotifyLoginAPI.class)
+                    .ifPresent(api -> api.handleVanishStateChange(target, vanishedState));
+        } catch (Throwable throwable) {
+            feature.getLogger().warning("Kon NotifyLogin niet bijwerken voor vanish wijziging van "
+                    + target.getUniqueId() + ": " + rootMessage(throwable));
+        }
     }
 
     private void publishVanishState(Player target, boolean value) {
@@ -326,6 +416,7 @@ public class VanishService {
 
     public void handleLeave(PlayerQuitEvent event) {
         UUID playerUuid = event.getPlayer().getUniqueId();
+        joinStateTracker.remove(playerUuid);
         vanished.remove(playerUuid);
         playerIds.remove(playerUuid);
     }
