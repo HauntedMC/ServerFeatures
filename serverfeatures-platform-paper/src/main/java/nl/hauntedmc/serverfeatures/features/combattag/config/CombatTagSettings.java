@@ -288,8 +288,16 @@ public record CombatTagSettings(
             boolean broadcast,
             List<String> commands
     ) {
-        public LogoutSettings {
-            commands = List.copyOf(commands);
+        public LogoutSettings(
+                boolean enabled,
+                boolean killPlayer,
+                boolean broadcast,
+                List<String> commands
+        ) {
+            this.enabled = enabled;
+            this.killPlayer = killPlayer;
+            this.broadcast = broadcast;
+            this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
         }
     }
 
@@ -320,8 +328,8 @@ public record CombatTagSettings(
     }
 
     public record WorldRule(WorldMode mode, Set<String> values) {
-        public WorldRule {
-            Objects.requireNonNull(mode, "mode");
+        public WorldRule(WorldMode mode, Set<String> values) {
+            this.mode = Objects.requireNonNull(mode, "mode");
             Objects.requireNonNull(values, "values");
             Set<String> normalized = new HashSet<>();
             for (String value : values) {
@@ -330,7 +338,7 @@ public record CombatTagSettings(
                 }
                 normalized.add(normalizeWorld(value));
             }
-            values = Set.copyOf(normalized);
+            this.values = Set.copyOf(normalized);
         }
 
         public boolean allows(World world) {
