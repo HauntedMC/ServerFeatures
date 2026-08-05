@@ -93,6 +93,22 @@ class CombatTagListenerTest {
     }
 
     @Test
+    void zeroFinalDamageDoesNotCreateOrRefreshCombat() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Player attacker = player("Attacker");
+        Player target = player("Target");
+        EntityDamageByEntityEvent event = damageEvent(attacker, target);
+        when(event.getFinalDamage()).thenReturn(0.0D);
+
+        listener.onDamage(event);
+
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+        verify(service, never()).tagOutgoing(any(), any(), any(), any());
+    }
+
+    @Test
     void explodingCreeperIsClearedAndCannotImmediatelyRetagItsVictim() {
         CombatTagSettings settings = settings(Set.of());
         CombatTagService service = mock(CombatTagService.class);
@@ -160,6 +176,7 @@ class CombatTagListenerTest {
         DamageSource damageSource = mock(DamageSource.class);
         when(event.getDamager()).thenReturn(damager);
         when(event.getEntity()).thenReturn(target);
+        when(event.getFinalDamage()).thenReturn(1.0D);
         when(event.getDamageSource()).thenReturn(damageSource);
         when(damageSource.getDirectEntity()).thenReturn(damager);
         when(damageSource.getCausingEntity()).thenReturn(damager);
