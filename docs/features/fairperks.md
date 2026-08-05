@@ -2,7 +2,7 @@
 
 FairPerks provides native ServerFeatures implementations of `/fly`, `/god`, and the optional double-sneak god macro. It owns all live flight and god state itself.
 
-FairPerks has a feature dependency on the native `CombatTag` feature. CombatLogX is not used or supported.
+FairPerks has a feature dependency on the native `CombatTag` feature and no external combat plugin dependency.
 
 ## Responsibilities
 
@@ -55,7 +55,7 @@ Permission names are fixed in code.
 
 Enabling fly or god is blocked when the player is tagged by the native `CombatTagApi`, unless the relevant FairPerks activation-bypass permission applies.
 
-Feature dependency metadata ensures CombatTag loads first. Reloading CombatTag cascades through FairPerks, so FairPerks never retains a stale service reference. The old availability fallback and CombatLogX reflection bridge have been removed.
+Feature dependency metadata ensures CombatTag loads first. Reloading CombatTag cascades through FairPerks, so FairPerks never retains a stale service reference. The old reflection bridge and availability fallback have been removed.
 
 Disabling a perk remains allowed during combat.
 
@@ -154,4 +154,4 @@ The global and per-perk world modes accept `ALL`, `BLACKLIST`, or `WHITELIST`. W
 - Reconnect while flying and test permission-loss cleanup.
 - Enter blocked global and per-perk worlds.
 - Reload CombatTag while FairPerks state is active and confirm both features restore cleanly.
-- Verify no CombatLogX plugin, class, soft dependency, documentation, or runtime lookup remains.
+- Verify no external combat plugin class, soft dependency, documentation reference, or runtime lookup remains.
