@@ -1,4 +1,4 @@
-package nl.hauntedmc.serverfeatures.features.fairperks.meta;
+package nl.hauntedmc.serverfeatures.features.combattag.meta;
 
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 
@@ -8,17 +8,17 @@ public final class Meta implements BaseMeta {
 
     @Override
     public String getFeatureName() {
-        return "FairPerks";
+        return "CombatTag";
     }
 
     @Override
     public String getFeatureVersion() {
-        return "1.2.0";
+        return "1.1.0";
     }
 
     @Override
     public List<String> getDependencies() {
-        return List.of("CombatTag");
+        return List.of();
     }
 
     @Override

@@ -14,6 +14,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -114,7 +115,29 @@ public final class PaperActionBarAPI implements ActionBarAPI {
                      @NotNull Component component,
                      int seconds,
                      @NotNull PauseMode pauseMode) {
-        runSync(() -> startTargetedOverride(player, component, seconds, pauseMode));
+        runSync(() -> startTargetedOverride(player, component, seconds, pauseMode, null));
+    }
+
+    @Override
+    public void sendOverride(@NotNull Player player,
+                             @NotNull Component component,
+                             int seconds,
+                             @NotNull PauseMode pauseMode,
+                             @NotNull String owner) {
+        Objects.requireNonNull(owner, "owner");
+        if (owner.isBlank()) {
+            throw new IllegalArgumentException("Action bar override owner cannot be blank");
+        }
+        runSync(() -> startTargetedOverride(player, component, seconds, pauseMode, owner));
+    }
+
+    @Override
+    public void clearOverride(@NotNull Player player, @NotNull String owner) {
+        Objects.requireNonNull(owner, "owner");
+        if (owner.isBlank()) {
+            throw new IllegalArgumentException("Action bar override owner cannot be blank");
+        }
+        runSync(() -> clearOwnedTargetedOverride(player, owner));
     }
 
     @Override
@@ -228,7 +251,8 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     private void startTargetedOverride(Player player,
                                        Component component,
                                        int seconds,
-                                       PauseMode pauseMode) {
+                                       PauseMode pauseMode,
+                                       String owner) {
         UUID playerId = player.getUniqueId();
         clearTargetedOverride(playerId);
         if (seconds <= 0) {
@@ -263,8 +287,21 @@ public final class PaperActionBarAPI implements ActionBarAPI {
                 generation,
                 repeating,
                 ending,
-                pauseMode == PauseMode.PAUSE_CYCLE
+                pauseMode == PauseMode.PAUSE_CYCLE,
+                owner
         ));
+    }
+
+    private void clearOwnedTargetedOverride(Player player, String owner) {
+        UUID playerId = player.getUniqueId();
+        TargetedOverride current = targetedOverrides.get(playerId);
+        if (current == null || !owner.equals(current.owner())) {
+            return;
+        }
+        clearTargetedOverride(playerId);
+        if (player.isOnline()) {
+            player.sendActionBar(Component.empty());
+        }
     }
 
     private void clearTargetedOverride(UUID playerId) {
@@ -353,6 +390,7 @@ public final class PaperActionBarAPI implements ActionBarAPI {
     private record TargetedOverride(int generation,
                                     int repeatingTaskId,
                                     int endTaskId,
-                                    boolean pauseCycle) {
+                                    boolean pauseCycle,
+                                    String owner) {
     }
 }

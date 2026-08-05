@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -43,6 +44,10 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPerkDamage(EntityDamageByEntityEvent event) {
+        if (blockTamedPetDamage(event)) {
+            return;
+        }
+
         Player attacker = DamageSourceResolver.resolvePlayer(event.getDamager());
         if (attacker == null
                 || attacker.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
@@ -108,5 +113,31 @@ public final class ProtectionListener implements Listener {
                 feature.stateService().clearFallDamageGrace(player);
             }
         });
+    }
+
+    private boolean blockTamedPetDamage(EntityDamageByEntityEvent event) {
+        if (!feature.settings().restrictions().tamedPetDamage()) {
+            return false;
+        }
+        Player owner = DamageSourceResolver.resolveTamedOwner(event.getDamager());
+        if (owner == null || owner.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)) {
+            return false;
+        }
+
+        boolean godEnabled = feature.stateService().isGodEffective(owner);
+        boolean flightEnabled = feature.stateService().isDesired(owner, PerkType.FLY)
+                && feature.policy().allowsEnvironment(owner, PerkType.FLY);
+        if (!godEnabled && !flightEnabled) {
+            return false;
+        }
+
+        event.setCancelled(true);
+        feature.sendActionBar(
+                owner,
+                godEnabled
+                        ? "fairperks.restriction.pet.god"
+                        : "fairperks.restriction.pet.fly_enabled"
+        );
+        return true;
     }
 }

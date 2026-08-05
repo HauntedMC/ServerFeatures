@@ -1,6 +1,8 @@
 # FairPerks
 
-FairPerks provides native ServerFeatures implementations of `/fly`, `/god`, and the optional double-sneak god macro. It owns all live fly and god state itself.
+FairPerks provides native ServerFeatures implementations of `/fly`, `/god`, and the optional double-sneak god macro. It owns all live flight and god state itself.
+
+FairPerks has a feature dependency on the native `CombatTag` feature and no external combat plugin dependency.
 
 ## Responsibilities
 
@@ -12,8 +14,8 @@ The feature owns:
 - god-mode damage cancellation;
 - permission cleanup when a player logs in;
 - global world availability with per-perk world and game-mode suspension/restoration;
-- combat and hostile-mob activation guards;
-- PvP, hostile-mob, targeting, explosive, ignition, and lava restrictions;
+- native CombatTag and hostile-mob activation guards;
+- PvP, hostile-mob, targeting, explosive, ignition, lava, and tamed-pet restrictions;
 - direct and indirect player-action attribution.
 
 The feature is disabled by default.
@@ -48,7 +50,7 @@ The feature treats its command roots as required infrastructure. It refuses to f
 | `serverfeatures.feature.fairperks.god.persist` | Restore desired god mode after reconnecting. |
 | `serverfeatures.feature.fairperks.god.bypass-activation` | Bypass combat and aggressive-hostile activation guards for god mode. |
 | `serverfeatures.feature.fairperks.godmacro.use` | Configure and use the double-sneak god toggle. |
-| `serverfeatures.feature.fairperks.restrictions.bypass` | Bypass FairPerks action and targeting restrictions. |
+| `serverfeatures.feature.fairperks.restrictions.bypass` | Bypass FairPerks action, pet, and targeting restrictions. |
 | `serverfeatures.feature.fairperks.admin.inspect` | Use `/fairperks inspect`. |
 
 Permission node names are intentionally fixed in code.
@@ -58,7 +60,8 @@ Permission node names are intentionally fixed in code.
 FairPerks distinguishes desired flight from active flight.
 
 - `/fly on` records a desired state and grants `allowFlight` in permitted worlds and game modes.
-- Restrictions apply only while the player is actually flying.
+- Direct player combat and interaction restrictions apply only while the player is actually flying.
+- Tamed-pet damage is the deliberate exception: pets are blocked whenever fly mode is enabled in an allowed environment, even while the owner is standing on the ground.
 - Creative and spectator flight are native Minecraft capabilities and are never removed by FairPerks.
 - When FairPerks grants flight, it records ownership so disabling the perk restores any pre-existing non-FairPerks capability instead of blindly clearing it.
 - Persistent flight requires both the use and persist permissions.
@@ -87,19 +90,21 @@ Ordinary damage is cancelled while effective god mode is active. Void protection
 
 Enabling fly or god can be blocked when:
 
-- CombatLogX reports the player in combat;
-- CombatLogX is unavailable and the configured fallback denies activation;
+- the native `CombatTagApi` reports the player in combat;
 - a hostile mob within the configured horizontal and vertical radii is currently targeting the player;
 - the current world is blocked;
 - the current game mode is blocked.
 
-Disabling a perk is always allowed. CombatLogX is optional and resolved once when the feature starts. ServerFeatures declares it as a soft dependency so the hook is resolved after CombatLogX when both are installed.
+Disabling a perk is always allowed. The relevant FairPerks activation-bypass permission skips combat and hostile checks, but it does not bypass world or game-mode policy.
+
+Feature dependency metadata ensures CombatTag loads first. Reloading or disabling CombatTag cascades through FairPerks, so FairPerks never retains a stale service reference. The previous reflection bridge and unavailable-service fallback have been removed.
 
 ## Fairness restrictions
 
 The following restrictions can be enabled independently:
 
 - player-versus-player damage while in effective god mode or active flight;
+- damage by a protected player's tamed pets against every entity;
 - direct and indirect damage against hostile mobs;
 - hostile targeting of protected players;
 - exploding beds outside the Overworld;
@@ -111,6 +116,8 @@ The following restrictions can be enabled independently:
 - igniting blocks near hostile mobs.
 
 Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs, player-sourced TNT and area-effect clouds, evoker fangs, tamed mobs, and fireworks. This prevents changing the damage delivery mechanism from bypassing the same fairness policy.
+
+When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or enabled FairPerks flight in an allowed environment cannot damage any entity, including its owner. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies.
 
 Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
 
@@ -156,7 +163,6 @@ god:
 activation-guard:
   combat:
     enabled: true
-    allow-when-unavailable: true
   hostile-nearby:
     enabled: true
     horizontal-radius: 16
@@ -164,6 +170,7 @@ activation-guard:
 
 restrictions:
   pvp: true
+  tamed-pet-damage: true
   hostile-melee: true
   hostile-projectiles: true
   hostile-targeting: true
@@ -215,9 +222,14 @@ Empty game-mode sets and invalid enum values fail configuration loading instead 
 - Use the `*.others` command on a target without the personal use permission and verify the grant works only for that session.
 - Test `ALL`, `BLACKLIST`, and `WHITELIST` top-level world modes; verify entering a blocked world disables and forgets fly, god, and godmacro.
 - Enable god mode at low health and hunger and verify neither value changes.
+- Verify native CombatTag blocks activation and both activation-bypass permissions work.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
+- Enable fly mode while standing on the ground and verify the owner's pet cannot damage players, neutral mobs, hostile mobs, or its owner; repeat while actively flying and with god mode.
+- Verify the restrictions bypass allows pet damage in every state.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
 - Verify spawner mobs remain exempt when configured.
-- Reload the feature while a player is flying and while a player is in god mode.
+- Reload CombatTag while FairPerks state is active and confirm dependent reload restores both features cleanly.
+- Reload FairPerks while a player is flying and while a player is in god mode.
 - Verify fall grace survives the landing move event long enough to cancel the matching fall-damage event, and clears after a safe landing.
 - Verify no duplicate commands, listeners, or tasks remain after reload.
+- Verify no external combat plugin class, soft dependency, documentation reference, or runtime lookup remains.
