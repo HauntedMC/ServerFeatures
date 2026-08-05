@@ -4,10 +4,12 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpawnerPositionIndexTest {
@@ -113,5 +115,28 @@ class SpawnerPositionIndexTest {
 
         assertTrue(PendingSpawnerPlacements.isEmpty());
         assertEquals(2, index.countWithin(first, 4));
+    }
+
+    @Test
+    void snapshotPreservesExistingUuidStringAndCoordinateOrder() {
+        UUID firstWorld = UUID.fromString("00000000-0000-0000-0000-000000000000");
+        UUID secondWorld = UUID.fromString("7fffffff-ffff-ffff-ffff-ffffffffffff");
+        UUID thirdWorld = UUID.fromString("80000000-0000-0000-0000-000000000000");
+        UUID fourthWorld = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+
+        SpawnerKey first = new SpawnerKey(firstWorld, 0, 0, 0);
+        SpawnerKey second = new SpawnerKey(secondWorld, 0, 0, 0);
+        SpawnerKey thirdA = new SpawnerKey(thirdWorld, -1, 100, 5);
+        SpawnerKey thirdB = new SpawnerKey(thirdWorld, 0, -1, 5);
+        SpawnerKey thirdC = new SpawnerKey(thirdWorld, 0, -1, 6);
+        SpawnerKey fourth = new SpawnerKey(fourthWorld, 0, 0, 0);
+
+        SpawnerPositionIndex index = new SpawnerPositionIndex();
+        index.load(List.of(fourth, thirdC, first, thirdB, second, thirdA));
+
+        List<SpawnerKey> snapshot = index.snapshot();
+
+        assertEquals(List.of(first, second, thirdA, thirdB, thirdC, fourth), snapshot);
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
     }
 }
