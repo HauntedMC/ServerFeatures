@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.combattag;
 
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTags;
+import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
@@ -9,6 +10,7 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
+import nl.hauntedmc.serverfeatures.features.combattag.command.CombatTagCommand;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.listener.CombatTagListener;
 import nl.hauntedmc.serverfeatures.features.combattag.meta.Meta;
@@ -21,14 +23,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public final class CombatTag extends BukkitBaseFeature<Meta>
         implements StatefulFeature<CombatTag.ReloadSnapshot> {
 
     public static final String BYPASS_PERMISSION = "serverfeatures.feature.combattag.bypass";
+    public static final String STATUS_PERMISSION = "serverfeatures.feature.combattag.command.status";
+    public static final String STATUS_OTHERS_PERMISSION =
+            "serverfeatures.feature.combattag.command.status.others";
+    public static final String UNTAG_PERMISSION = "serverfeatures.feature.combattag.command.untag";
 
     private CombatTagSettings settings;
     private CombatTagService service;
+    private CombatTagListener listener;
     private boolean reloadSnapshotCaptured;
 
     public CombatTag(FeatureContext<Meta> context) {
@@ -71,6 +79,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         config.put("logout-punishment.enabled", true);
         config.put("logout-punishment.kill-player", true);
         config.put("logout-punishment.broadcast", true);
+        config.put("logout-punishment.punish-kicked-players", false);
         config.put("logout-punishment.commands", List.of());
 
         config.put("display.chat.enter", true);
@@ -112,6 +121,42 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
                 "combattag.logout-broadcast",
                 "&c{player} logde uit tijdens combat met {attacker} en is gestraft."
         );
+        messages.add(
+                "combattag.logout-broadcast-unknown",
+                "&c{player} logde uit tijdens combat en is gestraft."
+        );
+        messages.add(
+                "combattag.command.player-only",
+                "&cDit commando kan alleen door een speler worden gebruikt."
+        );
+        messages.add(
+                "combattag.command.player-not-found",
+                "&cSpeler {target} is niet online."
+        );
+        messages.add(
+                "combattag.command.status.tagged",
+                "&cJe bent nog {seconds}s in combat met {opponent} &7({reason})."
+        );
+        messages.add(
+                "combattag.command.status.not-tagged",
+                "&aJe bent niet in combat."
+        );
+        messages.add(
+                "combattag.command.status-other.tagged",
+                "&c{target} is nog {seconds}s in combat met {opponent} &7({reason})."
+        );
+        messages.add(
+                "combattag.command.status-other.not-tagged",
+                "&a{target} is niet in combat."
+        );
+        messages.add(
+                "combattag.command.untagged",
+                "&aDe combat tag van {target} is verwijderd."
+        );
+        messages.add(
+                "combattag.command.already-untagged",
+                "&e{target} was niet in combat."
+        );
         return messages;
     }
 
@@ -119,13 +164,14 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     public void initialize() {
         settings = CombatTagSettings.load(getConfigHandler());
         service = new CombatTagService(this, settings);
-        CombatTagListener listener = new CombatTagListener(
+        listener = new CombatTagListener(
                 settings,
                 service,
                 new CombatSourceResolver(settings.attribution())
         );
 
         getLifecycleManager().getListenerManager().registerListener(listener);
+        registerRequiredCommand(new CombatTagCommand(this));
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(
                 service::tick,
                 BukkitTime.ticks(settings.display().actionBar().updateIntervalTicks())
@@ -143,6 +189,9 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         if (service != null) {
             CombatTags.shutdown(service);
             service.shutdown(reloadSnapshotCaptured);
+        }
+        if (listener != null) {
+            listener.clear();
         }
     }
 
@@ -171,7 +220,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     }
 
     public void sendMessage(CommandSender audience, String key) {
-        audience.sendMessage(getLocalizationHandler().getMessage(key).forAudience(audience).build());
+        sendMessage(audience, key, Map.of());
     }
 
     public void sendMessage(
@@ -179,7 +228,11 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
             String key,
             Map<String, String> placeholders
     ) {
-        audience.sendMessage(buildMessage(audience, key, placeholders));
+        try {
+            audience.sendMessage(buildMessage(audience, key, placeholders));
+        } catch (RuntimeException exception) {
+            reportFailure("Could not send CombatTag message '" + key + "'", exception);
+        }
     }
 
     public void sendActionBar(
@@ -187,16 +240,34 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
             String key,
             Map<String, String> placeholders
     ) {
-        player.sendActionBar(buildMessage(player, key, placeholders));
+        try {
+            player.sendActionBar(buildMessage(player, key, placeholders));
+        } catch (RuntimeException exception) {
+            reportFailure("Could not send CombatTag action bar to " + player.getName(), exception);
+        }
+    }
+
+    public void clearActionBar(Player player) {
+        try {
+            player.sendActionBar(Component.empty());
+        } catch (RuntimeException exception) {
+            reportFailure("Could not clear CombatTag action bar for " + player.getName(), exception);
+        }
     }
 
     public void broadcastMessage(String key, Map<String, String> placeholders) {
         for (Player player : getPlugin().getServer().getOnlinePlayers()) {
-            player.sendMessage(buildMessage(player, key, placeholders));
+            sendMessage(player, key, placeholders);
         }
-        getPlugin().getServer().getConsoleSender().sendMessage(
-                buildMessage(getPlugin().getServer().getConsoleSender(), key, placeholders)
-        );
+        sendMessage(getPlugin().getServer().getConsoleSender(), key, placeholders);
+    }
+
+    public void reportFailure(String message, Throwable throwable) {
+        if (throwable == null) {
+            getLogger().warning(message);
+        } else {
+            getLogger().log(Level.WARNING, message, throwable);
+        }
     }
 
     private Component buildMessage(
@@ -209,6 +280,16 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
             message.with(placeholder.getKey(), placeholder.getValue());
         }
         return message.build();
+    }
+
+    private void registerRequiredCommand(BrigadierCommand command) {
+        var commandManager = getLifecycleManager().getCommandManager();
+        commandManager.registerBrigadierCommand(command);
+        if (commandManager.getRegisteredBrigadierCommands().get(command.name()) != command) {
+            throw new IllegalStateException(
+                    "CombatTag could not register required command '/" + command.name() + "'."
+            );
+        }
     }
 
     public record ReloadSnapshot(Map<UUID, CombatTagService.StoredSession> sessions)
