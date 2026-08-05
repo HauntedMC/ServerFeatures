@@ -9,7 +9,9 @@ A player is tagged whenever a configured combat interaction succeeds. Cancelled 
 - `PVP` tags player-versus-player interactions.
 - `MOBS` tags player-versus-mob interactions in both directions.
 - `BOTH` enables both policies.
-- dealing or receiving another qualifying hit replaces the opponent attribution and resets the full timer;
+- dealing or receiving another qualifying hit replaces the displayed opponent and resets the full timer;
+- incoming hits also update the attacker retained for logout punishment;
+- outgoing hits never overwrite a still-active incoming-attacker attribution;
 - a new tag sends the configured chat message;
 - expiry or another configured untag cause sends the configured exit message;
 - the remaining time is rendered through one bounded action-bar update task;
@@ -41,9 +43,9 @@ Supported attribution includes:
 
 Pet linking applies only to the attacking side. Attacking somebody else's pet does not tag the pet owner.
 
-When projectile linking is disabled, every projectile is ignored. When it is enabled, configured entity types are still ignored. The default ignored projectile types are `EGG`, `ENDER_PEARL`, and `SNOWBALL`.
+When projectile linking is disabled, every projectile, including fireworks, is ignored. When it is enabled, configured entity types are still ignored. The default ignored projectile types are `EGG`, `ENDER_PEARL`, and `SNOWBALL`.
 
-Mobs created through configured spawn reasons do not tag players. The default exclusion is `SPAWNER`. The runtime exclusion index is pruned periodically so despawned mobs cannot leak memory.
+Mobs created through configured spawn reasons do not tag players. The default exclusion is `SPAWNER`. CombatTag reads Paper's persistent entity spawn reason at damage time, so the rule remains correct across feature reloads, chunk unloads, and existing loaded entities without maintaining a separate UUID cache.
 
 ## Death and teleport lifecycle
 
@@ -70,7 +72,7 @@ Logout punishment can independently:
 - broadcast a localized message;
 - execute any number of console commands.
 
-The last resolved attacker is passed to Bukkit's damage API before the fallback kill so ordinary player or entity kill attribution is preserved when possible. The fallback guarantees the configured punishment even if another protection listener cancels the attributed damage.
+The most recent incoming attacker is passed to Bukkit's damage API before the fallback kill so ordinary player or entity kill attribution is preserved when possible. If the player has only dealt damage during the current tag, the first outgoing opponent is used as the fallback attribution. The fallback kill guarantees the configured punishment even if another protection listener cancels the attributed damage.
 
 Command placeholders:
 
@@ -78,8 +80,8 @@ Command placeholders:
 | --- | --- |
 | `{player}` | quitting player name |
 | `{uuid}` | quitting player UUID |
-| `{attacker}` | last opponent display name |
-| `{attacker_uuid}` | last opponent UUID |
+| `{attacker}` | retained logout attacker display name |
+| `{attacker_uuid}` | retained logout attacker UUID |
 | `{attacker_type}` | Bukkit entity type |
 | `{world}` | logout world |
 | `{x}`, `{y}`, `{z}` | block coordinates |
@@ -174,11 +176,12 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 1. Verify melee and projectile PvP reset both players' timers.
 2. Verify mob attacks and player attacks against mobs follow the selected mode.
 3. Test wolf damage with pet linking enabled and disabled.
-4. Test the three ignored projectile defaults.
+4. Test the three ignored projectile defaults and verify disabling projectiles also disables fireworks.
 5. Test fishing hooks and player-, mob-, and dispenser-created TNT.
-6. Confirm spawner mobs do not tag players.
+6. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
 7. Confirm cancelled damage does not create or refresh tags.
 8. Test every allowed teleport cause and both portal types.
-9. Quit against an online player, a mob, and an unloaded opponent.
-10. Reload CombatTag and confirm active timers preserve only their remaining time.
-11. Reload or disable CombatTag and confirm no listener, task, action bar, or API service remains.
+9. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
+10. Quit against an online player, a mob, and an unloaded opponent.
+11. Reload CombatTag and confirm active timers preserve only their remaining time.
+12. Reload or disable CombatTag and confirm no listener, task, action bar, or API service remains.
