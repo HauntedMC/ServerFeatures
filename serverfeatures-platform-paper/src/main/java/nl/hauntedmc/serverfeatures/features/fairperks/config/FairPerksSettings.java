@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.config;
 
+import nl.hauntedmc.serverfeatures.api.util.text.TextPatterns;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureConfigHandler;
 import org.bukkit.GameMode;
 import org.bukkit.World;
@@ -145,7 +146,9 @@ public record FairPerksSettings(
 
         MigrationSettings migration = new MigrationSettings(
                 config.get("migration.migrate-legacy-godmacro", Boolean.class, true),
-                config.get("migration.adopt-existing-flight-for-persistent-users", Boolean.class, true)
+                config.get("migration.clear-legacy-essentials-state", Boolean.class, true),
+                config.get("migration.adopt-existing-flight-for-persistent-users", Boolean.class, true),
+                config.get("migration.adopt-existing-god-for-persistent-users", Boolean.class, true)
         );
 
         return new FairPerksSettings(
@@ -170,6 +173,22 @@ public record FairPerksSettings(
             aliases.add(value.trim().toLowerCase(Locale.ROOT));
         }
         return List.copyOf(aliases);
+    }
+
+    private static List<String> immutableAliases(List<String> aliases, String component) {
+        Objects.requireNonNull(aliases, component);
+        List<String> normalized = new ArrayList<>(aliases.size());
+        for (String alias : aliases) {
+            if (alias == null || alias.isBlank()) {
+                throw new IllegalArgumentException(component + " cannot contain blank aliases");
+            }
+            String value = alias.trim().toLowerCase(Locale.ROOT);
+            if (!TextPatterns.BUKKIT_ALIAS_FORMAT.matcher(value).matches()) {
+                throw new IllegalArgumentException("Invalid command alias in " + component + ": " + alias);
+            }
+            normalized.add(value);
+        }
+        return List.copyOf(normalized);
     }
 
     private static Set<GameMode> gameModes(
@@ -276,9 +295,9 @@ public record FairPerksSettings(
             List<String> godMacroAliases
     ) {
         public CommandSettings {
-            flyAliases = List.copyOf(flyAliases);
-            godAliases = List.copyOf(godAliases);
-            godMacroAliases = List.copyOf(godMacroAliases);
+            flyAliases = immutableAliases(flyAliases, "flyAliases");
+            godAliases = immutableAliases(godAliases, "godAliases");
+            godMacroAliases = immutableAliases(godMacroAliases, "godMacroAliases");
         }
     }
 
@@ -369,14 +388,24 @@ public record FairPerksSettings(
 
     public record MigrationSettings(
             boolean migrateLegacyGodMacro,
-            boolean adoptExistingFlightForPersistentUsers
+            boolean clearLegacyEssentialsState,
+            boolean adoptExistingFlightForPersistentUsers,
+            boolean adoptExistingGodForPersistentUsers
     ) {
     }
 
     public record WorldRule(WorldMode mode, Set<String> values) {
         public WorldRule {
             Objects.requireNonNull(mode, "mode");
-            values = Set.copyOf(values);
+            Objects.requireNonNull(values, "values");
+            Set<String> normalized = new HashSet<>();
+            for (String value : values) {
+                if (value == null || value.isBlank()) {
+                    throw new IllegalArgumentException("World rule values cannot contain blank names");
+                }
+                normalized.add(normalizeWorld(value));
+            }
+            values = Set.copyOf(normalized);
         }
 
         public boolean allows(World world) {
