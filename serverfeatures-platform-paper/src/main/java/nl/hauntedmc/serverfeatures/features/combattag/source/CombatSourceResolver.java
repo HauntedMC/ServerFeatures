@@ -41,6 +41,18 @@ public final class CombatSourceResolver {
             ));
         }
 
+        if (source instanceof Firework firework) {
+            Player owner = onlinePlayer(firework, firework.getSpawningEntity());
+            return owner == null
+                    ? Optional.empty()
+                    : Optional.of(source(
+                            opponent(owner),
+                            owner.getUniqueId(),
+                            owner,
+                            CombatTagReason.FIREWORK
+                    ));
+        }
+
         if (source instanceof Projectile projectile) {
             CombatTagSettings.ProjectileSettings projectiles = settings.projectiles();
             if (!projectiles.enabled() || projectiles.ignoredTypes().contains(projectile.getType())) {
@@ -77,18 +89,6 @@ public final class CombatSourceResolver {
 
         if (source instanceof EvokerFangs fangs && fangs.getOwner() != null) {
             return resolve(fangs.getOwner(), CombatTagReason.EVOKER_FANGS);
-        }
-
-        if (source instanceof Firework firework) {
-            Player owner = onlinePlayer(firework, firework.getSpawningEntity());
-            if (owner != null) {
-                return Optional.of(source(
-                        opponent(owner),
-                        owner.getUniqueId(),
-                        owner,
-                        CombatTagReason.FIREWORK
-                ));
-            }
         }
 
         if (source instanceof Tameable tameable && settings.linkTamedPets()) {
