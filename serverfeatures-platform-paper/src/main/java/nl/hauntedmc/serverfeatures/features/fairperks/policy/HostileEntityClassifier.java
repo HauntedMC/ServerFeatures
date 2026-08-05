@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -38,6 +39,19 @@ public final class HostileEntityClassifier {
                 verticalRadius,
                 horizontalRadius
         ).stream().anyMatch(this::isHostile);
+    }
+
+    public boolean hasNearbyHostileTargeting(Player player, int horizontalRadius, int verticalRadius) {
+        if (horizontalRadius <= 0 || verticalRadius < 0) {
+            return false;
+        }
+        return player.getNearbyEntities(
+                horizontalRadius,
+                verticalRadius,
+                horizontalRadius
+        ).stream().anyMatch(entity -> entity instanceof Mob mob
+                && isHostile(mob)
+                && player.equals(mob.getTarget()));
     }
 
     public boolean isExemptSpawnerMob(Entity entity) {

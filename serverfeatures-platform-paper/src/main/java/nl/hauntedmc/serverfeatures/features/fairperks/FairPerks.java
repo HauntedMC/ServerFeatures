@@ -124,7 +124,10 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         messages.add("fairperks.player_not_found", "&cSpeler {target} is niet online.");
         messages.add("fairperks.no_permission", "&cJe hebt hier geen toestemming voor.");
         messages.add("fairperks.denied.combat", "&cJe kunt deze perk niet inschakelen terwijl je in combat bent.");
-        messages.add("fairperks.denied.hostile", "&cJe kunt deze perk niet inschakelen terwijl vijandige mobs in de buurt zijn.");
+        messages.add(
+                "fairperks.denied.hostile",
+                "&cJe kunt deze perk niet inschakelen terwijl een vijandige mob je aanvalt."
+        );
         messages.add("fairperks.denied.world", "&cDeze perk is in deze wereld niet beschikbaar.");
         messages.add("fairperks.denied.game_mode", "&cDeze perk is in je huidige gamemode niet beschikbaar.");
 

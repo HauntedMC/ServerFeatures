@@ -5,8 +5,8 @@ import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import org.bukkit.GameMode;
 import org.bukkit.World;
-import org.bukkit.entity.Enemy;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
@@ -62,11 +62,12 @@ class FairPerksPolicyTest {
     }
 
     @Test
-    void nearbyHostileBlocksEnablingAfterCombatCheck() {
+    void nearbyHostileTargetingPlayerBlocksEnablingAfterCombatCheck() {
         Player player = player(GameMode.SURVIVAL, "survival");
-        Enemy enemy = mock(Enemy.class);
-        when(enemy.getType()).thenReturn(EntityType.ZOMBIE);
-        when(player.getNearbyEntities(16.0D, 16.0D, 16.0D)).thenReturn(List.of(enemy));
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(monster.getTarget()).thenReturn(player);
+        when(player.getNearbyEntities(16.0D, 16.0D, 16.0D)).thenReturn(List.of(monster));
         FairPerksPolicy policy = policy(
                 settings(false, true),
                 ignored -> CombatStatusProvider.CombatStatus.NOT_IN_COMBAT
@@ -75,6 +76,23 @@ class FairPerksPolicyTest {
         assertEquals(
                 PerkChangeResult.Status.HOSTILE_NEARBY,
                 policy.canEnable(player, PerkType.FLY, false)
+        );
+    }
+
+    @Test
+    void nearbyHostileNotTargetingPlayerAllowsEnabling() {
+        Player player = player(GameMode.SURVIVAL, "survival");
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(player.getNearbyEntities(16.0D, 16.0D, 16.0D)).thenReturn(List.of(monster));
+        FairPerksPolicy policy = policy(
+                settings(false, true),
+                ignored -> CombatStatusProvider.CombatStatus.NOT_IN_COMBAT
+        );
+
+        assertEquals(
+                PerkChangeResult.Status.CHANGED,
+                policy.canEnable(player, PerkType.GOD, false)
         );
     }
 

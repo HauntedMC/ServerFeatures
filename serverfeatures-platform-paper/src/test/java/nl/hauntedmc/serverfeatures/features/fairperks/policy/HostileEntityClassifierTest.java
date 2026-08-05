@@ -5,6 +5,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -73,6 +74,42 @@ class HostileEntityClassifierTest {
         when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(enemy));
 
         assertTrue(classifier.hasNearbyHostile(player, 16, 8));
+    }
+
+    @Test
+    void nearbyHostileTargetingPlayerIsAggressive() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Player player = mock(Player.class);
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(monster.getTarget()).thenReturn(player);
+        when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(monster));
+
+        assertTrue(classifier.hasNearbyHostileTargeting(player, 16, 8));
+    }
+
+    @Test
+    void nearbyHostileWithoutTargetIsNotAggressive() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Player player = mock(Player.class);
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(monster));
+
+        assertFalse(classifier.hasNearbyHostileTargeting(player, 16, 8));
+    }
+
+    @Test
+    void nearbyHostileTargetingAnotherPlayerIsNotAggressive() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Player player = mock(Player.class);
+        Player otherPlayer = mock(Player.class);
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(monster.getTarget()).thenReturn(otherPlayer);
+        when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(monster));
+
+        assertFalse(classifier.hasNearbyHostileTargeting(player, 16, 8));
     }
 
     @Test

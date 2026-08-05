@@ -42,11 +42,11 @@ The feature treats its command roots as required infrastructure. It refuses to f
 | `serverfeatures.feature.fairperks.fly.use` | Use personal flight. |
 | `serverfeatures.feature.fairperks.fly.others` | Inspect or change flight for another online player. |
 | `serverfeatures.feature.fairperks.fly.persist` | Restore desired flight after reconnecting. |
-| `serverfeatures.feature.fairperks.fly.bypass-activation` | Bypass combat and nearby-hostile activation guards for flight. |
+| `serverfeatures.feature.fairperks.fly.bypass-activation` | Bypass combat and aggressive-hostile activation guards for flight. |
 | `serverfeatures.feature.fairperks.god.use` | Use personal god mode. |
 | `serverfeatures.feature.fairperks.god.others` | Inspect or change god mode for another online player. |
 | `serverfeatures.feature.fairperks.god.persist` | Restore desired god mode after reconnecting. |
-| `serverfeatures.feature.fairperks.god.bypass-activation` | Bypass combat and nearby-hostile activation guards for god mode. |
+| `serverfeatures.feature.fairperks.god.bypass-activation` | Bypass combat and aggressive-hostile activation guards for god mode. |
 | `serverfeatures.feature.fairperks.godmacro.use` | Configure and use the double-sneak god toggle. |
 | `serverfeatures.feature.fairperks.restrictions.bypass` | Bypass FairPerks action and targeting restrictions. |
 | `serverfeatures.feature.fairperks.admin.inspect` | Use `/fairperks inspect`. |
@@ -89,7 +89,7 @@ Enabling fly or god can be blocked when:
 
 - CombatLogX reports the player in combat;
 - CombatLogX is unavailable and the configured fallback denies activation;
-- hostile mobs are within the configured horizontal and vertical radii;
+- a hostile mob within the configured horizontal and vertical radii is currently targeting the player;
 - the current world is blocked;
 - the current game mode is blocked.
 
@@ -114,7 +114,7 @@ Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs
 
 Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
 
-The classifier follows Bukkit's `Enemy` hierarchy. Configured exclusions always win, and configured inclusions can add custom entity types.
+The classifier follows Bukkit's `Enemy` hierarchy. Configured exclusions always win, and configured inclusions can add custom entity types. The activation guard only treats a classified mob as aggressive when its current Bukkit target is the player enabling the perk.
 
 ## Configuration
 

@@ -47,7 +47,7 @@ public final class FairPerksPolicy {
         }
 
         if (guard.hostileNearbyEnabled()
-                && hostileClassifier.hasNearbyHostile(
+                && hostileClassifier.hasNearbyHostileTargeting(
                         player,
                         guard.horizontalRadius(),
                         guard.verticalRadius()
