@@ -191,6 +191,10 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
                 "&cJe huisdieren kunnen geen andere entities aanvallen terwijl je vliegt."
         );
         messages.add(
+                "fairperks.restriction.pet.fly_enabled",
+                "&cJe huisdieren kunnen geen entities aanvallen terwijl fly mode actief is."
+        );
+        messages.add(
                 "fairperks.restriction.hostile.god",
                 "&cJe kunt vijandige mobs niet aanvallen terwijl god mode actief is."
         );
