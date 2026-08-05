@@ -53,7 +53,11 @@ public final class HostileEntityClassifier {
     }
 
     private static boolean isMarked(Entity entity, NamespacedKey key) {
-        Byte marker = entity.getPersistentDataContainer().get(key, PersistentDataType.BYTE);
-        return marker != null && marker == TRUE;
+        try {
+            Byte marker = entity.getPersistentDataContainer().get(key, PersistentDataType.BYTE);
+            return marker != null && marker == TRUE;
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
     }
 }
