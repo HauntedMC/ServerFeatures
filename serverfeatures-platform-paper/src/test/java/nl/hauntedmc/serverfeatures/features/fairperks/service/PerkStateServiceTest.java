@@ -18,9 +18,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -102,9 +102,15 @@ class PerkStateServiceTest {
         assertFalse(fixture.service().isDesired(fixture.player(), PerkType.GOD));
         assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
         verify(fixture.player()).setAllowFlight(false);
-        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_fly_enabled".equals(key.getKey())));
-        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_god_enabled".equals(key.getKey())));
-        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_god_macro".equals(key.getKey())));
+        verify(fixture.data()).remove(
+                argThat(key -> key != null && "fairperks_fly_enabled".equals(key.getKey()))
+        );
+        verify(fixture.data()).remove(
+                argThat(key -> key != null && "fairperks_god_enabled".equals(key.getKey()))
+        );
+        verify(fixture.data()).remove(
+                argThat(key -> key != null && "fairperks_god_macro".equals(key.getKey()))
+        );
 
         when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(true);
         fixture.service().reconcileEnvironment(fixture.player());
@@ -153,8 +159,12 @@ class PerkStateServiceTest {
         when(player.isFlying()).thenReturn(false);
         when(policy.allowsFairPerksWorld(player)).thenReturn(true);
         when(policy.allowsEnvironment(player, PerkType.FLY)).thenReturn(true);
-        when(policy.canEnable(player, PerkType.FLY, true)).thenReturn(PerkChangeResult.Status.CHANGED);
-        when(policy.canEnable(player, PerkType.GOD, true)).thenReturn(PerkChangeResult.Status.CHANGED);
+        when(policy.canEnable(player, PerkType.FLY, true)).thenReturn(
+                PerkChangeResult.Status.CHANGED
+        );
+        when(policy.canEnable(player, PerkType.GOD, true)).thenReturn(
+                PerkChangeResult.Status.CHANGED
+        );
         PerkStateService service = new PerkStateService(feature, settings, policy);
         return new Fixture(player, data, policy, service);
     }
@@ -182,8 +192,9 @@ class PerkStateServiceTest {
                         true,
                         false
                 ),
-                new FairPerksSettings.ActivationGuardSettings(true, true, true, 16, 8),
+                new FairPerksSettings.ActivationGuardSettings(true, true, 16, 8),
                 new FairPerksSettings.RestrictionSettings(
+                        true,
                         true,
                         true,
                         true,
