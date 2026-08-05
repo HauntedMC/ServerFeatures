@@ -1,17 +1,25 @@
 package nl.hauntedmc.serverfeatures.framework.localization;
 
+import net.kyori.adventure.text.Component;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
+import nl.hauntedmc.serverfeatures.util.InterfaceProxy;
+import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -73,5 +81,41 @@ class LocalizationHandlerTest {
         assertEquals("copied", target.get("demoAdded.value", String.class));
         assertTrue(legacy.node("demo").isNull());
         assertTrue(legacy.node("demoAdded").isNull());
+    }
+
+    @Test
+    void playerMessageContextReusesStaticComponentsAndObservesTemplateChanges() {
+        ServerFeatures plugin = mock(ServerFeatures.class);
+        when(plugin.getDataFolder()).thenReturn(dataDirectory.toFile());
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("localization-test"));
+        ConfigService service = new ConfigService(plugin);
+        LocalizationHandler framework = new LocalizationHandler(plugin, service);
+        LocalizationHandler feature = framework.openFeatureLocalization("Scoreboard");
+        ConfigView messages = service.view("features/Scoreboard/messages.yml", false);
+        messages.put("scoreboard.line1", "<green>Static line</green>");
+        Player player = player();
+
+        Component first = feature.messagesFor(player).build("scoreboard.line1");
+        Component second = feature.messagesFor(player).build("scoreboard.line1");
+
+        assertSame(first, second);
+        assertEquals("Static line", plain(first));
+
+        messages.put("scoreboard.line1", "<yellow>Changed line</yellow>");
+        Component changed = feature.messagesFor(player).build("scoreboard.line1");
+
+        assertNotSame(first, changed);
+        assertEquals("Changed line", plain(changed));
+    }
+
+    private static Player player() {
+        UUID uniqueId = UUID.fromString("f2c17a4c-9caf-4c8e-a68b-9db68706cc80");
+        return InterfaceProxy.of(Player.class, Map.of("getUniqueId", arguments -> uniqueId));
+    }
+
+    private static String plain(Component component) {
+        return ComponentFormatter.serialize(component)
+                .format(ComponentFormatter.Serializer.Format.PLAIN)
+                .build();
     }
 }

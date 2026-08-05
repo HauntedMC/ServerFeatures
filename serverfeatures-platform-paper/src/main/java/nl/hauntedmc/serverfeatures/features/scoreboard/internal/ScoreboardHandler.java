@@ -1,9 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.scoreboard.internal;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.api.util.text.format.ComponentFormatter;
 import nl.hauntedmc.serverfeatures.features.scoreboard.Scoreboard;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import org.bukkit.Bukkit;
@@ -24,6 +24,8 @@ import java.util.logging.Level;
 /** Generates localized scoreboard content and isolates third-party rendering failures. */
 public class ScoreboardHandler {
     private static final int MAX_LINES = 15;
+    private static final String[] LINE_KEYS = createLineKeys();
+    private static final PlainTextComponentSerializer PLAIN_TEXT = PlainTextComponentSerializer.plainText();
     private static final long WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
 
     private final Scoreboard feature;
@@ -40,23 +42,21 @@ public class ScoreboardHandler {
 
     /** Immediately recalculates and pushes the sidebar for one player. */
     public void updateScoreboardContent(Player player) {
-        Component title = renderMessageSafely("scoreboard.title", player);
+        LocalizationHandler.PlayerMessages messages = i18n.messagesFor(player);
+        Component title = renderMessageSafely("scoreboard.title", player, messages);
         if (title == null) {
             title = Component.empty();
         }
 
-        List<Component> lines = new ArrayList<>();
-        for (int lineNumber = 1; lineNumber <= MAX_LINES; lineNumber++) {
-            String messageKey = "scoreboard.line" + lineNumber;
-            Component line = renderMessageSafely(messageKey, player);
+        List<Component> lines = new ArrayList<>(MAX_LINES);
+        for (String messageKey : LINE_KEYS) {
+            Component line = renderMessageSafely(messageKey, player, messages);
             if (line == null) {
                 continue;
             }
             String plain;
             try {
-                plain = ComponentFormatter.serialize(line)
-                        .format(ComponentFormatter.Serializer.Format.PLAIN)
-                        .build();
+                plain = PLAIN_TEXT.serialize(line);
             } catch (RuntimeException | LinkageError failure) {
                 reportFailure(player, messageKey + ".serialize", failure);
                 continue;
@@ -126,13 +126,25 @@ public class ScoreboardHandler {
         );
     }
 
-    private Component renderMessageSafely(String messageKey, Player player) {
+    private Component renderMessageSafely(
+            String messageKey,
+            Player player,
+            LocalizationHandler.PlayerMessages messages
+    ) {
         try {
-            return i18n.getMessage(messageKey).forAudience(player).build();
+            return messages.build(messageKey);
         } catch (RuntimeException | LinkageError failure) {
             reportFailure(player, messageKey, failure);
             return null;
         }
+    }
+
+    private static String[] createLineKeys() {
+        String[] keys = new String[MAX_LINES];
+        for (int index = 0; index < MAX_LINES; index++) {
+            keys[index] = "scoreboard.line" + (index + 1);
+        }
+        return keys;
     }
 
     private void reportFailure(Player player, String messageKey, Throwable failure) {

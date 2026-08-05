@@ -36,7 +36,7 @@ Scoreboard registers:
 - no PlaceholderAPI identifier of its own;
 - no public feature service.
 
-Each localization message is rendered with `.forAudience(player)`, so the normal ServerFeatures localization pipeline—including audience-specific language, message replacements and any PlaceholderAPI processing performed there—applies independently to title and every line.
+Each update creates one player-message context, resolving the audience language once for the title and all lines. The normal ServerFeatures localization pipeline still applies independently to every dynamic message. Messages whose raw template contains no `%` token are cached as components per language and key; `%...%` templates continue through PlaceholderAPI for every player and refresh.
 
 ## Initialization and player lifecycle
 
@@ -71,18 +71,19 @@ Disable clears all snapshots and warning state, then independently removes the s
 
 A complete update for one player performs this sequence:
 
-1. Render `scoreboard.title` through localization.
-2. If title rendering fails, use `Component.empty()`.
-3. Iterate line numbers 1 through 15 in ascending order.
-4. Render each `scoreboard.lineN` independently.
-5. Skip a line whose rendering failed.
-6. Serialize the rendered component to plain text.
-7. If the plain text starts with literal `<end>`, stop scanning immediately and do not include that line.
-8. Otherwise append the component, including empty components/empty strings.
-9. Create an immutable `ScoreboardSnapshot(title, lines)`.
-10. Compare it with the last snapshot for this UUID.
-11. If equal, do nothing.
-12. If different, call `ScoreboardManager.updateSidebar(player, title, lines, previousLines)` and cache the new snapshot.
+1. Resolve the player's language once and create a player-message context.
+2. Render `scoreboard.title` through that context, reusing its cached component when static.
+3. If title rendering fails, use `Component.empty()`.
+4. Iterate the precomputed `scoreboard.line1` through `scoreboard.line15` keys in ascending order.
+5. Render each line independently, reusing cached components for static templates.
+6. Skip a line whose rendering failed.
+7. Serialize the rendered component to plain text through a shared serializer.
+8. If the plain text starts with literal `<end>`, stop scanning immediately and do not include that line.
+9. Otherwise append the component, including empty components/empty strings.
+10. Create an immutable `ScoreboardSnapshot(title, lines)`.
+11. Compare it with the last snapshot for this UUID.
+12. If equal, do nothing.
+13. If different, call `ScoreboardManager.updateSidebar(player, title, lines, previousLines)` and cache the new snapshot.
 
 ### `<end>` sentinel
 
@@ -116,11 +117,11 @@ The updater runs synchronously through `scheduleRepeatingTask` with:
 - initial delay `0` ticks;
 - period `refresh_interval` ticks.
 
-For every online player it independently executes a full title + up-to-15-line render. At `P` players and no early `<end>`, each cycle performs up to `16 × P` localization builds plus up to `15 × P` plain serializations, even when the final snapshot is unchanged.
+For every online player it independently looks up the title and up to 15 localized templates. The language/service lookup is performed once per player update rather than once per message. Static templates reuse a component cached per language and key, while templates containing `%` are rebuilt so PlaceholderAPI values remain current. With no early `<end>`, the sentinel check still performs up to `15 × P` cheap plain serializations.
 
-Snapshot deduplication reduces Bukkit/sidebar writes, not placeholder/localization evaluation cost.
+Snapshot deduplication reduces Bukkit/sidebar writes. Static caching additionally removes repeated text normalization, sanitizer setup and MiniMessage deserialization for unchanged non-placeholder templates. The shared all-defaults MiniMessage parser is constructed once rather than once per message.
 
-A low interval combined with expensive PlaceholderAPI expansions can materially affect the main thread. There is no asynchronous preprocessing, shared static-line cache or per-line refresh interval.
+A low interval combined with expensive PlaceholderAPI expansions can still materially affect the main thread. Dynamic lines must remain synchronous and player-specific; there is no per-line refresh interval.
 
 ## Failure isolation and logging
 
@@ -201,7 +202,7 @@ There is no database table, Redis channel, configuration-generated runtime state
 - No permission/world/gamemode/vanish eligibility exists.
 - No command or player toggle exists.
 - Refresh interval is not clamped.
-- Full localization/placeholder work still runs when the snapshot is unchanged.
+- Dynamic `%...%` localization/placeholder work still runs when the snapshot is unchanged; static component parsing does not.
 - External scoreboard replacement is not detected.
 - A persistent failure warning is suppressed for five minutes per player/key/type, which can hide repeated occurrences between warnings while preserving one stack trace per window.
 - There is no explicit quit check inside a periodic per-player update; it operates on the online collection snapshot supplied by Bukkit.

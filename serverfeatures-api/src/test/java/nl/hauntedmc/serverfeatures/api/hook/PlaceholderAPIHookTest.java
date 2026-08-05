@@ -61,6 +61,30 @@ class PlaceholderAPIHookTest {
     }
 
     @Test
+    void skipsPluginLookupAndResolverWhenTextHasNoPlaceholderToken() {
+        Player player = player("Remy");
+        AtomicBoolean pluginChecked = new AtomicBoolean(false);
+        AtomicBoolean resolverCalled = new AtomicBoolean(false);
+
+        String output = PlaceholderAPIHook.applyPlaceholders(
+                "plain scoreboard line",
+                player,
+                name -> {
+                    pluginChecked.set(true);
+                    return true;
+                },
+                (ignored, text) -> {
+                    resolverCalled.set(true);
+                    return "changed";
+                }
+        );
+
+        assertEquals("plain scoreboard line", output);
+        assertFalse(pluginChecked.get());
+        assertFalse(resolverCalled.get());
+    }
+
+    @Test
     void appliesResolverWhenPluginIsEnabledAndPlayerExists() {
         Player player = player("Remy");
 

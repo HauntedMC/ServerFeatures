@@ -83,7 +83,7 @@ public final class PlaceholderAPIHook {
         Objects.requireNonNull(vaultEconomyAvailable, "vaultEconomyAvailable");
         Objects.requireNonNull(warningSink, "warningSink");
         Objects.requireNonNull(nanoTime, "nanoTime");
-        if (text == null || player == null) {
+        if (text == null || player == null || text.indexOf('%') < 0) {
             return text;
         }
 

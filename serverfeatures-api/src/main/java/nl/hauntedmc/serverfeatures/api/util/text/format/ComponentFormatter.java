@@ -71,6 +71,19 @@ import java.util.regex.Matcher;
  * <p><b>Thread-safety:</b> The class is stateless; each {@link Converter} is single-use and not thread-safe.</p>
  */
 public final class ComponentFormatter {
+    private static final EnumSet<Feature> ALL_DEFAULT_FEATURES = EnumSet.of(
+            Feature.COLORS, Feature.DECORATIONS, Feature.CLICK, Feature.HOVER, Feature.RESET,
+            Feature.GRADIENT, Feature.RAINBOW, Feature.NEWLINE, Feature.TRANSITION,
+            Feature.KEYBIND, Feature.TRANSLATABLE, Feature.TRANSLATABLE_FALLBACK,
+            Feature.INSERTION, Feature.FONT, Feature.SELECTOR, Feature.SCORE, Feature.NBT,
+            Feature.PRIDE, Feature.SHADOW_COLOR
+    );
+    private static final MiniMessage ALL_DEFAULTS_PARSER = buildMiniMessage(
+            ALL_DEFAULT_FEATURES,
+            Set.of(),
+            false
+    );
+
     private ComponentFormatter() {
     }
 
@@ -99,13 +112,7 @@ public final class ComponentFormatter {
      * @return a set containing all default features
      */
     public static Set<Feature> ALL_DEFAULTS() {
-        return EnumSet.of(
-                Feature.COLORS, Feature.DECORATIONS, Feature.CLICK, Feature.HOVER, Feature.RESET,
-                Feature.GRADIENT, Feature.RAINBOW, Feature.NEWLINE, Feature.TRANSITION,
-                Feature.KEYBIND, Feature.TRANSLATABLE, Feature.TRANSLATABLE_FALLBACK,
-                Feature.INSERTION, Feature.FONT, Feature.SELECTOR, Feature.SCORE, Feature.NBT,
-                Feature.PRIDE, Feature.SHADOW_COLOR
-        );
+        return EnumSet.copyOf(ALL_DEFAULT_FEATURES);
     }
 
     /**
@@ -390,7 +397,11 @@ public final class ComponentFormatter {
                 mm = Sanitizer.stripDisallowed(mm, features, allowedCustomTagNames);
             }
 
-            MiniMessage parser = buildMiniMessage(features, extraResolvers, strict);
+            MiniMessage parser = !strict
+                    && extraResolvers.isEmpty()
+                    && features.equals(ALL_DEFAULT_FEATURES)
+                    ? ALL_DEFAULTS_PARSER
+                    : buildMiniMessage(features, extraResolvers, strict);
             Component c = parser.deserialize(mm);
 
             if (autoLinkUrls) {

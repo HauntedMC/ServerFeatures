@@ -28,6 +28,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
 /**
@@ -44,6 +46,8 @@ public final class LocalizationHandler {
     private final LocalizationHandler frameworkFallback;
     private final ConfigView defaultMessagesView;
     private final EnumMap<Language, ConfigView> languageViews = new EnumMap<>(Language.class);
+    private final ConcurrentMap<StaticMessageSlot, CachedStaticMessage> staticPlayerMessages =
+            new ConcurrentHashMap<>();
 
     public LocalizationHandler(ServerFeatures plugin, ConfigService configService) {
         this(plugin, plugin.getLogger(), plugin.getClass().getClassLoader(), configService, null, null);
@@ -76,6 +80,7 @@ public final class LocalizationHandler {
     }
 
     public void reloadLocalization() {
+        staticPlayerMessages.clear();
         if (featureName == null) {
             registerBundledFrameworkDefaults();
         }
@@ -98,6 +103,7 @@ public final class LocalizationHandler {
         }
         if (!missing.isEmpty()) {
             defaultMessagesView.batch(batch -> missing.forEach(batch::put));
+            staticPlayerMessages.clear();
             logger.info(featureName == null
                     ? "Registered missing framework localization defaults."
                     : "Registered missing localization defaults for feature '" + featureName + "'.");
@@ -118,10 +124,48 @@ public final class LocalizationHandler {
             }
             moveOwnedRootsFromLegacyStore(source, languageView(language, true), ownedRoots);
         }
+        staticPlayerMessages.clear();
     }
 
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
+    }
+
+    /**
+     * Resolves the player's language once and provides repeated message rendering in that context.
+     * Messages without PlaceholderAPI tokens are cached per language and key.
+     */
+    public PlayerMessages messagesFor(Player player) {
+        Objects.requireNonNull(player, "player");
+        return new PlayerMessages(player, resolvePlayerLanguage(player));
+    }
+
+    public final class PlayerMessages {
+        private final Player player;
+        private final Language language;
+
+        private PlayerMessages(Player player, Language language) {
+            this.player = player;
+            this.language = language;
+        }
+
+        /** Renders one message while reusing this player's resolved language and static-message cache. */
+        public Component build(String key) {
+            Objects.requireNonNull(key, "key");
+            String raw = readPlayerMessage(key, language);
+            if (raw.indexOf('%') >= 0) {
+                return render(raw, player, MessagePlaceholders.empty(), false, true);
+            }
+
+            StaticMessageSlot slot = new StaticMessageSlot(language, key);
+            return staticPlayerMessages.compute(slot, (ignored, cached) -> {
+                if (cached != null && cached.raw().equals(raw)) {
+                    return cached;
+                }
+                Component component = render(raw, null, MessagePlaceholders.empty(), false, true);
+                return new CachedStaticMessage(raw, component);
+            }).component();
+        }
     }
 
     public final class MessageBuilder {
@@ -176,37 +220,50 @@ public final class LocalizationHandler {
             String raw = audience instanceof Player player
                     ? resolvePlayerMessage(key, player)
                     : resolveNonPlayerMessage(key);
-            return render(raw);
-        }
-
-        private Component render(String raw) {
-            String message = TextFormatter.convert(raw)
-                    .expect(TextFormatter.InputFormat.MIXED_INPUT)
-                    .preprocess(text -> {
-                        String replaced = text;
-                        if (audience instanceof Player player) {
-                            replaced = PlaceholderAPIHook.applyPlaceholders(replaced, player);
-                        }
-                        return MessagePlaceholders.applyPlaceholders(replaced, placeholders);
-                    })
-                    .toMiniMessage();
-
-            ComponentFormatter.Converter converter = ComponentFormatter.deserialize(message)
-                    .expect(TextFormatter.InputFormat.MINIMESSAGE)
-                    .features(ComponentFormatter.ALL_DEFAULTS());
-            if (autoLinkUrls) {
-                converter.autoLinkUrls(autoLinkUnderline);
-            }
-            return converter.toComponent();
+            return render(raw, audience, placeholders, autoLinkUrls, autoLinkUnderline);
         }
     }
 
     private String resolvePlayerMessage(String key, Player player) {
-        Language language = FeatureServices.find(plugin, LanguageAPI.class)
+        return readPlayerMessage(key, resolvePlayerLanguage(player));
+    }
+
+    private Language resolvePlayerLanguage(Player player) {
+        return FeatureServices.find(plugin, LanguageAPI.class)
                 .map(api -> api.get(player.getUniqueId()))
                 .orElse(Language.NL);
+    }
+
+    private String readPlayerMessage(String key, Language language) {
         String message = readScopedMessage(key, language);
         return message == null ? missingMessage(key) : message;
+    }
+
+    private Component render(
+            String raw,
+            Audience audience,
+            MessagePlaceholders placeholders,
+            boolean autoLinkUrls,
+            boolean autoLinkUnderline
+    ) {
+        String message = TextFormatter.convert(raw)
+                .expect(TextFormatter.InputFormat.MIXED_INPUT)
+                .preprocess(text -> {
+                    String replaced = text;
+                    if (audience instanceof Player player) {
+                        replaced = PlaceholderAPIHook.applyPlaceholders(replaced, player);
+                    }
+                    return MessagePlaceholders.applyPlaceholders(replaced, placeholders);
+                })
+                .toMiniMessage();
+
+        ComponentFormatter.Converter converter = ComponentFormatter.deserialize(message)
+                .expect(TextFormatter.InputFormat.MINIMESSAGE)
+                .features(ComponentFormatter.ALL_DEFAULTS());
+        if (autoLinkUrls) {
+            converter.autoLinkUrls(autoLinkUnderline);
+        }
+        return converter.toComponent();
     }
 
     private String resolveNonPlayerMessage(String key) {
@@ -331,5 +388,11 @@ public final class LocalizationHandler {
         return featureName == null
                 ? LANG_DIR + "/" + language.getFileName()
                 : FeatureStoragePaths.messagesPath(featureName, language);
+    }
+
+    private record StaticMessageSlot(Language language, String key) {
+    }
+
+    private record CachedStaticMessage(String raw, Component component) {
     }
 }
