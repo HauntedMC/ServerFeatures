@@ -13,23 +13,29 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerPortalEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 
 public final class CombatTagListener implements Listener {
 
     private final CombatTagSettings settings;
     private final CombatTagService service;
     private final CombatSourceResolver sourceResolver;
+    private final Set<UUID> pendingKicks = new HashSet<>();
 
     public CombatTagListener(
             CombatTagSettings settings,
@@ -42,11 +48,11 @@ public final class CombatTagListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onDamage(EntityDamageByEntityEvent event) {
+    public void onDamage(EntityDamageEvent event) {
         if (!(event.getEntity() instanceof LivingEntity target)) {
             return;
         }
-        Optional<ResolvedCombatSource> source = sourceResolver.resolve(event.getDamager());
+        Optional<ResolvedCombatSource> source = sourceResolver.resolve(event);
         if (source.isEmpty()) {
             return;
         }
@@ -132,9 +138,24 @@ public final class CombatTagListener implements Listener {
         service.handleWorldChange(event.getPlayer());
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onKick(PlayerKickEvent event) {
+        pendingKicks.add(event.getPlayer().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onJoin(PlayerJoinEvent event) {
+        pendingKicks.remove(event.getPlayer().getUniqueId());
+    }
+
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
-        service.handleQuit(event.getPlayer());
+        Player player = event.getPlayer();
+        service.handleQuit(player, pendingKicks.remove(player.getUniqueId()));
+    }
+
+    public void clear() {
+        pendingKicks.clear();
     }
 
     private void applyCombat(ResolvedCombatSource source, LivingEntity target) {
