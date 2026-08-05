@@ -43,6 +43,10 @@ public final class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPerkDamage(EntityDamageByEntityEvent event) {
+        if (blockTamedPetDamage(event)) {
+            return;
+        }
+
         Player attacker = DamageSourceResolver.resolvePlayer(event.getDamager());
         if (attacker == null
                 || attacker.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
@@ -108,5 +112,26 @@ public final class ProtectionListener implements Listener {
                 feature.stateService().clearFallDamageGrace(player);
             }
         });
+    }
+
+    private boolean blockTamedPetDamage(EntityDamageByEntityEvent event) {
+        if (!feature.settings().restrictions().tamedPetDamage()) {
+            return false;
+        }
+        Player owner = DamageSourceResolver.resolveTamedOwner(event.getDamager());
+        if (owner == null
+                || owner.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
+                || event.getEntity().getUniqueId().equals(owner.getUniqueId())
+                || !feature.stateService().isRestricted(owner)) {
+            return false;
+        }
+
+        event.setCancelled(true);
+        feature.sendActionBar(
+                owner,
+                "fairperks.restriction.pet."
+                        + feature.stateService().activeRestrictionMessageSuffix(owner)
+        );
+        return true;
     }
 }

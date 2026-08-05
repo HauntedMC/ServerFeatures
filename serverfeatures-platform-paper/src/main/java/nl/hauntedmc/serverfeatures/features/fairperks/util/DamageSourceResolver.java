@@ -26,31 +26,32 @@ public final class DamageSourceResolver {
             return player;
         }
         if (source instanceof Projectile projectile) {
-            Player owner = resolveProjectileOwner(projectile);
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Entity shooterEntity) {
+                Player owner = resolvePlayer(shooterEntity);
+                if (owner != null) {
+                    return owner;
+                }
+            }
+            Player owner = resolveOnlinePlayer(projectile, projectile.getOwnerUniqueId());
             if (owner != null) {
                 return owner;
             }
         }
-        if (source instanceof TNTPrimed tnt && tnt.getSource() instanceof Player player) {
-            return player;
+        if (source instanceof TNTPrimed tnt && tnt.getSource() instanceof Entity owner) {
+            return resolvePlayer(owner);
         }
-        if (source instanceof AreaEffectCloud cloud && cloud.getSource() instanceof Player player) {
-            return player;
+        if (source instanceof AreaEffectCloud cloud && cloud.getSource() instanceof Entity owner) {
+            return resolvePlayer(owner);
         }
         if (source instanceof EvokerFangs fangs) {
             LivingEntity owner = fangs.getOwner();
-            if (owner instanceof Player player) {
-                return player;
+            if (owner != null) {
+                return resolvePlayer(owner);
             }
         }
         if (source instanceof Tameable tameable) {
-            if (tameable.getOwner() instanceof Player player) {
-                return player;
-            }
-            Player owner = resolveOnlinePlayer(source, tameable.getOwnerUniqueId());
-            if (owner != null) {
-                return owner;
-            }
+            return resolveTameableOwner(source, tameable);
         }
         if (source instanceof Firework firework) {
             return resolveOnlinePlayer(source, firework.getSpawningEntity());
@@ -58,12 +59,34 @@ public final class DamageSourceResolver {
         return null;
     }
 
-    private static Player resolveProjectileOwner(Projectile projectile) {
-        ProjectileSource shooter = projectile.getShooter();
-        if (shooter instanceof Player player) {
+    /**
+     * Resolves an online player only when the damage chain originated from their tamed pet.
+     */
+    public static Player resolveTamedOwner(Entity source) {
+        if (source instanceof Tameable tameable) {
+            return resolveTameableOwner(source, tameable);
+        }
+        if (source instanceof Projectile projectile
+                && projectile.getShooter() instanceof Entity shooter) {
+            return resolveTamedOwner(shooter);
+        }
+        if (source instanceof TNTPrimed tnt && tnt.getSource() instanceof Entity owner) {
+            return resolveTamedOwner(owner);
+        }
+        if (source instanceof AreaEffectCloud cloud && cloud.getSource() instanceof Entity owner) {
+            return resolveTamedOwner(owner);
+        }
+        if (source instanceof EvokerFangs fangs && fangs.getOwner() != null) {
+            return resolveTamedOwner(fangs.getOwner());
+        }
+        return null;
+    }
+
+    private static Player resolveTameableOwner(Entity source, Tameable tameable) {
+        if (tameable.getOwner() instanceof Player player) {
             return player;
         }
-        return resolveOnlinePlayer(projectile, projectile.getOwnerUniqueId());
+        return resolveOnlinePlayer(source, tameable.getOwnerUniqueId());
     }
 
     private static Player resolveOnlinePlayer(Entity entity, UUID playerId) {
