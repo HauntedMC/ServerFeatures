@@ -15,6 +15,9 @@ commands:
     permission-message: You do not have permission to use this command.
 
 permissions:
+  serverfeatures.feature.combattag.bypass:
+    description: Bypass CombatTag tagging, restrictions, and logout punishment.
+    default: op
   serverfeatures.feature.invtools.command.inventory.open.inspect:
     description: Inspect online and offline player inventories with /inv inventory open.
     default: false
