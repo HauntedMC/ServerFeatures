@@ -14,7 +14,7 @@ Feature settings and schedule data are separated:
 - `features/CommandScheduler/messages.yml` contains localized command feedback;
 - `local/commandscheduler.yml` contains administrator-managed schedules.
 
-The local file is created automatically with an empty `schedules` map. In-game changes are written through the shared atomic YAML persistence layer before the runtime snapshot is replaced. If saving fails, the currently active schedule set remains unchanged.
+The local file is created automatically with an empty `schedules` map. In-game changes are written through the shared atomic YAML persistence layer before the runtime snapshot is replaced. If saving fails, the currently active schedule set remains unchanged. If the root `schedules` value is not a map, the feature loads no schedules and blocks in-game mutations until an operator corrects and reloads the file; it never overwrites that malformed root automatically.
 
 ## Schedule format
 
@@ -96,7 +96,7 @@ Full permission nodes:
 - `serverfeatures.feature.commandscheduler.command.commandscheduler.run`
 - `serverfeatures.feature.commandscheduler.command.commandscheduler.reload`
 
-A command currently dispatched by CommandScheduler may not invoke `/commandscheduler run`. This guards against direct and indirect recursive execution loops.
+A command currently being dispatched by CommandScheduler may not invoke `/commandscheduler run` before that dispatch returns. This prevents synchronous direct or indirect execution loops.
 
 ## Configuration
 
@@ -144,11 +144,12 @@ Feature disable cancels the pending trigger, clears queued command work and reli
 
 ## Validation and failure handling
 
-Each schedule is parsed into an immutable validated runtime model. Invalid entries are logged with their schedule ID and skipped without disabling valid schedules. Existing invalid raw entries are retained when valid schedules are changed in game, preventing an unrelated management action from erasing operator data.
+Each schedule is parsed into an immutable validated runtime model. Invalid entries are logged with their schedule ID and skipped without disabling valid schedules. Existing unrelated invalid raw entries are retained when valid schedules are changed in game, preventing a management action from erasing operator data. An invalid case-variant alias is removed when its canonical schedule is created or deleted so malformed data cannot later resurrect a deleted schedule.
 
 Validation rejects:
 
 - invalid or duplicate IDs;
+- a non-boolean `enabled` value;
 - malformed trigger maps;
 - unsupported trigger types or modes;
 - invalid days or non-strict times;
@@ -156,7 +157,7 @@ Validation rejects:
 - enabled schedules without commands;
 - blank commands.
 
-Unknown console commands return a warning but do not abort a sequence. Exceptions from one command are isolated and later queued commands continue.
+Unknown console commands return a warning but do not abort a sequence. Exceptions from one command are logged with their full stack trace, isolated, and later queued commands continue.
 
 ## Operational verification
 
