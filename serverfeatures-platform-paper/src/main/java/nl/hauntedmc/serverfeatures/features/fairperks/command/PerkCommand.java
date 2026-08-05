@@ -152,7 +152,11 @@ public final class PerkCommand implements BrigadierCommand {
         boolean enabled = result.enabled();
         String stateKey = enabled ? "enabled" : "disabled";
         if (result.status() == PerkChangeResult.Status.ALREADY_IN_STATE) {
-            feature.sendMessage(actor, "fairperks." + perk.key() + ".already_" + stateKey);
+            feature.sendMessage(
+                    actor,
+                    "fairperks." + perk.key() + ".already_" + stateKey + "_other",
+                    Map.of("target", target.getName())
+            );
             return 1;
         }
 
@@ -192,9 +196,16 @@ public final class PerkCommand implements BrigadierCommand {
 
     private void sendStatus(CommandSender audience, Player target) {
         boolean enabled = feature.stateService().isDesired(target, perk);
+        String state = enabled ? "enabled" : "disabled";
+        if (audience instanceof Player player
+                && player.getUniqueId().equals(target.getUniqueId())) {
+            feature.sendMessage(audience, "fairperks." + perk.key() + ".status_" + state);
+            return;
+        }
         feature.sendMessage(
                 audience,
-                "fairperks." + perk.key() + ".status_" + (enabled ? "enabled" : "disabled")
+                "fairperks." + perk.key() + ".status_" + state + "_other",
+                Map.of("target", target.getName())
         );
     }
 
