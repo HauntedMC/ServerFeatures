@@ -50,7 +50,7 @@ class HostileEntityClassifierTest {
     }
 
     @Test
-    void legacyNonEnemyEntityTypesRemainHostile() {
+    void nonEnemyEntityTypesAreNotHostileByDefault() {
         HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
         Entity skeletonHorse = mock(Entity.class);
         Entity nautilus = mock(Entity.class);
@@ -59,18 +59,9 @@ class HostileEntityClassifierTest {
         when(nautilus.getType()).thenReturn(EntityType.NAUTILUS);
         when(zombieNautilus.getType()).thenReturn(EntityType.ZOMBIE_NAUTILUS);
 
-        assertTrue(classifier.isHostile(skeletonHorse));
-        assertTrue(classifier.isHostile(nautilus));
-        assertTrue(classifier.isHostile(zombieNautilus));
-    }
-
-    @Test
-    void configuredExclusionCanOverrideLegacyCompatibility() {
-        HostileEntityClassifier classifier = classifier(Set.of(), Set.of(EntityType.SKELETON_HORSE));
-        Entity skeletonHorse = mock(Entity.class);
-        when(skeletonHorse.getType()).thenReturn(EntityType.SKELETON_HORSE);
-
         assertFalse(classifier.isHostile(skeletonHorse));
+        assertFalse(classifier.isHostile(nautilus));
+        assertFalse(classifier.isHostile(zombieNautilus));
     }
 
     @Test

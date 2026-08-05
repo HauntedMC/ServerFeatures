@@ -165,8 +165,7 @@ class FairPerksPolicyTest {
                 ),
                 new FairPerksSettings.HostileSettings(Set.of(), Set.of(), true, false),
                 new FairPerksSettings.GodMacroSettings(true, 350L),
-                new FairPerksSettings.FeedbackSettings(1_000_000_000L),
-                new FairPerksSettings.MigrationSettings(true, true, true, true)
+                new FairPerksSettings.FeedbackSettings(1_000_000_000L)
         );
     }
 }

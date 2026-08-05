@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.fairperks.service;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
-import nl.hauntedmc.serverfeatures.features.fairperks.migration.LegacyEssentialsStateMigrator;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
@@ -24,36 +23,26 @@ import java.util.UUID;
 public final class PerkStateService {
 
     private static final byte TRUE = 1;
-    private static final int CURRENT_MIGRATION_VERSION = 2;
-
     private static final NamespacedKey FLY_ENABLED_KEY = key("fly_enabled");
     private static final NamespacedKey FLY_ACTIVE_KEY = key("fly_active");
     private static final NamespacedKey FLY_OWNED_KEY = key("fly_owned");
     private static final NamespacedKey GOD_ENABLED_KEY = key("god_enabled");
     private static final NamespacedKey GOD_MACRO_KEY = key("god_macro");
-    private static final NamespacedKey MIGRATION_VERSION_KEY = key("migration_version");
-    private static final NamespacedKey LEGACY_ESSENTIALS_MIGRATED_KEY =
-            key("legacy_essentials_migrated");
-    private static final NamespacedKey LEGACY_GOD_MACRO_KEY =
-            new NamespacedKey("fairperks", "godmacro");
 
     private final FairPerks feature;
     private final FairPerksSettings settings;
     private final FairPerksPolicy policy;
-    private final LegacyEssentialsStateMigrator essentialsMigrator;
     private final Map<UUID, SessionState> states = new HashMap<>();
     private final Set<UUID> fallDamageGrace = new HashSet<>();
 
     public PerkStateService(
             FairPerks feature,
             FairPerksSettings settings,
-            FairPerksPolicy policy,
-            LegacyEssentialsStateMigrator essentialsMigrator
+            FairPerksPolicy policy
     ) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.policy = Objects.requireNonNull(policy, "policy");
-        this.essentialsMigrator = Objects.requireNonNull(essentialsMigrator, "essentialsMigrator");
     }
 
     /**
@@ -61,7 +50,6 @@ public final class PerkStateService {
      * player login. No repeating permission task or permission-provider listener is used.
      */
     public void initialize(Player player) {
-        migrateLegacyState(player);
         SessionState state = new SessionState();
         states.put(player.getUniqueId(), state);
 
@@ -494,70 +482,6 @@ public final class PerkStateService {
                 mob.setTarget(null);
             }
         });
-    }
-
-    private void migrateLegacyState(Player player) {
-        PersistentDataContainer data = player.getPersistentDataContainer();
-        Integer storedVersion = safeGet(data, MIGRATION_VERSION_KEY, PersistentDataType.INTEGER);
-        int version = storedVersion == null ? 0 : storedVersion;
-
-        if (version < 1 && settings.migration().migrateLegacyGodMacro() && !data.has(GOD_MACRO_KEY)) {
-            Boolean legacyMacro = readLegacyMacro(data);
-            if (legacyMacro != null) {
-                writeBoolean(player, GOD_MACRO_KEY, legacyMacro);
-            }
-        }
-
-        migrateLegacyEssentialsState(player, data);
-
-        if (version < 1
-                && settings.migration().adoptExistingFlightForPersistentUsers()
-                && !data.has(FLY_ENABLED_KEY)
-                && player.hasPermission(FairPerks.FLY_USE_PERMISSION)
-                && player.hasPermission(FairPerks.FLY_PERSIST_PERMISSION)
-                && !isNativeFlightMode(player)
-                && player.getAllowFlight()) {
-            writeBoolean(player, FLY_ENABLED_KEY, true);
-            writeBoolean(player, FLY_ACTIVE_KEY, player.isFlying() || isAirborne(player));
-            writeBoolean(player, FLY_OWNED_KEY, true);
-        }
-
-        if (version < CURRENT_MIGRATION_VERSION) {
-            data.set(MIGRATION_VERSION_KEY, PersistentDataType.INTEGER, CURRENT_MIGRATION_VERSION);
-        }
-    }
-
-    private void migrateLegacyEssentialsState(Player player, PersistentDataContainer data) {
-        if (!settings.migration().clearLegacyEssentialsState()
-                || readBoolean(player, LEGACY_ESSENTIALS_MIGRATED_KEY)) {
-            return;
-        }
-
-        LegacyEssentialsStateMigrator.MigrationResult result = essentialsMigrator.migrate(player);
-        if (!result.completed()) {
-            return;
-        }
-        if (result.flyEnabled()
-                && settings.migration().adoptExistingFlightForPersistentUsers()
-                && !data.has(FLY_ENABLED_KEY)) {
-            writeBoolean(player, FLY_ENABLED_KEY, true);
-            writeBoolean(player, FLY_ACTIVE_KEY, player.isFlying() || isAirborne(player));
-        }
-        if (result.godEnabled()
-                && settings.migration().adoptExistingGodForPersistentUsers()
-                && !data.has(GOD_ENABLED_KEY)) {
-            writeBoolean(player, GOD_ENABLED_KEY, true);
-        }
-        writeBoolean(player, LEGACY_ESSENTIALS_MIGRATED_KEY, true);
-    }
-
-    private static Boolean readLegacyMacro(PersistentDataContainer data) {
-        Byte byteValue = safeGet(data, LEGACY_GOD_MACRO_KEY, PersistentDataType.BYTE);
-        if (byteValue != null) {
-            return byteValue == TRUE;
-        }
-        String stringValue = safeGet(data, LEGACY_GOD_MACRO_KEY, PersistentDataType.STRING);
-        return stringValue == null ? null : Boolean.parseBoolean(stringValue);
     }
 
     private static boolean desired(SessionState state, PerkType perk) {

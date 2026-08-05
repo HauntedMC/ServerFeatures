@@ -1,6 +1,6 @@
 # FairPerks
 
-FairPerks provides native ServerFeatures implementations of `/fly`, `/god`, and the optional double-sneak god macro. It replaces the standalone FairPerks plugin and owns all live fly and god state itself. Essentials is optional and is consulted only during a one-time compatibility migration that reads and clears legacy fly/god flags.
+FairPerks provides native ServerFeatures implementations of `/fly`, `/god`, and the optional double-sneak god macro. It owns all live fly and god state itself.
 
 ## Responsibilities
 
@@ -14,9 +14,7 @@ The feature owns:
 - world and game-mode suspension/restoration;
 - combat and hostile-mob activation guards;
 - PvP, hostile-mob, targeting, explosive, ignition, and lava restrictions;
-- direct and indirect player-action attribution;
-- migration of legacy Essentials fly/god state;
-- migration of the standalone plugin's god-macro and spawner-mob PDC markers.
+- direct and indirect player-action attribution.
 
 The feature is disabled by default.
 
@@ -60,7 +58,7 @@ Permission node names are intentionally fixed in code.
 FairPerks distinguishes desired flight from active flight.
 
 - `/fly on` records a desired state and grants `allowFlight` in permitted worlds and game modes.
-- Restrictions apply only while the player is actually flying, matching the standalone plugin's behavior.
+- Restrictions apply only while the player is actually flying.
 - Creative and spectator flight are native Minecraft capabilities and are never removed by FairPerks.
 - When FairPerks grants flight, it records ownership so disabling the perk restores any pre-existing non-FairPerks capability instead of blindly clearing it.
 - Persistent flight requires both the use and persist permissions.
@@ -74,7 +72,7 @@ Players already online when the feature is enabled at runtime are initialized on
 
 ## God mode
 
-God mode is implemented through damage-event policy rather than Essentials or a permanently saved invulnerability flag.
+God mode is implemented through damage-event policy rather than a permanently saved invulnerability flag.
 
 Enabling god mode does not:
 
@@ -114,9 +112,9 @@ The following restrictions can be enabled independently:
 
 Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs, player-sourced TNT and area-effect clouds, evoker fangs, tamed mobs, and fireworks. This prevents changing the damage delivery mechanism from bypassing the same fairness policy.
 
-Spawner-created hostile mobs can be exempt. The feature recognizes both its own marker and the legacy `fairperks:spawnermob` marker. Malformed legacy markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
+Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
 
-The classifier primarily follows Bukkit's `Enemy` hierarchy, with explicit compatibility for the standalone plugin's non-`Enemy` hostile types. Configured exclusions always win, and configured inclusions can add custom entity types.
+The classifier follows Bukkit's `Enemy` hierarchy. Configured exclusions always win, and configured inclusions can add custom entity types.
 
 ## Configuration
 
@@ -191,53 +189,11 @@ god-macro:
 
 feedback:
   actionbar-cooldown-millis: 1000
-
-migration:
-  migrate-legacy-godmacro: true
-  clear-legacy-essentials-state: true
-  adopt-existing-flight-for-persistent-users: true
-  adopt-existing-god-for-persistent-users: true
 ```
 
 Aliases are trimmed, normalized to lowercase, validated against Bukkit command-label rules, and stored as immutable lists. Labels must be unique and must not conflict with another Bukkit or Brigadier command. FairPerks refuses to enable when `/fly`, `/god`, `/fairperks`, `/godmacro`, or a configured alias is unavailable.
 
 World names are normalized case-insensitively. Empty game-mode sets and invalid enum values fail configuration loading instead of silently weakening policy.
-
-## Legacy Essentials migration
-
-When `migration.clear-legacy-essentials-state` is enabled and Essentials is available, the first FairPerks initialization for a player:
-
-1. reads the player's stored Essentials fly and god flags;
-2. clears both flags in Essentials so they cannot reactivate independently later;
-3. optionally adopts enabled legacy flags into native FairPerks persistence;
-4. marks the migration complete for that player.
-
-Adoption still requires the normal FairPerks use and persist permissions before the state is restored. A migrated flag for an ineligible player is therefore cleaned up immediately during the same login initialization. If Essentials is absent or its API is unavailable, the player is not marked migrated and the operation is retried on a later login. Essentials is not consulted again after a successful migration.
-
-## Migration from the standalone plugin
-
-1. Configure the new permission nodes in LuckPerms.
-2. Stop the backend and remove or otherwise disable the standalone FairPerks plugin. It must not remain active alongside this feature because both implementations register overlapping listeners and `/godmacro` ownership.
-3. Disable Essentials' `fly` and `god` commands so their command roots are no longer registered, but keep Essentials installed when legacy user flags must be migrated.
-4. Enable the ServerFeatures `FairPerks` feature.
-5. Start a test backend and verify command ownership.
-6. Confirm persistent flight with a player who has both fly permissions.
-7. Confirm a player without the required permissions has stale native or migrated flight/god state removed on login.
-8. Confirm Essentials user data no longer contains active fly/god flags after migration.
-9. Confirm the double-sneak preference migrated from `fairperks:godmacro`.
-10. Complete the remaining acceptance checks before rolling the change to every backend.
-
-Suggested permission mapping:
-
-| Legacy | New |
-| --- | --- |
-| `essentials.fly` | `serverfeatures.feature.fairperks.fly.use` |
-| `essentials.fly.others` | `serverfeatures.feature.fairperks.fly.others` |
-| `essentials.god` | `serverfeatures.feature.fairperks.god.use` |
-| `essentials.god.others` | `serverfeatures.feature.fairperks.god.others` |
-| `fairperks.godmacro` | `serverfeatures.feature.fairperks.godmacro.use` |
-
-Grant the persist permissions only to ranks whose state should survive reconnects.
 
 ## Acceptance checklist
 
@@ -253,7 +209,6 @@ Grant the persist permissions only to ranks whose state should survive reconnect
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
 - Verify spawner mobs remain exempt when configured.
-- Verify legacy Essentials fly/god flags are cleared and adopted only for eligible persistent users.
 - Reload the feature while a player is flying and while a player is in god mode.
 - Verify fall grace survives the landing move event long enough to cancel the matching fall-damage event, and clears after a safe landing.
 - Verify no duplicate commands, listeners, or tasks remain after reload.

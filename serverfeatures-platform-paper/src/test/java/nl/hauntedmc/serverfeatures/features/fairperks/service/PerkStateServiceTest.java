@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.fairperks.service;
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
-import nl.hauntedmc.serverfeatures.features.fairperks.migration.LegacyEssentialsStateMigrator;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
@@ -27,7 +26,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -38,9 +36,10 @@ class PerkStateServiceTest {
         Fixture fixture = fixture();
 
         fixture.service().initializeIfAbsent(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
         fixture.service().initializeIfAbsent(fixture.player());
 
-        verify(fixture.migrator(), times(1)).migrate(fixture.player());
+        assertTrue(fixture.service().isDesired(fixture.player(), PerkType.FLY));
     }
 
     @Test
@@ -98,7 +97,6 @@ class PerkStateServiceTest {
         Player player = mock(Player.class);
         PersistentDataContainer data = mock(PersistentDataContainer.class);
         FairPerksPolicy policy = mock(FairPerksPolicy.class);
-        LegacyEssentialsStateMigrator migrator = mock(LegacyEssentialsStateMigrator.class);
         FairPerksSettings settings = settings();
 
         when(feature.getPlugin()).thenReturn(plugin);
@@ -112,12 +110,8 @@ class PerkStateServiceTest {
         when(player.isFlying()).thenReturn(false);
         when(policy.allowsEnvironment(player, PerkType.FLY)).thenReturn(true);
         when(policy.canEnable(player, PerkType.FLY, true)).thenReturn(PerkChangeResult.Status.CHANGED);
-        when(migrator.migrate(player)).thenReturn(
-                LegacyEssentialsStateMigrator.MigrationResult.unavailable()
-        );
-
-        PerkStateService service = new PerkStateService(feature, settings, policy, migrator);
-        return new Fixture(player, data, migrator, service);
+        PerkStateService service = new PerkStateService(feature, settings, policy);
+        return new Fixture(player, data, service);
     }
 
     private static FairPerksSettings settings() {
@@ -163,15 +157,13 @@ class PerkStateServiceTest {
                 ),
                 new FairPerksSettings.HostileSettings(Set.of(), Set.of(), true, false),
                 new FairPerksSettings.GodMacroSettings(true, 350L),
-                new FairPerksSettings.FeedbackSettings(1_000_000_000L),
-                new FairPerksSettings.MigrationSettings(true, true, true, true)
+                new FairPerksSettings.FeedbackSettings(1_000_000_000L)
         );
     }
 
     private record Fixture(
             Player player,
             PersistentDataContainer data,
-            LegacyEssentialsStateMigrator migrator,
             PerkStateService service
     ) {
     }

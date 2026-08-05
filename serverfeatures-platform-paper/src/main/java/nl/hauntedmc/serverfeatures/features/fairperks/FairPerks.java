@@ -16,7 +16,6 @@ import nl.hauntedmc.serverfeatures.features.fairperks.listener.InteractionRestri
 import nl.hauntedmc.serverfeatures.features.fairperks.listener.PlayerLifecycleListener;
 import nl.hauntedmc.serverfeatures.features.fairperks.listener.ProtectionListener;
 import nl.hauntedmc.serverfeatures.features.fairperks.meta.Meta;
-import nl.hauntedmc.serverfeatures.features.fairperks.migration.LegacyEssentialsStateMigrator;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.CombatStatusProvider;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
@@ -115,10 +114,6 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         config.put("god-macro.enabled", true);
         config.put("god-macro.interval-millis", 350L);
         config.put("feedback.actionbar-cooldown-millis", 1_000L);
-        config.put("migration.migrate-legacy-godmacro", true);
-        config.put("migration.clear-legacy-essentials-state", true);
-        config.put("migration.adopt-existing-flight-for-persistent-users", true);
-        config.put("migration.adopt-existing-god-for-persistent-users", true);
         return config;
     }
 
@@ -195,12 +190,7 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
                 hostileClassifier,
                 CombatStatusProvider.resolve(this)
         );
-        stateService = new PerkStateService(
-                this,
-                settings,
-                policy,
-                new LegacyEssentialsStateMigrator(this)
-        );
+        stateService = new PerkStateService(this, settings, policy);
 
         validateCommandOwnership();
         registerRequiredCommand(new PerkCommand(this, PerkType.FLY));
@@ -216,10 +206,7 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         getLifecycleManager().getListenerManager().registerListener(new InteractionRestrictionListener(this));
         getLifecycleManager().getTaskManager().scheduleOneTimeTask(this::initializeOnlinePlayers);
 
-        getLogger().info(
-                "FairPerks loaded with native flight and god-mode ownership; "
-                        + "Essentials is consulted only for one-time legacy state migration."
-        );
+        getLogger().info("FairPerks loaded with native flight and god-mode ownership.");
     }
 
     @Override

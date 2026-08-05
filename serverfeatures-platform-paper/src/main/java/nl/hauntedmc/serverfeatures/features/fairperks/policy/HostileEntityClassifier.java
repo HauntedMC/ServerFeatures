@@ -4,24 +4,15 @@ import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Objects;
-import java.util.Set;
 
 public final class HostileEntityClassifier {
 
     private static final NamespacedKey SPAWNER_MOB_KEY =
             new NamespacedKey("serverfeatures", "fairperks_spawnermob");
-    private static final NamespacedKey LEGACY_SPAWNER_MOB_KEY =
-            new NamespacedKey("fairperks", "spawnermob");
-    private static final Set<EntityType> LEGACY_NON_ENEMY_HOSTILES = Set.of(
-            EntityType.SKELETON_HORSE,
-            EntityType.NAUTILUS,
-            EntityType.ZOMBIE_NAUTILUS
-    );
     private static final byte TRUE = 1;
 
     private final FairPerksSettings.HostileSettings settings;
@@ -35,7 +26,6 @@ public final class HostileEntityClassifier {
             return false;
         }
         return settings.include().contains(entity.getType())
-                || LEGACY_NON_ENEMY_HOSTILES.contains(entity.getType())
                 || entity instanceof Enemy;
     }
 
@@ -54,7 +44,7 @@ public final class HostileEntityClassifier {
         if (!settings.spawnerMobsExempt()) {
             return false;
         }
-        return isMarked(entity, SPAWNER_MOB_KEY) || isMarked(entity, LEGACY_SPAWNER_MOB_KEY);
+        return isMarked(entity, SPAWNER_MOB_KEY);
     }
 
     public void markSpawnerMob(Entity entity) {

@@ -24,8 +24,7 @@ public record FairPerksSettings(
         RestrictionSettings restrictions,
         HostileSettings hostiles,
         GodMacroSettings godMacro,
-        FeedbackSettings feedback,
-        MigrationSettings migration
+        FeedbackSettings feedback
 ) {
 
     private static final int MAX_RADIUS = 128;
@@ -41,7 +40,6 @@ public record FairPerksSettings(
         Objects.requireNonNull(hostiles, "hostiles");
         Objects.requireNonNull(godMacro, "godMacro");
         Objects.requireNonNull(feedback, "feedback");
-        Objects.requireNonNull(migration, "migration");
     }
 
     public static FairPerksSettings load(FeatureConfigHandler config) {
@@ -144,13 +142,6 @@ public record FairPerksSettings(
                 "feedback.actionbar-cooldown-millis"
         )));
 
-        MigrationSettings migration = new MigrationSettings(
-                config.get("migration.migrate-legacy-godmacro", Boolean.class, true),
-                config.get("migration.clear-legacy-essentials-state", Boolean.class, true),
-                config.get("migration.adopt-existing-flight-for-persistent-users", Boolean.class, true),
-                config.get("migration.adopt-existing-god-for-persistent-users", Boolean.class, true)
-        );
-
         return new FairPerksSettings(
                 commands,
                 flight,
@@ -159,8 +150,7 @@ public record FairPerksSettings(
                 restrictions,
                 hostiles,
                 godMacro,
-                feedback,
-                migration
+                feedback
         );
     }
 
@@ -384,14 +374,6 @@ public record FairPerksSettings(
     }
 
     public record FeedbackSettings(long actionBarCooldownNanos) {
-    }
-
-    public record MigrationSettings(
-            boolean migrateLegacyGodMacro,
-            boolean clearLegacyEssentialsState,
-            boolean adoptExistingFlightForPersistentUsers,
-            boolean adoptExistingGodForPersistentUsers
-    ) {
     }
 
     public record WorldRule(WorldMode mode, Set<String> values) {
