@@ -1,8 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.autopickup;
 
 import net.kyori.adventure.text.Component;
-import nl.hauntedmc.dataprovider.api.orm.ORMContext;
-import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
@@ -11,11 +9,9 @@ import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.autopickup.command.AutoPickupCommand;
 import nl.hauntedmc.serverfeatures.features.autopickup.config.AutoPickupSettings;
-import nl.hauntedmc.serverfeatures.features.autopickup.entity.PlayerAutoPickupSettingEntity;
 import nl.hauntedmc.serverfeatures.features.autopickup.listener.AutoPickupBlockDropListener;
 import nl.hauntedmc.serverfeatures.features.autopickup.listener.AutoPickupPlayerListener;
 import nl.hauntedmc.serverfeatures.features.autopickup.meta.Meta;
-import nl.hauntedmc.serverfeatures.features.autopickup.persistence.AutoPickupPreferenceRepository;
 import nl.hauntedmc.serverfeatures.features.autopickup.persistence.AutoPickupPreferenceService;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferCommitter;
 import nl.hauntedmc.serverfeatures.features.autopickup.transfer.AutoPickupTransferPlanner;
@@ -36,7 +32,6 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
     private final Map<UUID, Long> transferWarnings = new HashMap<>();
     private final Map<UUID, Long> feedbackWarnings = new HashMap<>();
     private AutoPickupSettings settings;
-    private ORMContext ormContext;
     private AutoPickupPreferenceService preferenceService;
     private AutoPickupTransferPlanner transferPlanner;
     private AutoPickupTransferCommitter transferCommitter;
@@ -65,11 +60,6 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         defaults.put("effects.pickup-sound.category", "PLAYERS");
         defaults.put("effects.pickup-sound.volume", 0.2D);
         defaults.put("effects.pickup-sound.pitch", 1.0D);
-        defaults.put("persistence.retry.attempts", 3);
-        defaults.put("persistence.retry.initial-delay-millis", 250L);
-        defaults.put("persistence.retry.maximum-delay-millis", 2000L);
-        defaults.put("persistence.join-recheck-delay-millis", 3000L);
-        defaults.put("persistence.shutdown-drain-timeout-millis", 1000L);
         defaults.put("diagnostics.warning-cooldown-millis", 30000L);
         return defaults;
     }
@@ -84,26 +74,6 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         messages.add("autopickup.already_disabled", "&eAutoPickup was al uitgeschakeld.");
         messages.add("autopickup.status.enabled", "&aAutoPickup staat ingeschakeld.");
         messages.add("autopickup.status.disabled", "&7AutoPickup staat uitgeschakeld.");
-        messages.add("autopickup.status.loading", "&eJe AutoPickup-instelling wordt nog geladen.");
-        messages.add("autopickup.status.unsaved", "&eDe huidige instelling is nog niet bevestigd opgeslagen.");
-        messages.add("autopickup.command_queued", "&eJe wijziging wordt toegepast zodra je instelling is geladen.");
-        messages.add("autopickup.save_retry", "&eDe huidige AutoPickup-instelling wordt opnieuw opgeslagen.");
-        messages.add(
-                "autopickup.load_failed",
-                "&cJe AutoPickup-instelling kon niet worden geladen. Gebruik /autopickup on of off om een nieuwe keuze op te slaan."
-        );
-        messages.add(
-                "autopickup.save_failed",
-                "&cAutoPickup is voor deze sessie aangepast, maar de instelling kon niet worden opgeslagen."
-        );
-        messages.add(
-                "autopickup.remote_enabled",
-                "&eJe AutoPickup-instelling is op een andere server nieuwer gewijzigd naar ingeschakeld."
-        );
-        messages.add(
-                "autopickup.remote_disabled",
-                "&eJe AutoPickup-instelling is op een andere server nieuwer gewijzigd naar uitgeschakeld."
-        );
         messages.add(
                 "autopickup.session_disabled",
                 "&cAutoPickup is voor deze sessie uitgeschakeld door een onverwachte inventarisfout. Je items zijn zo veilig mogelijk hersteld."
@@ -114,29 +84,16 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
+        if (!getConfigHandler().node("persistence").isNull()) {
+            getConfigHandler().remove("persistence");
+            getLogger().info("Removed obsolete AutoPickup database persistence configuration.");
+        }
         settings = AutoPickupSettings.load(getConfigHandler());
-
-        getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
-        getLifecycleManager().getDataManager().registerConnection(
-                "autoPickupOrmConnection",
-                DatabaseType.MYSQL,
-                "player_data_rw"
-        );
-        ormContext = getLifecycleManager().getDataManager().createORMContext(
-                "autoPickupOrmConnection",
-                PlayerAutoPickupSettingEntity.class
-        ).orElseThrow(() -> new IllegalStateException(
-                "AutoPickup requires the MYSQL/player_data_rw connection and could not create its ORM context."
-        ));
 
         transferPlanner = new AutoPickupTransferPlanner();
         transferCommitter = new AutoPickupTransferCommitter();
         originClassifier = new DirectDropOriginClassifier();
-        preferenceService = new AutoPickupPreferenceService(
-                this,
-                settings,
-                new AutoPickupPreferenceRepository(ormContext)
-        );
+        preferenceService = new AutoPickupPreferenceService(this, settings);
 
         getLifecycleManager().getListenerManager().registerListener(new AutoPickupPlayerListener(this));
         getLifecycleManager().getListenerManager().registerListener(new AutoPickupBlockDropListener(this));
@@ -145,7 +102,7 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         for (Player player : getPlugin().getServer().getOnlinePlayers()) {
             preferenceService.initialize(player);
         }
-        getLogger().info("AutoPickup loaded with persistent direct-drop collection.");
+        getLogger().info("AutoPickup loaded with local PDC-persisted direct-drop collection.");
     }
 
     @Override
@@ -159,7 +116,6 @@ public final class AutoPickup extends BukkitBaseFeature<Meta> {
         transferPlanner = null;
         transferCommitter = null;
         originClassifier = null;
-        ormContext = null;
     }
 
     public AutoPickupSettings settings() {

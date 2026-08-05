@@ -24,17 +24,10 @@ public record AutoPickupSettings(
         boolean requireUsePermission,
         NotificationSettings notification,
         PickupSoundSettings pickupSound,
-        RetrySettings retry,
-        long joinRecheckDelayMillis,
-        long shutdownDrainTimeoutMillis,
         long diagnosticWarningCooldownNanos
 ) {
 
     private static final int MAX_NOTIFICATION_DURATION_SECONDS = 60;
-    private static final int MAX_RETRY_ATTEMPTS = 10;
-    private static final long MAX_RETRY_DELAY_MILLIS = 60_000L;
-    private static final long MAX_JOIN_RECHECK_DELAY_MILLIS = 60_000L;
-    private static final long MAX_SHUTDOWN_DRAIN_TIMEOUT_MILLIS = 10_000L;
     private static final float MAX_PICKUP_SOUND_VOLUME = 16.0F;
 
     public AutoPickupSettings {
@@ -44,19 +37,6 @@ public record AutoPickupSettings(
         allowedGameModes = Set.copyOf(allowedGameModes);
         Objects.requireNonNull(notification, "notification");
         Objects.requireNonNull(pickupSound, "pickupSound");
-        Objects.requireNonNull(retry, "retry");
-        validateRange(
-                joinRecheckDelayMillis,
-                0L,
-                MAX_JOIN_RECHECK_DELAY_MILLIS,
-                "joinRecheckDelayMillis"
-        );
-        validateRange(
-                shutdownDrainTimeoutMillis,
-                0L,
-                MAX_SHUTDOWN_DRAIN_TIMEOUT_MILLIS,
-                "shutdownDrainTimeoutMillis"
-        );
         if (diagnosticWarningCooldownNanos < 0L) {
             throw new IllegalArgumentException("diagnosticWarningCooldownNanos cannot be negative");
         }
@@ -131,38 +111,6 @@ public record AutoPickupSettings(
                 "effects.pickup-sound.pitch"
         );
 
-        int attempts = config.get("persistence.retry.attempts", Integer.class, 3);
-        if (attempts < 1 || attempts > MAX_RETRY_ATTEMPTS) {
-            throw new IllegalArgumentException(
-                    "persistence.retry.attempts must be between 1 and " + MAX_RETRY_ATTEMPTS
-            );
-        }
-        long initialDelay = boundedNonNegative(
-                config.get("persistence.retry.initial-delay-millis", Long.class, 250L),
-                MAX_RETRY_DELAY_MILLIS,
-                "persistence.retry.initial-delay-millis"
-        );
-        long maximumDelay = boundedNonNegative(
-                config.get("persistence.retry.maximum-delay-millis", Long.class, 2000L),
-                MAX_RETRY_DELAY_MILLIS,
-                "persistence.retry.maximum-delay-millis"
-        );
-        if (maximumDelay < initialDelay) {
-            throw new IllegalArgumentException(
-                    "persistence.retry.maximum-delay-millis must be at least the initial delay"
-            );
-        }
-
-        long joinRecheckDelay = boundedNonNegative(
-                config.get("persistence.join-recheck-delay-millis", Long.class, 3000L),
-                MAX_JOIN_RECHECK_DELAY_MILLIS,
-                "persistence.join-recheck-delay-millis"
-        );
-        long drainTimeout = boundedNonNegative(
-                config.get("persistence.shutdown-drain-timeout-millis", Long.class, 1000L),
-                MAX_SHUTDOWN_DRAIN_TIMEOUT_MILLIS,
-                "persistence.shutdown-drain-timeout-millis"
-        );
         long diagnosticCooldownMillis = nonNegative(
                 config.get("diagnostics.warning-cooldown-millis", Long.class, 30000L),
                 "diagnostics.warning-cooldown-millis"
@@ -188,9 +136,6 @@ public record AutoPickupSettings(
                         pickupSoundVolume,
                         pickupSoundPitch
                 ),
-                new RetrySettings(attempts, initialDelay, maximumDelay),
-                joinRecheckDelay,
-                drainTimeout,
                 millisecondsToNanos(diagnosticCooldownMillis, "diagnostics.warning-cooldown-millis")
         );
     }
@@ -246,21 +191,6 @@ public record AutoPickupSettings(
             throw new IllegalArgumentException(key + " must be between 0 and " + maximum);
         }
         return value;
-    }
-
-    private static long boundedNonNegative(long value, long maximum, String key) {
-        if (value < 0L || value > maximum) {
-            throw new IllegalArgumentException(key + " must be between 0 and " + maximum);
-        }
-        return value;
-    }
-
-    private static void validateRange(long value, long minimum, long maximum, String key) {
-        if (value < minimum || value > maximum) {
-            throw new IllegalArgumentException(
-                    key + " must be between " + minimum + " and " + maximum
-            );
-        }
     }
 
     private static float finiteRange(double value, double minimum, double maximum, String key) {
@@ -337,34 +267,4 @@ public record AutoPickupSettings(
         }
     }
 
-    public record RetrySettings(int attempts, long initialDelayMillis, long maximumDelayMillis) {
-        public RetrySettings {
-            if (attempts < 1 || attempts > MAX_RETRY_ATTEMPTS) {
-                throw new IllegalArgumentException(
-                        "attempts must be between 1 and " + MAX_RETRY_ATTEMPTS
-                );
-            }
-            validateRange(initialDelayMillis, 0L, MAX_RETRY_DELAY_MILLIS, "initialDelayMillis");
-            validateRange(maximumDelayMillis, 0L, MAX_RETRY_DELAY_MILLIS, "maximumDelayMillis");
-            if (maximumDelayMillis < initialDelayMillis) {
-                throw new IllegalArgumentException(
-                        "maximumDelayMillis must be at least initialDelayMillis"
-                );
-            }
-        }
-
-        public long delayForAttempt(int completedAttempts) {
-            if (completedAttempts <= 0 || initialDelayMillis == 0L) {
-                return initialDelayMillis;
-            }
-            long multiplier = 1L << Math.min(completedAttempts, 30);
-            long calculated;
-            try {
-                calculated = Math.multiplyExact(initialDelayMillis, multiplier);
-            } catch (ArithmeticException ignored) {
-                calculated = Long.MAX_VALUE;
-            }
-            return Math.min(maximumDelayMillis, calculated);
-        }
-    }
 }
