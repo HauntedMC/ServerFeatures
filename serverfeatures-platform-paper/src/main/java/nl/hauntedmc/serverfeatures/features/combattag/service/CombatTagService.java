@@ -41,6 +41,7 @@ public final class CombatTagService implements CombatTagApi {
     private final LongSupplier nanoTime;
     private final Clock clock;
     private final BooleanSupplier primaryThread;
+    private final BooleanSupplier serverStopping;
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
     private final Map<UUID, Long> restrictionFeedback = new HashMap<>();
     private final Map<UUID, ActionBarFrame> actionBarFrames = new HashMap<>();
@@ -52,7 +53,8 @@ public final class CombatTagService implements CombatTagApi {
                 settings,
                 System::nanoTime,
                 Clock.systemUTC(),
-                Bukkit::isPrimaryThread
+                Bukkit::isPrimaryThread,
+                Bukkit::isStopping
         );
     }
 
@@ -62,7 +64,7 @@ public final class CombatTagService implements CombatTagApi {
             LongSupplier nanoTime,
             Clock clock
     ) {
-        this(feature, settings, nanoTime, clock, () -> true);
+        this(feature, settings, nanoTime, clock, () -> true, () -> false);
     }
 
     CombatTagService(
@@ -72,11 +74,23 @@ public final class CombatTagService implements CombatTagApi {
             Clock clock,
             BooleanSupplier primaryThread
     ) {
+        this(feature, settings, nanoTime, clock, primaryThread, () -> false);
+    }
+
+    CombatTagService(
+            CombatTag feature,
+            CombatTagSettings settings,
+            LongSupplier nanoTime,
+            Clock clock,
+            BooleanSupplier primaryThread,
+            BooleanSupplier serverStopping
+    ) {
         this.feature = java.util.Objects.requireNonNull(feature, "feature");
         this.settings = java.util.Objects.requireNonNull(settings, "settings");
         this.nanoTime = java.util.Objects.requireNonNull(nanoTime, "nanoTime");
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
         this.primaryThread = java.util.Objects.requireNonNull(primaryThread, "primaryThread");
+        this.serverStopping = java.util.Objects.requireNonNull(serverStopping, "serverStopping");
         this.durationNanos = Duration.ofSeconds(settings.tagging().durationSeconds()).toNanos();
     }
 
@@ -243,10 +257,12 @@ public final class CombatTagService implements CombatTagApi {
         if (player == null || reason == null) {
             return false;
         }
-        Session removed = sessions.remove(player.getUniqueId());
+        UUID playerId = player.getUniqueId();
+        Session removed = sessions.remove(playerId);
         if (removed == null) {
             return false;
         }
+        restrictionFeedback.remove(playerId);
         if (notify && player.isOnline() && settings.display().chatExit()) {
             feature.sendMessage(player, "combattag.exit");
         }
@@ -261,11 +277,13 @@ public final class CombatTagService implements CombatTagApi {
             long remainingNanos = session.expiresAtNanos() - now;
             if (remainingNanos <= 0L) {
                 if (sessions.remove(session.playerId(), session) && player != null) {
+                    restrictionFeedback.remove(session.playerId());
                     if (settings.display().chatExit()) {
                         feature.sendMessage(player, "combattag.exit");
                     }
                     clearActionBar(player);
                 } else {
+                    restrictionFeedback.remove(session.playerId());
                     actionBarFrames.remove(session.playerId());
                 }
                 continue;
@@ -275,6 +293,7 @@ public final class CombatTagService implements CombatTagApi {
             }
             if (player.hasPermission(CombatTag.BYPASS_PERMISSION)) {
                 if (sessions.remove(session.playerId(), session)) {
+                    restrictionFeedback.remove(session.playerId());
                     clearActionBar(player);
                 }
                 continue;
@@ -306,6 +325,7 @@ public final class CombatTagService implements CombatTagApi {
         restrictionFeedback.remove(player.getUniqueId());
         actionBarFrames.remove(player.getUniqueId());
         if (session == null
+                || serverStopping.getAsBoolean()
                 || player.hasPermission(CombatTag.BYPASS_PERMISSION)
                 || (kicked && !settings.logout().punishKickedPlayers())) {
             return;
@@ -405,6 +425,7 @@ public final class CombatTagService implements CombatTagApi {
         }
         if (session.expiresAtNanos() <= nanoTime.getAsLong()) {
             sessions.remove(playerId, session);
+            restrictionFeedback.remove(playerId);
             actionBarFrames.remove(playerId);
             return null;
         }
@@ -418,6 +439,7 @@ public final class CombatTagService implements CombatTagApi {
             }
             Player player = feature.getPlugin().getServer().getPlayer(session.playerId());
             if (sessions.remove(session.playerId(), session)) {
+                restrictionFeedback.remove(session.playerId());
                 if (player != null) {
                     if (settings.display().chatExit()) {
                         feature.sendMessage(player, "combattag.exit");
