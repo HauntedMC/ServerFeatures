@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.features.commandscheduler.model.ScheduleTrigg
 import org.junit.jupiter.api.Test;
 
 import java.time.DayOfWeek;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -111,5 +112,23 @@ class ScheduleTimeCalculatorTest {
         assertEquals(ZoneOffset.ofHours(2), next.getOffset());
         assertEquals(2, next.getHour());
         assertEquals(30, next.getMinute());
+    }
+
+    @Test
+    void overlapDoesNotRunAgainAtTheLaterOffset() {
+        ZonedDateTime afterEarlierOccurrence = ZonedDateTime.ofLocal(
+                LocalDateTime.of(2026, 10, 25, 2, 15),
+                AMSTERDAM,
+                ZoneOffset.ofHours(1)
+        );
+
+        assertEquals(
+                ZonedDateTime.of(2026, 10, 26, 2, 30, 0, 0, AMSTERDAM),
+                ScheduleTimeCalculator.nextOccurrence(
+                        ScheduleTrigger.daily(LocalTime.of(2, 30)),
+                        afterEarlierOccurrence,
+                        AMSTERDAM
+                )
+        );
     }
 }
