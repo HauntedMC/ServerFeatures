@@ -38,8 +38,8 @@ At startup, the plugin:
 1. Initializes shared config/localization handlers and the feature scope factories.
 2. Discovers available feature classes through package scanning.
 3. Resolves metadata and dependency requirements.
-4. Migrates legacy feature config/messages into feature-owned files.
-5. Prunes features with unresolved dependencies.
+4. Prunes features with unresolved dependencies.
+5. Prepares feature-owned config and message files.
 6. Loads enabled features in dependency-safe order.
 
 Each feature instance receives an immutable `FeatureContext`. The context bundles its metadata, scoped config,
@@ -75,12 +75,10 @@ against a missing dependency.
 - Each feature owns `features/<FeatureName>/config.yml`.
 - Framework messages live in `lang/messages*.yml`.
 - Each feature owns `features/<FeatureName>/messages*.yml`.
-- Feature defaults are injected into the feature's file and incompatible legacy value types are reconciled per
+- Feature defaults are injected into the feature's file and incompatible configured value types are reconciled per
   schema.
 - Feature-local config files live in `local/*.yml`.
-- Legacy `config.yml -> features.*` sections and feature-owned roots in global message files migrate automatically.
-- YAML writes use same-directory atomic replacement where supported. Migration removes legacy source data only after
-  the feature-owned destination is durably written.
+- YAML writes use same-directory atomic replacement where supported.
 
 ### Choosing persistence
 

@@ -5,23 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class FeatureConfigSchemaTest {
-
-    @Test
-    void topLevelKeysFromDefaultsCollapsesNestedPaths() {
-        ConfigMap defaults = new ConfigMap()
-                .put("enabled", true)
-                .put("settings.delay", 5)
-                .put("settings.mode", "fast")
-                .put("title", "x");
-
-        assertEquals(Set.of("enabled", "settings", "title"), FeatureConfigSchema.topLevelKeysFromDefaults(defaults));
-    }
 
     @Test
     void classifyDetectsSupportedKinds() {

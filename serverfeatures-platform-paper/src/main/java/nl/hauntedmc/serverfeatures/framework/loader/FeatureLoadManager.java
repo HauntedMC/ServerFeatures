@@ -92,7 +92,6 @@ public final class FeatureLoadManager {
         prepareFeatureStorage();
 
         plugin.getLogger().info("Discovered features: " + featureRegistry.getAvailableFeatures().keySet());
-        mainConfigHandler.cleanupLegacyFeatureSections();
     }
 
     private Optional<FeatureDescriptor> buildDescriptor(String registryName, String featureClassName) {
@@ -248,9 +247,7 @@ public final class FeatureLoadManager {
                     );
                     continue;
                 }
-                mainConfigHandler.migrateLegacyFeatureConfig(descriptor.registryName());
                 template.getConfigHandler().injectDefaults(template.getDefaultConfig());
-                template.getLocalizationHandler().migrateLegacyFeatureMessages(template.getDefaultMessages());
                 template.getLocalizationHandler().registerDefaultMessages(template.getDefaultMessages());
             } catch (Throwable throwable) {
                 plugin.getLogger().log(

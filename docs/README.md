@@ -8,7 +8,6 @@ If you run the plugin:
 
 - [Feature reference](features/README.md): commands, permissions, configuration, placeholders, runtime behavior, and troubleshooting for every Paper feature.
 - [Configuration](CONFIGURATION.md): day-to-day setup and safe change workflow.
-- [Migrating to 3.0](MIGRATING-3.0.md): operator and dependency changes from the 2.x line.
 - [Architecture](ARCHITECTURE.md): how feature discovery, dependency resolution, and lifecycle cleanup work.
 
 If you contribute code:

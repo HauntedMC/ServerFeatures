@@ -13,7 +13,7 @@ A modular feature framework and reusable API for your Paper server.
 1. Place `ServerFeatures.jar` in your Paper `plugins/` directory.
 2. Install optional dependencies required by the features you plan to run.
 3. Start the server once to generate runtime config files.
-4. Enable the features you want in `plugins/ServerFeatures/config.yml`.
+4. Enable each feature you want in its `plugins/ServerFeatures/features/<FeatureName>/config.yml` file.
 5. Use `/serverfeatures list` and `/serverfeatures info <feature>` to verify state.
 
 ## Requirements
@@ -93,7 +93,6 @@ artifact with `provided` scope when ServerFeatures supplies it at runtime.
 - [Development Notes](docs/DEVELOPMENT.md)
 - [Testing and Quality](docs/TESTING.md)
 - [Release Process](docs/RELEASE.md)
-- [Migrating to 3.0](docs/MIGRATING-3.0.md)
 - [Contributing](CONTRIBUTING.md)
 
 ## Community

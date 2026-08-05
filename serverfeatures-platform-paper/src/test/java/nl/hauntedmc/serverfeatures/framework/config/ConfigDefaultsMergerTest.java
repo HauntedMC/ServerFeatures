@@ -15,27 +15,27 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-class ConfigMigrationMergerTest {
+class ConfigDefaultsMergerTest {
 
     @TempDir
     Path dataDirectory;
 
     @Test
-    void preservesExistingBranchesWhenLegacyTypesConflict() {
+    void preservesExistingBranchesWhenDefaultTypesConflict() {
         ConfigView target = new ConfigService(plugin()).view("target.yml", false);
         target.put("scalarBranch", "current");
         target.put("mapBranch.current", 1);
 
-        Map<String, Object> legacy = new LinkedHashMap<>();
-        legacy.put("scalarBranch", Map.of("legacyChild", 2));
-        legacy.put("mapBranch", Map.of("current", 99, "missing", 3));
-        legacy.put("newBranch", Map.of("value", 4));
+        Map<String, Object> defaults = new LinkedHashMap<>();
+        defaults.put("scalarBranch", Map.of("defaultChild", 2));
+        defaults.put("mapBranch", Map.of("current", 99, "missing", 3));
+        defaults.put("newBranch", Map.of("value", 4));
 
-        int additions = ConfigMigrationMerger.mergeMissing(target, legacy);
+        var additions = ConfigDefaultsMerger.mergeMissingPaths(target, defaults);
 
-        assertEquals(2, additions);
+        assertEquals(2, additions.size());
         assertEquals("current", target.get("scalarBranch", String.class));
-        assertNull(target.get("scalarBranch.legacyChild"));
+        assertNull(target.get("scalarBranch.defaultChild"));
         assertEquals(1, target.get("mapBranch.current", Integer.class));
         assertEquals(3, target.get("mapBranch.missing", Integer.class));
         assertEquals(4, target.get("newBranch.value", Integer.class));
@@ -44,17 +44,17 @@ class ConfigMigrationMergerTest {
     @Test
     void isIdempotent() {
         ConfigView target = new ConfigService(plugin()).view("target.yml", false);
-        Map<String, Object> legacy = Map.of("nested", Map.of("value", 4));
+        Map<String, Object> defaults = Map.of("nested", Map.of("value", 4));
 
-        assertEquals(1, ConfigMigrationMerger.mergeMissing(target, legacy));
-        assertEquals(0, ConfigMigrationMerger.mergeMissing(target, legacy));
+        assertEquals(1, ConfigDefaultsMerger.mergeMissingPaths(target, defaults).size());
+        assertEquals(0, ConfigDefaultsMerger.mergeMissingPaths(target, defaults).size());
         assertEquals(4, target.get("nested.value", Integer.class));
     }
 
     private Plugin plugin() {
         return InterfaceProxy.of(Plugin.class, Map.of(
                 "getDataFolder", args -> dataDirectory.toFile(),
-                "getLogger", args -> Logger.getLogger("config-migration-test")
+                "getLogger", args -> Logger.getLogger("config-defaults-test")
         ));
     }
 }

@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.features.limitspawners.model.SpawnerKey;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -17,6 +18,25 @@ import java.util.UUID;
  * Persistent, low-churn spatial index for actual spawner block positions.
  */
 public final class SpawnerPositionIndex {
+
+    private static final Comparator<UUID> UUID_STRING_ORDER = (first, second) -> {
+        int mostSignificantBits = Long.compareUnsigned(
+                first.getMostSignificantBits(),
+                second.getMostSignificantBits()
+        );
+        if (mostSignificantBits != 0) {
+            return mostSignificantBits;
+        }
+        return Long.compareUnsigned(
+                first.getLeastSignificantBits(),
+                second.getLeastSignificantBits()
+        );
+    };
+    private static final Comparator<SpawnerKey> SNAPSHOT_ORDER = Comparator
+            .comparing(SpawnerKey::worldId, UUID_STRING_ORDER)
+            .thenComparingInt(SpawnerKey::x)
+            .thenComparingInt(SpawnerKey::y)
+            .thenComparingInt(SpawnerKey::z);
 
     private final Set<SpawnerKey> positions = new LinkedHashSet<>();
     private final Map<EntityChunkKey, Set<SpawnerKey>> byChunk = new HashMap<>();
@@ -96,12 +116,8 @@ public final class SpawnerPositionIndex {
 
     public List<SpawnerKey> snapshot() {
         List<SpawnerKey> snapshot = new ArrayList<>(positions);
-        snapshot.sort(Comparator
-                .comparing((SpawnerKey key) -> key.worldId().toString())
-                .thenComparingInt(SpawnerKey::x)
-                .thenComparingInt(SpawnerKey::y)
-                .thenComparingInt(SpawnerKey::z));
-        return List.copyOf(snapshot);
+        snapshot.sort(SNAPSHOT_ORDER);
+        return Collections.unmodifiableList(snapshot);
     }
 
     public void clear() {

@@ -2,9 +2,7 @@ package nl.hauntedmc.serverfeatures.framework.config;
 
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 
 final class FeatureConfigSchema {
 
@@ -18,15 +16,6 @@ final class FeatureConfigSchema {
     }
 
     private FeatureConfigSchema() {
-    }
-
-    static Set<String> topLevelKeysFromDefaults(ConfigMap defaults) {
-        Set<String> out = new LinkedHashSet<>();
-        for (String key : defaults.keySet()) {
-            int dot = key.indexOf('.');
-            out.add(dot >= 0 ? key.substring(0, dot) : key);
-        }
-        return out;
     }
 
     static Kind classify(Object normalized) {

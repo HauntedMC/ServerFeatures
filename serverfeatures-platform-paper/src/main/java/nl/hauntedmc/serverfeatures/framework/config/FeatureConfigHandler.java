@@ -37,14 +37,10 @@ public class FeatureConfigHandler extends ConfigView {
             return;
         }
         reconcileMismatchedKeyTypes(defaults);
-        ConfigMigrationMerger.mergeMissingPaths(this, defaults.toMap()).forEach(key ->
+        ConfigDefaultsMerger.mergeMissingPaths(this, defaults.toMap()).forEach(key ->
                 logger.info("[ServerFeatures] [Config] Added missing key '" + key
                         + "' for feature '" + featureName + "'")
         );
-    }
-
-    void mergeMissingRaw(Object raw) {
-        ConfigMigrationMerger.mergeMissing(this, raw);
     }
 
     @Override
