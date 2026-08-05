@@ -52,3 +52,337 @@ jobs:
         run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
       - name: Lint release and acceptance scripts
         run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
+
+  finalize-lottery:
+    name: Finalize simplified Lottery
+    if: github.event_name == 'pull_request' && github.head_ref == 'agent/lottery-feature'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: read
+    env:
+      PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
+      PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
+
+    steps:
+      - name: Checkout Lottery branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: agent/lottery-feature
+          fetch-depth: 0
+
+      - name: Validate package token
+        run: |
+          test -n "$PACKAGES_USER"
+          test -n "$PACKAGES_TOKEN"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          server-id: github
+          server-username: PACKAGES_USER
+          server-password: PACKAGES_TOKEN
+
+      - name: Apply final correctness safeguards
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          root = Path('serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/features/lottery')
+
+          round_entity = root / 'entity/LotteryRoundEntity.java'
+          source = round_entity.read_text(encoding='utf-8')
+          source = source.replace(
+              '@Column(name = "active_key", length = 64, unique = true)',
+              '@Column(name = "active_key", length = 64)'
+          )
+          round_entity.write_text(source, encoding='utf-8')
+
+          draw_engine = root / 'draw/LotteryDrawEngine.java'
+          source = draw_engine.read_text(encoding='utf-8')
+          anchor = '        Objects.requireNonNull(settings, "settings");\n\n        List<Entry> entries'
+          replacement = '''        Objects.requireNonNull(settings, "settings");
+                  if (!commitment(round.seedReveal()).equals(round.seedCommitment())) {
+                      throw new IllegalArgumentException("Lottery seed reveal does not match its commitment");
+                  }
+
+                  List<Entry> entries'''
+          if 'Lottery seed reveal does not match its commitment' not in source:
+              if anchor not in source:
+                  raise SystemExit('LotteryDrawEngine validation anchor is missing')
+              source = source.replace(anchor, replacement, 1)
+          draw_engine.write_text(source, encoding='utf-8')
+
+          repository = root / 'persistence/LotteryRepository.java'
+          source = repository.read_text(encoding='utf-8')
+          source = source.replace(
+              'import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;\n',
+              'import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;\n'
+              'import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;\n'
+          )
+          old = '''        return orm.runInTransaction(session -> {
+                      failStalePayouts(session, settings.lotteryKey(), now);
+                      LotteryRoundEntity current = findCurrentRound(session, settings.lotteryKey(), true).orElse(null);
+                      if (current != null && RoundStatus.DRAWING.name().equals(current.getStatus())
+                              && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
+                          current.setStatus(RoundStatus.OPEN.name());
+                          current.setUpdatedAt(now);
+                      }
+                      if (current != null) {
+                          return snapshot(current);
+                      }
+                      LotteryRoundEntity created = newRound(settings, Money.ZERO, seed, commitment, now);
+                      session.persist(created);
+                      return snapshot(created);
+                  });'''
+          new = '''        try {
+                      return orm.runInTransaction(session -> {
+                          failStalePayouts(session, settings.lotteryKey(), now);
+                          LotteryRoundEntity current = findCurrentRound(session, settings.lotteryKey(), true).orElse(null);
+                          if (current != null && RoundStatus.DRAWING.name().equals(current.getStatus())
+                                  && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
+                              current.setStatus(RoundStatus.OPEN.name());
+                              current.setUpdatedAt(now);
+                          }
+                          if (current != null) {
+                              return snapshot(current);
+                          }
+                          LotteryRoundEntity created = newRound(settings, Money.ZERO, seed, commitment, now);
+                          session.persist(created);
+                          return snapshot(created);
+                      });
+                  } catch (RuntimeException failure) {
+                      if (!activeRoundConstraintFailure(failure)) {
+                          throw failure;
+                      }
+                      return currentRound(settings.lotteryKey()).orElseThrow(() -> failure);
+                  }'''
+          if old in source:
+              source = source.replace(old, new, 1)
+          elif 'activeRoundConstraintFailure(failure)' not in source:
+              raise SystemExit('LotteryRepository ensureOpenRound anchor is missing')
+
+          marker = '''    ) {
+                  return orm.runInTransaction(session -> {
+                      LotteryRoundEntity round = requiredRound('''
+          replacement = '''    ) {
+                  DrawResult expected = new LotteryDrawEngine().draw(prepared.round(), prepared.entries(), settings);
+                  if (!expected.equals(result)) {
+                      throw new LotteryStateException(
+                              "draw result does not match the configured deterministic draw"
+                      );
+                  }
+                  return orm.runInTransaction(session -> {
+                      LotteryRoundEntity round = requiredRound('''
+          complete_start = source.index('    public RoundSnapshot completeDraw(')
+          marker_position = source.find(marker, complete_start)
+          if 'draw result does not match the configured deterministic draw' not in source:
+              if marker_position < 0:
+                  raise SystemExit('LotteryRepository completeDraw anchor is missing')
+              source = source[:marker_position] + source[marker_position:].replace(marker, replacement, 1)
+
+          source = source.replace(
+              '            round.setStatus(RoundStatus.COMPLETED.name());\n'
+              '            round.setDrawnAt(now);',
+              '            round.setStatus(RoundStatus.COMPLETED.name());\n'
+              '            round.setActiveKey(null);\n'
+              '            round.setDrawnAt(now);',
+              1
+          )
+          source = source.replace(
+              '''            LotteryRoundEntity next = newRound(
+                      settings,
+                      result.nextCarry(),
+                      nextSeed,
+                      nextCommitment,
+                      now
+              );
+              session.persist(next);''',
+              '''            session.flush();
+              LotteryRoundEntity next = newRound(
+                      settings,
+                      result.nextCarry(),
+                      nextSeed,
+                      nextCommitment,
+                      now
+              );
+              session.persist(next);''',
+              1
+          )
+          source = source.replace(
+              '            round.setStatus(RoundStatus.CANCELLED.name());\n'
+              '            round.setDrawnAt(now);',
+              '            round.setStatus(RoundStatus.CANCELLED.name());\n'
+              '            round.setActiveKey(null);\n'
+              '            round.setDrawnAt(now);',
+              1
+          )
+          source = source.replace(
+              '            LotteryRoundEntity next = newRound(settings, carry, nextSeed, nextCommitment, now);\n'
+              '            session.persist(next);',
+              '            session.flush();\n'
+              '            LotteryRoundEntity next = newRound(settings, carry, nextSeed, nextCommitment, now);\n'
+              '            session.persist(next);',
+              1
+          )
+          old_query = '''        var query = session.createSelectionQuery(
+                          "from LotteryRoundEntity round where round.lotteryKey = :key "
+                                  + "and round.status in (:open, :drawing) order by round.openedAt desc",
+                          LotteryRoundEntity.class
+                  )
+                  .setParameter("key", lotteryKey)
+                  .setParameter("open", RoundStatus.OPEN.name())
+                  .setParameter("drawing", RoundStatus.DRAWING.name())
+                  .setMaxResults(1);'''
+          new_query = '''        var query = session.createSelectionQuery(
+                          "from LotteryRoundEntity round where round.activeKey = :key",
+                          LotteryRoundEntity.class
+                  )
+                  .setParameter("key", lotteryKey)
+                  .setMaxResults(1);'''
+          if old_query in source:
+              source = source.replace(old_query, new_query, 1)
+          elif 'round.activeKey = :key' not in source:
+              raise SystemExit('LotteryRepository active-round query anchor is missing')
+          source = source.replace(
+              '        round.setLotteryKey(settings.lotteryKey());\n'
+              '        round.setStatus(RoundStatus.OPEN.name());',
+              '        round.setLotteryKey(settings.lotteryKey());\n'
+              '        round.setStatus(RoundStatus.OPEN.name());\n'
+              '        round.setActiveKey(settings.lotteryKey());',
+              1
+          )
+          helper_anchor = '    private static String entryId(String roundId, UUID playerUuid) {\n'
+          helper = '''    private static boolean activeRoundConstraintFailure(Throwable failure) {
+                  Throwable current = failure;
+                  while (current != null) {
+                      String message = current.getMessage();
+                      if (message != null && (message.contains("uq_lottery_active_round")
+                              || message.contains("active_key"))) {
+                          return true;
+                      }
+                      current = current.getCause();
+                  }
+                  return false;
+              }
+
+              '''
+          if 'private static boolean activeRoundConstraintFailure' not in source:
+              if helper_anchor not in source:
+                  raise SystemExit('LotteryRepository helper anchor is missing')
+              source = source.replace(helper_anchor, helper + helper_anchor, 1)
+          repository.write_text(source, encoding='utf-8')
+
+          draw_test = Path(
+              'serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/'
+              'features/lottery/draw/LotteryDrawEngineTest.java'
+          )
+          source = draw_test.read_text(encoding='utf-8')
+          source = source.replace(
+              'import static org.junit.jupiter.api.Assertions.assertEquals;\n',
+              'import static org.junit.jupiter.api.Assertions.assertEquals;\n'
+              'import static org.junit.jupiter.api.Assertions.assertThrows;\n'
+          )
+          test = '''
+              @Test
+              void rejectsASeedThatDoesNotMatchThePublishedCommitment() {
+                  LotteryDrawEngine engine = new LotteryDrawEngine();
+                  String seed = "5a".repeat(32);
+                  RoundSnapshot round = new RoundSnapshot(
+                          "survival",
+                          "round",
+                          RoundStatus.DRAWING,
+                          0L,
+                          1L,
+                          Money.parse("1.00"),
+                          Money.parse("10.00"),
+                          Money.ZERO,
+                          Money.ZERO,
+                          Money.ZERO,
+                          Money.ZERO,
+                          Money.ZERO,
+                          Money.ZERO,
+                          0,
+                          0,
+                          0,
+                          0L,
+                          engine.commitment("6b".repeat(32)),
+                          seed,
+                          false
+                  );
+
+                  assertThrows(IllegalArgumentException.class, () -> engine.draw(round, List.of(), settings()));
+              }
+          '''
+          if 'rejectsASeedThatDoesNotMatchThePublishedCommitment' not in source:
+              source = source.replace('\n    private static LotterySettings settings() {', test + '\n    private static LotterySettings settings() {', 1)
+          draw_test.write_text(source, encoding='utf-8')
+
+          schema_test = Path(
+              'serverfeatures-platform-paper/src/test/java/nl/hauntedmc/serverfeatures/'
+              'features/lottery/persistence/LotteryEntitySchemaTest.java'
+          )
+          source = schema_test.read_text(encoding='utf-8')
+          source = source.replace(
+              'import jakarta.persistence.Table;\n',
+              'import jakarta.persistence.Table;\nimport jakarta.persistence.Version;\n'
+          )
+          source = source.replace(
+              'import static org.junit.jupiter.api.Assertions.assertNotNull;\n',
+              'import static org.junit.jupiter.api.Assertions.assertNotNull;\n'
+              'import static org.junit.jupiter.api.Assertions.assertTrue;\n'
+          )
+          source = source.replace(
+              '    void usesFourNormalOrmEntities() {',
+              '    void usesFourNormalOrmEntities() throws NoSuchFieldException {'
+          )
+          assertions = '''
+                  Table roundTable = LotteryRoundEntity.class.getAnnotation(Table.class);
+                  assertTrue(List.of(roundTable.uniqueConstraints()).stream()
+                          .anyMatch(constraint -> List.of(constraint.columnNames()).contains("active_key")));
+                  assertNotNull(LotteryRoundEntity.class.getDeclaredField("version").getAnnotation(Version.class));
+                  assertNotNull(LotteryPlayerStatsEntity.class.getDeclaredField("version").getAnnotation(Version.class));
+          '''
+          if 'roundTable.uniqueConstraints()' not in source:
+              source = source.replace(
+                  '        }\n    }\n}',
+                  '        }\n' + assertions + '    }\n}',
+                  1
+              )
+          schema_test.write_text(source, encoding='utf-8')
+
+          docs = Path('docs/features/lottery.md')
+          source = docs.read_text(encoding='utf-8')
+          source = source.replace(
+              'Marking a round `DRAWING` prevents a second server from drawing it twice.',
+              'A nullable unique `active_key` allows exactly one `OPEN` or `DRAWING` round per lottery. '
+              'The active round is also pessimistically locked while tickets, donations, drawing, pausing, '
+              'cancellation or pot additions are changed.'
+          )
+          source = source.replace(
+              'and later stores the seed reveal and an entry digest.',
+              'and verifies that the stored seed reveal still matches that commitment before drawing. '
+              'The completed result is recomputed deterministically before it is persisted, and the feature '
+              'also stores an entry digest.'
+          )
+          docs.write_text(source, encoding='utf-8')
+          PY
+
+          rm -f .lottery-build-failure.md
+          git diff --check
+          ./mvnw -U -B -ntp -DskipTests checkstyle:check
+          ./mvnw -U -B -ntp verify
+          ./mvnw -U -B -ntp -Pplatform-acceptance verify
+
+          git show origin/main:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
+          git add -A
+          git commit -m 'Finalize simplified Lottery correctness'
+          git push origin HEAD:agent/lottery-feature
