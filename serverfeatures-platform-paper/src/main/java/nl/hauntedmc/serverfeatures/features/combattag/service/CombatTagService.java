@@ -188,6 +188,9 @@ public final class CombatTagService implements CombatTagApi {
         UUID logoutDamageSourceId = incomingDamage
                 ? damageSourceId
                 : retagged ? previous.logoutDamageSourceId() : null;
+        CombatTagReason logoutReason = incomingDamage
+                ? reason
+                : retagged ? previous.logoutReason() : null;
 
         Session session = new Session(
                 playerId,
@@ -196,6 +199,7 @@ public final class CombatTagService implements CombatTagApi {
                 reason,
                 logoutOpponent,
                 logoutDamageSourceId,
+                logoutReason,
                 now,
                 now.plusSeconds(settings.tagging().durationSeconds()),
                 saturatedAdd(nowNanos, durationNanos)
@@ -234,6 +238,7 @@ public final class CombatTagService implements CombatTagApi {
                 session.reason(),
                 session.logoutOpponent(),
                 session.logoutDamageSourceId(),
+                session.logoutReason(),
                 now,
                 now.plusSeconds(settings.tagging().durationSeconds()),
                 saturatedAdd(nowNanos, durationNanos)
@@ -368,6 +373,7 @@ public final class CombatTagService implements CombatTagApi {
                                 session.reason(),
                                 session.logoutOpponent(),
                                 session.logoutDamageSourceId(),
+                                session.logoutReason(),
                                 remainingNanos
                         )
                 );
@@ -402,6 +408,7 @@ public final class CombatTagService implements CombatTagApi {
                             stored.reason(),
                             stored.logoutOpponent(),
                             stored.logoutDamageSourceId(),
+                            stored.logoutReason(),
                             now,
                             now.plusNanos(remaining),
                             saturatedAdd(nowNanos, remaining)
@@ -438,9 +445,49 @@ public final class CombatTagService implements CombatTagApi {
 
     private void clearByOpponent(UUID opponentId) {
         for (Session session : sessions.values()) {
-            if (!session.opponent().uniqueId().equals(opponentId)) {
+            boolean currentOpponentDied = session.opponent().uniqueId().equals(opponentId);
+            boolean logoutOpponentDied = session.logoutOpponent() != null
+                    && session.logoutOpponent().uniqueId().equals(opponentId);
+            if (!currentOpponentDied && !logoutOpponentDied) {
                 continue;
             }
+
+            if (currentOpponentDied && session.logoutOpponent() != null && !logoutOpponentDied) {
+                Session fallback = new Session(
+                        session.playerId(),
+                        session.logoutOpponent(),
+                        session.logoutDamageSourceId(),
+                        session.logoutReason(),
+                        session.logoutOpponent(),
+                        session.logoutDamageSourceId(),
+                        session.logoutReason(),
+                        session.taggedAt(),
+                        session.expiresAt(),
+                        session.expiresAtNanos()
+                );
+                if (sessions.replace(session.playerId(), session, fallback)) {
+                    actionBarFrames.remove(session.playerId());
+                }
+                continue;
+            }
+
+            if (!currentOpponentDied) {
+                Session withoutLogoutAttribution = new Session(
+                        session.playerId(),
+                        session.opponent(),
+                        session.damageSourceId(),
+                        session.reason(),
+                        null,
+                        null,
+                        null,
+                        session.taggedAt(),
+                        session.expiresAt(),
+                        session.expiresAtNanos()
+                );
+                sessions.replace(session.playerId(), session, withoutLogoutAttribution);
+                continue;
+            }
+
             Player player = feature.getPlugin().getServer().getPlayer(session.playerId());
             if (sessions.remove(session.playerId(), session)) {
                 restrictionFeedback.remove(session.playerId());
@@ -654,6 +701,7 @@ public final class CombatTagService implements CombatTagApi {
             CombatTagReason reason,
             CombatOpponent logoutOpponent,
             UUID logoutDamageSourceId,
+            CombatTagReason logoutReason,
             Instant taggedAt,
             Instant expiresAt,
             long expiresAtNanos
@@ -665,8 +713,12 @@ public final class CombatTagService implements CombatTagApi {
             java.util.Objects.requireNonNull(reason, "reason");
             java.util.Objects.requireNonNull(taggedAt, "taggedAt");
             java.util.Objects.requireNonNull(expiresAt, "expiresAt");
-            if ((logoutOpponent == null) != (logoutDamageSourceId == null)) {
-                throw new IllegalArgumentException("Logout opponent and damage source must both be present or absent");
+            boolean hasLogoutAttribution = logoutOpponent != null;
+            if (hasLogoutAttribution != (logoutDamageSourceId != null)
+                    || hasLogoutAttribution != (logoutReason != null)) {
+                throw new IllegalArgumentException(
+                        "Logout opponent, damage source, and reason must all be present or absent"
+                );
             }
         }
     }
@@ -677,14 +729,19 @@ public final class CombatTagService implements CombatTagApi {
             CombatTagReason reason,
             CombatOpponent logoutOpponent,
             UUID logoutDamageSourceId,
+            CombatTagReason logoutReason,
             long remainingNanos
     ) {
         public StoredSession {
             java.util.Objects.requireNonNull(opponent, "opponent");
             java.util.Objects.requireNonNull(damageSourceId, "damageSourceId");
             java.util.Objects.requireNonNull(reason, "reason");
-            if ((logoutOpponent == null) != (logoutDamageSourceId == null)) {
-                throw new IllegalArgumentException("Logout opponent and damage source must both be present or absent");
+            boolean hasLogoutAttribution = logoutOpponent != null;
+            if (hasLogoutAttribution != (logoutDamageSourceId != null)
+                    || hasLogoutAttribution != (logoutReason != null)) {
+                throw new IllegalArgumentException(
+                        "Logout opponent, damage source, and reason must all be present or absent"
+                );
             }
             if (remainingNanos < 0L) {
                 remainingNanos = 0L;
