@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
@@ -15,7 +16,11 @@ import java.math.BigDecimal;
         indexes = {
                 @Index(name = "idx_lottery_round_status", columnList = "lottery_key,status,opened_at"),
                 @Index(name = "idx_lottery_round_history", columnList = "lottery_key,drawn_at")
-        }
+        },
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_lottery_active_round",
+                columnNames = "active_key"
+        )
 )
 public class LotteryRoundEntity {
 
@@ -28,6 +33,9 @@ public class LotteryRoundEntity {
 
     @Column(name = "status", length = 16, nullable = false)
     private String status;
+
+    @Column(name = "active_key", length = 64, unique = true)
+    private String activeKey;
 
     @Column(name = "opened_at", nullable = false)
     private long openedAt;
@@ -115,6 +123,14 @@ public class LotteryRoundEntity {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getActiveKey() {
+        return activeKey;
+    }
+
+    public void setActiveKey(String activeKey) {
+        this.activeKey = activeKey;
     }
 
     public long getOpenedAt() {
