@@ -7,8 +7,9 @@ CombatTag is the native ServerFeatures combat-state authority and has no externa
 A player is tagged whenever a configured combat interaction deals positive final damage. Cancelled and zero-final-damage events are ignored.
 
 - `PVP` tags player-versus-player interactions.
-- `MOBS` tags player-versus-mob interactions in both directions.
+- `MOBS` tags interactions between players and Bukkit `Enemy` entities in both directions.
 - `BOTH` enables both policies.
+- passive and neutral non-`Enemy` mobs do not create or refresh combat, even when they currently target a player;
 - dealing or receiving another qualifying hit replaces the displayed opponent and resets the full timer;
 - incoming hits also update the attacker retained for logout kill attribution;
 - outgoing hits never overwrite a still-active incoming-attacker attribution;
@@ -23,6 +24,8 @@ A player is tagged whenever a configured combat interaction deals positive final
 - tags are retained across a feature reload with only their actual remaining duration;
 - tags are never persisted across a server restart.
 
+Every successful `TAGGED` or `RETAGGED` service result publishes a synchronous `CombatTagAppliedEvent`. This includes ordinary damage, projectiles, pets, fishing hooks, and calls through the public `CombatTagApi`, so dependent features observe one authoritative transition path.
+
 The fixed bypass permission is:
 
 ```text
@@ -33,7 +36,7 @@ It defaults to operators. A bypassed player is not tagged, restricted, or punish
 
 ## Attribution
 
-CombatTag uses Paper's authoritative damage source and resolves the responsible attacker rather than treating every damage carrier as an unrelated entity.
+CombatTag resolves the responsible attacker rather than treating every damage carrier as an unrelated entity. For `EntityDamageByEntityEvent`, the event damager is resolved first because Paper can provide it even when the underlying damage source contains different or incomplete direct-entity metadata. Paper's damage source remains the fallback for indirect attribution.
 
 Supported attribution includes:
 
@@ -49,7 +52,7 @@ Supported attribution includes:
 
 Specific carrier rules take priority. For example, an ignored projectile remains ignored even when Paper reports its shooter as the causing entity, and disabling TNT linking is not bypassed by generic damage-source fallback.
 
-Pet linking applies only to the attacking side. Attacking somebody else's pet does not tag the pet owner.
+Pet linking applies only to the attacking side. Attacking somebody else's pet does not tag the pet owner. A linked pet owned by a player follows PvP attribution when it damages another player; ordinary mob-mode tagging still requires the actual mob combatant to implement Bukkit `Enemy`.
 
 When projectile linking is disabled, every projectile, including fireworks, is ignored. When it is enabled, configured entity types are still ignored. The default ignored projectile types are `EGG`, `ENDER_PEARL`, and `SNOWBALL`.
 
@@ -205,21 +208,23 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 ## Operational verification
 
 1. Verify melee and projectile PvP reset both players' timers.
-2. Verify mob attacks and player attacks against mobs follow the selected mode.
-3. Test wolf damage with pet linking enabled and disabled.
-4. Test the three ignored projectile defaults and verify disabling projectiles also disables fireworks.
-5. Test fishing hooks and player-, mob-, and dispenser-created TNT.
-6. Test an end crystal or another indirect player-caused explosion and verify the responsible player is resolved.
-7. Confirm ignored projectiles and disabled TNT linking cannot be bypassed by generic damage-source attribution.
-8. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
-9. Confirm cancelled and zero-final-damage events do not create or refresh tags.
-10. Test every allowed teleport cause and both portal types.
-11. Receive damage from one opponent, attack a second opponent, kill either one, and verify the remaining combat state and logout attribution stay correct.
-12. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
-13. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
-14. Kick a tagged player with `punish-kicked-players` disabled and enabled.
-15. Stop or restart the server with tagged players online and confirm no logout punishment runs.
-16. Replace the CombatTag action bar with another targeted override, then let combat expire and confirm CombatTag does not clear the newer override.
-17. Test status, other-player status, administrative untagging, and all associated permissions.
-18. Reload CombatTag and confirm active timers preserve only their remaining time.
-19. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
+2. Verify player attacks against Bukkit `Enemy` mobs and enemy attacks against players reset the timer.
+3. Verify pigs, cows, wild wolves, and other non-`Enemy` mobs do not create combat in either direction, even while targeting a player.
+4. Test wolf damage with pet linking enabled and disabled.
+5. Test the three ignored projectile defaults and verify disabling projectiles also disables fireworks.
+6. Test fishing hooks and player-, mob-, and dispenser-created TNT.
+7. Test an end crystal or another indirect player-caused explosion and verify the responsible player is resolved.
+8. Confirm ignored projectiles and disabled TNT linking cannot be bypassed by generic damage-source attribution.
+9. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
+10. Confirm cancelled and zero-final-damage events do not create or refresh tags.
+11. Test every allowed teleport cause and both portal types.
+12. Receive damage from one opponent, attack a second opponent, kill either one, and verify the remaining combat state and logout attribution stay correct.
+13. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
+14. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
+15. Kick a tagged player with `punish-kicked-players` disabled and enabled.
+16. Stop or restart the server with tagged players online and confirm no logout punishment runs.
+17. Replace the CombatTag action bar with another targeted override, then let combat expire and confirm CombatTag does not clear the newer override.
+18. Test status, other-player status, administrative untagging, and all associated permissions.
+19. Create and refresh a tag through `CombatTagApi` and verify dependent transition listeners receive the same applied event.
+20. Reload CombatTag and confirm active timers preserve only their remaining time.
+21. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
