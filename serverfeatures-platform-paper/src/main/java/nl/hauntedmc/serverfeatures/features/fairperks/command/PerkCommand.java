@@ -53,8 +53,7 @@ public final class PerkCommand implements BrigadierCommand {
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
-                .requires(source -> source.getSender().hasPermission(usePermission())
-                        || source.getSender().hasPermission(othersPermission()))
+                .requires(source -> canAccessRoot(source.getSender()))
                 .executes(context -> executeSelf(context.getSource().getSender(), Intent.TOGGLE));
 
         root.then(selfLiteral("on", Intent.ENABLE));
@@ -91,12 +90,23 @@ public final class PerkCommand implements BrigadierCommand {
                 ));
     }
 
+    private boolean canAccessRoot(CommandSender sender) {
+        if (sender.hasPermission(usePermission()) || sender.hasPermission(othersPermission())) {
+            return true;
+        }
+        return sender instanceof Player player && feature.stateService().isDesired(player, perk);
+    }
+
     private int executeSelf(CommandSender sender, Intent intent) {
         if (!(sender instanceof Player player)) {
             feature.sendMessage(sender, "fairperks.player_only");
             return 0;
         }
-        if (!player.hasPermission(usePermission())) {
+
+        boolean current = feature.stateService().isDesired(player, perk);
+        boolean mayOperateWithoutPermission = current
+                && (intent == Intent.DISABLE || intent == Intent.TOGGLE || intent == Intent.STATUS);
+        if (!player.hasPermission(usePermission()) && !mayOperateWithoutPermission) {
             feature.sendMessage(player, "fairperks.no_permission");
             return 0;
         }
