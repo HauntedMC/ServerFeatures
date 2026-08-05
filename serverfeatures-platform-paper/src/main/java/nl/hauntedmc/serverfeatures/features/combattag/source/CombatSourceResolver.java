@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.combattag.source;
 import nl.hauntedmc.serverfeatures.api.combat.CombatOpponent;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
+import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.AreaEffectCloud;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
@@ -14,6 +15,8 @@ import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TNTPrimed;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Objects;
@@ -26,6 +29,32 @@ public final class CombatSourceResolver {
 
     public CombatSourceResolver(CombatTagSettings.AttributionSettings settings) {
         this.settings = Objects.requireNonNull(settings, "settings");
+    }
+
+    /**
+     * Resolves the authoritative causing entity supplied by Paper while preserving explicit
+     * carrier policies such as ignored projectiles and disabled TNT linking.
+     */
+    public Optional<ResolvedCombatSource> resolve(EntityDamageEvent event) {
+        Objects.requireNonNull(event, "event");
+        DamageSource damageSource = event.getDamageSource();
+        Entity direct = damageSource.getDirectEntity();
+        if (direct == null && event instanceof EntityDamageByEntityEvent byEntity) {
+            direct = byEntity.getDamager();
+        }
+
+        if (direct != null) {
+            Optional<ResolvedCombatSource> resolved = resolve(direct, null);
+            if (resolved.isPresent() || isPolicyControlledCarrier(direct)) {
+                return resolved;
+            }
+        }
+
+        Entity causing = damageSource.getCausingEntity();
+        if (causing == null || causing == direct) {
+            return Optional.empty();
+        }
+        return resolve(causing, fallbackReason(event));
     }
 
     public Optional<ResolvedCombatSource> resolve(Entity directDamager) {
@@ -47,6 +76,10 @@ public final class CombatSourceResolver {
             CombatTagSettings.ProjectileSettings projectiles = settings.projectiles();
             if (!projectiles.enabled() || projectiles.ignoredTypes().contains(firework.getType())) {
                 return Optional.empty();
+            }
+            ProjectileSource shooter = firework.getShooter();
+            if (shooter instanceof Entity shooterEntity) {
+                return resolve(shooterEntity, CombatTagReason.FIREWORK);
             }
             Player owner = onlinePlayer(firework, firework.getSpawningEntity());
             return owner == null
@@ -141,6 +174,17 @@ public final class CombatSourceResolver {
             ));
         }
         return Optional.empty();
+    }
+
+    private static boolean isPolicyControlledCarrier(Entity entity) {
+        return entity instanceof Projectile || entity instanceof TNTPrimed;
+    }
+
+    private static CombatTagReason fallbackReason(EntityDamageEvent event) {
+        return switch (event.getCause()) {
+            case BLOCK_EXPLOSION, ENTITY_EXPLOSION -> CombatTagReason.EXPLOSION;
+            default -> CombatTagReason.INDIRECT;
+        };
     }
 
     private static ResolvedCombatSource source(
