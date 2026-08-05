@@ -134,7 +134,7 @@ boolean removed = combatTags.untag(player, CombatUntagReason.EXTERNAL);
 
 `CombatTags.service()` always returns a non-null service. It becomes a strict no-op when CombatTag is unavailable. Reads are safe from any thread. Write methods enforce server-thread usage and throw `IllegalStateException` when called asynchronously instead of allowing unsafe Bukkit access.
 
-A snapshot exposes the player, current displayed opponent, latest tag reason, tag and expiry instants, and remaining duration.
+A snapshot exposes the player, current displayed opponent, the interaction reason represented by that opponent, tag and expiry instants, and remaining duration.
 
 ## Configuration
 
