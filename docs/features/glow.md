@@ -167,7 +167,7 @@ Icon mapping includes both `BLUE` and `AQUA` using `LIGHT_BLUE_CONCRETE`; dark s
 
 ### Rainbow sequence
 
-One step per epoch second:
+One step per elapsed second after activation:
 
 1. red
 2. gold
@@ -190,7 +190,7 @@ Icon: `BEACON`.
 
 ### HauntedMC sequence
 
-Alternates one step per epoch second:
+Alternates one step per elapsed second after activation:
 
 1. gold
 2. aqua
@@ -201,23 +201,21 @@ Icon: `GHAST_SPAWN_EGG`.
 
 `GlowHandler` schedules a repeating feature-owned task every one second.
 
-For every active map entry:
+For every entry in the dedicated animated-effect map:
 
-- skip null/static effects;
 - resolve local online player by UUID;
-- calculate `now = Instant.now().getEpochSecond()`;
-- pass epoch seconds directly as `elapsedSeconds`;
-- apply `effect.colorAt(player, now)` through `ScoreboardManager.setGlow`.
+- discard stale index entries and entries whose player is no longer online;
+- calculate non-negative seconds since that effect was activated;
+- apply `effect.colorAt(player, elapsedSeconds)` through `ScoreboardManager.setGlow`.
 
-Despite interface comments saying elapsed time since activation, animation uses absolute Unix epoch seconds. Therefore:
+Each tracked effect stores its activation time from the JVM's monotonic clock. This matches the `GlowEffect` contract without depending on wall-clock adjustments:
 
-- all players/effects are globally phase-synchronized;
-- selection time does not start a private sequence at step zero;
-- server restarts preserve apparent phase based on wall clock;
-- clock changes can jump/reverse phase;
-- `Math.max(0, now)` is effectively redundant for modern epochs.
+- selection/restoration starts at sequence position zero;
+- subsequent ticks advance relative to that selection;
+- selecting the effect again restarts its sequence;
+- system clock corrections do not jump or rewind the sequence.
 
-When initially selecting/restoring, `applyNow` calls `colorAt(player, 0)`, so animated effects start at their first colour and may jump to the global epoch phase on the next one-second tick.
+When initially selecting/restoring, `applyNow` calls `colorAt(player, 0)`. The tracked activation time then keeps following ticks on the same per-player phase.
 
 Static effects are not reapplied by the tick. If another plugin removes/changes the player's scoreboard team/colour, static glow can remain incorrect until restore/reselection; animated glow is reapplied every second.
 
@@ -230,7 +228,11 @@ ScoreboardManager.setGlow(player, NamedTextColor)
 ScoreboardManager.removeGlow(player)
 ```
 
-The player is tracked in a feature-local map, but team/entity-glowing details are owned by the shared scoreboard API.
+The player is tracked in feature-local active/animated maps, but team/entity-glowing details are owned by the shared scoreboard API.
+
+Glow teams are registered and configured when each personal scoreboard is created. A colour application uses the scoreboard's direct `getEntryTeam(entry)` lookup: an entry already in the target team causes no mutation, a different owned glow team is changed directly, and an unexpectedly missing target team is created lazily. The animation hot path therefore does not rescan or reconfigure every team on every viewer scoreboard. Entity glowing is likewise updated only when the boolean flag differs.
+
+If an entry belongs to a non-ServerFeatures team, Glow leaves it untouched. Repeated conflict warnings for the same entry/team pair are limited to one every five minutes, preventing animated effects from flooding the log once per viewer board.
 
 Potential interactions:
 
@@ -321,7 +323,7 @@ Default priority `NORMAL`:
 
 - call `removeGlowTransient`;
 - remove scoreboard glow;
-- remove active map entry;
+- remove active and animated map entries;
 - do **not** update database.
 
 Persisted selection remains enabled for next join.
@@ -330,29 +332,27 @@ There is no death, respawn, world-change, permission-change or backend-transfer 
 
 ## Runtime state
 
-`ConcurrentHashMap<UUID, GlowEffect> activeEffects` is authoritative for menu/status/animation.
+`ConcurrentHashMap<UUID, TrackedEffect> activeEffects` is authoritative for menu/status and records activation time. A second `animatedEffects` map indexes the same tracked objects only for animated selections, avoiding a scan over static glow users.
 
-- Selection replaces existing effect atomically by key.
+- Selection replaces the active tracked object by key and refreshes the animated index.
 - Restoration adds only when permission passes.
 - Transient quit cleanup removes.
-- Disable currently does not iterate/remove active glows or clear the map.
+- Disable snapshots tracked UUIDs, clears both maps, and removes visible glow from players still online without changing persistence.
 
-The concurrent map permits safe iteration/modification, but Bukkit/scoreboard operations are still expected on main/lifecycle threads.
+The concurrent maps permit safe iteration/modification, but Bukkit/scoreboard operations are still expected on main/lifecycle threads.
 
-## Disable and shutdown caveat
+## Disable and shutdown behaviour
 
-`Glow#disable()` contains no cleanup.
+`Glow#disable()` invokes `GlowHandler#shutdown()` before lifecycle resources are closed.
 
-Framework cleanup cancels the animation task, listener and command/data scopes, but feature code does not:
+Shutdown:
 
-- call `ScoreboardManager.removeGlow` for online players;
-- clear `activeEffects`;
-- persist anything;
-- explicitly cancel pending restores.
+- clears `activeEffects` and `animatedEffects` first so subsequent/stale animation entries cannot remain authoritative;
+- calls `ScoreboardManager.removeGlow` independently for every still-online tracked player;
+- logs and continues if one player's scoreboard cleanup fails;
+- does not persist a disabled selection, so re-enabling/rejoining can restore the saved choice.
 
-Depending on shared ScoreboardManager/lifecycle cleanup, visible glow/team state can remain after feature disable until another system changes it or player quits. This should be tested and is a likely hardening opportunity.
-
-Database state intentionally remains enabled.
+Framework cleanup then cancels the animation task, listener, command and data scopes. Database state intentionally remains enabled.
 
 ## Persistence, messaging and API summary
 
@@ -387,7 +387,7 @@ Database state intentionally remains enabled.
 7. Remove effect permission/global permission before join and verify silent non-restore without DB cleanup.
 8. Test join/manual-change ordering during delayed identity readiness.
 9. Test conflict with Nametags/Scoreboard/external team plugins; compare static vs animated repair.
-10. Disable feature with online glowing players and verify whether shared lifecycle removes visible state.
+10. Disable feature with online glowing players and verify visible state is removed while persisted selections remain enabled.
 11. Test database latency on GUI click/command because save transactions are called synchronously.
 12. Quit/rejoin and verify quit does not disable persisted selection.
 
@@ -395,10 +395,9 @@ Database state intentionally remains enabled.
 
 - **Glow is lost after join:** check global/effect permission, DataRegistry identity, DB row/effect ID and registry ID.
 - **Selection works but is not saved:** active identity lookup may have returned empty.
-- **Animated colour starts then jumps:** first application uses elapsed zero; tick uses epoch seconds.
-- **All players animate together:** intentional current epoch-phase implementation.
+- **Animated colour appears stuck at its first step:** confirm the feature task is running and the player remains in `animatedEffects`.
 - **Static glow is overwritten by another plugin:** static effects are not periodically reapplied.
 - **Menu says locked despite granted permission:** verify exact underscore-based effect permission ID.
-- **Glow remains after disabling feature:** no explicit disable cleanup exists.
+- **Glow remains after disabling feature:** inspect the shutdown warning for that player and shared scoreboard ownership.
 - **Database action causes tick delay:** save/restore service invokes ORM transaction directly; inspect ORM threading/latency.
 - **Effect names cannot be translated:** hard-coded effect display components, not localization keys.

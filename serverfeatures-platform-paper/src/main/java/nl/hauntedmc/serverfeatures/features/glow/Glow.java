@@ -88,7 +88,9 @@ public class Glow extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        // No special logic required on disable for this feature.
+        if (glowHandler != null) {
+            glowHandler.shutdown();
+        }
     }
 
     public GlowHandler getGlowHandler() {
