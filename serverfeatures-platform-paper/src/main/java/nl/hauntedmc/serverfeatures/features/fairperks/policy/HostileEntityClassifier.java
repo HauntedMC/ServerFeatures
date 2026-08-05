@@ -7,6 +7,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Objects;
@@ -73,7 +74,11 @@ public final class HostileEntityClassifier {
 
     private static boolean isMarked(Entity entity, NamespacedKey key) {
         try {
-            Byte marker = entity.getPersistentDataContainer().get(key, PersistentDataType.BYTE);
+            PersistentDataContainer data = entity.getPersistentDataContainer();
+            if (data == null) {
+                return false;
+            }
+            Byte marker = data.get(key, PersistentDataType.BYTE);
             return marker != null && marker == TRUE;
         } catch (IllegalArgumentException ignored) {
             return false;
