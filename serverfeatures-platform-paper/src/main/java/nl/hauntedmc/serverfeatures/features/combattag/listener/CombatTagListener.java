@@ -100,7 +100,6 @@ public final class CombatTagListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onEntityDeath(EntityDeathEvent event) {
         Entity entity = event.getEntity();
-        explodingCreepers.remove(entity.getUniqueId());
         if (!(entity instanceof Player)) {
             service.handleOpponentDeath(entity);
         }
