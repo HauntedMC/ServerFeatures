@@ -11,6 +11,6 @@ public class Meta implements BaseMeta {
 
     @Override
     public String getFeatureVersion() {
-        return "2.0.0";
+        return "2.0.1";
     }
 }

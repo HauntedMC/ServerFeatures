@@ -82,17 +82,6 @@ printf '%s\n' 'orm:' '  schema-mode: update' >"$work_directory/paper/plugins/Dat
 printf '%s\n' 'eula=true' >"$work_directory/paper/eula.txt"
 printf '%s\n' 'server-port=0' >"$work_directory/paper/server.properties"
 
-docker compose --file "$compose_file" exec -T mysql \
-    mysql --user=root --password=acceptance-root minecraft <<'SQL'
-CREATE TABLE IF NOT EXISTS player_auto_pickup_settings (
-    player_id BIGINT NOT NULL,
-    enabled BOOLEAN NOT NULL,
-    updated_at BIGINT NOT NULL,
-    write_revision BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (player_id)
-) ENGINE=InnoDB;
-SQL
-
 mkfifo "$work_directory/paper/console.in"
 (cd "$work_directory/paper" && exec java -Xms512M -Xmx1G -jar "$work_directory/paper.jar" --nogui <console.in >paper.log 2>&1) &
 paper_pid=$!

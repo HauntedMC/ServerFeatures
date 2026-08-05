@@ -2,7 +2,7 @@
 
 > Paper · Feature name `AutoPickup` · package `features.autopickup` · disabled by default
 
-AutoPickup is a persistent player preference that moves finalized item drops from a direct player block break into the player's normal storage inventory and, when storage cannot accept more, the offhand slot. It preserves exact overflow on the original item entities, excludes indirect destruction, and never performs database work in the block-drop hot path.
+AutoPickup is a local, PDC-persisted player preference that moves finalized item drops from a direct player block break into the player's normal storage inventory and, when storage cannot accept more, the offhand slot. It preserves exact overflow on the original item entities, excludes indirect destruction, and has no database or DataRegistry integration.
 
 ## Player behavior
 
@@ -40,11 +40,11 @@ The permission always controls command access. With `drop-policy.require-use-per
 | `/autopickup on` | Enables idempotently. |
 | `/autopickup off` | Disables idempotently. |
 | `/autopickup toggle` | Explicit toggle form. |
-| `/autopickup status` | Reports enabled/disabled, loading and unconfirmed-save state. |
+| `/autopickup status` | Reports the current enabled/disabled preference. |
 
 The command is player-only and uses Paper's Brigadier command tree. There are no aliases or staff-targeting forms.
 
-Commands submitted while the database preference is loading are composed in order: explicit `on` or `off` supersedes older relative intent, while repeated toggles preserve their real parity. Explicit `on` or `off` can recover from a preference-load failure; an ambiguous toggle is rejected when the previous value could not be established. Repeating explicit `on` or `off` after a failed save retries persistence.
+Preference reads and writes are synchronous main-thread PDC operations. There is no loading state, command queue, save retry, or remote preference reconciliation.
 
 ## Direct-break ownership
 
@@ -113,8 +113,8 @@ plugins/ServerFeatures/features/AutoPickup/config.yml
 
 | Key | Default | Meaning |
 |---|---:|---|
-| `enabled` | `false` | Loads the feature, ORM state, listeners and command. |
-| `default-enabled` | `false` | Effective preference when no row exists. |
+| `enabled` | `false` | Loads the feature, PDC preference state, listeners and command. |
+| `default-enabled` | `false` | Effective preference when the player has no PDC choice. |
 | `drop-policy.scope` | `STRICT_DIRECT` | `STRICT_DIRECT` or `EVENT_ALL`. |
 | `drop-policy.worlds.mode` | `BLACKLIST` | `BLACKLIST` or `WHITELIST`. |
 | `drop-policy.worlds.values` | `[]` | Case-insensitive world names. Blank values are rejected. |
@@ -129,14 +129,9 @@ plugins/ServerFeatures/features/AutoPickup/config.yml
 | `effects.pickup-sound.category` | `PLAYERS` | Bukkit `SoundCategory`. |
 | `effects.pickup-sound.volume` | `0.2` | Finite volume from `0` through `16`. |
 | `effects.pickup-sound.pitch` | `1.0` | Finite pitch from `0.5` through `2.0`. |
-| `persistence.retry.attempts` | `3` | Total write attempts, from `1` through `10`. |
-| `persistence.retry.initial-delay-millis` | `250` | First retry delay, from `0` through `60000`. |
-| `persistence.retry.maximum-delay-millis` | `2000` | Backoff cap, from `0` through `60000` and not below the initial delay. |
-| `persistence.join-recheck-delay-millis` | `3000` | One delayed read after login; `0` disables it, maximum `60000`. |
-| `persistence.shutdown-drain-timeout-millis` | `1000` | Bounded shutdown drain, maximum `10000`. |
 | `diagnostics.warning-cooldown-millis` | `30000` | Per-player transfer/feedback error log cooldown. |
 
-Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values, timing overflow and unsafe scheduler or timeout ranges fail feature startup. Feature reload is required to apply changes.
+Configuration is validated and converted to one immutable settings snapshot at initialization. Invalid scopes, modes, game modes, blank world names, invalid sound values and timing overflow fail feature startup. Feature reload is required to apply changes.
 
 ## Inventory-full feedback
 
@@ -154,54 +149,25 @@ The shared ActionBars API supports targeted timed overrides. `PauseMode.PAUSE_CY
 
 ## Persistence
 
-Dependencies:
-
-- DataProvider 3.1.10 or newer;
-- DataRegistry;
-- MySQL connection `autoPickupOrmConnection` using `player_data_rw`.
-
-Table:
+The preference is stored in the player's Bukkit `PersistentDataContainer` under:
 
 ```text
-player_auto_pickup_settings
+serverfeatures:autopickup_enabled
 ```
 
-| Column | Type/role |
-|---|---|
-| `player_id` | Canonical DataRegistry player ID and primary key. |
-| `enabled` | Persisted boolean preference. |
-| `updated_at` | Epoch milliseconds for diagnostics. |
-| `write_revision` | Monotonic request revision used to reject stale cross-backend writes. |
+The value is a byte: `1` means enabled and `0` means disabled. A missing, incompatible, or invalid value uses `default-enabled`. Both boolean values are stored explicitly so a player can remain opted out when `default-enabled` is `true`.
 
-Required production schema:
+Paper persists player PDC with its ordinary local playerdata, so the choice normally survives logout, a clean restart, and feature reload. It is intentionally local to this Paper server: changing backend does not carry or reconcile the setting unless the servers share playerdata through some external mechanism. As ordinary non-critical playerdata, the most recent change can be lost after a crash before Paper flushes the player.
 
-```sql
-CREATE TABLE player_auto_pickup_settings (
-    player_id BIGINT NOT NULL,
-    enabled BOOLEAN NOT NULL,
-    updated_at BIGINT NOT NULL,
-    write_revision BIGINT NOT NULL DEFAULT 0,
-    PRIMARY KEY (player_id)
-) ENGINE=InnoDB;
-```
-
-With production ORM mode `validate`, provision the table before enabling the feature. The `player_data_rw` access policy must share the connection with `ServerFeatures`.
-
-### Load and write ordering
-
-On join, the feature waits for canonical DataRegistry identity, loads the preference asynchronously and applies it on the Paper main thread only when the same state object and generation remain current. One configurable delayed recheck catches a write that completed on the previous backend just after the initial read.
-
-Each write request captures canonical player ID, desired state and a globally comparable process-monotonic revision. Per-player writes are serialized and rapid changes are coalesced. The MySQL upsert accepts only a newer revision, then reads back the authoritative database winner. A final failure keeps the selected setting active for the session, marks it unconfirmed and allows explicit retry.
-
-The block-drop listener never calls DataRegistry or ORM.
+AutoPickup no longer initializes DataProvider, resolves DataRegistry identities, creates an ORM context, or reads/writes a database table. The obsolete `persistence` configuration section is removed when the feature initializes. Existing `player_auto_pickup_settings` rows are not migrated or read. After deploying this version, the obsolete table can be dropped when no older server still uses it; players begin from their local PDC choice or `default-enabled`.
 
 ## Lifecycle
 
-Initialization validates configuration, registers the DataProvider connection and ORM context, constructs services, registers listeners/command and initializes already-online players.
+Initialization validates configuration, constructs services, registers listeners/command and initializes already-online players directly from PDC.
 
-Quit removes runtime preference and diagnostic state while immutable in-flight writes may finish. A fast relog carries the newest matching local request into the replacement session rather than loading stale database state.
+Commands update runtime state and the player's PDC immediately. Quit removes only the runtime cache and diagnostic state; Paper owns playerdata flushing.
 
-Disable closes new preference activity, performs an interrupt-safe bounded drain and allows framework cleanup to unregister listeners, commands, tasks, ORM and DataProvider scopes.
+Disable clears runtime caches and allows framework cleanup to unregister listeners and commands. There are no asynchronous preference operations or database scopes to drain.
 
 ## Compatibility boundaries
 
@@ -224,11 +190,10 @@ Automated coverage includes:
 - silent event-stack corruption detection;
 - complete storage/offhand/event rollback and conservation-preserving fallback;
 - strict direct, bisected and bed-origin classification;
-- composed command intent while preference loading;
-- scheduler-facing configuration bounds and retry backoff;
-- monotonic and observed cross-backend write revisions;
+- missing-PDC default selection and explicit true/false restoration;
+- command writes to the player PDC and session-only safety disable behavior;
 - backward-compatible targeted ActionBar defaults;
-- bundled Paper/MySQL startup and clean shutdown with AutoPickup enabled.
+- bundled Paper startup and clean shutdown with AutoPickup enabled.
 
 In game, verify:
 
@@ -241,9 +206,9 @@ In game, verify:
 7. chests, shulker boxes, doors, beds and tall plants;
 8. support blocks with torches/signs under both scopes;
 9. TNT, creepers, pistons and fluids remain untouched;
-10. rapid toggles during initial login;
-11. immediate backend switch after toggling;
-12. database outage and retry/failure messages;
+10. enable/disable/status followed by logout, restart and feature reload;
+11. backend switching does not synchronize the preference;
+12. `default-enabled: true` while a player has explicitly selected off;
 13. permission removal while preference remains enabled;
 14. targeted overflow warning while a normal actionbar cycle is active;
 15. pickup sound enabled, disabled and customized.

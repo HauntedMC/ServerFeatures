@@ -82,6 +82,25 @@ against a missing dependency.
 - YAML writes use same-directory atomic replacement where supported. Migration removes legacy source data only after
   the feature-owned destination is durably written.
 
+### Choosing persistence
+
+Player `PersistentDataContainer` storage is the default and recommended persistence mechanism for small,
+non-critical, local gameplay preferences such as personal toggles. Use it when the data:
+
+- belongs to one player on one Paper server;
+- can be reset or lost without meaningful operational, economic, moderation, or progression consequences;
+- does not need queries, reporting, offline administration, relational constraints, audit history, or transactions;
+- does not need synchronization or conflict resolution across backend servers.
+
+Store a namespaced, typed value on the owning player and treat missing or malformed values as a safe default. Keep a
+small in-memory view only when the hot path benefits from it; update PDC when the preference changes and let Paper's
+normal playerdata lifecycle flush it. Document the key, type, default behavior, crash-loss window, and the fact that
+server switches do not synchronize the value.
+
+Use DataProvider/database persistence only when the feature has an explicit durability, querying, auditing,
+transactional, offline-access, or cross-server consistency requirement. PDC is not appropriate for critical data
+such as balances, sanctions, entitlements, claims, or authoritative progression.
+
 ## Why This Matters
 
 For operators, this architecture means safer rollout and easier troubleshooting.
