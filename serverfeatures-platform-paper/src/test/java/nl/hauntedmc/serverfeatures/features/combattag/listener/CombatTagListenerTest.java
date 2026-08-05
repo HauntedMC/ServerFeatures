@@ -45,6 +45,7 @@ class CombatTagListenerTest {
         CombatTagService service = mock(CombatTagService.class);
         CombatTagListener listener = listener(settings, service);
         LivingEntity mob = mob(CreatureSpawnEvent.SpawnReason.NATURAL);
+        UUID mobId = mob.getUniqueId();
         Player target = player("Target");
         EntityDamageByEntityEvent event = damageEvent(mob, target);
 
@@ -53,7 +54,7 @@ class CombatTagListenerTest {
         verify(service).tagIncoming(
                 eq(target),
                 any(),
-                eq(mob.getUniqueId()),
+                eq(mobId),
                 eq(CombatTagReason.MELEE)
         );
     }
@@ -64,7 +65,9 @@ class CombatTagListenerTest {
         CombatTagService service = mock(CombatTagService.class);
         CombatTagListener listener = listener(settings, service);
         Player attacker = player("Attacker");
+        UUID attackerId = attacker.getUniqueId();
         Player target = player("Target");
+        UUID targetId = target.getUniqueId();
         EntityDamageByEntityEvent event = damageEvent(attacker, target);
 
         listener.onDamage(event);
@@ -72,13 +75,13 @@ class CombatTagListenerTest {
         verify(service).tagIncoming(
                 eq(target),
                 any(),
-                eq(attacker.getUniqueId()),
+                eq(attackerId),
                 eq(CombatTagReason.MELEE)
         );
         verify(service).tagOutgoing(
                 eq(attacker),
                 any(),
-                eq(target.getUniqueId()),
+                eq(targetId),
                 eq(CombatTagReason.MELEE)
         );
     }
