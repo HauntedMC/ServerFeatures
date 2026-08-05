@@ -39,7 +39,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     private CombatTagSettings settings;
     private CombatTagService service;
     private CombatTagListener listener;
-    private boolean reloadSnapshotCaptured;
 
     public CombatTag(FeatureContext<Meta> context) {
         super(context);
@@ -191,7 +190,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     public void disable() {
         if (service != null) {
             CombatTags.shutdown(service);
-            service.shutdown(reloadSnapshotCaptured);
+            service.shutdown();
         }
         if (listener != null) {
             listener.clear();
@@ -200,7 +199,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     @Override
     public Optional<ReloadSnapshot> captureReloadState() {
-        reloadSnapshotCaptured = true;
         return service == null
                 ? Optional.empty()
                 : Optional.of(new ReloadSnapshot(service.snapshotForReload()));
@@ -208,7 +206,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     @Override
     public void restoreReloadState(ReloadSnapshot snapshot) {
-        reloadSnapshotCaptured = false;
         if (snapshot != null && service != null) {
             service.restore(snapshot.sessions());
         }
