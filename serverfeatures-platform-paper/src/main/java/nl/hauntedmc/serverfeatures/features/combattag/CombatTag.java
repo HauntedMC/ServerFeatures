@@ -7,6 +7,8 @@ import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
+import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.PauseMode;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
@@ -167,7 +169,8 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         listener = new CombatTagListener(
                 settings,
                 service,
-                new CombatSourceResolver(settings.attribution())
+                new CombatSourceResolver(settings.attribution()),
+                getLifecycleManager().getTaskManager()
         );
 
         getLifecycleManager().getListenerManager().registerListener(listener);
@@ -241,7 +244,12 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
             Map<String, String> placeholders
     ) {
         try {
-            player.sendActionBar(buildMessage(player, key, placeholders));
+            ActionBars.service().send(
+                    player,
+                    buildMessage(player, key, placeholders),
+                    2,
+                    PauseMode.PAUSE_CYCLE
+            );
         } catch (RuntimeException exception) {
             reportFailure("Could not send CombatTag action bar to " + player.getName(), exception);
         }
@@ -249,7 +257,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
 
     public void clearActionBar(Player player) {
         try {
-            player.sendActionBar(Component.empty());
+            ActionBars.service().sendOnce(player, Component.empty());
         } catch (RuntimeException exception) {
             reportFailure("Could not clear CombatTag action bar for " + player.getName(), exception);
         }
