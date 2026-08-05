@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +42,18 @@ class PerkStateServiceTest {
         fixture.service().initializeIfAbsent(fixture.player());
 
         assertTrue(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+    }
+
+    @Test
+    void initializationDoesNotRevokeUnownedExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().hasPermission(FairPerks.FLY_USE_PERMISSION)).thenReturn(false);
+        when(fixture.player().hasPermission(FairPerks.FLY_PERSIST_PERMISSION)).thenReturn(false);
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+
+        fixture.service().initialize(fixture.player());
+
+        verify(fixture.player(), never()).setAllowFlight(false);
     }
 
     @Test
