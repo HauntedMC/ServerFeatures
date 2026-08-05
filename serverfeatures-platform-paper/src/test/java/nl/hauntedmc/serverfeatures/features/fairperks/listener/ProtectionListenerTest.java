@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Set;
-import java.util.UUID;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -63,12 +62,39 @@ class ProtectionListenerTest {
 
     @Test
     void protectedOwnersCannotDamageOtherEntitiesThroughTamedPets() {
+        PetDamageFixture fixture = petDamageFixture();
+        Entity target = mock(Entity.class);
+        when(fixture.event().getEntity()).thenReturn(target);
+
+        fixture.listener().onPerkDamage(fixture.event());
+
+        verify(fixture.event()).setCancelled(true);
+        verify(fixture.feature()).sendActionBar(
+                fixture.owner(),
+                "fairperks.restriction.pet.god"
+        );
+    }
+
+    @Test
+    void protectedOwnersCannotBeDamagedByTheirOwnTamedPets() {
+        PetDamageFixture fixture = petDamageFixture();
+        when(fixture.event().getEntity()).thenReturn(fixture.owner());
+
+        fixture.listener().onPerkDamage(fixture.event());
+
+        verify(fixture.event()).setCancelled(true);
+        verify(fixture.feature()).sendActionBar(
+                fixture.owner(),
+                "fairperks.restriction.pet.god"
+        );
+    }
+
+    private static PetDamageFixture petDamageFixture() {
         FairPerks feature = mock(FairPerks.class);
         FairPerksSettings settings = mock(FairPerksSettings.class);
         PerkStateService stateService = mock(PerkStateService.class);
         Player owner = mock(Player.class);
         Tameable pet = mock(Tameable.class);
-        Entity target = mock(Entity.class);
         EntityDamageByEntityEvent event = mock(EntityDamageByEntityEvent.class);
 
         when(feature.settings()).thenReturn(settings);
@@ -76,16 +102,15 @@ class ProtectionListenerTest {
         when(settings.restrictions()).thenReturn(restrictions(true));
         when(pet.getOwner()).thenReturn(owner);
         when(event.getDamager()).thenReturn((Entity) pet);
-        when(event.getEntity()).thenReturn(target);
-        when(owner.getUniqueId()).thenReturn(UUID.randomUUID());
-        when(target.getUniqueId()).thenReturn(UUID.randomUUID());
         when(stateService.isRestricted(owner)).thenReturn(true);
         when(stateService.activeRestrictionMessageSuffix(owner)).thenReturn("god");
 
-        new ProtectionListener(feature).onPerkDamage(event);
-
-        verify(event).setCancelled(true);
-        verify(feature).sendActionBar(owner, "fairperks.restriction.pet.god");
+        return new PetDamageFixture(
+                feature,
+                owner,
+                event,
+                new ProtectionListener(feature)
+        );
     }
 
     private static FairPerksSettings.RestrictionSettings restrictions(boolean petDamage) {
@@ -108,5 +133,13 @@ class ProtectionListenerTest {
                 10,
                 Set.of()
         );
+    }
+
+    private record PetDamageFixture(
+            FairPerks feature,
+            Player owner,
+            EntityDamageByEntityEvent event,
+            ProtectionListener listener
+    ) {
     }
 }
