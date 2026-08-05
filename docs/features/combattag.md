@@ -4,7 +4,7 @@ CombatTag is the native ServerFeatures combat-state authority and has no externa
 
 ## Behavior
 
-A player is tagged whenever a configured combat interaction succeeds. Cancelled damage is ignored.
+A player is tagged whenever a configured combat interaction deals positive final damage. Cancelled and zero-final-damage events are ignored.
 
 - `PVP` tags player-versus-player interactions.
 - `MOBS` tags player-versus-mob interactions in both directions.
@@ -17,7 +17,7 @@ A player is tagged whenever a configured combat interaction succeeds. Cancelled 
 - expiry or another configured untag cause sends the configured exit message;
 - the remaining time is rendered through one bounded action-bar update task;
 - unchanged action-bar frames are not resent;
-- CombatTag only clears an action bar it previously rendered;
+- CombatTag uses an owner-scoped targeted override and can only clear the action bar while it still owns that override;
 - tags are retained across a feature reload with only their actual remaining duration;
 - tags are never persisted across a server restart.
 
@@ -78,6 +78,8 @@ Logout punishment can independently:
 - broadcast a localized message;
 - execute any number of console commands.
 
+When logout punishment is enabled, at least one of those actions must be configured. An enabled block that would do nothing fails configuration loading.
+
 The most recent incoming attacker is supplied as the causing and direct entity of a Paper `GENERIC_KILL` damage source when that entity is still available. A direct health fallback guarantees the configured death even if another protection listener cancels or absorbs the attributed damage.
 
 A player who has only dealt damage is still combat tagged and can still be punished, but no target is falsely registered as that player's killer. The unknown-attacker broadcast variant and empty attacker placeholders are used instead.
@@ -86,7 +88,7 @@ Administrative or server kicks are not punished by default. Set `punish-kicked-p
 
 Server shutdowns are never punished, independently of the kick setting. CombatTag checks Paper's explicit server-stopping state so scheduled restarts cannot kill players, broadcast combat-log messages, or execute logout commands.
 
-Kill, broadcast, and command actions are failure-isolated. An exception or unknown console command is logged without preventing the remaining configured actions. Command placeholders are replaced in a single pass and control characters are removed before console dispatch.
+Kill, broadcast, and command actions are failure-isolated. An exception or unknown console command is logged without preventing the remaining configured actions. Command placeholders are replaced in a single pass and every ISO control character is replaced before console dispatch.
 
 Command placeholders:
 
@@ -102,7 +104,7 @@ Command placeholders:
 | `{x}`, `{y}`, `{z}` | block coordinates |
 | `{source_available}` | whether the original damage-source entity is still loaded |
 
-Commands may be written with or without a leading slash.
+Commands may be written with or without leading slashes. Leading slashes are removed during configuration loading; slash-only and blank commands are invalid.
 
 ## Commands and permissions
 
@@ -195,7 +197,7 @@ feedback:
 
 `tagging.worlds.mode` accepts `ALL`, `BLACKLIST`, or `WHITELIST`. World names are matched case-insensitively.
 
-Configuration enum values are validated strictly. Unknown entity types, teleport causes, spawn reasons, modes, blank command entries, and unsafe numeric ranges prevent the feature from starting instead of silently weakening protection.
+Configuration enum values are validated strictly. Unknown entity types, teleport causes, spawn reasons, modes, blank or slash-only command entries, no-op enabled punishment blocks, and unsafe numeric ranges prevent the feature from starting instead of silently weakening protection.
 
 ## Operational verification
 
@@ -207,12 +209,13 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 6. Test an end crystal or another indirect player-caused explosion and verify the responsible player is resolved.
 7. Confirm ignored projectiles and disabled TNT linking cannot be bypassed by generic damage-source attribution.
 8. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
-9. Confirm cancelled damage does not create or refresh tags.
+9. Confirm cancelled and zero-final-damage events do not create or refresh tags.
 10. Test every allowed teleport cause and both portal types.
 11. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
 12. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
 13. Kick a tagged player with `punish-kicked-players` disabled and enabled.
 14. Stop or restart the server with tagged players online and confirm no logout punishment runs.
-15. Test status, other-player status, administrative untagging, and all associated permissions.
-16. Reload CombatTag and confirm active timers preserve only their remaining time.
-17. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
+15. Replace the CombatTag action bar with another targeted override, then let combat expire and confirm CombatTag does not clear the newer override.
+16. Test status, other-player status, administrative untagging, and all associated permissions.
+17. Reload CombatTag and confirm active timers preserve only their remaining time.
+18. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
