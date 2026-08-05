@@ -217,7 +217,9 @@ public final class CombatTagService implements CombatTagApi {
         if (settings.display().actionBar().enabled()) {
             showActionBar(player, session, durationNanos);
         }
-        return retagged ? CombatTagResult.RETAGGED : CombatTagResult.TAGGED;
+        CombatTagResult result = retagged ? CombatTagResult.RETAGGED : CombatTagResult.TAGGED;
+        feature.publishAppliedTag(player, result);
+        return result;
     }
 
     public boolean resetTimer(Player player) {
