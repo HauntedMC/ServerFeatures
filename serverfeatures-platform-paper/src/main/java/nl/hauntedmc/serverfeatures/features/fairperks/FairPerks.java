@@ -133,21 +133,21 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         messages.add("fairperks.denied.world", "&cDeze perk is in deze wereld niet beschikbaar.");
         messages.add("fairperks.denied.game_mode", "&cDeze perk is in je huidige gamemode niet beschikbaar.");
 
-        messages.add("fairperks.fly.enabled", "&aVliegen is ingeschakeld.");
-        messages.add("fairperks.fly.disabled", "&7Vliegen is uitgeschakeld.");
-        messages.add("fairperks.fly.already_enabled", "&eVliegen was al ingeschakeld.");
-        messages.add("fairperks.fly.already_disabled", "&eVliegen was al uitgeschakeld.");
-        messages.add("fairperks.fly.status_enabled", "&aVliegen staat ingeschakeld.");
-        messages.add("fairperks.fly.status_disabled", "&7Vliegen staat uitgeschakeld.");
-        messages.add("fairperks.fly.enabled_other", "&aVliegen is voor {target} ingeschakeld.");
-        messages.add("fairperks.fly.disabled_other", "&7Vliegen is voor {target} uitgeschakeld.");
-        messages.add("fairperks.fly.already_enabled_other", "&eVliegen was voor {target} al ingeschakeld.");
-        messages.add("fairperks.fly.already_disabled_other", "&eVliegen was voor {target} al uitgeschakeld.");
-        messages.add("fairperks.fly.status_enabled_other", "&aVliegen staat voor {target} ingeschakeld.");
-        messages.add("fairperks.fly.status_disabled_other", "&7Vliegen staat voor {target} uitgeschakeld.");
-        messages.add("fairperks.fly.target_enabled", "&a{actor} heeft vliegen voor je ingeschakeld.");
-        messages.add("fairperks.fly.target_disabled", "&7{actor} heeft vliegen voor je uitgeschakeld.");
-        messages.add("fairperks.flight.removed_permission", "&cVliegen is verwijderd omdat je bij het inloggen niet de vereiste permissies had.");
+        messages.add("fairperks.fly.enabled", "&aFly mode is ingeschakeld.");
+        messages.add("fairperks.fly.disabled", "&7Fly mode is uitgeschakeld.");
+        messages.add("fairperks.fly.already_enabled", "&eFly mode was al ingeschakeld.");
+        messages.add("fairperks.fly.already_disabled", "&eFly mode was al uitgeschakeld.");
+        messages.add("fairperks.fly.status_enabled", "&aFly mode staat ingeschakeld.");
+        messages.add("fairperks.fly.status_disabled", "&7Fly mode staat uitgeschakeld.");
+        messages.add("fairperks.fly.enabled_other", "&aFly mode is voor {target} ingeschakeld.");
+        messages.add("fairperks.fly.disabled_other", "&7Fly mode is voor {target} uitgeschakeld.");
+        messages.add("fairperks.fly.already_enabled_other", "&eFly mode was voor {target} al ingeschakeld.");
+        messages.add("fairperks.fly.already_disabled_other", "&eFly mode was voor {target} al uitgeschakeld.");
+        messages.add("fairperks.fly.status_enabled_other", "&aFly mode staat voor {target} ingeschakeld.");
+        messages.add("fairperks.fly.status_disabled_other", "&7Fly mode staat voor {target} uitgeschakeld.");
+        messages.add("fairperks.fly.target_enabled", "&a{actor} heeft Fly mode voor je ingeschakeld.");
+        messages.add("fairperks.fly.target_disabled", "&7{actor} heeft Fly mode voor je uitgeschakeld.");
+        messages.add("fairperks.flight.removed_permission", "&cFly mode is verwijderd omdat je bij het inloggen niet de vereiste permissies had.");
 
         messages.add("fairperks.god.enabled", "&aGod mode is ingeschakeld.");
         messages.add("fairperks.god.disabled", "&7God mode is uitgeschakeld.");
