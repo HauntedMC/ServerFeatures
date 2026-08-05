@@ -20,9 +20,9 @@ public final class PlayerLifecycleListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler(priority = EventPriority.LOWEST)
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        feature.stateService().initialize(event.getPlayer());
+        feature.stateService().initializeIfAbsent(event.getPlayer());
         feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(
                 () -> feature.stateService().reconcileEnvironment(event.getPlayer())
         );
