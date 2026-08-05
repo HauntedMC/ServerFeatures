@@ -33,6 +33,8 @@ The feature is disabled by default.
 
 A player whose permission is removed during a session can still disable an already-active personal perk. Permission removal is otherwise reconciled on the player's next login; there is intentionally no repeating permission scan.
 
+Staff with a perk's `*.others` permission can grant or remove that perk for an online player's current session even when the target lacks the personal use permission. Such an administrative grant is not persisted unless the target independently has both the use and persist permissions.
+
 The feature treats its command roots as required infrastructure. It refuses to finish loading when a required root or configured alias cannot be registered.
 
 ## Permissions
@@ -68,7 +70,7 @@ FairPerks distinguishes desired flight from active flight.
 
 World and game-mode changes suspend effective flight without clearing the desired state. Returning to an allowed environment restores the capability. These environment reconciliations do not recheck permissions.
 
-Players already online when the feature is enabled at runtime are initialized on the next server tick. During a feature reload, restored snapshots take priority and this bootstrap only initializes players missing from the snapshot.
+Players already online when the feature is enabled at runtime are initialized on the next server tick. During a feature reload, restored snapshots take priority and this bootstrap only initializes players missing from the snapshot. Commands also initialize their target idempotently before reading state, so they remain correct during that first-tick window.
 
 ## God mode
 
@@ -81,7 +83,7 @@ Enabling god mode does not:
 - clear potion effects;
 - alter inventory or experience.
 
-Ordinary damage is cancelled while effective god mode is active. Void protection is independently configurable and disabled by default.
+Ordinary damage is cancelled while effective god mode is active. Void protection is independently configurable and disabled by default. Returning to an allowed world or game mode also clears current hostile targets under the configured targeting policy.
 
 ## Activation guards
 
@@ -112,7 +114,9 @@ The following restrictions can be enabled independently:
 
 Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs, player-sourced TNT and area-effect clouds, evoker fangs, tamed mobs, and fireworks. This prevents changing the damage delivery mechanism from bypassing the same fairness policy.
 
-Spawner-created hostile mobs can be exempt. The feature recognizes both its own marker and the legacy `fairperks:spawnermob` marker. Malformed legacy markers are treated as absent rather than breaking event handling.
+Spawner-created hostile mobs can be exempt. The feature recognizes both its own marker and the legacy `fairperks:spawnermob` marker. Malformed legacy markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
+
+The classifier primarily follows Bukkit's `Enemy` hierarchy, with explicit compatibility for the standalone plugin's non-`Enemy` hostile types. Configured exclusions always win, and configured inclusions can add custom entity types.
 
 ## Configuration
 
@@ -213,15 +217,15 @@ Adoption still requires the normal FairPerks use and persist permissions before 
 ## Migration from the standalone plugin
 
 1. Configure the new permission nodes in LuckPerms.
-2. Disable Essentials' `fly` and `god` commands so their command roots are no longer registered.
-3. Keep Essentials installed for the first migrated login when legacy user flags must be cleared.
+2. Stop the backend and remove or otherwise disable the standalone FairPerks plugin. It must not remain active alongside this feature because both implementations register overlapping listeners and `/godmacro` ownership.
+3. Disable Essentials' `fly` and `god` commands so their command roots are no longer registered, but keep Essentials installed when legacy user flags must be migrated.
 4. Enable the ServerFeatures `FairPerks` feature.
-5. Restart a test backend and verify command ownership.
+5. Start a test backend and verify command ownership.
 6. Confirm persistent flight with a player who has both fly permissions.
 7. Confirm a player without the required permissions has stale native or migrated flight/god state removed on login.
 8. Confirm Essentials user data no longer contains active fly/god flags after migration.
 9. Confirm the double-sneak preference migrated from `fairperks:godmacro`.
-10. Remove the standalone FairPerks jar after production validation.
+10. Complete the remaining acceptance checks before rolling the change to every backend.
 
 Suggested permission mapping:
 
@@ -244,6 +248,7 @@ Grant the persist permissions only to ranks whose state should survive reconnect
 - Repeat without the use or persist permission and verify cleanup on login.
 - Remove a permission while online and verify there is no automatic scan; confirm `/fly off` or `/god off` still works for the active state.
 - Enable the feature while players are already online and verify they receive initialized state without reconnecting.
+- Use the `*.others` command on a target without the personal use permission and verify the grant works only for that session.
 - Enable god mode at low health and hunger and verify neither value changes.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
