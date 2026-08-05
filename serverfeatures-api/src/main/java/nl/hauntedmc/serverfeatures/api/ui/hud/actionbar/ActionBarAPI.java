@@ -26,6 +26,27 @@ public interface ActionBarAPI {
         sendOnce(player, component);
     }
 
+    /**
+     * Starts a targeted override owned by one logical producer.
+     *
+     * <p>Implementations should use the owner to ensure a later cleanup request cannot remove a
+     * newer override from another producer. The default delegates to the legacy targeted send.</p>
+     */
+    default void sendOverride(@NotNull Player player,
+                              @NotNull Component component,
+                              int seconds,
+                              @NotNull PauseMode pauseMode,
+                              @NotNull String owner) {
+        send(player, component, seconds, pauseMode);
+    }
+
+    /**
+     * Clears the active targeted override only when it is still owned by the supplied producer.
+     */
+    default void clearOverride(@NotNull Player player, @NotNull String owner) {
+        // Ownership cannot be verified by the compatibility implementation.
+    }
+
     // Broadcasts — static component
     void sendOnceBroadcast(@NotNull Component component);
 
