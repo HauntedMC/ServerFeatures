@@ -13,6 +13,8 @@ A player is tagged whenever a configured combat interaction deals positive final
 - incoming hits also update the attacker retained for logout kill attribution;
 - outgoing hits never overwrite a still-active incoming-attacker attribution;
 - an outgoing-only tag deliberately has no invented logout attacker;
+- if a displayed outgoing opponent dies while a different incoming attacker is retained, the session falls back to that incoming attacker instead of clearing combat;
+- if the retained incoming attacker dies while another displayed opponent remains, only stale logout attribution is removed;
 - a new tag sends the configured chat message;
 - expiry or another configured untag cause sends the configured exit message;
 - the remaining time is rendered through one bounded action-bar update task;
@@ -58,7 +60,8 @@ Mobs created through configured spawn reasons do not tag players. The default ex
 By default:
 
 - a player is untagged when they die;
-- every player tagged against an entity is untagged when that opponent dies;
+- a tag is cleared when its only remaining opponent dies;
+- simultaneous state is preserved when another current or retained incoming opponent still keeps the player in combat;
 - creeper opponents are cleared when they begin exploding;
 - Nether and End portals are blocked during combat;
 - other teleports are blocked unless their cause is explicitly allowed;
@@ -211,11 +214,12 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 8. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
 9. Confirm cancelled and zero-final-damage events do not create or refresh tags.
 10. Test every allowed teleport cause and both portal types.
-11. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
-12. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
-13. Kick a tagged player with `punish-kicked-players` disabled and enabled.
-14. Stop or restart the server with tagged players online and confirm no logout punishment runs.
-15. Replace the CombatTag action bar with another targeted override, then let combat expire and confirm CombatTag does not clear the newer override.
-16. Test status, other-player status, administrative untagging, and all associated permissions.
-17. Reload CombatTag and confirm active timers preserve only their remaining time.
-18. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
+11. Receive damage from one opponent, attack a second opponent, kill either one, and verify the remaining combat state and logout attribution stay correct.
+12. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
+13. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
+14. Kick a tagged player with `punish-kicked-players` disabled and enabled.
+15. Stop or restart the server with tagged players online and confirm no logout punishment runs.
+16. Replace the CombatTag action bar with another targeted override, then let combat expire and confirm CombatTag does not clear the newer override.
+17. Test status, other-player status, administrative untagging, and all associated permissions.
+18. Reload CombatTag and confirm active timers preserve only their remaining time.
+19. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
