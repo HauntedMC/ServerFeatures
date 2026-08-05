@@ -32,6 +32,7 @@ public final class CommandScheduleRepository extends ConfigView {
 
     private final CommandScheduler feature;
     private Map<String, Object> preservedInvalidEntries = Map.of();
+    private Set<String> activeValidIds = Set.of();
     private boolean schedulesWritable = true;
 
     public CommandScheduleRepository(CommandScheduler feature) {
@@ -56,6 +57,7 @@ public final class CommandScheduleRepository extends ConfigView {
         if (schedulesNode.isNull()) {
             schedulesWritable = true;
             preservedInvalidEntries = Map.of();
+            activeValidIds = Set.of();
             return new LoadResult(Map.of(), 0);
         }
         if (!(schedulesNode.raw() instanceof Map<?, ?>)) {
@@ -65,6 +67,7 @@ public final class CommandScheduleRepository extends ConfigView {
                             + "In-game schedule changes are blocked until the file is corrected and reloaded."
             );
             preservedInvalidEntries = Map.of();
+            activeValidIds = Set.of();
             return new LoadResult(Map.of(), 1);
         }
 
@@ -87,6 +90,7 @@ public final class CommandScheduleRepository extends ConfigView {
             }
         }
         preservedInvalidEntries = Collections.unmodifiableMap(invalidEntries);
+        activeValidIds = immutableIdSet(loaded.keySet());
         return new LoadResult(immutableOrdered(loaded.values()), invalid);
     }
 
@@ -95,27 +99,27 @@ public final class CommandScheduleRepository extends ConfigView {
     }
 
     public void save(Collection<CommandSchedule> schedules) {
-        save(schedules, Set.of());
-    }
-
-    public void save(
-            Collection<CommandSchedule> schedules,
-            Collection<String> removedScheduleIds
-    ) {
         if (!schedulesWritable) {
             throw new IllegalStateException(
                     "Cannot update local/commandscheduler.yml while 'schedules' is not a map"
             );
         }
 
+        Set<String> nextValidIds = schedules.stream()
+                .map(CommandSchedule::id)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Set<String> removedIds = new LinkedHashSet<>(activeValidIds);
+        removedIds.removeAll(nextValidIds);
+
         SaveData saveData = buildSaveData(
                 schedules,
                 preservedInvalidEntries,
-                removedScheduleIds
+                removedIds
         );
         put("schedules", saveData.serialized());
-        // Update preservation state only after the durable write succeeds.
+        // Update in-memory preservation state only after the durable write succeeds.
         preservedInvalidEntries = saveData.retainedInvalidEntries();
+        activeValidIds = immutableIdSet(nextValidIds);
     }
 
     static SaveData buildSaveData(
@@ -238,6 +242,10 @@ public final class CommandScheduleRepository extends ConfigView {
         }
     }
 
+    private static Set<String> immutableIdSet(Collection<String> ids) {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(ids));
+    }
+
     private static Map<String, CommandSchedule> immutableOrdered(
             Collection<CommandSchedule> schedules
     ) {
@@ -259,7 +267,7 @@ public final class CommandScheduleRepository extends ConfigView {
                 : message;
     }
 
-    static record SaveData(
+    record SaveData(
             Map<String, Object> serialized,
             Map<String, Object> retainedInvalidEntries
     ) {
