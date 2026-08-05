@@ -77,4 +77,9 @@ class NotifyLoginDefaultsTest {
                 messages.get("notifylogin.group.supremeplus.quit")
         );
     }
+
+    @Test
+    void featureVersionReflectsSyntheticVanishSelfDeliveryFix() {
+        assertEquals("2.0.1", new Meta().getFeatureVersion());
+    }
 }

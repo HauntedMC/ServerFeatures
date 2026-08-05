@@ -106,4 +106,24 @@ class NotificationHandlerTest {
                 NotificationHandler.VisibilityState.VISIBLE
         ));
     }
+
+    @Test
+    void syntheticVanishQuitIncludesTheSubjectWhileARealQuitDoesNot() {
+        assertTrue(NotificationHandler.shouldExcludeSubject(
+                ConnectionMessageSettings.EventType.QUIT,
+                NotificationHandler.AnnouncementOrigin.REAL_CONNECTION
+        ));
+        assertFalse(NotificationHandler.shouldExcludeSubject(
+                ConnectionMessageSettings.EventType.QUIT,
+                NotificationHandler.AnnouncementOrigin.VANISH_TRANSITION
+        ));
+        assertFalse(NotificationHandler.shouldExcludeSubject(
+                ConnectionMessageSettings.EventType.JOIN,
+                NotificationHandler.AnnouncementOrigin.REAL_CONNECTION
+        ));
+        assertFalse(NotificationHandler.shouldExcludeSubject(
+                ConnectionMessageSettings.EventType.JOIN,
+                NotificationHandler.AnnouncementOrigin.VANISH_TRANSITION
+        ));
+    }
 }

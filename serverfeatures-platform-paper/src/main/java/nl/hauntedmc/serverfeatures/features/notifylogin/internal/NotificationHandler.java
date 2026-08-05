@@ -145,7 +145,11 @@ public final class NotificationHandler {
             return;
         }
 
-        broadcast(player, ConnectionMessageSettings.EventType.QUIT);
+        broadcast(
+                player,
+                ConnectionMessageSettings.EventType.QUIT,
+                AnnouncementOrigin.REAL_CONNECTION
+        );
     }
 
     /**
@@ -171,7 +175,8 @@ public final class NotificationHandler {
 
         broadcast(
                 player,
-                vanished ? ConnectionMessageSettings.EventType.QUIT : ConnectionMessageSettings.EventType.JOIN
+                vanished ? ConnectionMessageSettings.EventType.QUIT : ConnectionMessageSettings.EventType.JOIN,
+                AnnouncementOrigin.VANISH_TRANSITION
         );
     }
 
@@ -208,6 +213,14 @@ public final class NotificationHandler {
                 && previousVisibility != VisibilityState.PENDING
                 && previousVisibility != VisibilityState.UNKNOWN
                 && previousVisibility != VisibilityState.HIDDEN;
+    }
+
+    static boolean shouldExcludeSubject(
+            ConnectionMessageSettings.EventType eventType,
+            AnnouncementOrigin origin
+    ) {
+        return eventType == ConnectionMessageSettings.EventType.QUIT
+                && origin == AnnouncementOrigin.REAL_CONNECTION;
     }
 
     private void completeJoin(
@@ -248,10 +261,18 @@ public final class NotificationHandler {
             }
         }
 
-        broadcast(player, ConnectionMessageSettings.EventType.JOIN);
+        broadcast(
+                player,
+                ConnectionMessageSettings.EventType.JOIN,
+                AnnouncementOrigin.REAL_CONNECTION
+        );
     }
 
-    private void broadcast(Player subject, ConnectionMessageSettings.EventType eventType) {
+    private void broadcast(
+            Player subject,
+            ConnectionMessageSettings.EventType eventType,
+            AnnouncementOrigin origin
+    ) {
         ConnectionMessageSettings.Resolution resolution;
         try {
             resolution = settings.resolve(
@@ -270,8 +291,8 @@ public final class NotificationHandler {
         }
 
         for (Player recipient : Bukkit.getOnlinePlayers()) {
-            if (eventType == ConnectionMessageSettings.EventType.QUIT
-                    && recipient.getUniqueId().equals(subject.getUniqueId())) {
+            if (recipient.getUniqueId().equals(subject.getUniqueId())
+                    && shouldExcludeSubject(eventType, origin)) {
                 continue;
             }
             if (!canSee(recipient, subject)) {
@@ -311,6 +332,11 @@ public final class NotificationHandler {
         }
         String message = current.getMessage();
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
+    }
+
+    enum AnnouncementOrigin {
+        REAL_CONNECTION,
+        VANISH_TRANSITION
     }
 
     enum VisibilityState {
