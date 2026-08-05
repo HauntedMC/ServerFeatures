@@ -2,13 +2,9 @@ name: CI Lint
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
+    types: [opened, synchronize, reopened]
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   lint:
@@ -20,20 +16,11 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-
-      - name: Validate package token
-        run: |
-          test -n "$PACKAGES_USER"
-          test -n "$PACKAGES_TOKEN"
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
@@ -41,12 +28,8 @@ jobs:
           server-id: github
           server-username: PACKAGES_USER
           server-password: PACKAGES_TOKEN
-
-      - name: Run Checkstyle
-        run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
-
-      - name: Lint release and acceptance scripts
-        run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
+      - run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
+      - run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
 
   finalize-lottery:
     name: Finalize simplified Lottery
@@ -58,16 +41,12 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-
     steps:
-      - name: Checkout Lottery branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: agent/lottery-feature
           fetch-depth: 0
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: "25"
@@ -75,8 +54,7 @@ jobs:
           server-id: github
           server-username: PACKAGES_USER
           server-password: PACKAGES_TOKEN
-
-      - name: Apply and validate final safeguards
+      - name: Apply safeguards and validate
         shell: bash
         run: |
           set -euo pipefail
@@ -114,7 +92,7 @@ jobs:
 
           start = source.index('    public RoundSnapshot ensureOpenRound(')
           end = source.index('    public Optional<RoundSnapshot> currentRound(', start)
-          ensure_method = '''    public RoundSnapshot ensureOpenRound(
+          source = source[:start] + '''    public RoundSnapshot ensureOpenRound(
                   LotterySettings settings,
                   String seed,
                   String commitment,
@@ -148,8 +126,7 @@ jobs:
               }
           }
 
-          '''
-          source = source[:start] + ensure_method + source[end:]
+          ''' + source[end:]
 
           complete_start = source.index('    public RoundSnapshot completeDraw(')
           complete_body = source.index('        return orm.runInTransaction', complete_start)
@@ -184,11 +161,7 @@ jobs:
               );
               session.persist(next);'''
           if complete_next in source:
-              source = source.replace(
-                  complete_next,
-                  '            session.flush();\n' + complete_next,
-                  1
-              )
+              source = source.replace(complete_next, '            session.flush();\n' + complete_next, 1)
 
           source = source.replace(
               '            round.setStatus(RoundStatus.CANCELLED.name());\n'
@@ -207,7 +180,7 @@ jobs:
 
           current_start = source.index('    private Optional<LotteryRoundEntity> findCurrentRound(')
           current_end = source.index('    private LotteryRoundEntity requiredRound(', current_start)
-          current_method = '''    private Optional<LotteryRoundEntity> findCurrentRound(
+          source = source[:current_start] + '''    private Optional<LotteryRoundEntity> findCurrentRound(
                   Session session,
                   String lotteryKey,
                   boolean lock
@@ -224,16 +197,23 @@ jobs:
               return query.getResultStream().findFirst();
           }
 
-          '''
-          source = source[:current_start] + current_method + source[current_end:]
+          ''' + source[current_end:]
 
           if 'round.setActiveKey(settings.lotteryKey());' not in source:
-              source = source.replace(
-                  '        round.setStatus(RoundStatus.OPEN.name());\n',
+              target = (
+                  '        round.setLotteryKey(settings.lotteryKey());\n'
                   '        round.setStatus(RoundStatus.OPEN.name());\n'
-                  '        round.setActiveKey(settings.lotteryKey());\n',
-                  1
+                  '        round.setOpenedAt(now);'
               )
+              replacement = (
+                  '        round.setLotteryKey(settings.lotteryKey());\n'
+                  '        round.setStatus(RoundStatus.OPEN.name());\n'
+                  '        round.setActiveKey(settings.lotteryKey());\n'
+                  '        round.setOpenedAt(now);'
+              )
+              if target not in source:
+                  raise SystemExit('LotteryRepository newRound anchor is missing')
+              source = source.replace(target, replacement, 1)
 
           if 'private static boolean activeRoundConstraintFailure' not in source:
               helper = '''    private static boolean activeRoundConstraintFailure(Throwable failure) {
@@ -283,11 +263,7 @@ jobs:
                   assertThrows(IllegalArgumentException.class, () -> engine.draw(round, List.of(), settings()));
               }
           '''
-              source = source.replace(
-                  '\n    private static LotterySettings settings() {',
-                  test + '\n    private static LotterySettings settings() {',
-                  1
-              )
+              source = source.replace('\n    private static LotterySettings settings() {', test + '\n    private static LotterySettings settings() {', 1)
           draw_test.write_text(source, encoding='utf-8')
 
           schema_test = Path(
@@ -296,11 +272,7 @@ jobs:
           )
           source = schema_test.read_text(encoding='utf-8')
           if 'import jakarta.persistence.Version;' not in source:
-              source = source.replace(
-                  'import jakarta.persistence.Table;\n',
-                  'import jakarta.persistence.Table;\nimport jakarta.persistence.Version;\n',
-                  1
-              )
+              source = source.replace('import jakarta.persistence.Table;\n', 'import jakarta.persistence.Table;\nimport jakarta.persistence.Version;\n', 1)
           if 'assertTrue' not in source:
               source = source.replace(
                   'import static org.junit.jupiter.api.Assertions.assertNotNull;\n',
