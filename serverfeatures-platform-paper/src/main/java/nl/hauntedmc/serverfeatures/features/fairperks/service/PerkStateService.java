@@ -148,7 +148,22 @@ public final class PerkStateService {
             PerkType perk,
             boolean bypassActivationGuard
     ) {
-        return set(player, perk, !isDesired(player, perk), bypassActivationGuard);
+        return toggle(player, perk, bypassActivationGuard, false);
+    }
+
+    public PerkChangeResult toggle(
+            Player player,
+            PerkType perk,
+            boolean bypassActivationGuard,
+            boolean bypassUsePermission
+    ) {
+        return set(
+                player,
+                perk,
+                !isDesired(player, perk),
+                bypassActivationGuard,
+                bypassUsePermission
+        );
     }
 
     public PerkChangeResult set(
@@ -156,6 +171,16 @@ public final class PerkStateService {
             PerkType perk,
             boolean enabled,
             boolean bypassActivationGuard
+    ) {
+        return set(player, perk, enabled, bypassActivationGuard, false);
+    }
+
+    public PerkChangeResult set(
+            Player player,
+            PerkType perk,
+            boolean enabled,
+            boolean bypassActivationGuard,
+            boolean bypassUsePermission
     ) {
         SessionState state = stateFor(player);
         boolean current = desired(state, perk);
@@ -167,7 +192,7 @@ public final class PerkStateService {
             String permission = perk == PerkType.FLY
                     ? FairPerks.FLY_USE_PERMISSION
                     : FairPerks.GOD_USE_PERMISSION;
-            if (!player.hasPermission(permission)) {
+            if (!bypassUsePermission && !player.hasPermission(permission)) {
                 return PerkChangeResult.denied(PerkChangeResult.Status.NO_PERMISSION);
             }
             PerkChangeResult.Status decision = policy.canEnable(player, perk, bypassActivationGuard);
@@ -246,22 +271,35 @@ public final class PerkStateService {
      */
     public void reconcileEnvironment(Player player) {
         SessionState state = states.get(player.getUniqueId());
-        if (state == null || !state.flyDesired || isNativeFlightMode(player)) {
+        if (state == null) {
             return;
         }
-        if (policy.allowsEnvironment(player, PerkType.FLY)) {
-            if (!player.getAllowFlight()) {
-                applyFlight(player, state, false, false);
+
+        if (state.flyDesired && !isNativeFlightMode(player)) {
+            if (policy.allowsEnvironment(player, PerkType.FLY)) {
+                if (!player.getAllowFlight()) {
+                    applyFlight(player, state, false, false);
+                }
+            } else if (state.flyOwned || readBoolean(player, FLY_OWNED_KEY)) {
+                revokeFlight(player, state, false, true);
             }
-        } else if (state.flyOwned || readBoolean(player, FLY_OWNED_KEY)) {
-            revokeFlight(player, state, false, true);
+        }
+
+        if (state.godDesired && policy.allowsEnvironment(player, PerkType.GOD)) {
+            clearHostileTargets(player);
         }
     }
 
     public void reconcileAfterRespawn(Player player) {
         SessionState state = states.get(player.getUniqueId());
-        if (state != null && state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
+        if (state == null) {
+            return;
+        }
+        if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
             applyFlight(player, state, false, false);
+        }
+        if (state.godDesired && policy.allowsEnvironment(player, PerkType.GOD)) {
+            clearHostileTargets(player);
         }
     }
 
@@ -328,6 +366,9 @@ public final class PerkStateService {
             }
             if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
                 applyFlight(player, state, player.isFlying(), true);
+            }
+            if (state.godDesired && policy.allowsEnvironment(player, PerkType.GOD)) {
+                clearHostileTargets(player);
             }
         }
     }
@@ -488,7 +529,7 @@ public final class PerkStateService {
 
     private void migrateLegacyEssentialsState(Player player, PersistentDataContainer data) {
         if (!settings.migration().clearLegacyEssentialsState()
-                || data.has(LEGACY_ESSENTIALS_MIGRATED_KEY)) {
+                || readBoolean(player, LEGACY_ESSENTIALS_MIGRATED_KEY)) {
             return;
         }
 
@@ -507,7 +548,7 @@ public final class PerkStateService {
                 && !data.has(GOD_ENABLED_KEY)) {
             writeBoolean(player, GOD_ENABLED_KEY, true);
         }
-        data.set(LEGACY_ESSENTIALS_MIGRATED_KEY, PersistentDataType.BYTE, TRUE);
+        writeBoolean(player, LEGACY_ESSENTIALS_MIGRATED_KEY, true);
     }
 
     private static Boolean readLegacyMacro(PersistentDataContainer data) {
