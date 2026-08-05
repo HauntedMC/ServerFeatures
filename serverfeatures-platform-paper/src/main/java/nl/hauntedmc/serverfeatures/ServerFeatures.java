@@ -32,10 +32,7 @@ public class ServerFeatures extends JavaPlugin {
     private ConfigService configService;
     private FeatureLifecycleFactory featureLifecycleFactory;
     private FeatureScopeFactory featureScopeFactory;
-
-    // Keep if other parts of your framework still use dispatcher (features registering their own brig nodes).
     private BrigadierDispatcher brigadierDispatcher;
-
 
     @Override
     public void onEnable() {
@@ -46,6 +43,10 @@ public class ServerFeatures extends JavaPlugin {
         configService = new ConfigService(this);
         mainConfigHandler = new MainConfigHandler(this, configService);
         localizationHandler = new LocalizationHandler(this, configService);
+
+        brigadierDispatcher = new BrigadierDispatcher(this);
+        brigadierDispatcher.resolveDispatcher();
+
         featureLifecycleFactory = new FeatureLifecycleFactory(this);
         featureScopeFactory = new FeatureScopeFactory(
                 this,
@@ -54,10 +55,6 @@ public class ServerFeatures extends JavaPlugin {
                 featureLifecycleFactory
         );
         featureLoadManager = FeatureLoadManager.create(this);
-
-        // Optional: if your feature system still needs direct dispatcher access elsewhere
-        brigadierDispatcher = new BrigadierDispatcher(this);
-        brigadierDispatcher.resolveDispatcher();
 
         registerFrameworkCommand();
         registerFrameworkListeners();
@@ -74,7 +71,10 @@ public class ServerFeatures extends JavaPlugin {
     }
 
     private void registerFrameworkCommand() {
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> commands.registrar().register(new ServerFeaturesCommand(this).buildTree()));
+        this.getLifecycleManager().registerEventHandler(
+                LifecycleEvents.COMMANDS,
+                commands -> commands.registrar().register(new ServerFeaturesCommand(this).buildTree())
+        );
     }
 
     @Override
@@ -99,7 +99,6 @@ public class ServerFeatures extends JavaPlugin {
         PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new ScoreboardListener(this), this);
         pm.registerEvents(new PreviewUIListener(), this);
-
     }
 
     /* ============================== ACCESSORS ============================== */

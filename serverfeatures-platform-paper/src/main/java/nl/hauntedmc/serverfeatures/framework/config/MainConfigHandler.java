@@ -16,6 +16,8 @@ import java.util.logging.Logger;
  */
 public final class MainConfigHandler extends ConfigView {
 
+    private static final String OVERWRITE_COMMAND_CONFLICTS = "commands.overwrite-conflicts";
+
     private final Logger logger;
     private final ConfigService service;
 
@@ -27,7 +29,10 @@ public final class MainConfigHandler extends ConfigView {
         super(service.open("config.yml", true), "");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.service = Objects.requireNonNull(service, "service");
-        injectGlobalDefaults(Map.of("server_name", "server"));
+        injectGlobalDefaults(Map.of(
+                "server_name", "server",
+                OVERWRITE_COMMAND_CONFLICTS, true
+        ));
     }
 
     public void reloadConfig() {
@@ -57,6 +62,10 @@ public final class MainConfigHandler extends ConfigView {
 
     public void setFeatureEnabled(String featureName, boolean enabled) {
         openFeatureConfig(featureName).put("enabled", enabled);
+    }
+
+    public boolean shouldOverwriteCommandConflicts() {
+        return getGlobalSetting(OVERWRITE_COMMAND_CONFLICTS, Boolean.class, true);
     }
 
     public void migrateLegacyFeatureConfig(String featureName) {
