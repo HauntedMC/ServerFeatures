@@ -66,7 +66,7 @@ FairPerks distinguishes desired flight from active flight.
 - Persistent flight requires both the use and persist permissions.
 - On login, a persistent flyer can be placed back into active flight when they logged out flying or join in mid-air, according to configuration.
 - Active flight is captured before normal server shutdown or feature disable, before FairPerks revokes its live capability.
-- If invalid FairPerks flight is removed while airborne, the next fall-damage event can be cancelled once. The grace is cleared on landing, death, or logout.
+- If invalid FairPerks flight is removed while airborne, the next fall-damage event can be cancelled once. The grace is cleared one tick after a safe landing, or immediately on damage, death, or logout.
 
 World and game-mode changes suspend effective flight without clearing the desired state. Returning to an allowed environment restores the capability. These environment reconciliations do not recheck permissions.
 
@@ -255,4 +255,5 @@ Grant the persist permissions only to ranks whose state should survive reconnect
 - Verify spawner mobs remain exempt when configured.
 - Verify legacy Essentials fly/god flags are cleared and adopted only for eligible persistent users.
 - Reload the feature while a player is flying and while a player is in god mode.
+- Verify fall grace survives the landing move event long enough to cancel the matching fall-damage event, and clears after a safe landing.
 - Verify no duplicate commands, listeners, or tasks remain after reload.
