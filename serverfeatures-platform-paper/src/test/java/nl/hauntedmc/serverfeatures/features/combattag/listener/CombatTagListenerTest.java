@@ -1,13 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.combattag.listener;
 
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
-import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
-import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
-import org.bukkit.Server;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Enemy;
@@ -21,7 +18,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -87,14 +83,13 @@ class CombatTagListenerTest {
     }
 
     @Test
-    void neutralMobActivelyTargetingThePlayerDoesTagOnDamage() {
+    void targetedNeutralMobDoesNotCountAsAnEnemyType() {
         CombatTagSettings settings = settings(Set.of());
         CombatTagService service = mock(CombatTagService.class);
         CombatTagListener listener = listener(settings, service);
         Mob wolf = mock(Mob.class);
-        UUID wolfId = UUID.randomUUID();
         Player target = player("Target");
-        when(wolf.getUniqueId()).thenReturn(wolfId);
+        when(wolf.getUniqueId()).thenReturn(UUID.randomUUID());
         when(wolf.getType()).thenReturn(EntityType.WOLF);
         when(wolf.getName()).thenReturn("Wolf");
         when(wolf.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.NATURAL);
@@ -102,12 +97,8 @@ class CombatTagListenerTest {
 
         listener.onDamage(damageEvent(wolf, target));
 
-        verify(service).tagIncoming(
-                eq(target),
-                any(),
-                eq(wolfId),
-                eq(CombatTagReason.MELEE)
-        );
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+        verify(service, never()).tagOutgoing(any(), any(), any(), any());
     }
 
     @Test
@@ -122,6 +113,24 @@ class CombatTagListenerTest {
 
         verify(service, never()).tagIncoming(any(), any(), any(), any());
         verify(service, never()).tagOutgoing(any(), any(), any(), any());
+    }
+
+    @Test
+    void attackingEnemyMobTagsThePlayer() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Player attacker = player("Attacker");
+        LivingEntity enemy = hostileMob(CreatureSpawnEvent.SpawnReason.NATURAL);
+
+        listener.onDamage(damageEvent(attacker, enemy));
+
+        verify(service).tagOutgoing(
+                eq(attacker),
+                any(),
+                eq(enemy.getUniqueId()),
+                eq(CombatTagReason.MELEE)
+        );
     }
 
     @Test
@@ -149,25 +158,6 @@ class CombatTagListenerTest {
                 eq(targetId),
                 eq(CombatTagReason.MELEE)
         );
-    }
-
-    @Test
-    void successfulTagPublishesAppliedEvent() {
-        CombatTagSettings settings = settings(Set.of());
-        CombatTagService service = mock(CombatTagService.class);
-        CombatTagListener listener = listener(settings, service);
-        LivingEntity mob = hostileMob(CreatureSpawnEvent.SpawnReason.NATURAL);
-        Player target = player("Target");
-        Server server = mock(Server.class);
-        PluginManager pluginManager = mock(PluginManager.class);
-        when(target.getServer()).thenReturn(server);
-        when(server.getPluginManager()).thenReturn(pluginManager);
-        when(service.tagIncoming(any(), any(), any(), any()))
-                .thenReturn(CombatTagResult.TAGGED);
-
-        listener.onDamage(damageEvent(mob, target));
-
-        verify(pluginManager).callEvent(any(CombatTagAppliedEvent.class));
     }
 
     @Test
