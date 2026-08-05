@@ -10,11 +10,14 @@ A player is tagged whenever a configured combat interaction succeeds. Cancelled 
 - `MOBS` tags player-versus-mob interactions in both directions.
 - `BOTH` enables both policies.
 - dealing or receiving another qualifying hit replaces the displayed opponent and resets the full timer;
-- incoming hits also update the attacker retained for logout punishment;
+- incoming hits also update the attacker retained for logout kill attribution;
 - outgoing hits never overwrite a still-active incoming-attacker attribution;
+- an outgoing-only tag deliberately has no invented logout attacker;
 - a new tag sends the configured chat message;
 - expiry or another configured untag cause sends the configured exit message;
 - the remaining time is rendered through one bounded action-bar update task;
+- unchanged action-bar frames are not resent;
+- CombatTag only clears an action bar it previously rendered;
 - tags are retained across a feature reload with only their actual remaining duration;
 - tags are never persisted across a server restart.
 
@@ -24,11 +27,11 @@ The fixed bypass permission is:
 serverfeatures.feature.combattag.bypass
 ```
 
-It defaults to operators. A bypassed player is not tagged, restricted, or punished. The bypass does not prevent that player from being recorded as the opponent of a non-bypassed player they attack.
+It defaults to operators. A bypassed player is not tagged, restricted, or punished. Runtime permission changes are reconciled by the display task, so granting the bypass also removes an active tag. The bypass does not prevent that player from being recorded as the opponent of a non-bypassed player they attack.
 
 ## Attribution
 
-CombatTag resolves the responsible attacker rather than treating every damage carrier as an unrelated entity.
+CombatTag uses Paper's authoritative damage source and resolves the responsible attacker rather than treating every damage carrier as an unrelated entity.
 
 Supported attribution includes:
 
@@ -39,7 +42,10 @@ Supported attribution includes:
 - fishing hooks;
 - area-effect clouds;
 - evoker fangs;
-- fireworks.
+- fireworks;
+- player-caused indirect explosions and other Paper damage sources when no more specific carrier applies.
+
+Specific carrier rules take priority. For example, an ignored projectile remains ignored even when Paper reports its shooter as the causing entity, and disabling TNT linking is not bypassed by generic damage-source fallback.
 
 Pet linking applies only to the attacking side. Attacking somebody else's pet does not tag the pet owner.
 
@@ -72,7 +78,13 @@ Logout punishment can independently:
 - broadcast a localized message;
 - execute any number of console commands.
 
-The most recent incoming attacker is passed to Bukkit's damage API before the fallback kill so ordinary player or entity kill attribution is preserved when possible. If the player has only dealt damage during the current tag, the first outgoing opponent is used as the fallback attribution. The fallback kill guarantees the configured punishment even if another protection listener cancels the attributed damage.
+The most recent incoming attacker is supplied as the causing and direct entity of a Paper `GENERIC_KILL` damage source when that entity is still available. A direct health fallback guarantees the configured death even if another protection listener cancels or absorbs the attributed damage.
+
+A player who has only dealt damage is still combat tagged and can still be punished, but no target is falsely registered as that player's killer. The unknown-attacker broadcast variant and empty attacker placeholders are used instead.
+
+Administrative or server kicks are not punished by default. Set `punish-kicked-players: true` only when kicks should be treated exactly like voluntary disconnects.
+
+Kill, broadcast, and command actions are failure-isolated. An exception or unknown console command is logged without preventing the remaining configured actions.
 
 Command placeholders:
 
@@ -80,14 +92,25 @@ Command placeholders:
 | --- | --- |
 | `{player}` | quitting player name |
 | `{uuid}` | quitting player UUID |
-| `{attacker}` | retained logout attacker display name |
-| `{attacker_uuid}` | retained logout attacker UUID |
-| `{attacker_type}` | Bukkit entity type |
+| `{attacker}` | retained incoming attacker display name, or empty |
+| `{attacker_uuid}` | retained incoming attacker UUID, or empty |
+| `{attacker_type}` | Bukkit entity type, or `UNKNOWN` |
+| `{attacker_known}` | whether an incoming attacker is known |
 | `{world}` | logout world |
 | `{x}`, `{y}`, `{z}` | block coordinates |
-| `{source_available}` | whether the original damage source still exists |
+| `{source_available}` | whether the original damage-source entity is still loaded |
 
 Commands may be written with or without a leading slash.
+
+## Commands and permissions
+
+| Command | Permission | Purpose |
+| --- | --- | --- |
+| `/combattag status` | `serverfeatures.feature.combattag.command.status` | View your remaining time, opponent, and tag reason. |
+| `/combattag status <player>` | `serverfeatures.feature.combattag.command.status.others` | Inspect another online player. |
+| `/combattag untag <player>` | `serverfeatures.feature.combattag.command.untag` | Administratively clear a tag. |
+
+Personal status is available to players by default. Other-player inspection and administrative untagging default to operators. The command root is required infrastructure; CombatTag refuses to complete startup if it cannot register `/combattag`.
 
 ## Public API
 
@@ -102,9 +125,9 @@ CombatTagResult result = combatTags.tag(player, opponent, CombatTagReason.EXTERN
 boolean removed = combatTags.untag(player, CombatUntagReason.EXTERNAL);
 ```
 
-`CombatTags.service()` always returns a non-null service. It becomes a strict no-op when CombatTag is unavailable. Reads are safe from any thread; write methods must be invoked from the server thread.
+`CombatTags.service()` always returns a non-null service. It becomes a strict no-op when CombatTag is unavailable. Reads are safe from any thread. Write methods enforce server-thread usage and throw `IllegalStateException` when called asynchronously instead of allowing unsafe Bukkit access.
 
-A snapshot exposes the player, current opponent, latest tag reason, tag and expiry instants, and remaining duration.
+A snapshot exposes the player, current displayed opponent, latest tag reason, tag and expiry instants, and remaining duration.
 
 ## Configuration
 
@@ -150,6 +173,7 @@ logout-punishment:
   enabled: true
   kill-player: true
   broadcast: true
+  punish-kicked-players: false
   commands: []
 
 display:
@@ -178,10 +202,14 @@ Configuration enum values are validated strictly. Unknown entity types, teleport
 3. Test wolf damage with pet linking enabled and disabled.
 4. Test the three ignored projectile defaults and verify disabling projectiles also disables fireworks.
 5. Test fishing hooks and player-, mob-, and dispenser-created TNT.
-6. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
-7. Confirm cancelled damage does not create or refresh tags.
-8. Test every allowed teleport cause and both portal types.
-9. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
-10. Quit against an online player, a mob, and an unloaded opponent.
-11. Reload CombatTag and confirm active timers preserve only their remaining time.
-12. Reload or disable CombatTag and confirm no listener, task, action bar, or API service remains.
+6. Test an end crystal or another indirect player-caused explosion and verify the responsible player is resolved.
+7. Confirm ignored projectiles and disabled TNT linking cannot be bypassed by generic damage-source attribution.
+8. Confirm spawner mobs do not tag players before or after a feature reload or chunk reload.
+9. Confirm cancelled damage does not create or refresh tags.
+10. Test every allowed teleport cause and both portal types.
+11. Receive damage, attack another entity, then quit and verify the incoming attacker retains kill attribution.
+12. Attack without first receiving damage, then quit and verify punishment occurs without false kill credit.
+13. Kick a tagged player with `punish-kicked-players` disabled and enabled.
+14. Test status, other-player status, administrative untagging, and all associated permissions.
+15. Reload CombatTag and confirm active timers preserve only their remaining time.
+16. Reload or disable CombatTag and confirm no listener, task, action bar, command, or API service remains.
