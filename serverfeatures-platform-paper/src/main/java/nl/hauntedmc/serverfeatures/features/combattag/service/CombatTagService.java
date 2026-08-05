@@ -173,10 +173,14 @@ public final class CombatTagService implements CombatTagApi {
             return CombatTagResult.INVALID;
         }
 
+        UUID playerId = player.getUniqueId();
         long nowNanos = nanoTime.getAsLong();
         Instant now = clock.instant();
-        Session previous = sessions.get(player.getUniqueId());
+        Session previous = sessions.get(playerId);
         boolean retagged = previous != null && previous.expiresAtNanos() > nowNanos;
+        if (!retagged) {
+            restrictionFeedback.remove(playerId);
+        }
 
         CombatOpponent logoutOpponent = incomingDamage
                 ? opponent
@@ -186,7 +190,7 @@ public final class CombatTagService implements CombatTagApi {
                 : retagged ? previous.logoutDamageSourceId() : null;
 
         Session session = new Session(
-                player.getUniqueId(),
+                playerId,
                 opponent,
                 damageSourceId,
                 reason,
@@ -196,8 +200,8 @@ public final class CombatTagService implements CombatTagApi {
                 now.plusSeconds(settings.tagging().durationSeconds()),
                 saturatedAdd(nowNanos, durationNanos)
         );
-        sessions.put(player.getUniqueId(), session);
-        actionBarFrames.remove(player.getUniqueId());
+        sessions.put(playerId, session);
+        actionBarFrames.remove(playerId);
 
         if (!retagged && settings.display().chatEnter()) {
             feature.sendMessage(
@@ -584,7 +588,7 @@ public final class CombatTagService implements CombatTagApi {
         return Map.copyOf(placeholders);
     }
 
-    private static String replaceCommandPlaceholders(
+    static String replaceCommandPlaceholders(
             String command,
             Map<String, String> placeholders
     ) {
@@ -604,7 +608,18 @@ public final class CombatTagService implements CombatTagApi {
     }
 
     private static String sanitizeCommandValue(String value) {
-        return value.replace('\r', ' ').replace('\n', ' ').replace('\0', ' ');
+        StringBuilder sanitized = null;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            if (!Character.isISOControl(character)) {
+                continue;
+            }
+            if (sanitized == null) {
+                sanitized = new StringBuilder(value);
+            }
+            sanitized.setCharAt(index, ' ');
+        }
+        return sanitized == null ? value : sanitized.toString();
     }
 
     private CombatTagSnapshot snapshot(Session session, long remainingNanos) {
