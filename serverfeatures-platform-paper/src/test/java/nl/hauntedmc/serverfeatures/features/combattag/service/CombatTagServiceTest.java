@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -156,6 +157,19 @@ class CombatTagServiceTest {
 
         assertTrue(snapshot.containsKey(fixture.player().getUniqueId()));
         assertEquals(11L, snapshot.get(fixture.player().getUniqueId()).remainingNanos() / 1_000_000_000L);
+    }
+
+    @Test
+    void commandPlaceholderReplacementIsSinglePassAndSanitizesIsoControls() {
+        String result = CombatTagService.replaceCommandPlaceholders(
+                "say {attacker} {player} {unknown}",
+                Map.of(
+                        "attacker", "mob\n\t\u0085{player}",
+                        "player", "Alice"
+                )
+        );
+
+        assertEquals("say mob   {player} Alice {unknown}", result);
     }
 
     @Test
