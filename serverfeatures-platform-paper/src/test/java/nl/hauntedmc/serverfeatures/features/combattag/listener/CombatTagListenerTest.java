@@ -1,20 +1,27 @@
 package nl.hauntedmc.serverfeatures.features.combattag.listener;
 
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagReason;
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
 import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
+import org.bukkit.Server;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
+import org.bukkit.entity.Pig;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.PluginManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -35,7 +42,7 @@ class CombatTagListenerTest {
         CombatTagSettings settings = settings(Set.of(CreatureSpawnEvent.SpawnReason.SPAWNER));
         CombatTagService service = mock(CombatTagService.class);
         CombatTagListener listener = listener(settings, service);
-        LivingEntity mob = mob(CreatureSpawnEvent.SpawnReason.SPAWNER);
+        LivingEntity mob = hostileMob(CreatureSpawnEvent.SpawnReason.SPAWNER);
         Player target = player("Target");
         EntityDamageByEntityEvent event = damageEvent(mob, target);
 
@@ -46,11 +53,11 @@ class CombatTagListenerTest {
     }
 
     @Test
-    void naturalMobDamageTagsTheDamagedPlayer() {
+    void naturalEnemyDamageTagsTheDamagedPlayer() {
         CombatTagSettings settings = settings(Set.of(CreatureSpawnEvent.SpawnReason.SPAWNER));
         CombatTagService service = mock(CombatTagService.class);
         CombatTagListener listener = listener(settings, service);
-        LivingEntity mob = mob(CreatureSpawnEvent.SpawnReason.NATURAL);
+        LivingEntity mob = hostileMob(CreatureSpawnEvent.SpawnReason.NATURAL);
         UUID mobId = mob.getUniqueId();
         Player target = player("Target");
         EntityDamageByEntityEvent event = damageEvent(mob, target);
@@ -63,6 +70,58 @@ class CombatTagListenerTest {
                 eq(mobId),
                 eq(CombatTagReason.MELEE)
         );
+    }
+
+    @Test
+    void passiveMobDamageDoesNotTagTheDamagedPlayer() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Pig pig = passivePig();
+        Player target = player("Target");
+
+        listener.onDamage(damageEvent(pig, target));
+
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+        verify(service, never()).tagOutgoing(any(), any(), any(), any());
+    }
+
+    @Test
+    void neutralMobActivelyTargetingThePlayerDoesTagOnDamage() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Mob wolf = mock(Mob.class);
+        UUID wolfId = UUID.randomUUID();
+        Player target = player("Target");
+        when(wolf.getUniqueId()).thenReturn(wolfId);
+        when(wolf.getType()).thenReturn(EntityType.WOLF);
+        when(wolf.getName()).thenReturn("Wolf");
+        when(wolf.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.NATURAL);
+        when(wolf.getTarget()).thenReturn(target);
+
+        listener.onDamage(damageEvent(wolf, target));
+
+        verify(service).tagIncoming(
+                eq(target),
+                any(),
+                eq(wolfId),
+                eq(CombatTagReason.MELEE)
+        );
+    }
+
+    @Test
+    void attackingPassiveMobDoesNotTagThePlayer() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Player attacker = player("Attacker");
+        Pig pig = passivePig();
+
+        listener.onDamage(damageEvent(attacker, pig));
+
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+        verify(service, never()).tagOutgoing(any(), any(), any(), any());
     }
 
     @Test
@@ -90,6 +149,25 @@ class CombatTagListenerTest {
                 eq(targetId),
                 eq(CombatTagReason.MELEE)
         );
+    }
+
+    @Test
+    void successfulTagPublishesAppliedEvent() {
+        CombatTagSettings settings = settings(Set.of());
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        LivingEntity mob = hostileMob(CreatureSpawnEvent.SpawnReason.NATURAL);
+        Player target = player("Target");
+        Server server = mock(Server.class);
+        PluginManager pluginManager = mock(PluginManager.class);
+        when(target.getServer()).thenReturn(server);
+        when(server.getPluginManager()).thenReturn(pluginManager);
+        when(service.tagIncoming(any(), any(), any(), any()))
+                .thenReturn(CombatTagResult.TAGGED);
+
+        listener.onDamage(damageEvent(mob, target));
+
+        verify(pluginManager).callEvent(any(CombatTagAppliedEvent.class));
     }
 
     @Test
@@ -191,13 +269,22 @@ class CombatTagListenerTest {
         return player;
     }
 
-    private static LivingEntity mob(CreatureSpawnEvent.SpawnReason spawnReason) {
-        LivingEntity mob = mock(LivingEntity.class);
+    private static LivingEntity hostileMob(CreatureSpawnEvent.SpawnReason spawnReason) {
+        Enemy mob = mock(Enemy.class);
         when(mob.getUniqueId()).thenReturn(UUID.randomUUID());
         when(mob.getType()).thenReturn(EntityType.ZOMBIE);
         when(mob.getName()).thenReturn("Zombie");
         when(mob.getEntitySpawnReason()).thenReturn(spawnReason);
         return mob;
+    }
+
+    private static Pig passivePig() {
+        Pig pig = mock(Pig.class);
+        when(pig.getUniqueId()).thenReturn(UUID.randomUUID());
+        when(pig.getType()).thenReturn(EntityType.PIG);
+        when(pig.getName()).thenReturn("Pig");
+        when(pig.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.NATURAL);
+        return pig;
     }
 
     private static CombatTagSettings settings(
