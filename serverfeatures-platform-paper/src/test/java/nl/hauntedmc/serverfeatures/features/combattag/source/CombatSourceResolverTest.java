@@ -66,7 +66,8 @@ class CombatSourceResolverTest {
     @Test
     void disabledTntLinkingIgnoresPrimedTnt() {
         TNTPrimed tnt = mock(TNTPrimed.class);
-        when(tnt.getSource()).thenReturn(player("Primer"));
+        Player primer = player("Primer");
+        when(tnt.getSource()).thenReturn(primer);
         CombatSourceResolver resolver = resolver(true, true, false, Set.of());
 
         assertTrue(resolver.resolve(tnt).isEmpty());
