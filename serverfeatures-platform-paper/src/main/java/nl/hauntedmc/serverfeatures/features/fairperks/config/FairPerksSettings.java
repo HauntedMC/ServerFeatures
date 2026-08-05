@@ -18,6 +18,7 @@ import java.util.Set;
 
 public record FairPerksSettings(
         CommandSettings commands,
+        WorldRule worlds,
         FlightSettings flight,
         GodSettings god,
         ActivationGuardSettings activationGuard,
@@ -33,6 +34,7 @@ public record FairPerksSettings(
 
     public FairPerksSettings {
         Objects.requireNonNull(commands, "commands");
+        Objects.requireNonNull(worlds, "worlds");
         Objects.requireNonNull(flight, "flight");
         Objects.requireNonNull(god, "god");
         Objects.requireNonNull(activationGuard, "activationGuard");
@@ -49,10 +51,12 @@ public record FairPerksSettings(
                 aliases(config, "commands.godmacro-aliases")
         );
 
+        WorldRule worlds = worldRule(config, "worlds", WorldMode.ALL);
+
         FlightSettings flight = new FlightSettings(
                 config.get("flight.enable-starts-flying", Boolean.class, true),
                 gameModes(config, "flight.allowed-game-modes", List.of("SURVIVAL", "ADVENTURE")),
-                worldRule(config, "flight.worlds"),
+                worldRule(config, "flight.worlds", WorldMode.BLACKLIST),
                 config.get("flight.persistence.enabled", Boolean.class, true),
                 config.get("flight.persistence.restore-active-flight", Boolean.class, true),
                 config.get("flight.persistence.restore-when-airborne", Boolean.class, true),
@@ -61,7 +65,7 @@ public record FairPerksSettings(
 
         GodSettings god = new GodSettings(
                 gameModes(config, "god.allowed-game-modes", List.of("SURVIVAL", "ADVENTURE", "CREATIVE", "SPECTATOR")),
-                worldRule(config, "god.worlds"),
+                worldRule(config, "god.worlds", WorldMode.BLACKLIST),
                 config.get("god.persistence.enabled", Boolean.class, true),
                 config.get("god.damage.protect-void", Boolean.class, false)
         );
@@ -144,6 +148,7 @@ public record FairPerksSettings(
 
         return new FairPerksSettings(
                 commands,
+                worlds,
                 flight,
                 god,
                 activationGuard,
@@ -200,9 +205,13 @@ public record FairPerksSettings(
         return Set.copyOf(modes);
     }
 
-    private static WorldRule worldRule(FeatureConfigHandler config, String prefix) {
+    private static WorldRule worldRule(
+            FeatureConfigHandler config,
+            String prefix,
+            WorldMode defaultMode
+    ) {
         WorldMode mode;
-        String configuredMode = config.get(prefix + ".mode", String.class, "BLACKLIST");
+        String configuredMode = config.get(prefix + ".mode", String.class, defaultMode.name());
         try {
             mode = WorldMode.valueOf(configuredMode.trim().toUpperCase(Locale.ROOT));
         } catch (RuntimeException exception) {
@@ -392,11 +401,16 @@ public record FairPerksSettings(
 
         public boolean allows(World world) {
             boolean listed = values.contains(normalizeWorld(world.getName()));
-            return mode == WorldMode.WHITELIST ? listed : !listed;
+            return switch (mode) {
+                case ALL -> true;
+                case BLACKLIST -> !listed;
+                case WHITELIST -> listed;
+            };
         }
     }
 
     public enum WorldMode {
+        ALL,
         BLACKLIST,
         WHITELIST
     }

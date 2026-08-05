@@ -68,6 +68,9 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         config.put("commands.god-aliases", List.of());
         config.put("commands.godmacro-aliases", List.of());
 
+        config.put("worlds.mode", "ALL");
+        config.put("worlds.values", List.of());
+
         config.put("flight.enable-starts-flying", true);
         config.put("flight.allowed-game-modes", List.of("SURVIVAL", "ADVENTURE"));
         config.put("flight.worlds.mode", "BLACKLIST");
@@ -130,6 +133,10 @@ public final class FairPerks extends BukkitBaseFeature<Meta>
         );
         messages.add("fairperks.denied.world", "&cDeze perk is in deze wereld niet beschikbaar.");
         messages.add("fairperks.denied.game_mode", "&cDeze perk is in je huidige gamemode niet beschikbaar.");
+        messages.add(
+                "fairperks.disabled.world",
+                "&7FairPerks is in deze wereld uitgeschakeld; fly, god en de god macro zijn uitgezet."
+        );
 
         messages.add("fairperks.fly.enabled", "&aFly mode is ingeschakeld.");
         messages.add("fairperks.fly.disabled", "&7Fly mode is uitgeschakeld.");

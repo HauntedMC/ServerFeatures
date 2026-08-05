@@ -110,6 +110,52 @@ class FairPerksPolicyTest {
         );
     }
 
+    @Test
+    void globalWhitelistBlocksBothPerksOutsideListedWorldsEvenWithBypass() {
+        Player player = player(GameMode.SURVIVAL, "survival");
+        FairPerksPolicy policy = policy(
+                settings(
+                        false,
+                        true,
+                        new FairPerksSettings.WorldRule(
+                                FairPerksSettings.WorldMode.WHITELIST,
+                                Set.of("resource")
+                        )
+                ),
+                ignored -> CombatStatusProvider.CombatStatus.NOT_IN_COMBAT
+        );
+
+        assertEquals(
+                PerkChangeResult.Status.WORLD_BLOCKED,
+                policy.canEnable(player, PerkType.FLY, true)
+        );
+        assertEquals(
+                PerkChangeResult.Status.WORLD_BLOCKED,
+                policy.canEnable(player, PerkType.GOD, true)
+        );
+    }
+
+    @Test
+    void globalBlacklistBlocksListedWorld() {
+        Player player = player(GameMode.SURVIVAL, "resource");
+        FairPerksPolicy policy = policy(
+                settings(
+                        false,
+                        true,
+                        new FairPerksSettings.WorldRule(
+                                FairPerksSettings.WorldMode.BLACKLIST,
+                                Set.of("resource")
+                        )
+                ),
+                ignored -> CombatStatusProvider.CombatStatus.NOT_IN_COMBAT
+        );
+
+        assertEquals(
+                PerkChangeResult.Status.WORLD_BLOCKED,
+                policy.canEnable(player, PerkType.GOD, false)
+        );
+    }
+
     private static FairPerksPolicy policy(
             FairPerksSettings settings,
             CombatStatusProvider combatStatusProvider
@@ -135,12 +181,25 @@ class FairPerksPolicyTest {
             boolean combatEnabled,
             boolean allowWhenCombatUnavailable
     ) {
+        return settings(
+                combatEnabled,
+                allowWhenCombatUnavailable,
+                new FairPerksSettings.WorldRule(FairPerksSettings.WorldMode.ALL, Set.of())
+        );
+    }
+
+    private static FairPerksSettings settings(
+            boolean combatEnabled,
+            boolean allowWhenCombatUnavailable,
+            FairPerksSettings.WorldRule globalWorlds
+    ) {
         FairPerksSettings.WorldRule worlds = new FairPerksSettings.WorldRule(
                 FairPerksSettings.WorldMode.BLACKLIST,
                 Set.of()
         );
         return new FairPerksSettings(
                 new FairPerksSettings.CommandSettings(List.of(), List.of(), List.of()),
+                globalWorlds,
                 new FairPerksSettings.FlightSettings(
                         true,
                         Set.of(GameMode.SURVIVAL, GameMode.ADVENTURE),

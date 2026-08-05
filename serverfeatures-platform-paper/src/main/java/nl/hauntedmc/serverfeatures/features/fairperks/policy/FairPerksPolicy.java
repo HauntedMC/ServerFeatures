@@ -61,6 +61,10 @@ public final class FairPerksPolicy {
         return allowsGameMode(player, perk) && allowsWorld(player, perk);
     }
 
+    public boolean allowsFairPerksWorld(Player player) {
+        return settings.worlds().allows(player.getWorld());
+    }
+
     public boolean allowsGameMode(Player player, PerkType perk) {
         return switch (perk) {
             case FLY -> settings.flight().allowedGameModes().contains(player.getGameMode());
@@ -69,6 +73,9 @@ public final class FairPerksPolicy {
     }
 
     public boolean allowsWorld(Player player, PerkType perk) {
+        if (!allowsFairPerksWorld(player)) {
+            return false;
+        }
         return switch (perk) {
             case FLY -> settings.flight().worlds().allows(player.getWorld());
             case GOD -> settings.god().worlds().allows(player.getWorld());

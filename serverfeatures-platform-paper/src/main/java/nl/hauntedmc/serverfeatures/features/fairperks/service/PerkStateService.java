@@ -52,6 +52,9 @@ public final class PerkStateService {
     public void initialize(Player player) {
         SessionState state = new SessionState();
         states.put(player.getUniqueId(), state);
+        if (!enforceAllowedWorld(player, state, true)) {
+            return;
+        }
 
         boolean storedFlight = readBoolean(player, FLY_ENABLED_KEY);
         boolean hadStaleFlight = storedFlight
@@ -127,7 +130,9 @@ public final class PerkStateService {
         writeBoolean(
                 player,
                 GOD_MACRO_KEY,
-                state.godMacroEnabled && player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)
+                state.godMacroEnabled
+                        && policy.allowsFairPerksWorld(player)
+                        && player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)
         );
     }
 
@@ -241,17 +246,22 @@ public final class PerkStateService {
 
     public boolean isGodMacroEnabled(Player player) {
         SessionState state = states.get(player.getUniqueId());
-        return state != null && state.godMacroEnabled;
+        return state != null
+                && state.godMacroEnabled
+                && policy.allowsFairPerksWorld(player);
     }
 
-    public boolean setGodMacro(Player player, boolean enabled) {
+    public PerkChangeResult setGodMacro(Player player, boolean enabled) {
         SessionState state = stateFor(player);
+        if (enabled && !policy.allowsFairPerksWorld(player)) {
+            return PerkChangeResult.denied(PerkChangeResult.Status.WORLD_BLOCKED);
+        }
         if (state.godMacroEnabled == enabled) {
-            return false;
+            return PerkChangeResult.already(enabled);
         }
         state.godMacroEnabled = enabled;
         writeBoolean(player, GOD_MACRO_KEY, enabled);
-        return true;
+        return PerkChangeResult.changed(enabled);
     }
 
     /**
@@ -260,6 +270,9 @@ public final class PerkStateService {
     public void reconcileEnvironment(Player player) {
         SessionState state = states.get(player.getUniqueId());
         if (state == null) {
+            return;
+        }
+        if (!enforceAllowedWorld(player, state, true)) {
             return;
         }
 
@@ -281,6 +294,9 @@ public final class PerkStateService {
     public void reconcileAfterRespawn(Player player) {
         SessionState state = states.get(player.getUniqueId());
         if (state == null) {
+            return;
+        }
+        if (!enforceAllowedWorld(player, state, true)) {
             return;
         }
         if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
@@ -309,7 +325,7 @@ public final class PerkStateService {
                 isFlightEffective(player),
                 state.godDesired,
                 isGodEffective(player),
-                state.godMacroEnabled,
+                isGodMacroEnabled(player),
                 state.flyOwned || readBoolean(player, FLY_OWNED_KEY),
                 fallDamageGrace.contains(player.getUniqueId())
         );
@@ -352,6 +368,9 @@ public final class PerkStateService {
             if (saved.fallDamageGrace()) {
                 fallDamageGrace.add(player.getUniqueId());
             }
+            if (!enforceAllowedWorld(player, state, true)) {
+                continue;
+            }
             if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
                 applyFlight(player, state, player.isFlying(), true);
             }
@@ -372,7 +391,9 @@ public final class PerkStateService {
             writeBoolean(
                     player,
                     GOD_MACRO_KEY,
-                    state.godMacroEnabled && player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)
+                    state.godMacroEnabled
+                            && policy.allowsFairPerksWorld(player)
+                            && player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)
             );
             revokeFlight(player, state, false, true);
         }
@@ -387,6 +408,7 @@ public final class PerkStateService {
 
     private boolean persistFlightChoice(Player player, SessionState state) {
         boolean persistent = state.flyDesired
+                && policy.allowsFairPerksWorld(player)
                 && settings.flight().persistenceEnabled()
                 && player.hasPermission(FairPerks.FLY_USE_PERMISSION)
                 && player.hasPermission(FairPerks.FLY_PERSIST_PERMISSION);
@@ -401,10 +423,42 @@ public final class PerkStateService {
 
     private void persistGodChoice(Player player, SessionState state) {
         boolean persistent = state.godDesired
+                && policy.allowsFairPerksWorld(player)
                 && settings.god().persistenceEnabled()
                 && player.hasPermission(FairPerks.GOD_USE_PERMISSION)
                 && player.hasPermission(FairPerks.GOD_PERSIST_PERMISSION);
         writeBoolean(player, GOD_ENABLED_KEY, persistent);
+    }
+
+    private boolean enforceAllowedWorld(Player player, SessionState state, boolean grantFallGrace) {
+        if (policy.allowsFairPerksWorld(player)) {
+            return true;
+        }
+        if (disableForBlockedWorld(player, state, grantFallGrace)) {
+            feature.sendMessage(player, "fairperks.disabled.world");
+        }
+        return false;
+    }
+
+    private boolean disableForBlockedWorld(Player player, SessionState state, boolean grantFallGrace) {
+        boolean hadFlight = state.flyDesired
+                || state.flyOwned
+                || readBoolean(player, FLY_ENABLED_KEY)
+                || readBoolean(player, FLY_ACTIVE_KEY)
+                || readBoolean(player, FLY_OWNED_KEY);
+        boolean hadGod = state.godDesired || readBoolean(player, GOD_ENABLED_KEY);
+        boolean hadMacro = state.godMacroEnabled || readBoolean(player, GOD_MACRO_KEY);
+
+        state.flyDesired = false;
+        if (hadFlight) {
+            revokeFlight(player, state, true, grantFallGrace);
+        }
+        clearFlightPersistence(player);
+        state.godDesired = false;
+        remove(player, GOD_ENABLED_KEY);
+        state.godMacroEnabled = false;
+        remove(player, GOD_MACRO_KEY);
+        return hadFlight || hadGod || hadMacro;
     }
 
     private void applyFlight(

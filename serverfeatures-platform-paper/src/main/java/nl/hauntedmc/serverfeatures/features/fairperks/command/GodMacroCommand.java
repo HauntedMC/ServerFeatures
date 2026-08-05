@@ -6,6 +6,7 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -77,9 +78,20 @@ public final class GodMacroCommand implements BrigadierCommand {
             case TOGGLE -> !current;
             case STATUS -> throw new IllegalStateException();
         };
-        boolean changed = feature.stateService().setGodMacro(player, enabled);
+        PerkChangeResult result = feature.stateService().setGodMacro(player, enabled);
+        if (!result.success()) {
+            feature.sendMessage(player, switch (result.status()) {
+                case WORLD_BLOCKED -> "fairperks.denied.world";
+                case NO_PERMISSION -> "fairperks.no_permission";
+                case COMBAT_TAGGED -> "fairperks.denied.combat";
+                case HOSTILE_NEARBY -> "fairperks.denied.hostile";
+                case GAME_MODE_BLOCKED -> "fairperks.denied.game_mode";
+                case CHANGED, ALREADY_IN_STATE -> throw new IllegalStateException();
+            });
+            return 0;
+        }
         String key;
-        if (changed) {
+        if (result.status() == PerkChangeResult.Status.CHANGED) {
             key = enabled ? "fairperks.godmacro.enabled" : "fairperks.godmacro.disabled";
         } else {
             key = enabled ? "fairperks.godmacro.already_enabled" : "fairperks.godmacro.already_disabled";

@@ -17,6 +17,22 @@ import static org.mockito.Mockito.when;
 class FairPerksSettingsTest {
 
     @Test
+    void allWorldRuleAllowsEveryWorldRegardlessOfValues() {
+        World listed = mock(World.class);
+        World unlisted = mock(World.class);
+        when(listed.getName()).thenReturn("resource");
+        when(unlisted.getName()).thenReturn("survival");
+
+        FairPerksSettings.WorldRule rule = new FairPerksSettings.WorldRule(
+                FairPerksSettings.WorldMode.ALL,
+                Set.of("resource")
+        );
+
+        assertTrue(rule.allows(listed));
+        assertTrue(rule.allows(unlisted));
+    }
+
+    @Test
     void blacklistWorldRuleAllowsUnlistedWorlds() {
         World world = mock(World.class);
         when(world.getName()).thenReturn("survival");

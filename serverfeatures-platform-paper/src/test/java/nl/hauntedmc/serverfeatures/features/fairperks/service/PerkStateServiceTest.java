@@ -86,6 +86,46 @@ class PerkStateServiceTest {
         assertTrue(fixture.service().isDesired(fixture.player(), PerkType.FLY));
     }
 
+    @Test
+    void enteringGloballyBlockedWorldDisablesAllFairPerksState() {
+        Fixture fixture = fixture();
+        fixture.service().initialize(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
+        fixture.service().set(fixture.player(), PerkType.GOD, true, true);
+        fixture.service().setGodMacro(fixture.player(), true);
+        clearInvocations(fixture.player(), fixture.data());
+        when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(false);
+
+        fixture.service().reconcileEnvironment(fixture.player());
+
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.GOD));
+        assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
+        verify(fixture.player()).setAllowFlight(false);
+        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_fly_enabled".equals(key.getKey())));
+        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_god_enabled".equals(key.getKey())));
+        verify(fixture.data()).remove(argThat(key -> key != null && "fairperks_god_macro".equals(key.getKey())));
+
+        when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(true);
+        fixture.service().reconcileEnvironment(fixture.player());
+
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.GOD));
+        assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
+    }
+
+    @Test
+    void globallyBlockedWorldRejectsEnablingGodMacro() {
+        Fixture fixture = fixture();
+        fixture.service().initialize(fixture.player());
+        when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(false);
+
+        PerkChangeResult result = fixture.service().setGodMacro(fixture.player(), true);
+
+        assertEquals(PerkChangeResult.Status.WORLD_BLOCKED, result.status());
+        assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
+    }
+
     private static boolean isActiveFlightKey(NamespacedKey key) {
         return key != null && "fairperks_fly_active".equals(key.getKey());
     }
@@ -107,11 +147,16 @@ class PerkStateServiceTest {
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
         when(player.hasPermission(FairPerks.FLY_USE_PERMISSION)).thenReturn(true);
         when(player.hasPermission(FairPerks.FLY_PERSIST_PERMISSION)).thenReturn(true);
+        when(player.hasPermission(FairPerks.GOD_USE_PERMISSION)).thenReturn(true);
+        when(player.hasPermission(FairPerks.GOD_PERSIST_PERMISSION)).thenReturn(true);
+        when(player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)).thenReturn(true);
         when(player.isFlying()).thenReturn(false);
+        when(policy.allowsFairPerksWorld(player)).thenReturn(true);
         when(policy.allowsEnvironment(player, PerkType.FLY)).thenReturn(true);
         when(policy.canEnable(player, PerkType.FLY, true)).thenReturn(PerkChangeResult.Status.CHANGED);
+        when(policy.canEnable(player, PerkType.GOD, true)).thenReturn(PerkChangeResult.Status.CHANGED);
         PerkStateService service = new PerkStateService(feature, settings, policy);
-        return new Fixture(player, data, service);
+        return new Fixture(player, data, policy, service);
     }
 
     private static FairPerksSettings settings() {
@@ -121,6 +166,7 @@ class PerkStateServiceTest {
         );
         return new FairPerksSettings(
                 new FairPerksSettings.CommandSettings(List.of(), List.of(), List.of()),
+                new FairPerksSettings.WorldRule(FairPerksSettings.WorldMode.ALL, Set.of()),
                 new FairPerksSettings.FlightSettings(
                         true,
                         Set.of(GameMode.SURVIVAL),
@@ -164,6 +210,7 @@ class PerkStateServiceTest {
     private record Fixture(
             Player player,
             PersistentDataContainer data,
+            FairPerksPolicy policy,
             PerkStateService service
     ) {
     }

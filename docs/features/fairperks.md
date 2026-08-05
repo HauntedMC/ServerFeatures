@@ -11,7 +11,7 @@ The feature owns:
 - native Bukkit flight capability ownership;
 - god-mode damage cancellation;
 - permission cleanup when a player logs in;
-- world and game-mode suspension/restoration;
+- global world availability with per-perk world and game-mode suspension/restoration;
 - combat and hostile-mob activation guards;
 - PvP, hostile-mob, targeting, explosive, ignition, and lava restrictions;
 - direct and indirect player-action attribution.
@@ -66,7 +66,7 @@ FairPerks distinguishes desired flight from active flight.
 - Active flight is captured before normal server shutdown or feature disable, before FairPerks revokes its live capability.
 - If invalid FairPerks flight is removed while airborne, the next fall-damage event can be cancelled once. The grace is cleared one tick after a safe landing, or immediately on damage, death, or logout.
 
-World and game-mode changes suspend effective flight without clearing the desired state. Returning to an allowed environment restores the capability. These environment reconciliations do not recheck permissions.
+Per-perk world and game-mode changes suspend effective flight without clearing the desired state. Returning to an allowed environment restores the capability. The global world policy is stricter: entering a globally disallowed world disables fly, god, and godmacro and clears their persistent choices. Returning to an allowed world does not automatically turn them back on. These environment reconciliations do not recheck permissions.
 
 Players already online when the feature is enabled at runtime are initialized on the next server tick. During a feature reload, restored snapshots take priority and this bootstrap only initializes players missing from the snapshot. Commands also initialize their target idempotently before reading state, so they remain correct during that first-tick window.
 
@@ -125,6 +125,10 @@ commands:
   fly-aliases: []
   god-aliases: []
   godmacro-aliases: []
+
+worlds:
+  mode: ALL
+  values: []
 
 flight:
   enable-starts-flying: true
@@ -193,7 +197,11 @@ feedback:
 
 Aliases are trimmed, normalized to lowercase, validated against Bukkit command-label rules, and stored as immutable lists. Labels must be unique and must not conflict with another Bukkit or Brigadier command. FairPerks refuses to enable when `/fly`, `/god`, `/fairperks`, `/godmacro`, or a configured alias is unavailable.
 
-World names are normalized case-insensitively. Empty game-mode sets and invalid enum values fail configuration loading instead of silently weakening policy.
+The top-level `worlds.mode` accepts `ALL`, `BLACKLIST`, or `WHITELIST`. It defaults to `ALL` when omitted, making FairPerks available in every world. `BLACKLIST` allows every world except entries in `values`; `WHITELIST` allows only entries in `values`. World names are normalized case-insensitively. The same three modes are accepted by the per-flight and per-god world rules.
+
+The top-level rule cannot be bypassed by activation-guard or administrative command permissions. In a disallowed world, fly, god, and godmacro cannot be enabled. Entering one hard-disables all three and removes their saved enabled state. Per-flight and per-god world rules still suspend and restore only their respective perk inside worlds allowed by the top-level rule.
+
+Empty game-mode sets and invalid enum values fail configuration loading instead of silently weakening policy.
 
 ## Acceptance checklist
 
@@ -205,6 +213,7 @@ World names are normalized case-insensitively. Empty game-mode sets and invalid 
 - Remove a permission while online and verify there is no automatic scan; confirm `/fly off` or `/god off` still works for the active state.
 - Enable the feature while players are already online and verify they receive initialized state without reconnecting.
 - Use the `*.others` command on a target without the personal use permission and verify the grant works only for that session.
+- Test `ALL`, `BLACKLIST`, and `WHITELIST` top-level world modes; verify entering a blocked world disables and forgets fly, god, and godmacro.
 - Enable god mode at low health and hunger and verify neither value changes.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
