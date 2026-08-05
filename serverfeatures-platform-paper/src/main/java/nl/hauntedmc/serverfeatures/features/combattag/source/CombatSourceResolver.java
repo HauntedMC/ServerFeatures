@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Tameable;
 import org.bukkit.entity.TNTPrimed;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Objects;
@@ -37,11 +38,16 @@ public final class CombatSourceResolver {
                     opponent(player),
                     player.getUniqueId(),
                     player,
-                    forcedReason == null ? CombatTagReason.MELEE : forcedReason
+                    forcedReason == null ? CombatTagReason.MELEE : forcedReason,
+                    null
             ));
         }
 
         if (source instanceof Firework firework) {
+            CombatTagSettings.ProjectileSettings projectiles = settings.projectiles();
+            if (!projectiles.enabled() || projectiles.ignoredTypes().contains(firework.getType())) {
+                return Optional.empty();
+            }
             Player owner = onlinePlayer(firework, firework.getSpawningEntity());
             return owner == null
                     ? Optional.empty()
@@ -49,7 +55,8 @@ public final class CombatSourceResolver {
                             opponent(owner),
                             owner.getUniqueId(),
                             owner,
-                            CombatTagReason.FIREWORK
+                            CombatTagReason.FIREWORK,
+                            null
                     ));
         }
 
@@ -69,7 +76,8 @@ public final class CombatSourceResolver {
                             opponent(owner),
                             owner.getUniqueId(),
                             owner,
-                            CombatTagReason.PROJECTILE
+                            CombatTagReason.PROJECTILE,
+                            null
                     ));
         }
 
@@ -97,7 +105,8 @@ public final class CombatSourceResolver {
                         opponent(owner),
                         owner.getUniqueId(),
                         owner,
-                        CombatTagReason.PET
+                        CombatTagReason.PET,
+                        null
                 ));
             }
             UUID ownerId = tameable.getOwnerUniqueId();
@@ -107,7 +116,8 @@ public final class CombatSourceResolver {
                         opponent(owner),
                         owner.getUniqueId(),
                         owner,
-                        CombatTagReason.PET
+                        CombatTagReason.PET,
+                        null
                 ));
             }
             if (ownerId != null) {
@@ -115,7 +125,8 @@ public final class CombatSourceResolver {
                         new CombatOpponent(ownerId, EntityType.PLAYER, "pet owner", true),
                         source.getUniqueId(),
                         null,
-                        CombatTagReason.PET
+                        CombatTagReason.PET,
+                        source.getEntitySpawnReason()
                 ));
             }
         }
@@ -125,7 +136,8 @@ public final class CombatSourceResolver {
                     opponent(source),
                     source.getUniqueId(),
                     null,
-                    forcedReason == null ? CombatTagReason.MELEE : forcedReason
+                    forcedReason == null ? CombatTagReason.MELEE : forcedReason,
+                    source.getEntitySpawnReason()
             ));
         }
         return Optional.empty();
@@ -135,9 +147,10 @@ public final class CombatSourceResolver {
             CombatOpponent opponent,
             UUID damageSourceId,
             Player player,
-            CombatTagReason reason
+            CombatTagReason reason,
+            CreatureSpawnEvent.SpawnReason spawnReason
     ) {
-        return new ResolvedCombatSource(opponent, damageSourceId, player, reason);
+        return new ResolvedCombatSource(opponent, damageSourceId, player, reason, spawnReason);
     }
 
     public static CombatOpponent opponent(Entity entity) {
@@ -157,7 +170,8 @@ public final class CombatSourceResolver {
             CombatOpponent opponent,
             UUID damageSourceId,
             Player player,
-            CombatTagReason reason
+            CombatTagReason reason,
+            CreatureSpawnEvent.SpawnReason spawnReason
     ) {
         public ResolvedCombatSource {
             Objects.requireNonNull(opponent, "opponent");
