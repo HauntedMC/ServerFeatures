@@ -21,17 +21,20 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Registers commands without replacing labels owned by another feature or plugin.
+ * Registers feature commands while coordinating plugin-wide label ownership and reversible external takeovers.
  */
 public class FeatureCommandManager {
 
     private final ServerFeatures plugin;
     private final CommandMap commandMap;
     private final FeatureCommandOwnership ownership;
+    private final CommandRegistryTakeover registryTakeover;
     private final Map<String, FeatureCommand> registeredCommands = new ConcurrentHashMap<>();
     private final Map<String, BrigadierCommand> registeredBrigadierCommands = new ConcurrentHashMap<>();
     private final Map<String, List<String>> registeredCommandLabels = new ConcurrentHashMap<>();
     private final Map<String, List<String>> registeredBrigadierLabels = new ConcurrentHashMap<>();
+    private final Map<String, CommandRegistryTakeover.Takeover> bukkitTakeovers = new ConcurrentHashMap<>();
+    private final Map<String, CommandRegistryTakeover.Takeover> brigadierTakeovers = new ConcurrentHashMap<>();
 
     public FeatureCommandManager(ServerFeatures plugin) {
         this(plugin, new FeatureCommandOwnership());
@@ -41,6 +44,7 @@ public class FeatureCommandManager {
         this.plugin = plugin;
         this.commandMap = plugin.getServer().getCommandMap();
         this.ownership = ownership;
+        this.registryTakeover = new CommandRegistryTakeover(commandMap, plugin.getBrigadierDispatcher());
     }
 
     public void registerFeatureCommand(@NotNull FeatureCommand command) {
@@ -54,18 +58,30 @@ public class FeatureCommandManager {
             return;
         }
         List<String> labels = commandLabels(name, command.getAliases());
-        String unavailable = findUnavailableBukkitLabel(labels);
-        if (unavailable != null) {
-            plugin.getLogger().warning("Command label '" + unavailable
-                    + "' is already registered; skipping command '" + name + "'.");
-            return;
-        }
         String collision = ownership.claim(command, labels);
         if (collision != null) {
             plugin.getLogger().warning("Command label '" + collision
-                    + "' is already owned by another feature; skipping command '" + name + "'.");
+                    + "' is already owned by another ServerFeatures feature; skipping command '" + name + "'.");
             return;
         }
+
+        CommandRegistryTakeover.Claim claim;
+        try {
+            claim = registryTakeover.claim(labels, plugin.getConfigHandler().shouldOverwriteCommandConflicts());
+        } catch (Throwable throwable) {
+            ownership.release(command, labels);
+            plugin.getLogger().warning("Failed to prepare command labels for '" + name
+                    + "': " + throwable.getMessage());
+            return;
+        }
+        if (!claim.claimed()) {
+            ownership.release(command, labels);
+            logBlockedConflict(name, claim.blockingConflict(), false);
+            return;
+        }
+        logTakeovers(claim.conflicts(), name, false);
+
+        boolean registered = false;
         try {
             boolean primary = commandMap.register(plugin.getName(), command);
             if (!primary || commandMap.getCommand(name) != command) {
@@ -76,13 +92,16 @@ public class FeatureCommandManager {
             }
             registeredCommands.put(name, command);
             registeredCommandLabels.put(name, labels);
+            bukkitTakeovers.put(name, claim.takeover());
+            registered = true;
             plugin.getLogger().info("Registered command: " + name);
         } catch (Throwable throwable) {
             purgeBukkitCommand(command, labels);
             plugin.getLogger().warning("Failed to register Bukkit command '" + name
                     + "': " + throwable.getMessage());
         } finally {
-            if (registeredCommands.get(name) != command) {
+            if (!registered) {
+                restoreTakeover(claim.takeover(), name);
                 ownership.release(command, labels);
             }
         }
@@ -116,6 +135,7 @@ public class FeatureCommandManager {
         } finally {
             purgeBukkitCommand(command, labels);
             ownership.release(command, labels);
+            restoreTakeover(bukkitTakeovers.remove(name), name);
         }
         plugin.getLogger().info("Unregistered command: " + name);
     }
@@ -134,15 +154,6 @@ public class FeatureCommandManager {
         }
     }
 
-    private String findUnavailableBukkitLabel(Collection<String> labels) {
-        for (String label : labels) {
-            if (commandMap.getCommand(label) != null) {
-                return label;
-            }
-        }
-        return null;
-    }
-
     public void registerBrigadierCommand(@NotNull BrigadierCommand command) {
         runOnMain(() -> doRegisterBrigadier(command));
     }
@@ -155,32 +166,48 @@ public class FeatureCommandManager {
         }
         List<String> aliases = sanitizeAliases(command.aliases(), name);
         List<String> labels = commandLabels(name, aliases);
-        for (String label : labels) {
-            if (plugin.getBrigadierDispatcher().hasRootLiteral(label)) {
-                plugin.getLogger().warning("[Brigadier] Root label '" + label
-                        + "' already exists; skipping /" + name + ".");
-                return;
-            }
-        }
         String collision = ownership.claim(command, labels);
         if (collision != null) {
             plugin.getLogger().warning("[Brigadier] Root label '" + collision
-                    + "' is already owned by another feature; skipping /" + name + ".");
+                    + "' is already owned by another ServerFeatures feature; skipping /" + name + ".");
             return;
         }
+
+        CommandRegistryTakeover.Claim claim;
+        try {
+            claim = registryTakeover.claim(labels, plugin.getConfigHandler().shouldOverwriteCommandConflicts());
+        } catch (Throwable throwable) {
+            ownership.release(command, labels);
+            plugin.getLogger().warning("[Brigadier] Failed to prepare labels for /" + name
+                    + ": " + throwable.getMessage());
+            return;
+        }
+        if (!claim.claimed()) {
+            ownership.release(command, labels);
+            logBlockedConflict(name, claim.blockingConflict(), true);
+            return;
+        }
+        logTakeovers(claim.conflicts(), name, true);
+
+        boolean registered = false;
         try {
             if (!plugin.getBrigadierDispatcher().attachBrigadierCommand(command, name, aliases)) {
+                plugin.getLogger().warning("[Brigadier] Could not attach /" + name
+                        + " after its labels were prepared.");
                 return;
             }
             registeredBrigadierCommands.put(name, command);
             registeredBrigadierLabels.put(name, labels);
+            brigadierTakeovers.put(name, claim.takeover());
+            registered = true;
             plugin.getLogger().info("[Brigadier] Registered /" + name
                     + " (" + aliases.size() + " aliases)");
         } catch (Throwable throwable) {
             plugin.getLogger().warning("[Brigadier] Attach failed for /" + name
                     + ": " + throwable.getMessage());
         } finally {
-            if (registeredBrigadierCommands.get(name) != command) {
+            if (!registered) {
+                restoreTakeover(claim.takeover(), name);
                 ownership.release(command, labels);
             }
         }
@@ -208,6 +235,7 @@ public class FeatureCommandManager {
                     + ": " + throwable.getMessage());
         } finally {
             ownership.release(command, labels);
+            restoreTakeover(brigadierTakeovers.remove(name), name);
         }
     }
 
@@ -248,6 +276,49 @@ public class FeatureCommandManager {
 
     public int getRegisteredBrigadierCommandCount() {
         return registeredBrigadierCommands.size();
+    }
+
+    private void logBlockedConflict(
+            String commandName,
+            CommandRegistryTakeover.Conflict conflict,
+            boolean brigadier
+    ) {
+        String prefix = brigadier ? "[Brigadier] " : "";
+        plugin.getLogger().warning(prefix + "Command label '/" + conflict.label() + "' is already owned by "
+                + conflict.ownerDescription() + "; skipping /" + commandName
+                + " because global.commands.overwrite-conflicts is false.");
+    }
+
+    private void logTakeovers(
+            List<CommandRegistryTakeover.Conflict> conflicts,
+            String commandName,
+            boolean brigadier
+    ) {
+        String prefix = brigadier ? "[Brigadier] " : "";
+        for (CommandRegistryTakeover.Conflict conflict : conflicts) {
+            plugin.getLogger().warning(prefix + "Replacing command label '/" + conflict.label() + "' from "
+                    + conflict.ownerDescription() + " while registering /" + commandName + ".");
+        }
+    }
+
+    private void restoreTakeover(CommandRegistryTakeover.Takeover takeover, String commandName) {
+        if (takeover == null || takeover.isEmpty()) {
+            return;
+        }
+        try {
+            CommandRegistryTakeover.RestoreResult result = registryTakeover.restore(takeover);
+            if (!result.skippedBukkitLabels().isEmpty()) {
+                plugin.getLogger().warning("Could not restore displaced Bukkit labels after unregistering /"
+                        + commandName + ": " + String.join(", ", result.skippedBukkitLabels()));
+            }
+            if (!result.skippedBrigadierLabels().isEmpty()) {
+                plugin.getLogger().warning("Could not restore displaced Brigadier roots after unregistering /"
+                        + commandName + ": " + String.join(", ", result.skippedBrigadierLabels()));
+            }
+        } catch (Throwable throwable) {
+            plugin.getLogger().warning("Failed to restore displaced command labels after unregistering /"
+                    + commandName + ": " + throwable.getMessage());
+        }
     }
 
     private static List<String> commandLabels(String name, Collection<String> aliases) {

@@ -73,7 +73,8 @@ public class BrigadierDispatcher {
         }
     }
 
-    private Object getBrigadierDispatcher() throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+    private Object getBrigadierDispatcher()
+            throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         Object craftServer = plugin.getServer(); // CraftServer
         Method mGetServer = craftServer.getClass().getMethod("getServer"); // -> MinecraftServer
         Object mcServer = mGetServer.invoke(craftServer);
@@ -148,9 +149,77 @@ public class BrigadierDispatcher {
     }
 
     public boolean hasRootLiteral(String literal) {
+        return getRootLiteral(literal) != null;
+    }
+
+    public @Nullable CommandNode<CommandSourceStack> getRootLiteral(String literal) {
+        if (literal == null || literal.isBlank()) {
+            return null;
+        }
         resolveDispatcher();
         CommandDispatcher<CommandSourceStack> current = dispatcher;
-        return current != null && current.getRoot().getChild(literal) != null;
+        return current == null ? null : current.getRoot().getChild(literal);
+    }
+
+    /**
+     * Removes and returns one root node so it can be restored later.
+     *
+     * @throws IllegalStateException when the node exists but the dispatcher cannot be mutated safely
+     */
+    public @Nullable CommandNode<CommandSourceStack> takeRootLiteral(String literal) {
+        if (literal == null || literal.isBlank()) {
+            return null;
+        }
+        resolveDispatcher();
+        CommandDispatcher<CommandSourceStack> current = dispatcher;
+        if (current == null) {
+            return null;
+        }
+
+        writeLock.lock();
+        try {
+            CommandNode<CommandSourceStack> existing = current.getRoot().getChild(literal);
+            if (existing == null) {
+                return null;
+            }
+            if (!removeRootLiteral(current, literal)) {
+                throw new IllegalStateException("Unable to remove Brigadier root '/" + literal + "'.");
+            }
+            return existing;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Restores a previously removed root node when the label is still free.
+     */
+    public boolean restoreRootLiteral(String literal, CommandNode<CommandSourceStack> node) {
+        Objects.requireNonNull(literal, "literal");
+        Objects.requireNonNull(node, "node");
+        if (!literal.equals(node.getName())) {
+            throw new IllegalArgumentException(
+                    "Brigadier node name '" + node.getName() + "' does not match label '" + literal + "'."
+            );
+        }
+
+        resolveDispatcher();
+        CommandDispatcher<CommandSourceStack> current = dispatcher;
+        if (current == null) {
+            return false;
+        }
+
+        writeLock.lock();
+        try {
+            RootCommandNode<CommandSourceStack> root = current.getRoot();
+            if (root.getChild(literal) != null) {
+                return false;
+            }
+            root.addChild(node);
+            return root.getChild(literal) != null;
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     public void detachBrigadierCommand(BrigadierCommand cmd) {
@@ -175,7 +244,8 @@ public class BrigadierDispatcher {
                 changed |= removeRootLiteral(disp, label);
             }
             if (!changed) {
-                plugin.getLogger().info("[Brigadier] No dispatcher changes for /" + cmd.name() + " (already absent?)");
+                plugin.getLogger().info("[Brigadier] No dispatcher changes for /" + cmd.name()
+                        + " (already absent?)");
             }
         } finally {
             writeLock.unlock();

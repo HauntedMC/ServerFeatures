@@ -33,6 +33,35 @@ Use these commands during operations:
 - `/serverfeatures reloadlocal`
 - `/serverfeatures reloadlocal <feature>`
 
+## Command Conflict Ownership
+
+ServerFeatures commands can intentionally replace matching unnamespaced command labels and Brigadier roots registered by
+another plugin. The global setting is enabled by default:
+
+```yaml
+global:
+  commands:
+    overwrite-conflicts: true
+```
+
+When enabled, command registration follows a reversible claim process:
+
+- only the exact plain label, such as `/god`, is displaced;
+- namespaced fallbacks such as `/essentials:god` remain registered;
+- both Bukkit command-map entries and Brigadier roots are handled;
+- all requested primary labels and aliases are claimed atomically;
+- a failed registration restores every displaced binding;
+- disabling or reloading the owning feature restores displaced bindings when their labels are still free;
+- a newer command that appeared while the feature was active is never overwritten during restoration.
+
+The setting applies only to conflicts with external command registrations. Labels already owned by another
+ServerFeatures feature remain protected and are never silently replaced. Set `overwrite-conflicts` to `false` when the
+server should retain strict fail-on-conflict behavior; a feature whose required command cannot register will then fail to
+load rather than partially enabling.
+
+The setting is read when a command is registered. Reload `config.yml` through the normal server configuration workflow
+before enabling or reloading affected features.
+
 ## Recommended Workflow
 
 1. Enable only the features you currently need.

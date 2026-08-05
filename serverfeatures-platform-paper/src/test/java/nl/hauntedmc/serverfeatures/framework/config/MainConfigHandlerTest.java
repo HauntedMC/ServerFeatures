@@ -9,8 +9,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,7 +55,20 @@ class MainConfigHandlerTest {
         assertEquals(true, feature.get("enabled", Boolean.class));
         assertEquals(5, feature.get("limit", Integer.class));
         assertEquals("server", feature.getGlobalSetting("server_name", String.class));
+        assertTrue(main.shouldOverwriteCommandConflicts());
         assertFalse(main.node("global").isNull());
+    }
+
+    @Test
+    void preservesConfiguredCommandConflictPolicy() {
+        ConfigService service = new ConfigService(plugin(dataDirectory));
+        MainConfigHandler main = new MainConfigHandler(Logger.getLogger("main-config-test"), service);
+
+        main.put("global.commands.overwrite-conflicts", false);
+
+        assertFalse(main.shouldOverwriteCommandConflicts());
+        MainConfigHandler reloaded = new MainConfigHandler(Logger.getLogger("main-config-test"), service);
+        assertFalse(reloaded.shouldOverwriteCommandConflicts());
     }
 
     @Test
