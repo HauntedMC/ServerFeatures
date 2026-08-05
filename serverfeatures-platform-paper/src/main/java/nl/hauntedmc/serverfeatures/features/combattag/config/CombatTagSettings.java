@@ -94,6 +94,7 @@ public record CombatTagSettings(
                 config.get("logout-punishment.enabled", Boolean.class, true),
                 config.get("logout-punishment.kill-player", Boolean.class, true),
                 config.get("logout-punishment.broadcast", Boolean.class, true),
+                config.get("logout-punishment.punish-kicked-players", Boolean.class, false),
                 immutableCommands(config.getList("logout-punishment.commands", String.class, List.of()))
         );
 
@@ -130,6 +131,7 @@ public record CombatTagSettings(
     }
 
     private static List<String> immutableCommands(List<String> configured) {
+        Objects.requireNonNull(configured, "configured");
         List<String> commands = new ArrayList<>(configured.size());
         for (String command : configured) {
             if (command == null || command.isBlank()) {
@@ -257,13 +259,16 @@ public record CombatTagSettings(
     ) {
         public AttributionSettings {
             Objects.requireNonNull(projectiles, "projectiles");
-            mobSpawnExclusions = Set.copyOf(mobSpawnExclusions);
+            mobSpawnExclusions = Set.copyOf(Objects.requireNonNull(
+                    mobSpawnExclusions,
+                    "mobSpawnExclusions"
+            ));
         }
     }
 
     public record ProjectileSettings(boolean enabled, Set<EntityType> ignoredTypes) {
         public ProjectileSettings {
-            ignoredTypes = Set.copyOf(ignoredTypes);
+            ignoredTypes = Set.copyOf(Objects.requireNonNull(ignoredTypes, "ignoredTypes"));
         }
     }
 
@@ -278,7 +283,7 @@ public record CombatTagSettings(
             boolean clearAfterAllowedTeleport
     ) {
         public TeleportSettings {
-            allowedCauses = Set.copyOf(allowedCauses);
+            allowedCauses = Set.copyOf(Objects.requireNonNull(allowedCauses, "allowedCauses"));
         }
     }
 
@@ -286,17 +291,20 @@ public record CombatTagSettings(
         private final boolean enabled;
         private final boolean killPlayer;
         private final boolean broadcast;
+        private final boolean punishKickedPlayers;
         private final List<String> commands;
 
         public LogoutSettings(
                 boolean enabled,
                 boolean killPlayer,
                 boolean broadcast,
+                boolean punishKickedPlayers,
                 List<String> commands
         ) {
             this.enabled = enabled;
             this.killPlayer = killPlayer;
             this.broadcast = broadcast;
+            this.punishKickedPlayers = punishKickedPlayers;
             this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
         }
 
@@ -310,6 +318,10 @@ public record CombatTagSettings(
 
         public boolean broadcast() {
             return broadcast;
+        }
+
+        public boolean punishKickedPlayers() {
+            return punishKickedPlayers;
         }
 
         public List<String> commands() {
@@ -369,6 +381,7 @@ public record CombatTagSettings(
         }
 
         public boolean allows(World world) {
+            Objects.requireNonNull(world, "world");
             if (mode == WorldMode.ALL) {
                 return true;
             }
