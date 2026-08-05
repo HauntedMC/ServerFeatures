@@ -19,18 +19,22 @@ public class VisibilityListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        long generation = feature.getService().beginJoin(player);
+        if (generation < 0L) {
+            return;
+        }
         DataRegistryIdentityGate.runWhenReady(
                 feature,
                 player,
-                (readyPlayer, identity) -> feature.getService().handleJoin(readyPlayer, identity),
+                (readyPlayer, identity) -> feature.getService().handleJoin(readyPlayer, identity, generation),
                 "vanish join"
         );
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onLeave(PlayerQuitEvent event) {
         feature.getService().handleLeave(event);
     }

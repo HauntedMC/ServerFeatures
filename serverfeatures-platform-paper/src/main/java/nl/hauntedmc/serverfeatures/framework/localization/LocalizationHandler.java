@@ -127,6 +127,26 @@ public final class LocalizationHandler {
         staticPlayerMessages.clear();
     }
 
+    /**
+     * Moves one feature-owned message key without overwriting an already customized destination.
+     */
+    public void migrateMessageKey(
+            String oldKey,
+            String newKey,
+            String legacyDefault,
+            String newDefault
+    ) {
+        if (featureName == null || oldKey == null || oldKey.isBlank()
+                || newKey == null || newKey.isBlank() || oldKey.equals(newKey)) {
+            return;
+        }
+        migrateMessageKey(defaultMessagesView, oldKey, newKey, legacyDefault, newDefault, true);
+        for (ConfigView languageView : languageViews.values()) {
+            migrateMessageKey(languageView, oldKey, newKey, legacyDefault, newDefault, false);
+        }
+        staticPlayerMessages.clear();
+    }
+
     public MessageBuilder getMessage(String key) {
         return new MessageBuilder(key);
     }
@@ -154,7 +174,7 @@ public final class LocalizationHandler {
             Objects.requireNonNull(key, "key");
             String raw = readPlayerMessage(key, language);
             if (raw.indexOf('%') >= 0) {
-                return render(raw, player, MessagePlaceholders.empty(), false, true);
+                return render(raw, player, player, MessagePlaceholders.empty(), false, true);
             }
 
             StaticMessageSlot slot = new StaticMessageSlot(language, key);
@@ -162,7 +182,7 @@ public final class LocalizationHandler {
                 if (cached != null && cached.raw().equals(raw)) {
                     return cached;
                 }
-                Component component = render(raw, null, MessagePlaceholders.empty(), false, true);
+                Component component = render(raw, null, null, MessagePlaceholders.empty(), false, true);
                 return new CachedStaticMessage(raw, component);
             }).component();
         }
@@ -171,6 +191,7 @@ public final class LocalizationHandler {
     public final class MessageBuilder {
         private final String key;
         private Audience audience;
+        private Player placeholderPlayer;
         private MessagePlaceholders placeholders = MessagePlaceholders.empty();
         private boolean autoLinkUrls;
         private boolean autoLinkUnderline = true;
@@ -181,6 +202,14 @@ public final class LocalizationHandler {
 
         public MessageBuilder forAudience(Audience audience) {
             this.audience = audience;
+            return this;
+        }
+
+        /**
+         * Uses another player for PlaceholderAPI while retaining the audience for language selection.
+         */
+        public MessageBuilder withPlaceholderPlayer(Player player) {
+            this.placeholderPlayer = player;
             return this;
         }
 
@@ -220,7 +249,7 @@ public final class LocalizationHandler {
             String raw = audience instanceof Player player
                     ? resolvePlayerMessage(key, player)
                     : resolveNonPlayerMessage(key);
-            return render(raw, audience, placeholders, autoLinkUrls, autoLinkUnderline);
+            return render(raw, audience, placeholderPlayer, placeholders, autoLinkUrls, autoLinkUnderline);
         }
     }
 
@@ -242,6 +271,7 @@ public final class LocalizationHandler {
     private Component render(
             String raw,
             Audience audience,
+            Player placeholderPlayer,
             MessagePlaceholders placeholders,
             boolean autoLinkUrls,
             boolean autoLinkUnderline
@@ -250,8 +280,12 @@ public final class LocalizationHandler {
                 .expect(TextFormatter.InputFormat.MIXED_INPUT)
                 .preprocess(text -> {
                     String replaced = text;
-                    if (audience instanceof Player player) {
-                        replaced = PlaceholderAPIHook.applyPlaceholders(replaced, player);
+                    Player contextPlayer = placeholderPlayer;
+                    if (contextPlayer == null && audience instanceof Player player) {
+                        contextPlayer = player;
+                    }
+                    if (contextPlayer != null) {
+                        replaced = PlaceholderAPIHook.applyPlaceholders(replaced, contextPlayer);
                     }
                     return MessagePlaceholders.applyPlaceholders(replaced, placeholders);
                 })
@@ -290,6 +324,36 @@ public final class LocalizationHandler {
 
     private String missingMessage(String key) {
         return frameworkFallback == null ? "&cMessage not found: " + key : frameworkFallback.missingMessage(key);
+    }
+
+    private void migrateMessageKey(
+            ConfigView view,
+            String oldKey,
+            String newKey,
+            String legacyDefault,
+            String newDefault,
+            boolean defaultView
+    ) {
+        String oldValue = view.get(oldKey, String.class);
+        if (oldValue == null) {
+            return;
+        }
+
+        String currentNewValue = view.get(newKey, String.class);
+        boolean destinationUntouched = currentNewValue == null || Objects.equals(currentNewValue, newDefault);
+        boolean preserveOldValue = !defaultView || !Objects.equals(oldValue, legacyDefault);
+        view.batch(batch -> {
+            if (destinationUntouched) {
+                if (preserveOldValue) {
+                    batch.put(newKey, oldValue);
+                } else if (currentNewValue == null && newDefault != null) {
+                    batch.put(newKey, newDefault);
+                }
+            }
+            batch.remove(oldKey);
+        });
+        logger.info("[ServerFeatures] [Localization] Migrated message key '" + oldKey
+                + "' to '" + newKey + "' for feature '" + featureName + "'.");
     }
 
     private void moveOwnedRootsFromLegacyStore(ConfigView source, ConfigView target, Set<String> ownedRoots) {
