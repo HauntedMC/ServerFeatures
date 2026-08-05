@@ -1,16 +1,15 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
+import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.entity.Creeper;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -88,7 +87,7 @@ public final class InteractionRestrictionListener implements Listener {
                 || event.getEntityType() != EntityType.END_CRYSTAL) {
             return;
         }
-        Player player = resolvePlayer(event.getDamager());
+        Player player = DamageSourceResolver.resolvePlayer(event.getDamager());
         if (player != null && shouldRestrict(player)) {
             deny(player, event);
         }
@@ -99,7 +98,7 @@ public final class InteractionRestrictionListener implements Listener {
         if (!feature.settings().restrictions().tntPrime()) {
             return;
         }
-        Player player = resolvePlayer(event.getPrimingEntity());
+        Player player = DamageSourceResolver.resolvePlayer(event.getPrimingEntity());
         if (player != null && shouldRestrict(player)) {
             deny(player, event);
         }
@@ -153,15 +152,5 @@ public final class InteractionRestrictionListener implements Listener {
             return false;
         }
         return item.getType() == Material.FLINT_AND_STEEL || item.getType() == Material.FIRE_CHARGE;
-    }
-
-    private static Player resolvePlayer(Entity entity) {
-        if (entity instanceof Player player) {
-            return player;
-        }
-        if (entity instanceof Projectile projectile && projectile.getShooter() instanceof Player player) {
-            return player;
-        }
-        return null;
     }
 }
