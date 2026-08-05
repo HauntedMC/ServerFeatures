@@ -36,7 +36,7 @@ public final class FairPerksPolicy {
         }
 
         FairPerksSettings.ActivationGuardSettings guard = settings.activationGuard();
-        if (guard.combatEnabled() && combatTagApi.isTagged(player)) {
+        if (guard.combatEnabled() && isCombatTagged(player)) {
             return PerkChangeResult.Status.COMBAT_TAGGED;
         }
 
@@ -49,6 +49,10 @@ public final class FairPerksPolicy {
             return PerkChangeResult.Status.HOSTILE_NEARBY;
         }
         return PerkChangeResult.Status.CHANGED;
+    }
+
+    public boolean isCombatTagged(Player player) {
+        return combatTagApi.isTagged(player);
     }
 
     public boolean allowsEnvironment(Player player, PerkType perk) {
