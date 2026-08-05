@@ -1,7 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
+import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.policy.FairPerksPolicy;
 import nl.hauntedmc.serverfeatures.features.fairperks.service.PerkStateService;
@@ -23,6 +26,38 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ProtectionListenerTest {
+
+    @Test
+    void combatTagDisablesFairPerksFlight() {
+        FairPerks feature = mock(FairPerks.class);
+        PerkStateService stateService = mock(PerkStateService.class);
+        Player player = mock(Player.class);
+        when(feature.stateService()).thenReturn(stateService);
+        when(stateService.set(player, PerkType.FLY, false, false))
+                .thenReturn(PerkChangeResult.changed(false));
+
+        ProtectionListener listener = new ProtectionListener(feature);
+        listener.onCombatTagApplied(new CombatTagAppliedEvent(player, CombatTagResult.TAGGED));
+
+        verify(stateService).set(player, PerkType.FLY, false, false);
+        verify(feature).sendMessage(player, "fairperks.fly.disabled");
+    }
+
+    @Test
+    void refreshedCombatTagDoesNotRepeatFlyMessageWhenFlightIsAlreadyOff() {
+        FairPerks feature = mock(FairPerks.class);
+        PerkStateService stateService = mock(PerkStateService.class);
+        Player player = mock(Player.class);
+        when(feature.stateService()).thenReturn(stateService);
+        when(stateService.set(player, PerkType.FLY, false, false))
+                .thenReturn(PerkChangeResult.already(false));
+
+        ProtectionListener listener = new ProtectionListener(feature);
+        listener.onCombatTagApplied(new CombatTagAppliedEvent(player, CombatTagResult.RETAGGED));
+
+        verify(stateService).set(player, PerkType.FLY, false, false);
+        verify(feature, never()).sendMessage(player, "fairperks.fly.disabled");
+    }
 
     @Test
     void landingGraceIsClearedOnNextTickInsteadOfDuringMoveEvent() {
