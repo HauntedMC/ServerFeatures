@@ -7,9 +7,13 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HeadURL {
+    private static final Map<String, ItemStack> HEAD_CACHE = new ConcurrentHashMap<>();
+
     public static final String experienceB64 = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWNlMGJkNWY3OWRkMWE3ZTg5MjA1YWQ3Y2I1ODMxZDIxNGM5NDQ1MjBiZGU5YTg1OWQ1NWYyODYwYmNlOCJ9fX0=";
 
     public static final String waterB64 = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNWM3ZWNiZmQ2ZDMzZTg3M2ExY2Y5YTkyZjU3ZjE0NjE1MmI1MmQ5ZDczMTE2OTQ2MDI2NzExMTFhMzAyZiJ9fX0=";
@@ -30,6 +34,10 @@ public class HeadURL {
 
 
     public static ItemStack create(String paramString) {
+        return HEAD_CACHE.computeIfAbsent(paramString, HeadURL::createUncached).clone();
+    }
+
+    private static ItemStack createUncached(String paramString) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) head.getItemMeta();
         if (meta == null) return head;

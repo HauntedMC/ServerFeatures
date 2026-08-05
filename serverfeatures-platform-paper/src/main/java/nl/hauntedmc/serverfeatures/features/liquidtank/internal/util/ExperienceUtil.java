@@ -21,7 +21,7 @@ public class ExperienceUtil {
     }
 
     public static int totalExp(Player paramPlayer) {
-        double d = Double.parseDouble(Float.toString(paramPlayer.getExp()));
+        double d = paramPlayer.getExp();
         int i = (int) Math.round(
                 lvlToExp(paramPlayer.getLevel()) + expToLvlUp(paramPlayer.getLevel()) * d);
         if (i < paramPlayer.getTotalExperience())

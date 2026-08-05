@@ -40,7 +40,6 @@ public final class LavaTank extends AbstractTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.LAVA_BUCKET));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 3) {

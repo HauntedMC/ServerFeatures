@@ -38,7 +38,6 @@ public final class DragonBreathTank extends AbstractTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.DRAGON_BREATH));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

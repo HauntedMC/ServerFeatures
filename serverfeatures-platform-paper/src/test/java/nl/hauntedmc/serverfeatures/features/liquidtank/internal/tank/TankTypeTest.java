@@ -17,5 +17,9 @@ class TankTypeTest {
     void unknownTypeFallsBackToEmpty() {
         assertEquals(TankType.EMPTY, TankType.getTankType("not-a-type"));
     }
-}
 
+    @Test
+    void nullTypeFallsBackToEmpty() {
+        assertEquals(TankType.EMPTY, TankType.getTankType(null));
+    }
+}

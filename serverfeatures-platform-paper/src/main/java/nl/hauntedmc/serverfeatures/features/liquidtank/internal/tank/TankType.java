@@ -19,6 +19,9 @@ public enum TankType {
     }
 
     public static TankType getTankType(String paramString) {
+        if (paramString == null) {
+            return EMPTY;
+        }
         TankType found = LOOKUP.get(normalize(paramString));
         return (found != null) ? found : EMPTY;
     }

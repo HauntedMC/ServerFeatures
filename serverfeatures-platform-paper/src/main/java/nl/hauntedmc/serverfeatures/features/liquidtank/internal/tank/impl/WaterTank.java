@@ -42,7 +42,6 @@ public final class WaterTank extends AbstractTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.WATER_BUCKET));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 3) {
@@ -67,7 +66,6 @@ public final class WaterTank extends AbstractTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(itemStack));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

@@ -17,11 +17,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 
-public class TankBlockListener implements Listener {
+public final class TankBlockListener implements Listener {
 
     private final LiquidTank feature;
 
@@ -29,44 +30,54 @@ public class TankBlockListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void placeOfLiquidTank(BlockPlaceEvent e) {
-        if (e.isCancelled()) return;
-
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void validateLiquidTankPlacement(BlockPlaceEvent e) {
         // Only consider hoppers placed with our legit item
         if (e.getBlock().getType() != Material.HOPPER) return;
         if (!ItemCreator.isLiquidTankItem(feature, e.getItemInHand())) return;
 
-        try {
-            if (e.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use")) {
-                if (e.getPlayer().hasPermission("serverfeatures.feature.liquidtank.limit.bypass")
-                        || feature.getTankManager().canPlaceTank(e.getBlock().getLocation())) {
-                    feature.getTankManager().createLiquidTank(e.getBlock().getLocation());
-
-                    if (feature.getTankManager().isEnableItems()) {
-                        this.addItems(e.getBlock());
-                    }
-                } else {
-                    MessageUtils.sendActionbar(e.getPlayer(),
-                            "&cYou can only place down " + feature.getTankManager().getMaxAmountPerChunk() + " per chunk!");
-                    e.setCancelled(true);
-                }
+        if (e.getPlayer().hasPermission("serverfeatures.feature.liquidtank.use")) {
+            if (e.getPlayer().hasPermission("serverfeatures.feature.liquidtank.limit.bypass")
+                    || feature.getTankManager().canPlaceTank(e.getBlock().getLocation())) {
+                return;
             } else {
+                MessageUtils.sendActionbar(e.getPlayer(),
+                        "&cYou can only place down " + feature.getTankManager().getMaxAmountPerChunk() + " per chunk!");
                 e.setCancelled(true);
             }
-        } catch (Exception ex) {
+        } else {
             e.setCancelled(true);
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onExplode(BlockExplodeEvent e) {
-        if (e.isCancelled()) return;
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void placeLiquidTank(BlockPlaceEvent event) {
+        Block block = event.getBlock();
+        if (block.getType() != Material.HOPPER
+                || !ItemCreator.isLiquidTankItem(feature, event.getItemInHand())) {
+            return;
+        }
+        feature.getTankManager().createLiquidTank(block.getLocation());
+        if (feature.getTankManager().isEnableItems()) {
+            addItems(block);
+        }
+    }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onExplode(BlockExplodeEvent e) {
+        removeExplodedTanks(e.blockList());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onExplode(EntityExplodeEvent e) {
+        removeExplodedTanks(e.blockList());
+    }
+
+    private void removeExplodedTanks(Iterable<Block> blocks) {
         ArrayList<AbstractTank> toRemove = new ArrayList<>();
-        for (Block b : e.blockList()) {
+        for (Block b : blocks) {
             if (b.getType() != Material.HOPPER) continue;
-            AbstractTank t = feature.getTankManager().getTank(b.getLocation());
+            AbstractTank t = feature.getTankManager().getTank(b);
             if (t != null) toRemove.add(t);
         }
         for (AbstractTank t : toRemove) {
@@ -74,12 +85,11 @@ public class TankBlockListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void breakOfLiquidTank(BlockBreakEvent e) {
-        if (e.isCancelled()) return;
         if (e.getBlock().getType() != Material.HOPPER) return;
 
-        AbstractTank tank = feature.getTankManager().getTank(e.getBlock().getLocation());
+        AbstractTank tank = feature.getTankManager().getTank(e.getBlock());
         if (tank == null) return; // Not one of ours; let vanilla break proceed
 
         e.setCancelled(true);
@@ -111,7 +121,8 @@ public class TankBlockListener implements Listener {
 
     public void addItems(Block block) {
         feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> {
-            if (block.getType() == Material.HOPPER) {
+            if (block.getType() == Material.HOPPER
+                    && feature.getTankManager().getTank(block) != null) {
                 Hopper hopper = (Hopper) block.getState();
                 hopper.getInventory().setItem(3, new ItemStack(Material.GLASS, 7));
                 hopper.getInventory().setItem(4, new ItemStack(Material.COMPARATOR, 1));

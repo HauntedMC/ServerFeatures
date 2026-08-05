@@ -19,13 +19,16 @@ public final class EmptyTank extends AbstractTank {
 
     @Override
     public void updateVisuals() {
-        clear();
-        Location location = new Location(getLocation().getWorld(), getLocation().getX(), getLocation().getY(), getLocation().getZ());
+        if (getPacketArmorstandGlass() != null) {
+            return;
+        }
+        java.util.List<Player> currentViewers = onlineViewers();
+        Location location = getLocation();
         setPacketArmorstandGlass(new PacketHandler(location.clone().add(0.5D, 0.35D, 0.5D)));
-        ItemStack glass = new ItemStack(Material.GLASS);
-        glass.setAmount(1);
-        getPacketArmorstandGlass().setHead(glass);
-        updatePlayerView();
+        getPacketArmorstandGlass().setHead(new ItemStack(Material.GLASS));
+        for (Player viewer : currentViewers) {
+            getPacketArmorstandGlass().show(viewer);
+        }
     }
 
     @Override

@@ -35,7 +35,6 @@ public final class BeetrootSoupTank extends FoodTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.BEETROOT_SOUP));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

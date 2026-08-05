@@ -4,35 +4,50 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PacketHandler {
+    // Keep client-only entities in the negative range so they cannot collide with server entities.
+    private static final AtomicInteger NEXT_ENTITY_ID = new AtomicInteger(-1);
+
     private final Location location;
-    private final Random random;
-    private int entityID;
+    private final int entityID;
     private ItemStack head;
+    private ClearPacket clearPacket;
+    private ArmourStandPacket showPacket;
 
     public PacketHandler(Location location) {
         this.location = location.clone();
-        this.random = new Random();
+        this.entityID = NEXT_ENTITY_ID.getAndDecrement();
     }
 
     public void setHead(ItemStack bukkitItemStack) {
-        this.head = bukkitItemStack;
+        this.head = bukkitItemStack.clone();
+        this.showPacket = null;
     }
 
     public void show(Player player) {
-        // Generate a random positive entity ID for this tank
-        this.entityID = random.nextInt(Integer.MAX_VALUE);
-        Location loc = location.clone();
-        // Adjust the location as required (e.g., lower by 0.35 blocks)
-        loc.add(0, -0.35, 0);
-        ArmourStandPacket armourStandPacket = new ArmourStandPacket(loc, entityID, head);
-        armourStandPacket.sendTo(player);
+        if (head == null) {
+            return;
+        }
+        if (showPacket == null) {
+            Location spawnLocation = location.clone().add(0, -0.35, 0);
+            showPacket = new ArmourStandPacket(spawnLocation, entityID, head);
+        }
+        showPacket.sendTo(player);
     }
 
     public void hide(Player player) {
-        ClearPacket clearPacket = new ClearPacket(entityID);
+        if (showPacket == null) {
+            return;
+        }
+        if (clearPacket == null) {
+            clearPacket = new ClearPacket(entityID);
+        }
         clearPacket.sendTo(player);
+    }
+
+    int entityId() {
+        return entityID;
     }
 }

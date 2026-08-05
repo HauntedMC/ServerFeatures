@@ -37,7 +37,6 @@ public final class MushroomStewTank extends FoodTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.MUSHROOM_STEW));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

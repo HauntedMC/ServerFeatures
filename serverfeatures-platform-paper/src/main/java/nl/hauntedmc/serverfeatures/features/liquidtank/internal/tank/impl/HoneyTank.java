@@ -36,7 +36,6 @@ public final class HoneyTank extends FoodTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.HONEY_BOTTLE));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

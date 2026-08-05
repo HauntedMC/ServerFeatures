@@ -36,7 +36,6 @@ public final class RabbitStewTank extends FoodTank {
                 changeItemFromPlayer(paramPlayer, new ItemStack(Material.RABBIT_STEW));
                 AbstractTank abstractTank = feature.getTankManager().emptyTank(this);
                 abstractTank.playTitle(paramPlayer);
-                abstractTank.updateVisuals();
                 return;
             }
             if (getQuantity() > 1) {

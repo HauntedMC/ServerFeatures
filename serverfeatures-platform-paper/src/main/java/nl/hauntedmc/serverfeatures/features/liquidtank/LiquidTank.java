@@ -26,6 +26,7 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
         defaults.put("enabled", false);
         defaults.put("item-name", "&bLiquid Tank");
         defaults.put("enable-items", true);
+        defaults.put("enable-permission", false);
         defaults.put("amount-per-chunk", 16);
         return defaults;
     }
@@ -52,7 +53,9 @@ public class LiquidTank extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        this.tankManager.save();
+        if (this.tankManager != null) {
+            this.tankManager.shutdown();
+        }
     }
 
     public LiquidTankManager getTankManager() {

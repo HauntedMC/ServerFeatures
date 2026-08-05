@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.impl;
 
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.liquidtank.LiquidTank;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.packet.PacketHandler;
 import nl.hauntedmc.serverfeatures.features.liquidtank.internal.tank.TankType;
@@ -14,9 +13,11 @@ import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.bukkit.Particle.FALLING_DUST;
 
@@ -26,30 +27,29 @@ public abstract class AbstractTank {
     private static final int maxAmount = 128;
 
     private static final int cooldownTime = 50;
+    private static final double VIEW_DISTANCE_SQUARED = 20.0D * 20.0D;
 
     private int amount;
 
-    private Location location;
+    private final Location location;
 
     private PacketHandler packetHandlerGlass = null;
 
     private PacketHandler packetHandlerLiquid = null;
 
-    private final List<String> playersNearby = new ArrayList<>();
+    private int visualizedAmount = Integer.MIN_VALUE;
 
-    private boolean onCooldown = false;
+    private final Set<UUID> viewers = new HashSet<>();
+
+    private int cooldownUntilTick;
     protected final LiquidTank feature;
 
     public AbstractTank(Location location, int amount, LiquidTank feature) {
         this.feature = feature;
         this.amount = amount;
-        this.location = location;
+        this.location = location.clone();
         this.location.setYaw(0.0F);
         this.location.setPitch(0.0F);
-    }
-
-    public void setLocation(Location location) {
-        this.location = location;
     }
 
     public int getAmount() {
@@ -57,7 +57,11 @@ public abstract class AbstractTank {
     }
 
     public void setAmount(int amount) {
+        if (this.amount == amount) {
+            return;
+        }
         this.amount = amount;
+        feature.getTankManager().markDirty();
     }
 
     public PacketHandler getPacketArmorstandGlass() {
@@ -80,12 +84,11 @@ public abstract class AbstractTank {
     }
 
     public void setOnCooldown() {
-        this.onCooldown = true;
-        feature.getLifecycleManager().getTaskManager().scheduleDelayedTask(() -> this.onCooldown = false, BukkitTime.ticks(cooldownTime));
+        cooldownUntilTick = Bukkit.getCurrentTick() + cooldownTime;
     }
 
     public boolean isOnCooldown() {
-        return this.onCooldown;
+        return cooldownUntilTick - Bukkit.getCurrentTick() > 0;
     }
 
     public boolean isOverFlown() {
@@ -124,23 +127,45 @@ public abstract class AbstractTank {
     }
 
     public void clear() {
-        this.playersNearby.clear();
-        if (this.packetHandlerGlass != null)
-            for (Player player : Bukkit.getOnlinePlayers())
-                this.packetHandlerGlass.hide(player);
-        if (this.packetHandlerLiquid != null)
-            for (Player player : Bukkit.getOnlinePlayers())
-                this.packetHandlerLiquid.hide(player);
+        List<Player> currentViewers = onlineViewers();
+        hideVisuals(currentViewers);
+        viewers.clear();
+        packetHandlerGlass = null;
+        packetHandlerLiquid = null;
+        visualizedAmount = Integer.MIN_VALUE;
     }
 
     public void updateVisuals() {
-        clear();
-        this.packetHandlerGlass = new PacketHandler(getLocation().clone().add(0.5D, 0.4D, 0.5D));
-        ItemStack glass = new ItemStack(Material.GLASS);
-        glass.setAmount(1);
-        this.packetHandlerGlass.setHead(glass);
+        List<Player> currentViewers = onlineViewers();
+        boolean glassCreated = packetHandlerGlass == null;
+        if (glassCreated) {
+            packetHandlerGlass = new PacketHandler(
+                    getLocation().clone().add(0.5D, 0.4D, 0.5D)
+            );
+            packetHandlerGlass.setHead(new ItemStack(Material.GLASS));
+        }
+        if (packetHandlerLiquid != null && visualizedAmount == amount) {
+            if (glassCreated) {
+                for (Player viewer : currentViewers) {
+                    packetHandlerGlass.show(viewer);
+                }
+            }
+            return;
+        }
+        if (packetHandlerLiquid != null) {
+            hideHandler(packetHandlerLiquid, currentViewers);
+        }
+        packetHandlerLiquid = null;
         updateLiquidLevel();
-        updatePlayerView();
+        visualizedAmount = amount;
+        for (Player viewer : currentViewers) {
+            if (glassCreated) {
+                packetHandlerGlass.show(viewer);
+            }
+            if (packetHandlerLiquid != null) {
+                packetHandlerLiquid.show(viewer);
+            }
+        }
     }
 
     protected void updateLiquidLevel() {
@@ -156,32 +181,37 @@ public abstract class AbstractTank {
 
     protected abstract String getLiquidHeadUrl();
 
-    public void updatePlayerView() {
-        this.playersNearby.clear();
-        if (BlockUtils.isLoaded(this.location))
-            for (Player player : Bukkit.getOnlinePlayers())
-                updatePlayerView(player);
+    public boolean isVisibleFrom(Location playerLocation) {
+        if (!BlockUtils.isLoaded(location)
+                || playerLocation.getWorld() != location.getWorld()) {
+            return false;
+        }
+        double x = playerLocation.getX() - location.getX();
+        double y = playerLocation.getY() - location.getY();
+        double z = playerLocation.getZ() - location.getZ();
+        return x * x + y * y + z * z <= VIEW_DISTANCE_SQUARED;
     }
 
-    public void updatePlayerView(Player paramPlayer) {
-        if (BlockUtils.isLoaded(this.location))
-            if (!this.playersNearby.contains(paramPlayer.getName())) {
-                if (paramPlayer.getWorld() == this.location.getWorld() && paramPlayer
-                        .getLocation().distance(this.location) <= 20.0D) {
-                    if (this.packetHandlerGlass != null)
-                        this.packetHandlerGlass.show(paramPlayer);
-                    if (this.packetHandlerLiquid != null)
-                        this.packetHandlerLiquid.show(paramPlayer);
-                    this.playersNearby.add(paramPlayer.getName());
-                }
-            } else if (paramPlayer.getWorld() == this.location.getWorld() && paramPlayer
-                    .getLocation().distance(this.location) > 20.0D) {
-                if (this.packetHandlerGlass != null)
-                    this.packetHandlerGlass.hide(paramPlayer);
-                if (this.packetHandlerLiquid != null)
-                    this.packetHandlerLiquid.hide(paramPlayer);
-                this.playersNearby.remove(paramPlayer.getName());
-            }
+    public void showTo(Player player) {
+        if (!viewers.add(player.getUniqueId())) {
+            return;
+        }
+        showVisuals(player);
+    }
+
+    public void hideFrom(Player player) {
+        if (!viewers.remove(player.getUniqueId())) {
+            return;
+        }
+        hideVisuals(player);
+    }
+
+    public void forgetViewer(UUID playerId) {
+        viewers.remove(playerId);
+    }
+
+    public Set<UUID> viewerIds() {
+        return Set.copyOf(viewers);
     }
 
     public String getChatColor() {
@@ -201,7 +231,7 @@ public abstract class AbstractTank {
     }
 
     public void setQuantity(int paramInt) {
-        this.amount = paramInt;
+        setAmount(paramInt);
     }
 
     public Location getLocation() {
@@ -214,9 +244,11 @@ public abstract class AbstractTank {
                 paramPlayer.getInventory().getItemInMainHand()
                         .setAmount(paramPlayer.getInventory().getItemInMainHand().getAmount() - 1);
                 HashMap<Integer, ItemStack> hashMap = paramPlayer.getInventory().addItem(paramItemStack);
-                if (!hashMap.isEmpty())
-                    for (ItemStack itemStack : hashMap.values())
-                        feature.getLifecycleManager().getTaskManager().scheduleOneTimeTask(() -> paramPlayer.getWorld().dropItem(paramPlayer.getLocation(), paramItemStack));
+                if (!hashMap.isEmpty()) {
+                    for (ItemStack itemStack : hashMap.values()) {
+                        paramPlayer.getWorld().dropItem(paramPlayer.getLocation(), itemStack);
+                    }
+                }
             } else {
                 paramPlayer.getInventory().setItemInMainHand(paramItemStack);
             }
@@ -227,5 +259,43 @@ public abstract class AbstractTank {
     }
 
     protected abstract void showParticles();
+
+    protected final List<Player> onlineViewers() {
+        return viewers.stream()
+                .map(Bukkit::getPlayer)
+                .filter(java.util.Objects::nonNull)
+                .filter(Player::isOnline)
+                .toList();
+    }
+
+    private void showVisuals(Player player) {
+        if (packetHandlerGlass != null) {
+            packetHandlerGlass.show(player);
+        }
+        if (packetHandlerLiquid != null) {
+            packetHandlerLiquid.show(player);
+        }
+    }
+
+    private void hideVisuals(List<Player> players) {
+        for (Player player : players) {
+            hideVisuals(player);
+        }
+    }
+
+    protected final void hideHandler(PacketHandler handler, List<Player> players) {
+        for (Player player : players) {
+            handler.hide(player);
+        }
+    }
+
+    private void hideVisuals(Player player) {
+        if (packetHandlerGlass != null) {
+            packetHandlerGlass.hide(player);
+        }
+        if (packetHandlerLiquid != null) {
+            packetHandlerLiquid.hide(player);
+        }
+    }
 
 }
