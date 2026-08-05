@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -72,7 +73,7 @@ class PerkStateServiceTest {
 
         when(feature.getPlugin()).thenReturn(plugin);
         when(plugin.getServer()).thenReturn(server);
-        when(server.getOnlinePlayers()).thenReturn(List.of(player));
+        doReturn(List.of(player)).when(server).getOnlinePlayers();
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getPersistentDataContainer()).thenReturn(data);
         when(player.getGameMode()).thenReturn(GameMode.SURVIVAL);
