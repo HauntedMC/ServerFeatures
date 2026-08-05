@@ -12,6 +12,7 @@ import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.logging.Level;
 import java.util.random.RandomGenerator;
 
 public final class ScheduledCommandExecutor {
@@ -98,9 +99,10 @@ public final class ScheduledCommandExecutor {
             accepted = Bukkit.dispatchCommand(Bukkit.getConsoleSender(), planned.command());
         } catch (Throwable throwable) {
             failedWithException = true;
-            feature.getLogger().severe(
-                    "Scheduled command from '" + planned.scheduleId() + "' failed: "
-                            + rootMessage(throwable)
+            feature.getLogger().log(
+                    Level.SEVERE,
+                    "Scheduled command from '" + planned.scheduleId() + "' failed.",
+                    throwable
             );
         } finally {
             dispatchingScheduledCommand = false;
@@ -125,16 +127,5 @@ public final class ScheduledCommandExecutor {
                 },
                 BukkitTime.ticks(delayTicks)
         );
-    }
-
-    private static String rootMessage(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        String message = current.getMessage();
-        return message == null || message.isBlank()
-                ? current.getClass().getSimpleName()
-                : message;
     }
 }
