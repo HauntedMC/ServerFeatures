@@ -282,12 +282,12 @@ public record CombatTagSettings(
         }
     }
 
-    public record LogoutSettings(
-            boolean enabled,
-            boolean killPlayer,
-            boolean broadcast,
-            List<String> commands
-    ) {
+    public static final class LogoutSettings {
+        private final boolean enabled;
+        private final boolean killPlayer;
+        private final boolean broadcast;
+        private final List<String> commands;
+
         public LogoutSettings(
                 boolean enabled,
                 boolean killPlayer,
@@ -298,6 +298,22 @@ public record CombatTagSettings(
             this.killPlayer = killPlayer;
             this.broadcast = broadcast;
             this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
+        }
+
+        public boolean enabled() {
+            return enabled;
+        }
+
+        public boolean killPlayer() {
+            return killPlayer;
+        }
+
+        public boolean broadcast() {
+            return broadcast;
+        }
+
+        public List<String> commands() {
+            return commands;
         }
     }
 
@@ -327,7 +343,10 @@ public record CombatTagSettings(
     public record FeedbackSettings(long restrictionMessageCooldownNanos) {
     }
 
-    public record WorldRule(WorldMode mode, Set<String> values) {
+    public static final class WorldRule {
+        private final WorldMode mode;
+        private final Set<String> values;
+
         public WorldRule(WorldMode mode, Set<String> values) {
             this.mode = Objects.requireNonNull(mode, "mode");
             Objects.requireNonNull(values, "values");
@@ -339,6 +358,14 @@ public record CombatTagSettings(
                 normalized.add(normalizeWorld(value));
             }
             this.values = Set.copyOf(normalized);
+        }
+
+        public WorldMode mode() {
+            return mode;
+        }
+
+        public Set<String> values() {
+            return values;
         }
 
         public boolean allows(World world) {
