@@ -23,7 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class CombatTagServiceTest {
@@ -155,6 +159,32 @@ class CombatTagServiceTest {
     }
 
     @Test
+    void serverShutdownNeverPunishesTaggedPlayers() {
+        CombatTag feature = mock(CombatTag.class);
+        Player player = mock(Player.class);
+        World world = mock(World.class);
+        UUID playerId = UUID.randomUUID();
+        when(player.getUniqueId()).thenReturn(playerId);
+        when(player.getWorld()).thenReturn(world);
+        when(player.hasPermission(CombatTag.BYPASS_PERMISSION)).thenReturn(false);
+        CombatTagService service = new CombatTagService(
+                feature,
+                settings(true),
+                System::nanoTime,
+                Clock.systemUTC(),
+                () -> true,
+                () -> true
+        );
+        CombatOpponent opponent = opponent("attacker", EntityType.ZOMBIE);
+        service.tagIncoming(player, opponent, opponent.uniqueId(), CombatTagReason.MELEE);
+
+        service.handleQuit(player, false);
+
+        assertFalse(service.isTagged(player));
+        verify(feature, never()).broadcastMessage(anyString(), anyMap());
+    }
+
+    @Test
     void publicWritesFailFastAwayFromTheServerThread() {
         CombatTag feature = mock(CombatTag.class);
         Player player = mock(Player.class);
@@ -198,6 +228,10 @@ class CombatTagServiceTest {
     }
 
     private static CombatTagSettings settings() {
+        return settings(false);
+    }
+
+    private static CombatTagSettings settings(boolean broadcastLogout) {
         return new CombatTagSettings(
                 new CombatTagSettings.TaggingSettings(
                         CombatTagSettings.TagMode.BOTH,
@@ -214,7 +248,13 @@ class CombatTagServiceTest {
                 ),
                 new CombatTagSettings.LifecycleSettings(true, true),
                 new CombatTagSettings.TeleportSettings(true, true, Set.of(), false, false),
-                new CombatTagSettings.LogoutSettings(false, false, false, false, List.of()),
+                new CombatTagSettings.LogoutSettings(
+                        broadcastLogout,
+                        false,
+                        broadcastLogout,
+                        false,
+                        List.of()
+                ),
                 new CombatTagSettings.DisplaySettings(
                         false,
                         false,
