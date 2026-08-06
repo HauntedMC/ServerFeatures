@@ -689,16 +689,19 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
 
     private CompletionStage<Identity> resolve(EconomyAccountRef account) {
         Objects.requireNonNull(account, "account");
-        return identityResolver.findByUuid(account.playerUuid()).thenApply(optional -> {
-            Identity canonical = optional.map(EconomyService::identity)
-                    .orElseThrow(() -> new UnknownPlayerException("Unknown player: " + account.playerUuid()));
-            if (account.playerId() != null
-                    && account.playerId() > 0L
-                    && account.playerId() != canonical.playerId()) {
-                throw new IllegalArgumentException("Player ID does not match UUID: " + account.playerUuid());
-            }
-            return canonical;
-        });
+        return identityResolver.findByUuid(account.playerUuid()).thenApply(optional -> optional
+                .map(EconomyService::identity)
+                .map(resolved -> {
+                    if (account.playerId() != null
+                            && account.playerId() > 0L
+                            && account.playerId() != resolved.playerId()) {
+                        throw new IllegalArgumentException(
+                                "Player ID does not match UUID: " + account.playerUuid()
+                        );
+                    }
+                    return resolved;
+                })
+                .orElseThrow(() -> new UnknownPlayerException("Unknown player: " + account.playerUuid())));
     }
 
     private Optional<Identity> awaitIdentity(

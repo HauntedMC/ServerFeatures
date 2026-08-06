@@ -11,47 +11,6 @@ on:
       - main
 
 jobs:
-  apply-economy-quality-fixes:
-    name: Apply verified Economy quality fixes
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout pull request branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Apply checksum-verified patch
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "6052e4726a3c5f564cbf2042e06ef8496d6a76c62bac5795281b7ecef4f373a9  .github/economy-quality-fixes.patch" | sha256sum --check --strict
-          git apply --check .github/economy-quality-fixes.patch
-          git apply --index .github/economy-quality-fixes.patch
-
-      - name: Remove temporary files and restore workflow
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm .github/economy-quality-fixes.patch
-          git fetch origin main
-          git checkout origin/main -- .github/workflows/ci-lint.yml
-          git add -A
-          git diff --cached --check
-
-      - name: Commit quality fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Address Economy code-quality review"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
-
   lint:
     name: Checkstyle
     runs-on: ubuntu-24.04

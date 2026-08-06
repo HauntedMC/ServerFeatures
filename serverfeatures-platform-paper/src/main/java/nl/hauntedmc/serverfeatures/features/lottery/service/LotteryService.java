@@ -512,7 +512,7 @@ public final class LotteryService {
             Throwable failure
     ) {
         economy.deposit(player, amount, "refund:" + originalEconomyKey).whenComplete((refund, refundFailure) -> main(() -> {
-            if (refundFailure == null && refund.successful()) {
+            if (refundFailure == null && refund != null && refund.successful()) {
                 feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
             } else {
                 feature.send(player, "lottery.transaction.uncertain");

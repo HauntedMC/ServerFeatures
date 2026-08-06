@@ -54,7 +54,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                 .executes(context -> currencies(context.getSource().getSender())));
         root.then(Commands.literal("balance")
                 .requires(source -> source.getSender().hasPermission(permission("balance")))
-                .then(playerCurrencyArguments((sender, player, currency, ignored) -> balance(sender, player, currency))));
+                .then(playerCurrencyArguments(this::balance)));
         root.then(mutation("add", TransactionType.ADMIN_ADD));
         root.then(mutation("remove", TransactionType.ADMIN_REMOVE));
         root.then(mutation("set", TransactionType.ADMIN_SET));
@@ -139,8 +139,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                         .executes(context -> action.execute(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "player"),
-                                StringArgumentType.getString(context, "currency"),
-                                ""
+                                StringArgumentType.getString(context, "currency")
                         )));
     }
 
@@ -419,7 +418,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
 
     @FunctionalInterface
     private interface AdminAction {
-        int execute(CommandSender sender, String player, String currency, String extra);
+        int execute(CommandSender sender, String player, String currency);
     }
 
     @FunctionalInterface

@@ -1388,18 +1388,19 @@ public final class EconomyRepository {
 
     private <T> T executeWithRetry(Supplier<T> work) {
         RuntimeException last = null;
-        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            int attemptNumber = attempt + 1;
             try {
                 return work.get();
             } catch (EconomyRejectedException rejected) {
                 throw rejected;
             } catch (RuntimeException failure) {
                 last = failure;
-                if (!isTransient(failure) || attempt == MAX_RETRIES) {
+                if (!isTransient(failure) || attemptNumber == MAX_RETRIES) {
                     throw failure;
                 }
                 try {
-                    Thread.sleep(5L * attempt);
+                    Thread.sleep(5L * attemptNumber);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     throw failure;
