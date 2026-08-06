@@ -323,7 +323,7 @@ Known offline players remain valid payment recipients. This cannot be disabled p
 - Account creation, including a zero or non-zero starting balance, receives its own immutable journal entry.
 - Player ID and UUID ownership is immutable; an identity mismatch fails closed instead of reassigning an account.
 - Payment cooldowns and daily send/receive limits are stored and checked transactionally, so switching gamemodes cannot bypass them for a shared currency.
-- Mutation timestamps, payment cooldowns and UTC daily-limit buckets use the authoritative MySQL clock, so Paper-server clock skew cannot open a second spending window.
+- All persisted Economy timestamps, payment cooldowns and UTC daily-limit buckets use the authoritative MySQL clock, so Paper-server clock skew cannot corrupt journal ordering or open a second spending window.
 - Account freezes and payment preferences are scoped with the account and are themselves audited transactions.
 - Monetary configuration for a shared scope is fingerprinted in MySQL. Servers with conflicting precision, bounds, starting balance, negative policy, rounding or payment policies fail startup instead of running a split-brain currency.
 

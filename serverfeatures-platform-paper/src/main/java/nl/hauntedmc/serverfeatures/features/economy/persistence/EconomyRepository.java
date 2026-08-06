@@ -65,8 +65,9 @@ public final class EconomyRepository {
         this.orm = Objects.requireNonNull(orm, "orm");
     }
 
-    public void validateDefinitions(EconomySettings settings, long now) {
+    public void validateDefinitions(EconomySettings settings) {
         executeWithRetry(() -> orm.runInTransaction(session -> {
+            long now = databaseNow(session);
             List<EconomySettings.Currency> currencies = settings.currencies().values().stream()
                     .sorted(Comparator.comparing(EconomySettings.Currency::id))
                     .toList();
@@ -154,26 +155,27 @@ public final class EconomyRepository {
     }
 
 
-    public Account balance(Identity identity, EconomySettings.Currency currency, long now) {
+    public Account balance(Identity identity, EconomySettings.Currency currency) {
         return executeWithRetry(() -> orm.runInTransaction(session -> {
-            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, false);
-            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, false);
+            TransactionClock clock = new TransactionClock(session);
+            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, clock, false);
+            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, clock, false);
             return snapshot(balance, settings);
         }));
     }
 
     public List<Account> balances(
             Identity identity,
-            Collection<EconomySettings.Currency> currencies,
-            long now
+            Collection<EconomySettings.Currency> currencies
     ) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(currencies, "currencies");
         return executeWithRetry(() -> orm.runInTransaction(session -> {
+            TransactionClock clock = new TransactionClock(session);
             List<EconomySettings.Currency> orderedCurrencies = currencies.stream()
                     .sorted(Comparator.comparing(EconomySettings.Currency::id))
                     .toList();
-            ensurePlayerIdentity(session, identity, now, false);
+            ensurePlayerIdentity(session, identity, clock, false);
             List<String> accountIds = orderedCurrencies.stream()
                     .map(currency -> accountId(identity.playerId(), currency.id(), currency.scope().key()))
                     .toList();
@@ -201,13 +203,13 @@ public final class EconomyRepository {
                 String accountId = accountId(identity.playerId(), currency.id(), currency.scope().key());
                 EconomyBalanceEntity balance = balances.get(accountId);
                 if (balance == null) {
-                    balance = createAccount(session, accountId, identity, currency, now);
+                    balance = createAccount(session, accountId, identity, currency, clock);
                 } else {
                     validateAccountIdentity(balance, identity);
                 }
                 EconomyPlayerSettingsEntity playerSettings = settingsByAccount.get(accountId);
                 if (playerSettings == null) {
-                    playerSettings = createSettings(session, accountId, currency, now);
+                    playerSettings = createSettings(session, accountId, currency, clock);
                 }
                 accounts.add(snapshot(balance, playerSettings));
             }
@@ -220,7 +222,7 @@ public final class EconomyRepository {
         Objects.requireNonNull(currency, "currency");
         String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
         return executeWithRetry(() -> orm.runInTransaction(session -> {
-            ensurePlayerIdentity(session, identity, System.currentTimeMillis(), false);
+            ensurePlayerIdentity(session, identity, new TransactionClock(session), false);
             return session.find(EconomyBalanceEntity.class, id) != null;
         }));
     }
@@ -238,8 +240,7 @@ public final class EconomyRepository {
             String actorName,
             String reason,
             Map<String, String> metadata,
-            boolean bypassFreeze,
-            long now
+            boolean bypassFreeze
     ) {
         requireCompatibleMutationTypes(operationType, journalType);
         BigDecimal amount = normalizeMutationAmount(operationType, rawAmount, currency);
@@ -261,12 +262,13 @@ public final class EconomyRepository {
                 if (replay != null) {
                     return replay;
                 }
-                EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
+                TransactionClock provisioningClock = new TransactionClock(session);
+                EconomyBalanceEntity balance = ensureAccount(session, identity, currency, provisioningClock, true);
                 EconomyPlayerSettingsEntity playerSettings = ensureSettings(
                         session,
                         balance.getId(),
                         currency,
-                        now,
+                        provisioningClock,
                         true
                 );
                 long transactionNow = databaseNow(session);
@@ -342,8 +344,7 @@ public final class EconomyRepository {
             String reason,
             Map<String, String> metadata,
             boolean bypassPaymentsToggle,
-            boolean bypassFreeze,
-            long now
+            boolean bypassFreeze
     ) {
         BigDecimal amount = normalizePositive(rawAmount, currency);
         if (senderIdentity.playerId() == recipientIdentity.playerId()) {
@@ -381,12 +382,17 @@ public final class EconomyRepository {
 
                 List<Identity> identities = new ArrayList<>(List.of(senderIdentity, recipientIdentity));
                 identities.sort(Comparator.comparingLong(Identity::playerId));
+                TransactionClock provisioningClock = new TransactionClock(session);
                 Map<Long, EconomyBalanceEntity> locked = new LinkedHashMap<>();
                 Map<Long, EconomyPlayerSettingsEntity> settings = new LinkedHashMap<>();
                 for (Identity identity : identities) {
-                    EconomyBalanceEntity account = ensureAccount(session, identity, currency, now, true);
+                    EconomyBalanceEntity account = ensureAccount(
+                            session, identity, currency, provisioningClock, true
+                    );
                     locked.put(identity.playerId(), account);
-                    settings.put(identity.playerId(), ensureSettings(session, account.getId(), currency, now, true));
+                    settings.put(identity.playerId(), ensureSettings(
+                            session, account.getId(), currency, provisioningClock, true
+                    ));
                 }
 
                 EconomyBalanceEntity sender = locked.get(senderIdentity.playerId());
@@ -531,8 +537,7 @@ public final class EconomyRepository {
             Long actorPlayerId,
             String actorName,
             String reason,
-            Map<String, String> metadata,
-            long now
+            Map<String, String> metadata
     ) {
         TransactionType type = enabled ? TransactionType.PAYMENTS_ENABLED : TransactionType.PAYMENTS_DISABLED;
         String requestFingerprint = accountSettingFingerprint(
@@ -543,8 +548,11 @@ public final class EconomyRepository {
             if (replay != null) {
                 return replay;
             }
-            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
-            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            TransactionClock provisioningClock = new TransactionClock(session);
+            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, provisioningClock, true);
+            EconomyPlayerSettingsEntity settings = ensureSettings(
+                    session, balance.getId(), currency, provisioningClock, true
+            );
             long transactionNow = databaseNow(session);
             BigDecimal unchanged = balance.getBalance();
             settings.setPaymentsEnabled(enabled);
@@ -586,8 +594,7 @@ public final class EconomyRepository {
             String reason,
             String source,
             String idempotencyKey,
-            Map<String, String> metadata,
-            long now
+            Map<String, String> metadata
     ) {
         TransactionType type = frozen ? TransactionType.ACCOUNT_FROZEN : TransactionType.ACCOUNT_UNFROZEN;
         String requestFingerprint = accountSettingFingerprint(
@@ -598,8 +605,11 @@ public final class EconomyRepository {
             if (replay != null) {
                 return replay;
             }
-            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
-            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            TransactionClock provisioningClock = new TransactionClock(session);
+            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, provisioningClock, true);
+            EconomyPlayerSettingsEntity settings = ensureSettings(
+                    session, balance.getId(), currency, provisioningClock, true
+            );
             long transactionNow = databaseNow(session);
             BigDecimal unchanged = balance.getBalance();
             settings.setAccountStatus(frozen ? AccountStatus.FROZEN.name() : AccountStatus.ACTIVE.name());
@@ -638,11 +648,12 @@ public final class EconomyRepository {
             Identity identity,
             EconomySettings.Currency currency,
             int page,
-            int pageSize,
-            long now
+            int pageSize
     ) {
         return executeWithRetry(() -> orm.runInTransaction(session -> {
-            EconomyBalanceEntity account = ensureAccount(session, identity, currency, now, false);
+            EconomyBalanceEntity account = ensureAccount(
+                    session, identity, currency, new TransactionClock(session), false
+            );
             List<EconomyTransactionEntryEntity> entries = session.createSelectionQuery(
                             "from EconomyTransactionEntryEntity where accountId = :accountId order by transactionId desc",
                             EconomyTransactionEntryEntity.class
@@ -834,23 +845,23 @@ public final class EconomyRepository {
             Session session,
             Identity identity,
             EconomySettings.Currency currency,
-            long now,
+            TransactionClock clock,
             boolean lock
     ) {
-        ensurePlayerIdentity(session, identity, now, lock);
+        ensurePlayerIdentity(session, identity, clock, lock);
         String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
         EconomyBalanceEntity account = lock
                 ? session.find(EconomyBalanceEntity.class, id, LockModeType.PESSIMISTIC_WRITE)
                 : session.find(EconomyBalanceEntity.class, id);
         if (account == null) {
-            return createAccount(session, id, identity, currency, now);
+            return createAccount(session, id, identity, currency, clock);
         }
         validateAccountIdentity(account, identity);
         if (lock) {
             String playerName = trim(identity.playerName(), 32);
             if (!Objects.equals(account.getPlayerName(), playerName)) {
                 account.setPlayerName(playerName);
-                account.setUpdatedAt(now);
+                account.setUpdatedAt(clock.now());
             }
         }
         return account;
@@ -861,8 +872,9 @@ public final class EconomyRepository {
             String id,
             Identity identity,
             EconomySettings.Currency currency,
-            long now
+            TransactionClock clock
     ) {
+        long now = clock.now();
         EconomyBalanceEntity account = new EconomyBalanceEntity();
         account.setId(id);
         account.setPlayerId(identity.playerId());
@@ -893,7 +905,7 @@ public final class EconomyRepository {
     private EconomyPlayerIdentityEntity ensurePlayerIdentity(
             Session session,
             Identity identity,
-            long now,
+            TransactionClock clock,
             boolean lock
     ) {
         EconomyPlayerIdentityEntity canonical = lock
@@ -917,6 +929,7 @@ public final class EconomyRepository {
                 );
             }
             canonical = new EconomyPlayerIdentityEntity();
+            long now = clock.now();
             canonical.setPlayerId(identity.playerId());
             canonical.setPlayerUuid(playerUuid);
             canonical.setPlayerName(playerName);
@@ -934,7 +947,7 @@ public final class EconomyRepository {
         }
         if (lock && !Objects.equals(canonical.getPlayerName(), playerName)) {
             canonical.setPlayerName(playerName);
-            canonical.setUpdatedAt(now);
+            canonical.setUpdatedAt(clock.now());
         }
         return canonical;
     }
@@ -985,14 +998,14 @@ public final class EconomyRepository {
             Session session,
             String accountId,
             EconomySettings.Currency currency,
-            long now,
+            TransactionClock clock,
             boolean lock
     ) {
         EconomyPlayerSettingsEntity settings = lock
                 ? session.find(EconomyPlayerSettingsEntity.class, accountId, LockModeType.PESSIMISTIC_WRITE)
                 : session.find(EconomyPlayerSettingsEntity.class, accountId);
         if (settings == null) {
-            return createSettings(session, accountId, currency, now);
+            return createSettings(session, accountId, currency, clock);
         }
         return settings;
     }
@@ -1001,8 +1014,9 @@ public final class EconomyRepository {
             Session session,
             String accountId,
             EconomySettings.Currency currency,
-            long now
+            TransactionClock clock
     ) {
+        long now = clock.now();
         EconomyPlayerSettingsEntity settings = new EconomyPlayerSettingsEntity();
         settings.setAccountId(accountId);
         settings.setPaymentsEnabled(currency.payments().defaultEnabled());
@@ -1495,6 +1509,23 @@ public final class EconomyRepository {
                 return result.getLong(1);
             }
         });
+    }
+
+    /** Lazily reads one authoritative timestamp for provisioning work in this transaction. */
+    private static final class TransactionClock {
+        private final Session session;
+        private Long timestamp;
+
+        private TransactionClock(Session session) {
+            this.session = session;
+        }
+
+        private long now() {
+            if (timestamp == null) {
+                timestamp = databaseNow(session);
+            }
+            return timestamp;
+        }
     }
 
     static boolean isTransient(Throwable failure) {

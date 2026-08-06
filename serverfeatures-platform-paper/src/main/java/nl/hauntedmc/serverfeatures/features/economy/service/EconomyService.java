@@ -115,8 +115,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                     ignored -> {
                         CompletableFuture<List<Account>> created = submit(() -> repository.balances(
                                 identity,
-                                settings.currencies().values(),
-                                now()
+                                settings.currencies().values()
                         ));
                         created.whenComplete((accounts, error) -> batchRefreshes.remove(
                                 identity.playerUuid(),
@@ -152,7 +151,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     public CompletionStage<EconomyBalance> balance(EconomyAccountRef account) {
         return resolve(account).thenCompose(identity -> {
             EconomySettings.Currency currency = requireCurrency(account.currencyId(), account.scopeKey());
-            return submit(() -> repository.balance(identity, currency, now()))
+            return submit(() -> repository.balance(identity, currency))
                     .thenApply(this::cache)
                     .thenApply(this::apiBalance);
         });
@@ -212,8 +211,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                             request.actorName(),
                             request.reason(),
                             request.metadata(),
-                            bypassFreeze,
-                            now()
+                            bypassFreeze
                     ))
                     .thenApply(outcome -> publishAndConvert(outcome));
         }).exceptionally(this::failureResult);
@@ -255,8 +253,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                             request.reason(),
                             request.metadata(),
                             request.bypassPaymentsToggle(),
-                            false,
-                            now()
+                            false
                     ))
                     .thenApply(outcome -> publishTransferAndConvert(
                             outcome,
@@ -304,7 +301,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     public CompletionStage<Account> accountState(EconomyAccountRef account) {
         return resolve(account).thenCompose(identity -> {
             EconomySettings.Currency currency = requireCurrency(account.currencyId(), account.scopeKey());
-            return submit(() -> repository.balance(identity, currency, now())).thenApply(this::cache);
+            return submit(() -> repository.balance(identity, currency)).thenApply(this::cache);
         });
     }
 
@@ -328,8 +325,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                             actorPlayerId,
                             actorName,
                             reason,
-                            Map.of(),
-                            now()
+                            Map.of()
                     ))
                     .thenApply(this::publishAccountMutation);
         });
@@ -354,8 +350,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                             reason,
                             "admin-command",
                             idempotencyKey,
-                            Map.of(),
-                            now()
+                            Map.of()
                     ))
                     .thenApply(this::publishAccountMutation);
         });
@@ -364,7 +359,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     public CompletionStage<HistoryPage> history(EconomyAccountRef account, int page, int pageSize) {
         return resolve(account).thenCompose(identity -> {
             EconomySettings.Currency currency = requireCurrency(account.currencyId(), account.scopeKey());
-            return submit(() -> repository.history(identity, currency, page, pageSize, now()));
+            return submit(() -> repository.history(identity, currency, page, pageSize));
         });
     }
 
@@ -448,7 +443,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
             return Optional.empty();
         }
         EconomySettings.Currency currency = requireCurrency(currencyId, null);
-        return Optional.of(cache(repository.balance(identity, currency, now())));
+        return Optional.of(cache(repository.balance(identity, currency)));
     }
 
     public Optional<Account> balanceSync(OfflinePlayer player, String currencyId) {
@@ -490,7 +485,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
         }
         MutationOutcome outcome = repository.mutate(
                 type, type, identity, currency, amount, source, idempotencyKey, null,
-                source, source + " economy operation", Map.of(), false, now()
+                source, source + " economy operation", Map.of(), false
         );
         publish(outcome);
         return outcome;
@@ -805,7 +800,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     private CompletableFuture<Account> refreshAccount(Identity identity, EconomySettings.Currency currency) {
         String key = cacheKey(identity.playerUuid(), currency.id(), currency.scope().key());
         return refreshes.computeIfAbsent(key, ignored -> {
-            CompletableFuture<Account> refresh = submit(() -> repository.balance(identity, currency, now()))
+            CompletableFuture<Account> refresh = submit(() -> repository.balance(identity, currency))
                     .thenApply(account -> onlinePlayers.contains(identity.playerUuid()) ? cache(account) : account);
             refresh.whenComplete((account, failure) -> refreshes.remove(key, refresh));
             return refresh;
@@ -816,7 +811,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
             Identity identity,
             EconomySettings.Currency currency
     ) {
-        return submit(() -> repository.balance(identity, currency, now()))
+        return submit(() -> repository.balance(identity, currency))
                 .thenApply(account -> onlinePlayers.contains(identity.playerUuid()) ? cache(account) : account);
     }
 

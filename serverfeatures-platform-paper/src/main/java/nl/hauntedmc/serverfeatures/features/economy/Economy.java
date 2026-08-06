@@ -152,7 +152,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         ));
 
         EconomyRepository repository = new EconomyRepository(orm);
-        repository.validateDefinitions(settings, System.currentTimeMillis());
+        repository.validateDefinitions(settings);
         service = new EconomyService(this, settings, repository);
         getLifecycleManager().getApiManager().registerService(EconomyApi.class, service);
 
