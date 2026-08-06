@@ -54,6 +54,7 @@ This directory documents all **64** feature modules currently present in ServerF
 - [VillagerOptimizer](villageroptimizer.md) — Reduces villager processing cost by applying configurable optimization rules without changing intended gameplay more than necessary.
 - [WorldEditVisualizer](worldeditvisualizer.md) — Visualizes WorldEdit selections for authorized builders with temporary particles or display markers.
 - [Graveyard](graveyard.md) — Stores death contents durably and renders claimable packet-only graves with active-server-time expiry and crash recovery.
+- [Economy](economy.md)
 - [Lottery](lottery.md) — Runs scheduled ticket-based draws with donations, offline payouts, history, leaderboards, and a small staff command set.
 
 ## Moderation and administration

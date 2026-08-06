@@ -4,8 +4,8 @@ import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.features.lottery.Lottery;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy.EconomyResult;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway.EconomyResult;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PendingPayout;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PayoutStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PlayerSummary;
@@ -35,7 +35,7 @@ public final class LotteryService {
     private final Lottery feature;
     private final LotterySettings settings;
     private final LotteryRepository repository;
-    private final LotteryEconomy economy;
+    private final LotteryEconomyGateway economy;
     private final LotteryDrawEngine drawEngine;
     private final PlayerIdentityResolver identityResolver;
     private final AtomicReference<RoundSnapshot> snapshot = new AtomicReference<>();
@@ -50,7 +50,7 @@ public final class LotteryService {
             Lottery feature,
             LotterySettings settings,
             LotteryRepository repository,
-            LotteryEconomy economy,
+            LotteryEconomyGateway economy,
             LotteryDrawEngine drawEngine
     ) {
         this.feature = feature;
@@ -107,7 +107,7 @@ public final class LotteryService {
     }
 
     public Money balance(OfflinePlayer player) {
-        return economy.balance(player);
+        return economy.cachedBalance(player);
     }
 
     public int maximumAffordable(Player player) {
@@ -411,39 +411,40 @@ public final class LotteryService {
             }
             return;
         }
-        EconomyResult withdrawal = economy.withdraw(player, cost);
-        if (!withdrawal.successful()) {
-            endPlayerOperation(playerUuid);
-            feature.send(player, withdrawal.uncertain() ? "lottery.transaction.uncertain" : "lottery.buy.withdraw_failed", Map.of(
-                    "reason", withdrawal.message()
-            ));
-            return;
-        }
-        submit(() -> repository.purchase(
-                        settings,
-                        roundId,
-                        playerUuid,
-                        playerId,
-                        playerName,
-                        ticketCount,
-                        cost,
-                        now()
-                ))
-                .whenComplete((receipt, failure) -> main(() -> {
-                    endPlayerOperation(playerUuid);
-                    if (failure != null) {
-                        refund(player, cost, "purchase", failure);
-                        return;
-                    }
-                    rounds.refreshRound();
-                    refreshPlayerSummary(playerUuid);
-                    feature.send(player, "lottery.buy.success", Map.of(
-                            "tickets", Integer.toString(receipt.purchasedTickets()),
-                            "cost", format(receipt.charged()),
-                            "player_tickets", Integer.toString(receipt.playerTickets()),
-                            "pot", format(receipt.pot())
-                    ));
-                }));
+        String economyKey = "purchase:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
+        economy.withdraw(player, cost, economyKey).whenComplete((withdrawal, economyFailure) -> main(() -> {
+            if (economyFailure != null) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, "lottery.transaction.uncertain");
+                log("Lottery purchase withdrawal failed", economyFailure);
+                return;
+            }
+            if (!withdrawal.successful()) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, withdrawal.uncertain()
+                        ? "lottery.transaction.uncertain"
+                        : "lottery.buy.withdraw_failed", Map.of("reason", withdrawal.message()));
+                return;
+            }
+            submit(() -> repository.purchase(
+                            settings, roundId, playerUuid, playerId, playerName, ticketCount, cost, now()
+                    ))
+                    .whenComplete((receipt, failure) -> main(() -> {
+                        endPlayerOperation(playerUuid);
+                        if (failure != null) {
+                            refund(player, cost, "purchase", economyKey, failure);
+                            return;
+                        }
+                        rounds.refreshRound();
+                        refreshPlayerSummary(playerUuid);
+                        feature.send(player, "lottery.buy.success", Map.of(
+                                "tickets", Integer.toString(receipt.purchasedTickets()),
+                                "cost", format(receipt.charged()),
+                                "player_tickets", Integer.toString(receipt.playerTickets()),
+                                "pot", format(receipt.pot())
+                        ));
+                    }));
+        }));
     }
 
     private void withdrawAndStoreDonation(
@@ -467,46 +468,57 @@ public final class LotteryService {
             }
             return;
         }
-        EconomyResult withdrawal = economy.withdraw(player, amount);
-        if (!withdrawal.successful()) {
-            endPlayerOperation(playerUuid);
-            feature.send(player, withdrawal.uncertain()
-                    ? "lottery.transaction.uncertain"
-                    : "lottery.donate.withdraw_failed", Map.of("reason", withdrawal.message()));
-            return;
-        }
-        submit(() -> repository.donate(
-                        settings,
-                        roundId,
-                        playerUuid,
-                        playerId,
-                        playerName,
-                        amount,
-                        now()
-                ))
-                .whenComplete((receipt, failure) -> main(() -> {
-                    endPlayerOperation(playerUuid);
-                    if (failure != null) {
-                        refund(player, amount, "donation", failure);
-                        return;
-                    }
-                    rounds.refreshRound();
-                    refreshPlayerSummary(playerUuid);
-                    feature.send(player, "lottery.donate.success", Map.of(
-                            "amount", format(receipt.amount()),
-                            "pot", format(receipt.pot())
-                    ));
-                }));
+        String economyKey = "donation:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
+        economy.withdraw(player, amount, economyKey).whenComplete((withdrawal, economyFailure) -> main(() -> {
+            if (economyFailure != null) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, "lottery.transaction.uncertain");
+                log("Lottery donation withdrawal failed", economyFailure);
+                return;
+            }
+            if (!withdrawal.successful()) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, withdrawal.uncertain()
+                        ? "lottery.transaction.uncertain"
+                        : "lottery.donate.withdraw_failed", Map.of("reason", withdrawal.message()));
+                return;
+            }
+            submit(() -> repository.donate(
+                            settings, roundId, playerUuid, playerId, playerName, amount, now()
+                    ))
+                    .whenComplete((receipt, failure) -> main(() -> {
+                        endPlayerOperation(playerUuid);
+                        if (failure != null) {
+                            refund(player, amount, "donation", economyKey, failure);
+                            return;
+                        }
+                        rounds.refreshRound();
+                        refreshPlayerSummary(playerUuid);
+                        feature.send(player, "lottery.donate.success", Map.of(
+                                "amount", format(receipt.amount()),
+                                "pot", format(receipt.pot())
+                        ));
+                    }));
+        }));
     }
 
-    private void refund(Player player, Money amount, String transaction, Throwable failure) {
-        EconomyResult refund = economy.deposit(player, amount);
-        if (refund.successful()) {
-            feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
-        } else {
-            feature.send(player, "lottery.transaction.uncertain");
-        }
-        log("Lottery " + transaction + " could not be stored; refund result: " + refund.message(), failure);
+    private void refund(
+            Player player,
+            Money amount,
+            String transaction,
+            String originalEconomyKey,
+            Throwable failure
+    ) {
+        economy.deposit(player, amount, "refund:" + originalEconomyKey).whenComplete((refund, refundFailure) -> main(() -> {
+            if (refundFailure == null && refund.successful()) {
+                feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
+            } else {
+                feature.send(player, "lottery.transaction.uncertain");
+            }
+            String result = refundFailure != null ? rootMessage(refundFailure)
+                    : refund == null ? "no result" : refund.message();
+            log("Lottery " + transaction + " could not be stored; refund result: " + result, failure);
+        }));
     }
 
     private void claimNext(UUID playerUuid, boolean automatic, Money paid) {
@@ -545,41 +557,44 @@ public final class LotteryService {
     }
 
     private void deliverPayout(Player player, PendingPayout payout, boolean automatic, Money paid) {
-        EconomyResult result = economy.deposit(player, payout.amount());
-        PayoutStatus status = result.successful()
-                ? PayoutStatus.PAID
-                : result.uncertain() ? PayoutStatus.FAILED : PayoutStatus.PENDING;
-        submit(() -> {
-            boolean updated = repository.finishPayout(
-                    settings.lotteryKey(),
-                    payout.payoutId(),
-                    status,
-                    result.successful() ? null : result.message(),
-                    now()
-            );
-            if (!updated) {
-                throw new IllegalStateException("Payout is no longer reserved for delivery");
-            }
-            return null;
-        }).whenComplete((ignored, failure) -> main(() -> {
-            if (failure != null) {
-                endPlayerOperation(player.getUniqueId());
-                feature.send(player, "lottery.transaction.uncertain");
-                log("Could not save Lottery payout state " + payout.payoutId(), failure);
-                return;
-            }
-            if (!result.successful()) {
-                endPlayerOperation(player.getUniqueId());
-                if (!automatic) {
-                    feature.send(player, result.uncertain()
-                            ? "lottery.transaction.uncertain"
-                            : "lottery.claim.payout_failed", Map.of("reason", result.message()));
-                }
-                refreshPlayerSummary(player.getUniqueId());
-                return;
-            }
-            claimNext(player.getUniqueId(), automatic, paid.add(payout.amount()));
-        }));
+        economy.deposit(player, payout.amount(), "payout:" + payout.payoutId())
+                .whenComplete((result, economyFailure) -> main(() -> {
+                    EconomyResult effective = economyFailure == null && result != null
+                            ? result
+                            : EconomyResult.uncertain(economyFailure == null
+                                    ? "No economy result" : rootMessage(economyFailure));
+                    PayoutStatus status = effective.successful()
+                            ? PayoutStatus.PAID
+                            : effective.uncertain() ? PayoutStatus.FAILED : PayoutStatus.PENDING;
+                    submit(() -> {
+                        boolean updated = repository.finishPayout(
+                                settings.lotteryKey(), payout.payoutId(), status,
+                                effective.successful() ? null : effective.message(), now()
+                        );
+                        if (!updated) {
+                            throw new IllegalStateException("Payout is no longer reserved for delivery");
+                        }
+                        return null;
+                    }).whenComplete((ignored, failure) -> main(() -> {
+                        if (failure != null) {
+                            endPlayerOperation(player.getUniqueId());
+                            feature.send(player, "lottery.transaction.uncertain");
+                            log("Could not save Lottery payout state " + payout.payoutId(), failure);
+                            return;
+                        }
+                        if (!effective.successful()) {
+                            endPlayerOperation(player.getUniqueId());
+                            if (!automatic) {
+                                feature.send(player, effective.uncertain()
+                                        ? "lottery.transaction.uncertain"
+                                        : "lottery.claim.payout_failed", Map.of("reason", effective.message()));
+                            }
+                            refreshPlayerSummary(player.getUniqueId());
+                            return;
+                        }
+                        claimNext(player.getUniqueId(), automatic, paid.add(payout.amount()));
+                    }));
+                }));
     }
 
     private void releasePayout(PendingPayout payout, UUID playerUuid) {

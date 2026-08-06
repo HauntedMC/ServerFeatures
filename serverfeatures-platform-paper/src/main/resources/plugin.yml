@@ -5,7 +5,7 @@ description: HauntedMC Feature Framework (Platform=Paper)
 author: HauntedMC
 website: https://hauntedmc.nl
 api-version: 1.21
-softdepend: [ DataRegistry, DataProvider, packetevents, PlaceholderAPI, Essentials ]
+softdepend: [ DataRegistry, DataProvider, packetevents, PlaceholderAPI, Essentials, Vault ]
 
 commands:
   serverfeatures:
@@ -45,3 +45,48 @@ permissions:
   serverfeatures.feature.invtools.command.enderchest.clear:
     description: Clear online and offline player ender chests with /inv enderchest clear.
     default: false
+  serverfeatures.feature.economy.balance:
+    description: View your own configured economy balances.
+    default: true
+  serverfeatures.feature.economy.balance.others:
+    description: View another player's economy balance.
+    default: op
+  serverfeatures.feature.economy.pay:
+    description: Transfer currencies that allow player payments.
+    default: true
+  serverfeatures.feature.economy.paytoggle:
+    description: Toggle incoming player payments.
+    default: true
+  serverfeatures.feature.economy.history:
+    description: View your economy transaction history.
+    default: true
+  serverfeatures.feature.economy.top:
+    description: View enabled economy leaderboards.
+    default: true
+  serverfeatures.feature.economy.admin.status:
+    description: View Economy operational status.
+    default: op
+  serverfeatures.feature.economy.admin.balance:
+    description: Inspect player economy balances.
+    default: op
+  serverfeatures.feature.economy.admin.add:
+    description: Add currency to a player account.
+    default: op
+  serverfeatures.feature.economy.admin.remove:
+    description: Remove currency from a player account.
+    default: op
+  serverfeatures.feature.economy.admin.set:
+    description: Set a player economy balance.
+    default: op
+  serverfeatures.feature.economy.admin.payments:
+    description: Change a player's payment setting.
+    default: op
+  serverfeatures.feature.economy.admin.freeze:
+    description: Freeze or unfreeze economy accounts.
+    default: op
+  serverfeatures.feature.economy.admin.history:
+    description: Inspect player transaction history.
+    default: op
+  serverfeatures.feature.economy.admin.verify:
+    description: Run read-only Economy integrity checks.
+    default: op

@@ -115,6 +115,22 @@ final class FeatureLoadOrderResolver {
                 }
             }
 
+            for (String dependency : descriptor.optionalFeatureDependencies()) {
+                String dependencyKey = featureKeyResolver.apply(dependency);
+                if (dependencyKey == null || states.get(dependencyKey) == LoadOrderState.VISITING) {
+                    continue;
+                }
+                resolveFeatureLoadOrder(
+                        dependencyKey,
+                        descriptorProvider,
+                        featureKeyResolver,
+                        logger,
+                        states,
+                        path,
+                        loadOrder
+                );
+            }
+
             states.put(featureName, LoadOrderState.VISITED);
             loadOrder.add(featureName);
             return true;

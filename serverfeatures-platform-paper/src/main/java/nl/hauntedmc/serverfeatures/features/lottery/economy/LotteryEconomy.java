@@ -8,10 +8,11 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-/** Main-thread-only Vault economy boundary. */
-public final class LotteryEconomy {
-
+/** Legacy Vault Lottery backend. */
+public final class LotteryEconomy implements LotteryEconomyGateway {
     private final Economy economy;
 
     private LotteryEconomy(Economy economy) {
@@ -21,43 +22,47 @@ public final class LotteryEconomy {
     public static LotteryEconomy discover() {
         RegisteredServiceProvider<Economy> registration = Bukkit.getServicesManager().getRegistration(Economy.class);
         if (registration == null || registration.getProvider() == null) {
-            throw new IllegalStateException("Lottery requires Vault with an enabled economy provider");
+            throw new IllegalStateException("Lottery VAULT backend requires Vault with an enabled economy provider");
         }
         return new LotteryEconomy(registration.getProvider());
     }
 
-    public Money balance(OfflinePlayer player) {
+    @Override
+    public Money cachedBalance(OfflinePlayer player) {
         requireMainThread();
         return Money.fromVault(economy.getBalance(player));
     }
 
-    public EconomyResult withdraw(OfflinePlayer player, Money amount) {
+    @Override
+    public CompletionStage<EconomyResult> withdraw(OfflinePlayer player, Money amount, String idempotencyKey) {
         requireMainThread();
         if (!amount.isPositive()) {
-            return EconomyResult.failure("Amount must be positive");
+            return CompletableFuture.completedFuture(EconomyResult.failure("Amount must be positive"));
         }
         if (!economy.has(player, amount.toVault())) {
-            return EconomyResult.failure("Insufficient funds");
+            return CompletableFuture.completedFuture(EconomyResult.failure("Insufficient funds"));
         }
         try {
-            return result(economy.withdrawPlayer(player, amount.toVault()));
+            return CompletableFuture.completedFuture(result(economy.withdrawPlayer(player, amount.toVault())));
         } catch (RuntimeException | LinkageError exception) {
-            return EconomyResult.uncertain(rootMessage(exception));
+            return CompletableFuture.completedFuture(EconomyResult.uncertain(rootMessage(exception)));
         }
     }
 
-    public EconomyResult deposit(OfflinePlayer player, Money amount) {
+    @Override
+    public CompletionStage<EconomyResult> deposit(OfflinePlayer player, Money amount, String idempotencyKey) {
         requireMainThread();
         if (!amount.isPositive()) {
-            return EconomyResult.failure("Amount must be positive");
+            return CompletableFuture.completedFuture(EconomyResult.failure("Amount must be positive"));
         }
         try {
-            return result(economy.depositPlayer(player, amount.toVault()));
+            return CompletableFuture.completedFuture(result(economy.depositPlayer(player, amount.toVault())));
         } catch (RuntimeException | LinkageError exception) {
-            return EconomyResult.uncertain(rootMessage(exception));
+            return CompletableFuture.completedFuture(EconomyResult.uncertain(rootMessage(exception)));
         }
     }
 
+    @Override
     public String format(Money amount) {
         requireMainThread();
         try {
@@ -67,13 +72,18 @@ public final class LotteryEconomy {
         }
     }
 
+    @Override
+    public String backendName() {
+        return "Vault:" + economy.getName();
+    }
+
     private static EconomyResult result(EconomyResponse response) {
         if (response == null) {
             return EconomyResult.uncertain("Vault returned no EconomyResponse");
         }
         String message = response.errorMessage == null ? "" : response.errorMessage;
         if (response.transactionSuccess()) {
-            return EconomyResult.success(message);
+            return EconomyResult.success(message, "");
         }
         return EconomyResult.failure(message.isBlank() ? response.type.name() : message);
     }
@@ -91,23 +101,5 @@ public final class LotteryEconomy {
         }
         String message = current.getMessage();
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
-    }
-
-    public record EconomyResult(boolean successful, boolean uncertain, String message) {
-        public EconomyResult {
-            message = message == null ? "" : message;
-        }
-
-        public static EconomyResult success(String message) {
-            return new EconomyResult(true, false, message);
-        }
-
-        public static EconomyResult failure(String message) {
-            return new EconomyResult(false, false, message);
-        }
-
-        public static EconomyResult uncertain(String message) {
-            return new EconomyResult(false, true, message);
-        }
     }
 }

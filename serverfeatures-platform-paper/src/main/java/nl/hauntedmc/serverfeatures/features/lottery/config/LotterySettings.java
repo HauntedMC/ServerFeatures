@@ -19,6 +19,7 @@ import java.util.Objects;
 /** Immutable and strictly validated Lottery configuration. */
 public record LotterySettings(
         String lotteryKey,
+        Economy economy,
         Schedule schedule,
         Tickets tickets,
         Pot pot,
@@ -33,6 +34,7 @@ public record LotterySettings(
         if (lotteryKey == null || !lotteryKey.matches("[a-z0-9][a-z0-9_.-]{0,63}")) {
             throw new IllegalArgumentException("lottery_key must match [a-z0-9][a-z0-9_.-]{0,63}");
         }
+        Objects.requireNonNull(economy, "economy");
         Objects.requireNonNull(schedule, "schedule");
         Objects.requireNonNull(tickets, "tickets");
         Objects.requireNonNull(pot, "pot");
@@ -43,11 +45,31 @@ public record LotterySettings(
         Objects.requireNonNull(history, "history");
     }
 
+    public LotterySettings(
+            String lotteryKey,
+            Schedule schedule,
+            Tickets tickets,
+            Pot pot,
+            Prizes prizes,
+            AntiSnipe antiSnipe,
+            Broadcasts broadcasts,
+            Payouts payouts,
+            History history
+    ) {
+        this(lotteryKey, new Economy(EconomyBackend.VAULT, "money"), schedule, tickets, pot, prizes,
+                antiSnipe, broadcasts, payouts, history);
+    }
+
     public static LotterySettings load(FeatureConfigHandler config, String serverName) {
         String configuredKey = text(config, "lottery_key", "$server");
         String lotteryKey = "$server".equalsIgnoreCase(configuredKey)
                 ? normalizeKey(serverName)
                 : normalizeKey(configuredKey);
+
+        Economy economy = new Economy(
+                enumValue(EconomyBackend.class, text(config, "economy.backend", "VAULT"), "economy.backend"),
+                normalizeKey(text(config, "economy.builtin.currency", "money"))
+        );
 
         ScheduleMode scheduleMode = enumValue(
                 ScheduleMode.class,
@@ -130,6 +152,7 @@ public record LotterySettings(
 
         return new LotterySettings(
                 lotteryKey,
+                economy,
                 new Schedule(scheduleMode, interval, timezone, fixedTimes),
                 new Tickets(ticketPrice, maximumPerPlayer, maximumPerRound, maximumPerCommand),
                 new Pot(basePot, payoutPercentage, donationsEnabled, minimumDonation),
@@ -149,6 +172,18 @@ public record LotterySettings(
 
     public long nextCloseAt(long now) {
         return schedule.nextCloseAt(now);
+    }
+
+    public record Economy(EconomyBackend backend, String builtinCurrency) {
+        public Economy {
+            Objects.requireNonNull(backend, "backend");
+            builtinCurrency = normalizeKey(builtinCurrency);
+        }
+    }
+
+    public enum EconomyBackend {
+        BUILTIN,
+        VAULT
     }
 
     public record Schedule(ScheduleMode mode, Duration interval, ZoneId timezone, List<LocalTime> fixedTimes) {

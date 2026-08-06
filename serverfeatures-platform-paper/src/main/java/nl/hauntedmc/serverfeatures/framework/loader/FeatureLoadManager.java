@@ -136,6 +136,14 @@ public final class FeatureLoadManager {
         if (featureDependencies == null) {
             return Optional.empty();
         }
+        Set<String> optionalDependencies = normalizeFeatureDependencies(
+                featureClassName,
+                featureKey,
+                meta.getOptionalDependencies()
+        );
+        if (optionalDependencies == null) {
+            return Optional.empty();
+        }
         Set<String> pluginDependencies = meta.getPluginDependencies() == null
                 ? Set.of()
                 : new LinkedHashSet<>(meta.getPluginDependencies());
@@ -143,10 +151,11 @@ public final class FeatureLoadManager {
         return Optional.of(new FeatureDescriptor(
                 featureKey,
                 featureClassName,
-                meta,
+                meta.getClass().asSubclass(BaseMeta.class),
                 featureName,
                 featureVersion,
                 featureDependencies,
+                optionalDependencies,
                 pluginDependencies
         ));
     }

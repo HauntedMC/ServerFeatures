@@ -11,7 +11,10 @@ import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.lottery.command.LotteryCommand;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
@@ -56,6 +59,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("lottery_key", "$server");
+        defaults.put("economy.backend", "VAULT");
+        defaults.put("economy.builtin.currency", "money");
         defaults.put("schedule.mode", "INTERVAL");
         defaults.put("schedule.interval", "12h");
         defaults.put("schedule.timezone", "Europe/Amsterdam");
@@ -170,7 +175,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
                 "Lottery requires MYSQL/system_data_rw and could not create its ORM context."
         ));
 
-        LotteryEconomy economy = LotteryEconomy.discover();
+        LotteryEconomyGateway economy = createEconomyGateway();
+        getLogger().info("Lottery economy backend: " + economy.backendName());
         service = new LotteryService(
                 this,
                 settings,
@@ -187,6 +193,19 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
             }
         }
         service.start();
+    }
+
+    private LotteryEconomyGateway createEconomyGateway() {
+        return switch (settings.economy().backend()) {
+            case VAULT -> LotteryEconomy.discover();
+            case BUILTIN -> {
+                EconomyApi api = getLifecycleManager().getApiManager().findService(EconomyApi.class)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Lottery BUILTIN backend requires the Economy feature to be enabled"
+                        ));
+                yield new BuiltinLotteryEconomy(api, settings.economy().builtinCurrency());
+            }
+        };
     }
 
     @Override

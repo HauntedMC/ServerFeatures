@@ -122,3 +122,19 @@ Entries are sorted by UUID and assigned ticket ranges. The feature uses a random
 ```
 
 Placeholder reads use cached snapshots only and perform no database access.
+
+## Economy backend
+
+Lottery supports an explicit monetary backend:
+
+```yaml
+economy:
+  backend: VAULT
+  builtin:
+    currency: money
+```
+
+- `VAULT` preserves compatibility with legacy servers and external Vault providers.
+- `BUILTIN` uses the native ServerFeatures Economy API and the selected currency. The currency may be server-local, group-shared or global.
+
+There is no automatic fallback. A missing configured backend causes Lottery to fail with a clear startup error rather than silently using another balance system. Built-in withdrawals, refunds and payouts use deterministic idempotency identifiers; Vault mode retains the existing compensation behavior because external Vault providers do not expose an idempotency API.
