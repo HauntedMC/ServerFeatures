@@ -759,10 +759,18 @@ public final class LotteryService {
     }
 
     private void refreshRound() {
-        submit(() -> repository.currentRound(settings.lotteryKey()))
+        String seed = drawEngine.newSeed();
+        submit(() -> repository.ensureOpenRound(
+                        settings,
+                        seed,
+                        drawEngine.commitment(seed),
+                        now()
+                ))
                 .whenComplete((round, failure) -> {
-                    if (failure == null && round.isPresent() && !closed.get()) {
-                        main(() -> updateSnapshot(round.get()));
+                    if (failure == null && round != null && !closed.get()) {
+                        main(() -> updateSnapshot(round));
+                    } else if (failure != null) {
+                        log("Could not refresh Lottery round", failure);
                     }
                 });
     }

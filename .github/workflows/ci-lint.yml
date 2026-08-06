@@ -2,9 +2,13 @@ name: CI Lint
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types:
+      - opened
+      - synchronize
+      - reopened
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   lint:
@@ -16,102 +20,35 @@ jobs:
     env:
       PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
       PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
+
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0.1
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          server-id: github
-          server-username: PACKAGES_USER
-          server-password: PACKAGES_TOKEN
-      - run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
-      - run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
 
-  recover-lottery-draw:
-    name: Finalize Lottery draw recovery
-    if: github.event_name == 'pull_request' && github.head_ref == 'agent/lottery-feature'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-      packages: read
-    env:
-      PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
-      PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: agent/lottery-feature
-          fetch-depth: 0
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0.1
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          server-id: github
-          server-username: PACKAGES_USER
-          server-password: PACKAGES_TOKEN
-      - name: Apply and validate recovery fix
-        shell: bash
+      - name: Validate package token
         run: |
-          set -euo pipefail
-          test -n "$PACKAGES_USER"
-          test -n "$PACKAGES_TOKEN"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ -z "$PACKAGES_USER" ]; then
+            echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2
+            exit 1
+          fi
+          if [ -z "$PACKAGES_TOKEN" ]; then
+            echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN (requires read:packages)." >&2
+            exit 1
+          fi
 
-          python3 - <<'PY'
-          from pathlib import Path
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          server-id: github
+          server-username: PACKAGES_USER
+          server-password: PACKAGES_TOKEN
 
-          service = Path(
-              'serverfeatures-platform-paper/src/main/java/nl/hauntedmc/serverfeatures/'
-              'features/lottery/service/LotteryService.java'
-          )
-          source = service.read_text(encoding='utf-8')
-          start = source.index('    private void refreshRound() {')
-          end = source.index('    private void refreshHistory()', start)
-          method = '''    private void refreshRound() {
-                  String seed = drawEngine.newSeed();
-                  submit(() -> repository.ensureOpenRound(
-                                  settings,
-                                  seed,
-                                  drawEngine.commitment(seed),
-                                  now()
-                          ))
-                          .whenComplete((round, failure) -> {
-                              if (failure == null && round != null && !closed.get()) {
-                                  main(() -> updateSnapshot(round));
-                              } else if (failure != null) {
-                                  log("Could not refresh Lottery round", failure);
-                              }
-                          });
-              }
-
-          '''
-          service.write_text(source[:start] + method + source[end:], encoding='utf-8')
-
-          docs = Path('docs/features/lottery.md')
-          text = docs.read_text(encoding='utf-8')
-          anchor = 'The active row is pessimistically locked for all round mutations.'
-          if 'reopens a stale interrupted draw' not in text:
-              text = text.replace(
-                  anchor,
-                  anchor + ' The normal 30-second round refresh also reopens a stale interrupted draw, '
-                  'so no separate maintenance task is needed.',
-                  1
-              )
-          docs.write_text(text, encoding='utf-8')
-          PY
-
-          git diff --check
-          ./mvnw -U -B -ntp -DskipTests checkstyle:check
-          ./mvnw -U -B -ntp verify
-          ./mvnw -U -B -ntp -Pplatform-acceptance verify
-
-          git show origin/main:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
-          git add -A
-          git commit -m 'Recover stale Lottery draws during normal refresh'
-          git push origin HEAD:agent/lottery-feature
+      - name: Run Checkstyle
+        run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
+      - name: Lint release and acceptance scripts
+        run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
