@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EconomyApiValidationTest {
@@ -22,6 +23,21 @@ class EconomyApiValidationTest {
             "money",
             "hauntedmc/global"
     );
+
+    @Test
+    void acceptsPersistentIdentifiersAtTheirExactLimits() {
+        assertDoesNotThrow(() -> new EconomyScope(EconomyScopeType.GLOBAL, "x".repeat(128)));
+        assertDoesNotThrow(() -> new EconomyMutationRequest(
+                "x".repeat(64),
+                "x".repeat(160),
+                ACCOUNT,
+                BigDecimal.ONE,
+                null,
+                "system",
+                "test",
+                Map.of()
+        ));
+    }
 
     @Test
     void rejectsOversizedPersistentIdentifiers() {
