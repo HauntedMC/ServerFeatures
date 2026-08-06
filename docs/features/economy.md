@@ -27,6 +27,10 @@ Balance updates, payment settings, daily-limit updates and audit rows are commit
 
 Redis messaging only updates caches after a successful commit. MySQL remains authoritative and a Redis outage cannot permit overspending or duplicate money.
 
+## Failure behavior
+
+Economy fails closed when durable MySQL persistence is unavailable: balance mutations are rejected and are never acknowledged from cache or queued for write-behind persistence. Redis outages only reduce cache freshness and cross-server notifications; they do not change transaction correctness. Vault calls return a failure response when their bounded synchronous database operation cannot be committed.
+
 ## Configuration
 
 ```yaml
