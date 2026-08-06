@@ -45,4 +45,5 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 - Never repair balances by editing cache or Redis data.
 - Never change balances outside `EconomyApi`, the Economy administration commands, or the registered Vault provider.
 - Preserve operation IDs, sources, and idempotency keys in logs for every high-value integration.
+- Keep financial data models immutable at API boundaries and retain null-safe failure handling in every compensation path.
 - Treat `/economy verify` findings, identity conflicts, currency-definition conflicts, or repeated temporary database failures as release-blocking incidents.
