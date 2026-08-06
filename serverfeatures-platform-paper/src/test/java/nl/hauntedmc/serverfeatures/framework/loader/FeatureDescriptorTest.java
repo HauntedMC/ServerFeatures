@@ -52,6 +52,7 @@ class FeatureDescriptorTest {
                 "Example",
                 "2.0",
                 Set.of(),
+                Set.of(),
                 Set.of()
         );
 
@@ -72,6 +73,7 @@ class FeatureDescriptorTest {
                 "Fallback",
                 "3.0",
                 Set.of("Dependency"),
+                Set.of(),
                 Set.of("Plugin")
         );
 

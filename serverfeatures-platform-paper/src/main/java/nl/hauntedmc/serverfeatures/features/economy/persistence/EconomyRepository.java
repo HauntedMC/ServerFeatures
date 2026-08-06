@@ -27,7 +27,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -98,6 +98,15 @@ public final class EconomyRepository {
         }));
     }
 
+    public boolean accountExists(Identity identity, EconomySettings.Currency currency) {
+        Objects.requireNonNull(identity, "identity");
+        Objects.requireNonNull(currency, "currency");
+        String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
+        return executeWithRetry(() -> orm.runInTransaction(session ->
+                session.find(EconomyBalanceEntity.class, id) != null
+        ));
+    }
+
     public Optional<Identity> findIdentityByUuid(UUID uuid) {
         if (uuid == null) {
             return Optional.empty();
@@ -134,7 +143,8 @@ public final class EconomyRepository {
     }
 
     public MutationOutcome mutate(
-            TransactionType type,
+            TransactionType operationType,
+            TransactionType journalType,
             Identity identity,
             EconomySettings.Currency currency,
             BigDecimal rawAmount,
@@ -147,7 +157,8 @@ public final class EconomyRepository {
             boolean bypassFreeze,
             long now
     ) {
-        BigDecimal amount = normalizeMutationAmount(type, rawAmount, currency);
+        requireCompatibleMutationTypes(operationType, journalType);
+        BigDecimal amount = normalizeMutationAmount(operationType, rawAmount, currency);
         try {
             return executeWithRetry(() -> orm.runInTransaction(session -> {
                 MutationOutcome replay = replay(session, source, idempotencyKey);
@@ -165,7 +176,7 @@ public final class EconomyRepository {
                 requireActive(playerSettings, bypassFreeze);
 
                 BigDecimal before = balance.getBalance();
-                BigDecimal after = switch (type) {
+                BigDecimal after = switch (operationType) {
                     case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> before.add(amount);
                     case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> before.subtract(amount);
                     case SET, ADMIN_SET -> amount;
@@ -178,7 +189,7 @@ public final class EconomyRepository {
                 balance.setUpdatedAt(now);
 
                 EconomyTransactionEntity transaction = transaction(
-                        type, currency, source, idempotencyKey, actorPlayerId, actorName, reason, metadata, now
+                        journalType, currency, source, idempotencyKey, actorPlayerId, actorName, reason, metadata, now
                 );
                 session.persist(transaction);
                 session.flush();
@@ -474,10 +485,15 @@ public final class EconomyRepository {
             account.setUpdatedAt(now);
             session.persist(account);
             session.flush();
-        } else {
-            account.setPlayerUuid(identity.playerUuid().toString());
-            account.setPlayerName(trim(identity.playerName(), 32));
-            account.setUpdatedAt(now);
+        } else if (lock) {
+            String playerUuid = identity.playerUuid().toString();
+            String playerName = trim(identity.playerName(), 32);
+            if (!Objects.equals(account.getPlayerUuid(), playerUuid)
+                    || !Objects.equals(account.getPlayerName(), playerName)) {
+                account.setPlayerUuid(playerUuid);
+                account.setPlayerName(playerName);
+                account.setUpdatedAt(now);
+            }
         }
         return account;
     }
@@ -516,7 +532,7 @@ public final class EconomyRepository {
         if (limit.signum() <= 0) {
             return;
         }
-        String date = LocalDate.now(ZoneOffset.UTC).toString();
+        String date = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate().toString();
         String id = sender.getId() + ":" + date;
         EconomyDailyUsageEntity usage = session.find(EconomyDailyUsageEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
         if (usage == null) {
@@ -641,6 +657,28 @@ public final class EconomyRepository {
         if (!bypassFreeze && AccountStatus.FROZEN.name().equals(settings.getAccountStatus())) {
             throw new EconomyRejectedException(EconomyResultStatus.ACCOUNT_FROZEN, "Account is frozen");
         }
+    }
+
+    private static void requireCompatibleMutationTypes(
+            TransactionType operationType,
+            TransactionType journalType
+    ) {
+        Objects.requireNonNull(operationType, "operationType");
+        Objects.requireNonNull(journalType, "journalType");
+        if (mutationDirection(operationType) != mutationDirection(journalType)) {
+            throw new IllegalArgumentException(
+                    "Journal transaction type " + journalType + " is incompatible with " + operationType
+            );
+        }
+    }
+
+    private static int mutationDirection(TransactionType type) {
+        return switch (type) {
+            case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> 1;
+            case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> -1;
+            case SET, ADMIN_SET -> 0;
+            case TRANSFER -> 2;
+        };
     }
 
     private static BigDecimal normalizeMutationAmount(

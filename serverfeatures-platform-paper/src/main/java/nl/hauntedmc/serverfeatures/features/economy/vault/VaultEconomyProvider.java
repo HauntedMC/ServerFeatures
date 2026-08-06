@@ -67,7 +67,7 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean hasAccount(String playerName) {
-        return service.resolveSync(playerName).flatMap(identity -> service.balanceSync(identity, currencyId)).isPresent();
+        return service.resolveSync(playerName).map(identity -> service.hasAccountSync(identity, currencyId)).orElse(false);
     }
 
     @Override

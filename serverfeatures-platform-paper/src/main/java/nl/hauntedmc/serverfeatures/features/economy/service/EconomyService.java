@@ -158,9 +158,10 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                     request.account().currencyId(),
                     request.account().scopeKey()
             );
-            TransactionType effectiveType = requestedType(type, request.metadata());
+            TransactionType journalType = requestedJournalType(type, request.metadata());
             return submit(() -> repository.mutate(
-                            effectiveType,
+                            type,
+                            journalType,
                             identity,
                             currency,
                             request.amount(),
@@ -379,7 +380,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
             );
         }
         MutationOutcome outcome = repository.mutate(
-                type, identity, currency, amount, source, idempotencyKey, null,
+                type, type, identity, currency, amount, source, idempotencyKey, null,
                 source, source + " economy operation", Map.of(), false, now()
         );
         publish(outcome);
@@ -404,7 +405,15 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     }
 
     public boolean hasAccountSync(OfflinePlayer player, String currencyId) {
-        return resolveSync(player).isPresent() && balanceSync(player, currencyId).isPresent();
+        return resolveSync(player).map(identity -> hasAccountSync(identity, currencyId)).orElse(false);
+    }
+
+    public boolean hasAccountSync(Identity identity, String currencyId) {
+        if (identity == null) {
+            return false;
+        }
+        EconomySettings.Currency currency = requireCurrency(currencyId, null);
+        return repository.accountExists(identity, currency);
     }
 
     public void applyRemoteBalance(EconomyBalanceMessage message) {
@@ -427,7 +436,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
         }
         String key = cacheKey(uuid, message.getCurrencyId(), message.getScopeKey());
         cache.compute(key, (ignored, current) -> {
-            if (current != null && current.version() > message.getVersion()) {
+            if (current != null && current.version() >= message.getVersion()) {
                 return current;
             }
             return new Account(
@@ -481,16 +490,16 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
 
     private CompletionStage<Identity> resolve(EconomyAccountRef account) {
         Objects.requireNonNull(account, "account");
-        if (account.playerId() != null && account.playerId() > 0L) {
-            return CompletableFuture.completedFuture(new Identity(
-                    account.playerId(),
-                    account.playerUuid(),
-                    account.playerName()
-            ));
-        }
-        return identityResolver.findByUuid(account.playerUuid()).thenApply(optional -> optional
-                .map(EconomyService::identity)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown player: " + account.playerUuid())));
+        return identityResolver.findByUuid(account.playerUuid()).thenApply(optional -> {
+            Identity canonical = optional.map(EconomyService::identity)
+                    .orElseThrow(() -> new IllegalArgumentException("Unknown player: " + account.playerUuid()));
+            if (account.playerId() != null
+                    && account.playerId() > 0L
+                    && account.playerId() != canonical.playerId()) {
+                throw new IllegalArgumentException("Player ID does not match UUID: " + account.playerUuid());
+            }
+            return canonical;
+        });
     }
 
     private <T> CompletableFuture<T> submit(java.util.function.Supplier<T> work) {
@@ -593,19 +602,38 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
         return playerUuid + "|" + currencyId + "|" + scopeKey;
     }
 
-    private static TransactionType requestedType(TransactionType fallback, Map<String, String> metadata) {
+    static TransactionType requestedJournalType(
+            TransactionType operationType,
+            Map<String, String> metadata
+    ) {
         if (metadata == null) {
-            return fallback;
+            return operationType;
         }
         String requested = metadata.get("transaction_type");
         if (requested == null || requested.isBlank()) {
-            return fallback;
+            return operationType;
         }
         try {
-            return TransactionType.valueOf(requested.trim().toUpperCase(Locale.ROOT));
+            TransactionType candidate = TransactionType.valueOf(requested.trim().toUpperCase(Locale.ROOT));
+            return sameMutationDirection(operationType, candidate) ? candidate : operationType;
         } catch (IllegalArgumentException ignored) {
-            return fallback;
+            return operationType;
         }
+    }
+
+    private static boolean sameMutationDirection(TransactionType left, TransactionType right) {
+        return switch (left) {
+            case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> switch (right) {
+                case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> true;
+                default -> false;
+            };
+            case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> switch (right) {
+                case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> true;
+                default -> false;
+            };
+            case SET, ADMIN_SET -> right == TransactionType.SET || right == TransactionType.ADMIN_SET;
+            case TRANSFER -> right == TransactionType.TRANSFER;
+        };
     }
 
     private long now() {
