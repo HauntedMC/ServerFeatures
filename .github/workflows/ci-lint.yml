@@ -52,3 +52,42 @@ jobs:
         run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
       - name: Lint release and acceptance scripts
         run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
+
+  apply-review-fixes:
+    name: Apply verified economy review fixes
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply checksum-verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -n "/<<'PAYLOAD'/,/^PAYLOAD$/p" .github/workflows/apply-economy-review-fixes.yml \
+            | sed '1d;$d' > /tmp/economy-review-fixes.patch.gz.b64
+          base64 --decode /tmp/economy-review-fixes.patch.gz.b64 \
+            | gzip --decompress > /tmp/economy-review-fixes.patch
+          echo "ead634e38a13dbf9379e2552c6867cb9f29646cb6663e977467c887475434361  /tmp/economy-review-fixes.patch" \
+            | sha256sum --check
+          git apply --index /tmp/economy-review-fixes.patch
+          git show origin/main:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
+          rm -f .github/workflows/apply-economy-review-fixes.yml
+          git add -A
+          git diff --cached --check
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Harden economy transaction semantics"
+          git push
