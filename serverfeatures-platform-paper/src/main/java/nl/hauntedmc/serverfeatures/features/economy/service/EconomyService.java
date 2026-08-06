@@ -1106,12 +1106,16 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     }
 
     private static final class UnknownPlayerException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
         private UnknownPlayerException(String message) {
             super(message);
         }
     }
 
     private static final class UnknownCurrencyException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
         private UnknownCurrencyException(String message) {
             super(message);
         }
