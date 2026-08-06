@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * surface. Identity authority, cache coherence, Bukkit thread dispatching, and transfer
  * notification delivery live in dedicated collaborators.</p>
  */
-public final class EconomyService implements EconomyApi, AutoCloseable {
+public final class EconomyService implements EconomyApi {
     private final Economy feature;
     private final EconomySettings settings;
     private final EconomyRepository repository;
@@ -268,7 +268,14 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     /** Exposes the primary-thread boundary to commands and integrations completing async work. */
     public void main(Runnable runnable) { mainThread.execute(runnable); }
 
-    @Override public void close() {
+    /**
+     * Stops this feature-owned service and releases its in-memory state.
+     *
+     * <p>This is deliberately not {@link AutoCloseable}: the Economy feature owns one shared
+     * instance for its whole enabled lifetime. Commands, listeners, placeholders, messaging, and
+     * Vault receive a borrowed reference and must never close it with try-with-resources.</p>
+     */
+    public void shutdown() {
         if (closed.compareAndSet(false, true)) { cache.clear(); transferNotifier.clear(); messaging = null; }
     }
 

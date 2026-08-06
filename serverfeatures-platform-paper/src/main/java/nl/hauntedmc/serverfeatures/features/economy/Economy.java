@@ -118,20 +118,20 @@ public final class Economy extends BukkitBaseFeature<Meta> {
     @Override
     public void disable() {
         if (placeholder != null) {
-            placeholder.unregister();
+            closeSafely("PlaceholderAPI integration", placeholder::unregister);
             placeholder = null;
         }
         if (vault != null) {
-            vault.close();
+            closeSafely("Vault integration", vault::close);
             vault = null;
         }
         vaultStatus = "disabled";
         if (messaging != null) {
-            messaging.close();
+            closeSafely("Economy messaging", messaging::close);
             messaging = null;
         }
         if (service != null) {
-            service.close();
+            service.shutdown();
             service = null;
         }
         settings = null;
@@ -184,6 +184,15 @@ public final class Economy extends BukkitBaseFeature<Meta> {
             throw new IllegalStateException("Could not initialize Vault economy integration", cause);
         } catch (ReflectiveOperationException | LinkageError exception) {
             throw new IllegalStateException("Could not initialize Vault economy integration", exception);
+        }
+    }
+
+    /** Continues feature shutdown when an optional integration cannot clean itself up. */
+    private void closeSafely(String component, Runnable closeAction) {
+        try {
+            closeAction.run();
+        } catch (RuntimeException exception) {
+            getLogger().warning("Could not close " + component + ": " + exception.getMessage());
         }
     }
 
