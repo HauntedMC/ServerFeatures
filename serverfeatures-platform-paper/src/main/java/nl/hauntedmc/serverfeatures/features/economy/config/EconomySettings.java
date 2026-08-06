@@ -49,156 +49,7 @@ public record EconomySettings(
     }
 
     public static EconomySettings load(FeatureConfigHandler config, String globalServerName) {
-        String networkKey = key(text(config.node(), "network_key", "hauntedmc"), "network_key");
-        String configuredServer = firstNonBlank(
-                text(config.node(), "local_key", ""),
-                text(config.node(), "gamemode_key", ""),
-                text(config.node(), "server_key", "$server")
-        );
-        String serverKey = "$server".equalsIgnoreCase(configuredServer)
-                ? key(globalServerName, "global server_name")
-                : key(configuredServer, "server_key");
-        String connection = text(config.node(), "database.connection", "system_data_rw");
-
-        Vault vault = new Vault(
-                bool(config.node(), "vault.enabled", true),
-                normalizeCurrencyId(text(config.node(), "vault.primary_currency", "money")),
-                enumValue(VaultConflictPolicy.class, text(config.node(), "vault.conflict_policy", "FAIL"),
-                        "vault.conflict_policy")
-        );
-        Messaging messaging = new Messaging(
-                bool(config.node(), "messaging.enabled", true),
-                text(config.node(), "messaging.connection", "hauntedmc"),
-                text(config.node(), "messaging.channel", "serverfeatures.economy.balance")
-        );
-        Cache cache = new Cache(duration(
-                config.node(),
-                "cache.authoritative_refresh_interval",
-                "10s",
-                Duration.ofSeconds(1),
-                Duration.ofMinutes(5)
-        ));
-
-        ConfigNode currenciesNode = config.node("currencies");
-        Map<String, Currency> currencies = new LinkedHashMap<>();
-        for (Map.Entry<String, ConfigNode> entry : currenciesNode.children().entrySet()) {
-            String id = normalizeCurrencyId(entry.getKey());
-            ConfigNode node = entry.getValue();
-            if (!bool(node, "enabled", true)) {
-                continue;
-            }
-            EconomyScopeType scopeType = scopeType(
-                    text(node, "scope.type", "SERVER"),
-                    "currencies." + id + ".scope.type"
-            );
-            String scopeKey = switch (scopeType) {
-                case SERVER -> networkKey + "/server/" + localScopeKey(node, id, serverKey);
-                case GROUP -> networkKey + "/group/" + key(
-                        text(node, "scope.group_key", ""),
-                        "currencies." + id + ".scope.group_key"
-                );
-                case GLOBAL -> networkKey + "/global";
-            };
-            if (scopeKey.length() > 128) {
-                throw new IllegalArgumentException(
-                        "Resolved scope key for currency " + id + " exceeds 128 characters"
-                );
-            }
-
-            int fractionalDigits = integer(node, "display.fractional_digits", 2, 0, 8);
-            RoundingMode roundingMode = enumValue(
-                    RoundingMode.class,
-                    text(node, "balances.rounding", "HALF_UP"),
-                    "currencies." + id + ".balances.rounding"
-            );
-            BigDecimal starting = amount(node, "balances.starting", "0", fractionalDigits, roundingMode);
-            BigDecimal minimum = amount(node, "balances.minimum", "0", fractionalDigits, roundingMode);
-            BigDecimal maximum = amount(
-                    node,
-                    "balances.maximum",
-                    "999999999999999999999999999999.99999999",
-                    fractionalDigits,
-                    roundingMode
-            );
-            boolean allowNegative = bool(node, "balances.allow_negative", false);
-            if (!allowNegative && minimum.signum() < 0) {
-                throw new IllegalArgumentException("Currency " + id + " has a negative minimum while allow_negative is false");
-            }
-            if (minimum.compareTo(maximum) > 0) {
-                throw new IllegalArgumentException("Currency " + id + " minimum balance exceeds maximum balance");
-            }
-            if (starting.compareTo(minimum) < 0 || starting.compareTo(maximum) > 0) {
-                throw new IllegalArgumentException("Currency " + id + " starting balance is outside configured bounds");
-            }
-
-            Commands commands = new Commands(
-                    commandLabel(text(node, "commands.root", id)),
-                    aliases(node.getAt("commands.aliases")),
-                    bool(node, "commands.balance", true),
-                    bool(node, "commands.balance_others", true),
-                    bool(node, "commands.pay", true),
-                    bool(node, "commands.paytoggle", true),
-                    bool(node, "commands.history", true),
-                    bool(node, "commands.top", false)
-            );
-            ConfigNode offlineRecipientSetting = node.getAt("payments.allow_offline_recipient");
-            if (!offlineRecipientSetting.isNull()
-                    && !offlineRecipientSetting.as(Boolean.class, true)) {
-                throw new IllegalArgumentException(
-                        "Currency " + id + " cannot disable offline recipients: "
-                                + "known players must remain payable across the network"
-                );
-            }
-            String minimumPaymentDefault = BigDecimal.ONE
-                    .movePointLeft(fractionalDigits)
-                    .setScale(fractionalDigits)
-                    .toPlainString();
-            Payments payments = new Payments(
-                    bool(node, "payments.default_enabled", true),
-                    positiveAmount(node, "payments.minimum", fractionalDigits, roundingMode, minimumPaymentDefault),
-                    nonNegativeAmount(node, "payments.maximum", fractionalDigits, roundingMode, "0"),
-                    nonNegativeAmount(node, "payments.confirmation_threshold", fractionalDigits, roundingMode, "0"),
-                    nonNegativeAmount(node, "payments.daily_send_limit", fractionalDigits, roundingMode, "0"),
-                    nonNegativeAmount(node, "payments.daily_receive_limit", fractionalDigits, roundingMode, "0"),
-                    duration(node, "payments.cooldown", "1s", Duration.ZERO, Duration.ofHours(1))
-            );
-            if (!commands.pay() && commands.paytoggle()) {
-                throw new IllegalArgumentException("Currency " + id + " enables paytoggle while pay is disabled");
-            }
-            if (payments.maximum().signum() > 0 && payments.maximum().compareTo(payments.minimum()) < 0) {
-                throw new IllegalArgumentException("Currency " + id + " payment maximum is below the minimum");
-            }
-            if (payments.dailySendLimit().signum() > 0
-                    && payments.dailySendLimit().compareTo(payments.minimum()) < 0) {
-                throw new IllegalArgumentException("Currency " + id + " daily send limit is below the minimum payment");
-            }
-            if (payments.dailyReceiveLimit().signum() > 0
-                    && payments.dailyReceiveLimit().compareTo(payments.minimum()) < 0) {
-                throw new IllegalArgumentException(
-                        "Currency " + id + " daily receive limit is below the minimum payment"
-                );
-            }
-
-            Currency currency = new Currency(
-                    id,
-                    new EconomyScope(scopeType, scopeKey),
-                    new Display(
-                            text(node, "display.singular", id),
-                            text(node, "display.plural", id),
-                            text(node, "display.symbol", ""),
-                            text(node, "display.format", "{symbol}{amount}"),
-                            fractionalDigits,
-                            bool(node, "display.grouping", true)
-                    ),
-                    new Balances(starting, minimum, maximum, allowNegative, roundingMode),
-                    commands,
-                    payments
-            );
-            if (currencies.putIfAbsent(id, currency) != null) {
-                throw new IllegalArgumentException("Duplicate normalized currency id: " + id);
-            }
-        }
-        return new EconomySettings(networkKey, serverKey, connection, vault, messaging, cache, currencies);
+        return EconomySettingsLoader.load(config, globalServerName);
     }
 
     public Currency requireCurrency(String id) {
@@ -331,7 +182,7 @@ public record EconomySettings(
     }
 
 
-    private static EconomyScopeType scopeType(String raw, String field) {
+    static EconomyScopeType scopeType(String raw, String field) {
         String normalized = raw.trim().toUpperCase(Locale.ROOT);
         if (normalized.equals("LOCAL") || normalized.equals("GAMEMODE")) {
             return EconomyScopeType.SERVER;
@@ -339,7 +190,7 @@ public record EconomySettings(
         return enumValue(EconomyScopeType.class, normalized, field);
     }
 
-    private static String firstNonBlank(String... values) {
+    static String firstNonBlank(String... values) {
         for (String value : values) {
             if (value != null && !value.isBlank()) {
                 return value;
@@ -348,7 +199,7 @@ public record EconomySettings(
         return "";
     }
 
-    private static String localScopeKey(ConfigNode node, String currencyId, String fallback) {
+    static String localScopeKey(ConfigNode node, String currencyId, String fallback) {
         String configured = text(node, "scope.local_key", "");
         if (configured.isBlank()) {
             configured = text(node, "scope.gamemode_key", "");
@@ -374,7 +225,7 @@ public record EconomySettings(
         }
     }
 
-    private static List<String> aliases(ConfigNode node) {
+    static List<String> aliases(ConfigNode node) {
         if (node.isNull()) {
             return List.of();
         }
@@ -388,7 +239,7 @@ public record EconomySettings(
         return result;
     }
 
-    private static String commandLabel(String value) {
+    static String commandLabel(String value) {
         String label = requireText(value, "command label").toLowerCase(Locale.ROOT);
         if (!label.matches("[a-z0-9][a-z0-9_-]{0,31}")) {
             throw new IllegalArgumentException("Invalid command label: " + value);
@@ -396,7 +247,7 @@ public record EconomySettings(
         return label;
     }
 
-    private static String key(String value, String field) {
+    static String key(String value, String field) {
         String normalized = requireText(value, field).toLowerCase(Locale.ROOT).replace(' ', '-');
         if (!normalized.matches(KEY_PATTERN)) {
             throw new IllegalArgumentException(field + " must match " + KEY_PATTERN);
@@ -404,23 +255,23 @@ public record EconomySettings(
         return normalized;
     }
 
-    private static String requireText(String value, String field) {
+    static String requireText(String value, String field) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(field + " must not be blank");
         }
         return value.trim();
     }
 
-    private static String text(ConfigNode node, String path, String fallback) {
+    static String text(ConfigNode node, String path, String fallback) {
         String value = node.getAt(path).as(String.class, fallback);
         return value == null ? fallback : value.trim();
     }
 
-    private static boolean bool(ConfigNode node, String path, boolean fallback) {
+    static boolean bool(ConfigNode node, String path, boolean fallback) {
         return node.getAt(path).as(Boolean.class, fallback);
     }
 
-    private static int integer(ConfigNode node, String path, int fallback, int minimum, int maximum) {
+    static int integer(ConfigNode node, String path, int fallback, int minimum, int maximum) {
         int value = node.getAt(path).as(Integer.class, fallback);
         if (value < minimum || value > maximum) {
             throw new IllegalArgumentException(path + " must be between " + minimum + " and " + maximum);
@@ -428,7 +279,7 @@ public record EconomySettings(
         return value;
     }
 
-    private static BigDecimal amount(
+    static BigDecimal amount(
             ConfigNode node,
             String path,
             String fallback,
@@ -455,7 +306,7 @@ public record EconomySettings(
         }
     }
 
-    private static BigDecimal positiveAmount(
+    static BigDecimal positiveAmount(
             ConfigNode node,
             String path,
             int fractionalDigits,
@@ -469,7 +320,7 @@ public record EconomySettings(
         return value;
     }
 
-    private static BigDecimal nonNegativeAmount(
+    static BigDecimal nonNegativeAmount(
             ConfigNode node,
             String path,
             int fractionalDigits,
@@ -483,7 +334,7 @@ public record EconomySettings(
         return value;
     }
 
-    private static Duration duration(
+    static Duration duration(
             ConfigNode node,
             String path,
             String fallback,
@@ -519,7 +370,7 @@ public record EconomySettings(
         }
     }
 
-    private static <E extends Enum<E>> E enumValue(Class<E> type, String raw, String field) {
+    static <E extends Enum<E>> E enumValue(Class<E> type, String raw, String field) {
         try {
             return Enum.valueOf(type, raw.trim().toUpperCase(Locale.ROOT));
         } catch (RuntimeException exception) {
