@@ -18,8 +18,8 @@ public record EconomyTransferRequest(
         boolean bypassPaymentsToggle
 ) {
     public EconomyTransferRequest {
-        source = requireText(source, "source");
-        idempotencyKey = requireText(idempotencyKey, "idempotencyKey");
+        source = requireText(source, "source", 64);
+        idempotencyKey = requireText(idempotencyKey, "idempotencyKey", 160);
         Objects.requireNonNull(sender, "sender");
         Objects.requireNonNull(recipient, "recipient");
         Objects.requireNonNull(amount, "amount");
@@ -28,10 +28,14 @@ public record EconomyTransferRequest(
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
     }
 
-    private static String requireText(String value, String name) {
+    private static String requireText(String value, String name, int maximumLength) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(name + " must not be blank");
         }
-        return value.trim();
+        String normalized = value.trim();
+        if (normalized.length() > maximumLength) {
+            throw new IllegalArgumentException(name + " must not exceed " + maximumLength + " characters");
+        }
+        return normalized;
     }
 }

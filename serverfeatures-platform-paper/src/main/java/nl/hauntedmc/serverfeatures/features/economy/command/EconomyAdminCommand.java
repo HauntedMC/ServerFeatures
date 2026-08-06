@@ -44,11 +44,13 @@ public final class EconomyAdminCommand implements BrigadierCommand {
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
-                .requires(source -> source.getSender().hasPermission("serverfeatures.feature.economy.admin.status"))
-                .executes(context -> status(context.getSource().getSender()));
+                .requires(source -> hasAnyAdminPermission(source.getSender()))
+                .executes(context -> statusIfPermitted(context.getSource().getSender()));
         root.then(Commands.literal("status")
+                .requires(source -> source.getSender().hasPermission(permission("status")))
                 .executes(context -> status(context.getSource().getSender())));
         root.then(Commands.literal("currencies")
+                .requires(source -> source.getSender().hasPermission(permission("status")))
                 .executes(context -> currencies(context.getSource().getSender())));
         root.then(Commands.literal("balance")
                 .requires(source -> source.getSender().hasPermission(permission("balance")))
@@ -140,6 +142,14 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                                 StringArgumentType.getString(context, "currency"),
                                 ""
                         )));
+    }
+
+    private int statusIfPermitted(CommandSender sender) {
+        if (!sender.hasPermission(permission("status"))) {
+            feature.send(sender, "economy.error", Map.of("reason", "No permission"));
+            return 0;
+        }
+        return status(sender);
     }
 
     private int status(CommandSender sender) {
@@ -335,21 +345,40 @@ public final class EconomyAdminCommand implements BrigadierCommand {
         ));
     }
 
-    private BigDecimal parseAmount(String raw, EconomySettings.Currency currency, boolean allowZero) {
-        if (raw == null || !raw.matches("[0-9]+(?:\\.[0-9]{1,8})?")) {
+    private BigDecimal parseAmount(String raw, EconomySettings.Currency currency, boolean setOperation) {
+        String pattern = setOperation && currency.balances().allowNegative()
+                ? "-?[0-9]+(?:\\.[0-9]{1,8})?"
+                : "[0-9]+(?:\\.[0-9]{1,8})?";
+        if (raw == null || !raw.matches(pattern)) {
             throw new IllegalArgumentException("Invalid amount");
         }
         BigDecimal amount = new BigDecimal(raw).setScale(
                 currency.display().fractionalDigits(), currency.balances().rounding()
         );
-        if (allowZero ? amount.signum() < 0 : amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
+        boolean invalid = setOperation
+                ? !currency.balances().allowNegative() && amount.signum() < 0
+                : amount.signum() <= 0;
+        if (invalid) {
+            String message = setOperation ? "Amount is outside the currency bounds" : "Amount must be positive";
+            throw new IllegalArgumentException(message);
         }
         return amount;
     }
 
     private void fail(CommandSender sender, Throwable failure) {
         feature.send(sender, "economy.error", Map.of("reason", rootMessage(failure)));
+    }
+
+    private boolean hasAnyAdminPermission(CommandSender sender) {
+        return sender.hasPermission(permission("status"))
+                || sender.hasPermission(permission("balance"))
+                || sender.hasPermission(permission("add"))
+                || sender.hasPermission(permission("remove"))
+                || sender.hasPermission(permission("set"))
+                || sender.hasPermission(permission("payments"))
+                || sender.hasPermission(permission("freeze"))
+                || sender.hasPermission(permission("history"))
+                || sender.hasPermission(permission("verify"));
     }
 
     private String permission(String action) {

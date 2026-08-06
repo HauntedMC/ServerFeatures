@@ -87,6 +87,11 @@ public record EconomySettings(
                 );
                 case GLOBAL -> networkKey + "/global";
             };
+            if (scopeKey.length() > 128) {
+                throw new IllegalArgumentException(
+                        "Resolved scope key for currency " + id + " exceeds 128 characters"
+                );
+            }
 
             int fractionalDigits = integer(node, "display.fractional_digits", 2, 0, 8);
             RoundingMode roundingMode = enumValue(

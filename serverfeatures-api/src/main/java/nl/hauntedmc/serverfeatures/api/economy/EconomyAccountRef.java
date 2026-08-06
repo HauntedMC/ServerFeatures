@@ -17,7 +17,13 @@ public record EconomyAccountRef(
             throw new IllegalArgumentException("currencyId must not be blank");
         }
         currencyId = currencyId.trim().toLowerCase(java.util.Locale.ROOT);
+        if (currencyId.length() > 64) {
+            throw new IllegalArgumentException("currencyId must not exceed 64 characters");
+        }
         playerName = playerName == null ? "" : playerName.trim();
         scopeKey = scopeKey == null || scopeKey.isBlank() ? null : scopeKey.trim();
+        if (scopeKey != null && scopeKey.length() > 128) {
+            throw new IllegalArgumentException("scopeKey must not exceed 128 characters");
+        }
     }
 }

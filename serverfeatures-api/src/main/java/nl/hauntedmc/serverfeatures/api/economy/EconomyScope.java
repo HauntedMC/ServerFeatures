@@ -10,5 +10,8 @@ public record EconomyScope(EconomyScopeType type, String key) {
             throw new IllegalArgumentException("key must not be blank");
         }
         key = key.trim();
+        if (key.length() > 128) {
+            throw new IllegalArgumentException("key must not exceed 128 characters");
+        }
     }
 }

@@ -57,10 +57,13 @@ public final class CurrencyCommand implements BrigadierCommand {
     @Override
     public @NotNull LiteralCommandNode<CommandSourceStack> buildTree() {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
-                .requires(source -> allowed(source.getSender(), "balance"))
-                .executes(context -> balance(context.getSource().getSender(), null));
+                .requires(source -> canUseAnyCommand(source.getSender()));
         if (currency.commands().balance()) {
+            root.executes(context -> allowed(context.getSource().getSender(), "balance")
+                    ? balance(context.getSource().getSender(), null)
+                    : 0);
             LiteralArgumentBuilder<CommandSourceStack> balance = Commands.literal("balance")
+                    .requires(source -> allowed(source.getSender(), "balance"))
                     .executes(context -> balance(context.getSource().getSender(), null));
             if (currency.commands().balanceOthers()) {
                 balance.then(Commands.argument("player", StringArgumentType.word())
@@ -343,6 +346,15 @@ public final class CurrencyCommand implements BrigadierCommand {
         }
         feature.send(sender, "economy.player_only");
         return null;
+    }
+
+    private boolean canUseAnyCommand(CommandSender sender) {
+        EconomySettings.Commands commands = currency.commands();
+        return commands.balance() && allowed(sender, "balance")
+                || commands.pay() && allowed(sender, "pay")
+                || commands.paytoggle() && allowed(sender, "paytoggle")
+                || commands.history() && allowed(sender, "history")
+                || commands.top() && allowed(sender, "top");
     }
 
     private boolean allowed(CommandSender sender, String action) {
