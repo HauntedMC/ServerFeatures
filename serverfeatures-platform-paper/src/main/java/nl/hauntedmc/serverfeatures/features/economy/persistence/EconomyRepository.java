@@ -1525,12 +1525,14 @@ public final class EconomyRepository {
 
     private static boolean isTransient(SQLException failure) {
         for (SQLException current = failure; current != null; current = current.getNextException()) {
+            String sqlState = current.getSQLState();
             // MySQL: lock wait timeout, deadlock, and duplicate-key races during deterministic
             // account/idempotency creation. SQLSTATE 40001 also covers serialization failures.
             if (current.getErrorCode() == 1_205
                     || current.getErrorCode() == 1_213
                     || current.getErrorCode() == 1_062
-                    || "40001".equals(current.getSQLState())) {
+                    || "40001".equals(sqlState)
+                    || (sqlState != null && sqlState.startsWith("08"))) {
                 return true;
             }
         }

@@ -18,9 +18,9 @@ class EconomyRepositoryRetryTest {
     }
 
     @Test
-    void doesNotRetryPermanentIntegrityOrConnectionFailures() {
+    void retriesConnectionFailuresButNotPermanentIntegrityFailures() {
         assertFalse(EconomyRepository.isTransient(wrappedSqlFailure(1_452, "23000")));
-        assertFalse(EconomyRepository.isTransient(wrappedSqlFailure(0, "08006")));
+        assertTrue(EconomyRepository.isTransient(wrappedSqlFailure(0, "08006")));
     }
 
     @Test

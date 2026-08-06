@@ -356,6 +356,7 @@ The feature registers these ORM entities:
 - Redis unavailable: committed transactions continue safely; caches heal from MySQL on their configured refresh interval.
 - Duplicate/reordered Redis delivery: versioned invalidation and authoritative reload prevent stale overwrites.
 - Server crash after commit: the balance and journal remain committed; idempotent callers can safely replay the request.
+- Transient connection loss during commit: the repository retries the same idempotent request, so an uncertain commit resolves to either the original journaled operation or one new commit.
 - Lottery built-in backend: one automatic retry reuses the exact same idempotency key, so an uncertain first response cannot charge or pay twice.
 - Server crash before commit: the transaction rolls back.
 
