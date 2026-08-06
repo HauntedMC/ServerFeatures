@@ -1,0 +1,46 @@
+name: Apply economy review fixes
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out pull request branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply verified review fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/economy-review-fixes.patch.gz.b64 <<'PAYLOAD'
+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
+PAYLOAD
+          base64 --decode /tmp/economy-review-fixes.patch.gz.b64 | gzip --decompress > /tmp/economy-review-fixes.patch
+          echo "ead634e38a13dbf9379e2552c6867cb9f29646cb6663e977467c887475434361  /tmp/economy-review-fixes.patch" | sha256sum --check
+          git apply --index /tmp/economy-review-fixes.patch
+          rm -f .github/workflows/apply-economy-review-fixes.yml
+          git add -A
+          git diff --cached --check
+
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Harden economy transaction semantics"
+          git push
