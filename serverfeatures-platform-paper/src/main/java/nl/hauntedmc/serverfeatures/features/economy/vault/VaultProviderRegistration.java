@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.economy.vault;
 
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
+import nl.hauntedmc.serverfeatures.features.economy.EconomyVaultIntegration;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings.VaultConflictPolicy;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -9,7 +10,7 @@ import org.bukkit.plugin.ServicePriority;
 import java.util.Objects;
 
 /** Registers and cleanly unregisters the optional Vault provider. */
-public final class VaultProviderRegistration implements AutoCloseable {
+public final class VaultProviderRegistration implements EconomyVaultIntegration {
     private final Economy feature;
     private VaultEconomyProvider provider;
     private String status = "disabled";
@@ -18,6 +19,7 @@ public final class VaultProviderRegistration implements AutoCloseable {
         this.feature = Objects.requireNonNull(feature, "feature");
     }
 
+    @Override
     public void register() {
         if (!feature.settings().vault().enabled()) {
             status = "disabled";
@@ -49,6 +51,7 @@ public final class VaultProviderRegistration implements AutoCloseable {
         status = "registered:" + feature.settings().vault().primaryCurrency();
     }
 
+    @Override
     public String status() {
         return status;
     }

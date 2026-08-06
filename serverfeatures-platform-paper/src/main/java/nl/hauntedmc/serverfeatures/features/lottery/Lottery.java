@@ -13,7 +13,6 @@ import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
@@ -27,6 +26,8 @@ import nl.hauntedmc.serverfeatures.features.lottery.service.LotteryService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 
@@ -197,7 +198,7 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
 
     private LotteryEconomyGateway createEconomyGateway() {
         return switch (settings.economy().backend()) {
-            case VAULT -> LotteryEconomy.discover();
+            case VAULT -> createVaultEconomyGateway();
             case BUILTIN -> {
                 EconomyApi api = getLifecycleManager().getApiManager().findService(EconomyApi.class)
                         .orElseThrow(() -> new IllegalStateException(
@@ -206,6 +207,32 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
                 yield new BuiltinLotteryEconomy(api, settings.economy().builtinCurrency());
             }
         };
+    }
+
+    private LotteryEconomyGateway createVaultEconomyGateway() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            throw new IllegalStateException("Lottery VAULT backend requires Vault to be installed and enabled");
+        }
+        try {
+            Class<?> implementation = Class.forName(
+                    "nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy",
+                    true,
+                    getClass().getClassLoader()
+            );
+            Method discover = implementation.getMethod("discover");
+            return (LotteryEconomyGateway) discover.invoke(null);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("Could not initialize Lottery Vault backend", cause);
+        } catch (ReflectiveOperationException | LinkageError exception) {
+            throw new IllegalStateException("Could not initialize Lottery Vault backend", exception);
+        }
     }
 
     @Override

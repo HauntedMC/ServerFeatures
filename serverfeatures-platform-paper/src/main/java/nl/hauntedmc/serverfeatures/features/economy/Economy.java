@@ -24,10 +24,10 @@ import nl.hauntedmc.serverfeatures.features.economy.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRepository;
 import nl.hauntedmc.serverfeatures.features.economy.placeholder.EconomyPlaceholder;
 import nl.hauntedmc.serverfeatures.features.economy.service.EconomyService;
-import nl.hauntedmc.serverfeatures.features.economy.vault.VaultProviderRegistration;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
 
@@ -39,7 +39,8 @@ public final class Economy extends BukkitBaseFeature<Meta> {
     private EconomySettings settings;
     private EconomyService service;
     private EconomyMessaging messaging;
-    private VaultProviderRegistration vault;
+    private EconomyVaultIntegration vault;
+    private String vaultStatus = "disabled";
     private EconomyPlaceholder placeholder;
 
     public Economy(FeatureContext<Meta> context) {
@@ -173,8 +174,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
             }
         }
 
-        vault = new VaultProviderRegistration(this);
-        vault.register();
+        initializeVault();
         service.start();
     }
 
@@ -188,6 +188,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
             vault.close();
             vault = null;
         }
+        vaultStatus = "disabled";
         if (messaging != null) {
             messaging.close();
             messaging = null;
@@ -208,7 +209,45 @@ public final class Economy extends BukkitBaseFeature<Meta> {
     }
 
     public String vaultStatus() {
-        return vault == null ? "disabled" : vault.status();
+        EconomyVaultIntegration current = vault;
+        return current == null ? vaultStatus : current.status();
+    }
+
+    private void initializeVault() {
+        if (!settings.vault().enabled()) {
+            vaultStatus = "disabled";
+            return;
+        }
+        if (!Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            vaultStatus = "vault-missing";
+            getLogger().warning("Vault integration is enabled, but Vault is not installed.");
+            return;
+        }
+        try {
+            Class<?> implementation = Class.forName(
+                    "nl.hauntedmc.serverfeatures.features.economy.vault.VaultProviderRegistration",
+                    true,
+                    getClass().getClassLoader()
+            );
+            EconomyVaultIntegration integration = implementation
+                    .asSubclass(EconomyVaultIntegration.class)
+                    .getConstructor(Economy.class)
+                    .newInstance(this);
+            integration.register();
+            vault = integration;
+            vaultStatus = integration.status();
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("Could not initialize Vault economy integration", cause);
+        } catch (ReflectiveOperationException | LinkageError exception) {
+            throw new IllegalStateException("Could not initialize Vault economy integration", exception);
+        }
     }
 
     public String messagingStatus() {
