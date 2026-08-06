@@ -2,6 +2,9 @@ package nl.hauntedmc.serverfeatures.features.economy.persistence;
 
 import com.google.gson.Gson;
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.LockTimeoutException;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PessimisticLockException;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
@@ -30,6 +33,7 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -1410,9 +1414,17 @@ public final class EconomyRepository {
         throw last == null ? new IllegalStateException("Economy operation did not execute") : last;
     }
 
-    private static boolean isTransient(Throwable failure) {
+    static boolean isTransient(Throwable failure) {
         Throwable current = failure;
         while (current != null) {
+            if (current instanceof LockTimeoutException
+                    || current instanceof OptimisticLockException
+                    || current instanceof PessimisticLockException) {
+                return true;
+            }
+            if (current instanceof SQLException sqlException && isTransient(sqlException)) {
+                return true;
+            }
             String message = current.getMessage();
             if (message != null) {
                 String normalized = message.toLowerCase(java.util.Locale.ROOT);
@@ -1424,6 +1436,20 @@ public final class EconomyRepository {
                 }
             }
             current = current.getCause();
+        }
+        return false;
+    }
+
+    private static boolean isTransient(SQLException failure) {
+        for (SQLException current = failure; current != null; current = current.getNextException()) {
+            // MySQL: lock wait timeout, deadlock, and duplicate-key races during deterministic
+            // account/idempotency creation. SQLSTATE 40001 also covers serialization failures.
+            if (current.getErrorCode() == 1_205
+                    || current.getErrorCode() == 1_213
+                    || current.getErrorCode() == 1_062
+                    || "40001".equals(current.getSQLState())) {
+                return true;
+            }
         }
         return false;
     }
