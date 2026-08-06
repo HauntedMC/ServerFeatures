@@ -45,8 +45,26 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
             feature.getLogger().warning("Registering Economy above existing Vault provider: "
                     + existing.getProvider().getName());
         }
-        provider = new VaultEconomyProvider(feature.service(), feature.settings().vault().primaryCurrency());
-        Bukkit.getServicesManager().register(net.milkbowl.vault.economy.Economy.class, provider, feature.getPlugin(), ServicePriority.Highest);
+        VaultEconomyProvider candidate = new VaultEconomyProvider(
+                feature.service(),
+                feature.settings().vault().primaryCurrency()
+        );
+        Bukkit.getServicesManager().register(
+                net.milkbowl.vault.economy.Economy.class,
+                candidate,
+                feature.getPlugin(),
+                ServicePriority.Highest
+        );
+        RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> active =
+                Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+        if (active == null || active.getProvider() != candidate) {
+            candidate.disable();
+            Bukkit.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, candidate);
+            throw new IllegalStateException(
+                    "Vault did not select ServerFeatures as its active economy provider"
+            );
+        }
+        provider = candidate;
         status = "registered:" + feature.settings().vault().primaryCurrency();
     }
 

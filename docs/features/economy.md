@@ -413,6 +413,8 @@ Conflict policies:
 - `SKIP`: leave the other provider active while native Economy remains available.
 - `REPLACE`: explicitly register ServerFeatures Economy at highest priority.
 
+Registration fails closed unless Vault reports the new ServerFeatures provider as active. `REPLACE` cannot update another plugin that cached a provider before Economy loaded, so production deployments should load Economy before consumers and prefer `FAIL` when provider ownership is uncertain.
+
 ## Native API
 
 `EconomyApi` is registered through the feature service catalog. All native mutations are asynchronous and explicitly select a currency/account scope. Strong balance reads and all mutations use MySQL; cache reads are an optional display optimization only.
