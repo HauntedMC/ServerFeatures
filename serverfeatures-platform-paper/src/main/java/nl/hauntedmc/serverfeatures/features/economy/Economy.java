@@ -159,7 +159,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         if (settings.messaging().enabled()) {
             dataManager.registerRedisMessagingDataAccess(MESSAGING_CONNECTION, settings.messaging().connection())
                     .ifPresentOrElse(access -> {
-                        messaging = new EconomyMessaging(this, access, settings.messaging().channel());
+                        messaging = new EconomyMessaging(this, service, access, settings.messaging().channel());
                         messaging.start();
                         service.setMessaging(messaging);
                     }, () -> getLogger().warning(

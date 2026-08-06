@@ -6,6 +6,7 @@ import nl.hauntedmc.dataprovider.database.messaging.api.Subscription;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
+import nl.hauntedmc.serverfeatures.features.economy.service.EconomyService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +20,20 @@ public final class EconomyMessaging {
     private static final long UNSUBSCRIBE_TIMEOUT_SECONDS = 5L;
 
     private final Economy feature;
+    private final EconomyService service;
     private final MessagingDataAccess messaging;
     private final String channel;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final List<Subscription> subscriptions = new ArrayList<>();
 
-    public EconomyMessaging(Economy feature, MessagingDataAccess messaging, String channel) {
+    public EconomyMessaging(
+            Economy feature,
+            EconomyService service,
+            MessagingDataAccess messaging,
+            String channel
+    ) {
         this.feature = Objects.requireNonNull(feature, "feature");
+        this.service = Objects.requireNonNull(service, "service");
         this.messaging = Objects.requireNonNull(messaging, "messaging");
         this.channel = Objects.requireNonNull(channel, "channel");
     }
@@ -44,7 +52,7 @@ public final class EconomyMessaging {
                             channel,
                             EconomyBalanceMessage.TYPE,
                             EconomyBalanceMessage.class,
-                            message -> feature.service().applyRemoteBalance(message)
+                            service::applyRemoteBalance
                     ),
                     "Redis balance subscription was not created"
             ));
@@ -53,7 +61,7 @@ public final class EconomyMessaging {
                             channel,
                             EconomyTransferMessage.TYPE,
                             EconomyTransferMessage.class,
-                            message -> feature.service().applyRemoteTransfer(message)
+                            service::applyRemoteTransfer
                     ),
                     "Redis transfer subscription was not created"
             ));
