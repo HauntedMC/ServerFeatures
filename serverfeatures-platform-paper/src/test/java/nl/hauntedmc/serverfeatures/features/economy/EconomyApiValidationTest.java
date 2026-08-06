@@ -138,6 +138,16 @@ class EconomyApiValidationTest {
                 "test",
                 Map.of("key", "x".repeat(513))
         ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
+                "integration",
+                "operation",
+                ACCOUNT,
+                BigDecimal.ONE,
+                null,
+                "system",
+                "test",
+                Map.of("transaction_type", "WITHDRAW")
+        ));
     }
 
 }

@@ -3,12 +3,14 @@ package nl.hauntedmc.serverfeatures.api.economy;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 final class EconomyRequestValidation {
     private static final int MAX_METADATA_ENTRIES = 32;
     private static final int MAX_METADATA_KEY_LENGTH = 64;
     private static final int MAX_METADATA_VALUE_LENGTH = 512;
     private static final int MAX_METADATA_TOTAL_LENGTH = 2_048;
+    private static final Set<String> RESERVED_METADATA_KEYS = Set.of("transaction_type");
 
     private EconomyRequestValidation() {
     }
@@ -44,6 +46,9 @@ final class EconomyRequestValidation {
         for (Map.Entry<String, String> entry : metadata.entrySet()) {
             String key = text(entry.getKey(), "metadata key", MAX_METADATA_KEY_LENGTH, true);
             String value = text(entry.getValue(), "metadata value", MAX_METADATA_VALUE_LENGTH, false);
+            if (RESERVED_METADATA_KEYS.contains(key)) {
+                throw new IllegalArgumentException("metadata key is reserved: " + key);
+            }
             totalLength = Math.addExact(totalLength, Math.addExact(key.length(), value.length()));
             if (totalLength > MAX_METADATA_TOTAL_LENGTH) {
                 throw new IllegalArgumentException(
