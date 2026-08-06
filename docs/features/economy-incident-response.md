@@ -1,6 +1,6 @@
 # Economy incident response
 
-Use this runbook for any suspected balance, transaction, identity, MySQL, Redis or Vault incident.
+Use this runbook for any suspected balance, transaction, identity, MySQL, Redis or Vault incident. Treat the transaction journal and operation IDs as the primary evidence chain.
 
 ## Immediate containment
 
