@@ -14,7 +14,7 @@ import jakarta.persistence.UniqueConstraint;
         name = "system_economy_transaction",
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_economy_transaction_idempotency",
-                columnNames = {"source", "idempotency_key"}
+                columnNames = {"source", "idempotency_key_hash"}
         ),
         indexes = {
                 @Index(name = "idx_economy_transaction_scope", columnList = "currency_id,scope_key,created_at"),
@@ -32,6 +32,10 @@ public class EconomyTransactionEntity {
     private String source;
     @Column(name = "idempotency_key", length = 160, nullable = false)
     private String idempotencyKey;
+    @Column(name = "idempotency_key_hash", length = 64, nullable = false)
+    private String idempotencyKeyHash;
+    @Column(name = "request_fingerprint", length = 64, nullable = false)
+    private String requestFingerprint;
     @Column(name = "transaction_type", length = 32, nullable = false)
     private String transactionType;
     @Column(name = "currency_id", length = 64, nullable = false)
@@ -56,6 +60,10 @@ public class EconomyTransactionEntity {
     public void setSource(String source) { this.source = source; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
+    public String getIdempotencyKeyHash() { return idempotencyKeyHash; }
+    public void setIdempotencyKeyHash(String idempotencyKeyHash) { this.idempotencyKeyHash = idempotencyKeyHash; }
+    public String getRequestFingerprint() { return requestFingerprint; }
+    public void setRequestFingerprint(String requestFingerprint) { this.requestFingerprint = requestFingerprint; }
     public String getTransactionType() { return transactionType; }
     public void setTransactionType(String transactionType) { this.transactionType = transactionType; }
     public String getCurrencyId() { return currencyId; }

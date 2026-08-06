@@ -7,7 +7,9 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyDefinitionEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyFamilyEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyDailyUsageEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentityEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
@@ -18,6 +20,7 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryP
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TopEntry;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransferReceipt;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.VerificationReport;
 import org.hibernate.Session;
@@ -30,6 +33,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -37,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -54,7 +59,11 @@ public final class EconomyRepository {
 
     public void validateDefinitions(EconomySettings settings, long now) {
         executeWithRetry(() -> orm.runInTransaction(session -> {
-            for (EconomySettings.Currency currency : settings.currencies().values()) {
+            List<EconomySettings.Currency> currencies = settings.currencies().values().stream()
+                    .sorted(Comparator.comparing(EconomySettings.Currency::id))
+                    .toList();
+            for (EconomySettings.Currency currency : currencies) {
+                validateCurrencyFamily(session, settings.networkKey(), currency, now);
                 String id = definitionId(currency.id(), currency.scope().key());
                 String hash = definitionHash(currency);
                 EconomyCurrencyDefinitionEntity entity = session.find(
@@ -90,6 +99,53 @@ public final class EconomyRepository {
         }));
     }
 
+
+    private static void validateCurrencyFamily(
+            Session session,
+            String networkKey,
+            EconomySettings.Currency currency,
+            long now
+    ) {
+        String id = networkKey + ":" + currency.id();
+        String globalScope = currency.scope().type() == nl.hauntedmc.serverfeatures.api.economy.EconomyScopeType.GLOBAL
+                ? currency.scope().key()
+                : null;
+        String familyHash = hash(String.join("|",
+                networkKey,
+                currency.id(),
+                currency.scope().type().name(),
+                Integer.toString(currency.display().fractionalDigits()),
+                globalScope == null ? "" : globalScope
+        ));
+        EconomyCurrencyFamilyEntity family = session.find(
+                EconomyCurrencyFamilyEntity.class,
+                id,
+                LockModeType.PESSIMISTIC_WRITE
+        );
+        if (family == null) {
+            family = new EconomyCurrencyFamilyEntity();
+            family.setId(id);
+            family.setNetworkKey(networkKey);
+            family.setCurrencyId(currency.id());
+            family.setScopeType(currency.scope().type().name());
+            family.setFractionalDigits(currency.display().fractionalDigits());
+            family.setGlobalScopeKey(globalScope);
+            family.setFamilyHash(familyHash);
+            family.setCreatedAt(now);
+            family.setUpdatedAt(now);
+            session.persist(family);
+            return;
+        }
+        if (!familyHash.equals(family.getFamilyHash())) {
+            throw new IllegalStateException(
+                    "Currency family mismatch for " + currency.id() + " in network " + networkKey
+                            + ": scope type, precision, or global scope differs between servers"
+            );
+        }
+        family.setUpdatedAt(now);
+    }
+
+
     public Account balance(Identity identity, EconomySettings.Currency currency, long now) {
         return executeWithRetry(() -> orm.runInTransaction(session -> {
             EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, false);
@@ -98,49 +154,69 @@ public final class EconomyRepository {
         }));
     }
 
+    public List<Account> balances(
+            Identity identity,
+            Collection<EconomySettings.Currency> currencies,
+            long now
+    ) {
+        Objects.requireNonNull(identity, "identity");
+        Objects.requireNonNull(currencies, "currencies");
+        return executeWithRetry(() -> orm.runInTransaction(session -> {
+            List<EconomySettings.Currency> orderedCurrencies = currencies.stream()
+                    .sorted(Comparator.comparing(EconomySettings.Currency::id))
+                    .toList();
+            ensurePlayerIdentity(session, identity, now, false);
+            List<String> accountIds = orderedCurrencies.stream()
+                    .map(currency -> accountId(identity.playerId(), currency.id(), currency.scope().key()))
+                    .toList();
+            Map<String, EconomyBalanceEntity> balances = new LinkedHashMap<>();
+            for (EconomyBalanceEntity balance : session.createSelectionQuery(
+                            "from EconomyBalanceEntity where id in :ids",
+                            EconomyBalanceEntity.class
+                    )
+                    .setParameter("ids", accountIds)
+                    .getResultList()) {
+                balances.put(balance.getId(), balance);
+            }
+            Map<String, EconomyPlayerSettingsEntity> settingsByAccount = new LinkedHashMap<>();
+            for (EconomyPlayerSettingsEntity playerSettings : session.createSelectionQuery(
+                            "from EconomyPlayerSettingsEntity where accountId in :ids",
+                            EconomyPlayerSettingsEntity.class
+                    )
+                    .setParameter("ids", accountIds)
+                    .getResultList()) {
+                settingsByAccount.put(playerSettings.getAccountId(), playerSettings);
+            }
+
+            List<Account> accounts = new ArrayList<>(orderedCurrencies.size());
+            for (EconomySettings.Currency currency : orderedCurrencies) {
+                String accountId = accountId(identity.playerId(), currency.id(), currency.scope().key());
+                EconomyBalanceEntity balance = balances.get(accountId);
+                if (balance == null) {
+                    balance = createAccount(session, accountId, identity, currency, now);
+                } else {
+                    validateAccountIdentity(balance, identity);
+                }
+                EconomyPlayerSettingsEntity playerSettings = settingsByAccount.get(accountId);
+                if (playerSettings == null) {
+                    playerSettings = createSettings(session, accountId, currency, now);
+                }
+                accounts.add(snapshot(balance, playerSettings));
+            }
+            return List.copyOf(accounts);
+        }));
+    }
+
     public boolean accountExists(Identity identity, EconomySettings.Currency currency) {
         Objects.requireNonNull(identity, "identity");
         Objects.requireNonNull(currency, "currency");
         String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
-        return executeWithRetry(() -> orm.runInTransaction(session ->
-                session.find(EconomyBalanceEntity.class, id) != null
-        ));
+        return executeWithRetry(() -> orm.runInTransaction(session -> {
+            ensurePlayerIdentity(session, identity, System.currentTimeMillis(), false);
+            return session.find(EconomyBalanceEntity.class, id) != null;
+        }));
     }
 
-    public Optional<Identity> findIdentityByUuid(UUID uuid) {
-        if (uuid == null) {
-            return Optional.empty();
-        }
-        return executeWithRetry(() -> orm.runInTransaction(session -> session.createSelectionQuery(
-                        "from EconomyBalanceEntity where playerUuid = :uuid order by updatedAt desc",
-                        EconomyBalanceEntity.class
-                )
-                .setParameter("uuid", uuid.toString())
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst()
-                .map(entity -> new Identity(entity.getPlayerId(), uuid, entity.getPlayerName()))));
-    }
-
-
-    public Optional<Identity> findIdentityByName(String playerName) {
-        if (playerName == null || playerName.isBlank()) {
-            return Optional.empty();
-        }
-        return executeWithRetry(() -> orm.runInTransaction(session -> session.createSelectionQuery(
-                        "from EconomyBalanceEntity where lower(playerName) = :name order by updatedAt desc",
-                        EconomyBalanceEntity.class
-                )
-                .setParameter("name", playerName.trim().toLowerCase(java.util.Locale.ROOT))
-                .setMaxResults(1)
-                .getResultStream()
-                .findFirst()
-                .map(entity -> new Identity(
-                        entity.getPlayerId(),
-                        UUID.fromString(entity.getPlayerUuid()),
-                        entity.getPlayerName()
-                ))));
-    }
 
     public MutationOutcome mutate(
             TransactionType operationType,
@@ -159,9 +235,21 @@ public final class EconomyRepository {
     ) {
         requireCompatibleMutationTypes(operationType, journalType);
         BigDecimal amount = normalizeMutationAmount(operationType, rawAmount, currency);
+        String requestFingerprint = mutationFingerprint(
+                operationType,
+                journalType,
+                identity,
+                currency,
+                amount,
+                actorPlayerId,
+                actorName,
+                reason,
+                metadata,
+                bypassFreeze
+        );
         try {
             return executeWithRetry(() -> orm.runInTransaction(session -> {
-                MutationOutcome replay = replay(session, source, idempotencyKey);
+                MutationOutcome replay = replay(session, source, idempotencyKey, requestFingerprint);
                 if (replay != null) {
                     return replay;
                 }
@@ -173,7 +261,10 @@ public final class EconomyRepository {
                         now,
                         true
                 );
-                requireActive(playerSettings, bypassFreeze);
+                requireActive(
+                        playerSettings,
+                        bypassFreeze || journalType == TransactionType.LOTTERY_REFUND
+                );
 
                 BigDecimal before = balance.getBalance();
                 BigDecimal after = switch (operationType) {
@@ -181,6 +272,9 @@ public final class EconomyRepository {
                     case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> before.subtract(amount);
                     case SET, ADMIN_SET -> amount;
                     case TRANSFER -> throw new IllegalArgumentException("Use transfer() for transfers");
+                    case ACCOUNT_CREATED -> throw new IllegalArgumentException("Account creation is internal");
+                    case PAYMENTS_ENABLED, PAYMENTS_DISABLED, ACCOUNT_FROZEN, ACCOUNT_UNFROZEN ->
+                            throw new IllegalArgumentException("Use the account-setting operation");
                 };
                 validateBalance(after, currency);
                 balance.setBalance(databaseAmount(after));
@@ -189,7 +283,16 @@ public final class EconomyRepository {
                 balance.setUpdatedAt(now);
 
                 EconomyTransactionEntity transaction = transaction(
-                        journalType, currency, source, idempotencyKey, actorPlayerId, actorName, reason, metadata, now
+                        journalType,
+                        currency,
+                        source,
+                        idempotencyKey,
+                        requestFingerprint,
+                        actorPlayerId,
+                        actorName,
+                        reason,
+                        metadata,
+                        now
                 );
                 session.persist(transaction);
                 session.flush();
@@ -247,10 +350,22 @@ public final class EconomyRepository {
             return outcome(EconomyResultStatus.LIMIT_EXCEEDED, null, null, null,
                     "Amount exceeds the maximum payment", null, null);
         }
+        String requestFingerprint = transferFingerprint(
+                senderIdentity,
+                recipientIdentity,
+                currency,
+                amount,
+                actorPlayerId,
+                actorName,
+                reason,
+                metadata,
+                bypassPaymentsToggle,
+                bypassFreeze
+        );
 
         try {
             return executeWithRetry(() -> orm.runInTransaction(session -> {
-                MutationOutcome replay = replay(session, source, idempotencyKey);
+                MutationOutcome replay = replay(session, source, idempotencyKey, requestFingerprint);
                 if (replay != null) {
                     return replay;
                 }
@@ -284,7 +399,8 @@ public final class EconomyRepository {
                 BigDecimal recipientAfter = recipientBefore.add(amount);
                 validateBalance(senderAfter, currency);
                 validateBalance(recipientAfter, currency);
-                applyDailyLimit(session, sender, currency, amount, now);
+                enforcePaymentCooldown(senderSettings, currency, now);
+                applyDailyLimits(session, sender, recipient, currency, amount, now);
 
                 sender.setBalance(databaseAmount(senderAfter));
                 sender.setPlayerName(trim(senderIdentity.playerName(), 32));
@@ -298,6 +414,7 @@ public final class EconomyRepository {
                         currency,
                         source,
                         idempotencyKey,
+                        requestFingerprint,
                         actorPlayerId,
                         actorName,
                         reason,
@@ -324,37 +441,184 @@ public final class EconomyRepository {
         }
     }
 
-    public Account setPaymentsEnabled(
-            Identity identity,
-            EconomySettings.Currency currency,
-            boolean enabled,
-            long now
-    ) {
+    public Optional<TransferReceipt> transferReceipt(UUID operationId) {
+        if (operationId == null) {
+            return Optional.empty();
+        }
         return executeWithRetry(() -> orm.runInTransaction(session -> {
-            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
-            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
-            settings.setPaymentsEnabled(enabled);
-            settings.setUpdatedAt(now);
-            return snapshot(balance, settings);
+            EconomyTransactionEntity transaction = session.createSelectionQuery(
+                            "from EconomyTransactionEntity where operationId = :operationId",
+                            EconomyTransactionEntity.class
+                    )
+                    .setParameter("operationId", operationId.toString())
+                    .setMaxResults(1)
+                    .getResultStream()
+                    .findFirst()
+                    .orElse(null);
+            if (transaction == null || !TransactionType.TRANSFER.name().equals(transaction.getTransactionType())) {
+                return Optional.empty();
+            }
+            List<EconomyTransactionEntryEntity> entries = session.createSelectionQuery(
+                            "from EconomyTransactionEntryEntity where transactionId = :transactionId order by id asc",
+                            EconomyTransactionEntryEntity.class
+                    )
+                    .setParameter("transactionId", transaction.getId())
+                    .getResultList();
+            EconomyTransactionEntryEntity senderEntry = entries.stream()
+                    .filter(entry -> "SENDER".equals(entry.getEntryRole()))
+                    .findFirst()
+                    .orElse(null);
+            EconomyTransactionEntryEntity recipientEntry = entries.stream()
+                    .filter(entry -> "RECIPIENT".equals(entry.getEntryRole()))
+                    .findFirst()
+                    .orElse(null);
+            if (entries.size() != 2
+                    || senderEntry == null
+                    || recipientEntry == null
+                    || senderEntry.getAccountId().equals(recipientEntry.getAccountId())
+                    || recipientEntry.getDelta().signum() <= 0
+                    || senderEntry.getDelta().negate().compareTo(recipientEntry.getDelta()) != 0
+                    || senderEntry.getBalanceBefore().add(senderEntry.getDelta())
+                            .compareTo(senderEntry.getBalanceAfter()) != 0
+                    || recipientEntry.getBalanceBefore().add(recipientEntry.getDelta())
+                            .compareTo(recipientEntry.getBalanceAfter()) != 0) {
+                throw new IllegalStateException(
+                        "Economy transfer " + operationId + " has invalid journal entries"
+                );
+            }
+            EconomyBalanceEntity sender = session.find(EconomyBalanceEntity.class, senderEntry.getAccountId());
+            EconomyBalanceEntity recipient = session.find(EconomyBalanceEntity.class, recipientEntry.getAccountId());
+            if (sender == null
+                    || recipient == null
+                    || sender.getPlayerId() != senderEntry.getPlayerId()
+                    || recipient.getPlayerId() != recipientEntry.getPlayerId()
+                    || !transaction.getCurrencyId().equals(sender.getCurrencyId())
+                    || !transaction.getCurrencyId().equals(recipient.getCurrencyId())
+                    || !transaction.getScopeKey().equals(sender.getScopeKey())
+                    || !transaction.getScopeKey().equals(recipient.getScopeKey())) {
+                throw new IllegalStateException(
+                        "Economy transfer " + operationId + " references an inconsistent account"
+                );
+            }
+            return Optional.of(new TransferReceipt(
+                    operationId,
+                    identity(sender),
+                    identity(recipient),
+                    transaction.getCurrencyId(),
+                    transaction.getScopeKey(),
+                    recipientEntry.getDelta(),
+                    recipientEntry.getBalanceAfter()
+            ));
         }));
     }
 
-    public Account setFrozen(
+    public MutationOutcome setPaymentsEnabled(
+            Identity identity,
+            EconomySettings.Currency currency,
+            boolean enabled,
+            String source,
+            String idempotencyKey,
+            Long actorPlayerId,
+            String actorName,
+            String reason,
+            Map<String, String> metadata,
+            long now
+    ) {
+        TransactionType type = enabled ? TransactionType.PAYMENTS_ENABLED : TransactionType.PAYMENTS_DISABLED;
+        String requestFingerprint = accountSettingFingerprint(
+                type, identity, currency, actorPlayerId, actorName, reason, metadata
+        );
+        return executeWithRetry(() -> orm.runInTransaction(session -> {
+            MutationOutcome replay = replay(session, source, idempotencyKey, requestFingerprint);
+            if (replay != null) {
+                return replay;
+            }
+            EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
+            EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            BigDecimal unchanged = balance.getBalance();
+            settings.setPaymentsEnabled(enabled);
+            settings.setUpdatedAt(now);
+            EconomyTransactionEntity transaction = transaction(
+                    type,
+                    currency,
+                    source,
+                    idempotencyKey,
+                    requestFingerprint,
+                    actorPlayerId,
+                    actorName,
+                    reason,
+                    metadata,
+                    now
+            );
+            session.persist(transaction);
+            session.flush();
+            persistEntry(session, transaction.getId(), balance, "TARGET", BigDecimal.ZERO, unchanged, unchanged);
+            session.flush();
+            return outcome(
+                    EconomyResultStatus.SUCCESS,
+                    transaction.getOperationId(),
+                    unchanged,
+                    null,
+                    "",
+                    snapshot(balance, settings),
+                    null
+            );
+        }));
+    }
+
+    public MutationOutcome setFrozen(
             Identity identity,
             EconomySettings.Currency currency,
             boolean frozen,
             Long actorPlayerId,
+            String actorName,
             String reason,
+            String source,
+            String idempotencyKey,
+            Map<String, String> metadata,
             long now
     ) {
+        TransactionType type = frozen ? TransactionType.ACCOUNT_FROZEN : TransactionType.ACCOUNT_UNFROZEN;
+        String requestFingerprint = accountSettingFingerprint(
+                type, identity, currency, actorPlayerId, actorName, reason, metadata
+        );
         return executeWithRetry(() -> orm.runInTransaction(session -> {
+            MutationOutcome replay = replay(session, source, idempotencyKey, requestFingerprint);
+            if (replay != null) {
+                return replay;
+            }
             EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
             EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            BigDecimal unchanged = balance.getBalance();
             settings.setAccountStatus(frozen ? AccountStatus.FROZEN.name() : AccountStatus.ACTIVE.name());
             settings.setStatusActorPlayerId(actorPlayerId);
             settings.setStatusReason(trim(reason, 255));
             settings.setUpdatedAt(now);
-            return snapshot(balance, settings);
+            EconomyTransactionEntity transaction = transaction(
+                    type,
+                    currency,
+                    source,
+                    idempotencyKey,
+                    requestFingerprint,
+                    actorPlayerId,
+                    actorName,
+                    reason,
+                    metadata,
+                    now
+            );
+            session.persist(transaction);
+            session.flush();
+            persistEntry(session, transaction.getId(), balance, "TARGET", BigDecimal.ZERO, unchanged, unchanged);
+            session.flush();
+            return outcome(
+                    EconomyResultStatus.SUCCESS,
+                    transaction.getOperationId(),
+                    unchanged,
+                    null,
+                    "",
+                    snapshot(balance, settings),
+                    null
+            );
         }));
     }
 
@@ -438,6 +702,32 @@ public final class EconomyRepository {
                             Long.class
                     )
                     .getSingleResult();
+            long invalidEntries = session.createSelectionQuery(
+                            "select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.balanceBefore + e.delta <> e.balanceAfter",
+                            Long.class
+                    )
+                    .getSingleResult();
+            long orphanEntries = session.createSelectionQuery(
+                            "select count(*) from EconomyTransactionEntryEntity e where not exists "
+                                    + "(select 1 from EconomyTransactionEntity t where t.id = e.transactionId) "
+                                    + "or not exists (select 1 from EconomyBalanceEntity b where b.id = e.accountId)",
+                            Long.class
+                    )
+                    .getSingleResult();
+            long identityMismatches = session.createSelectionQuery(
+                            "select count(*) from EconomyBalanceEntity b where not exists "
+                                    + "(select 1 from EconomyPlayerIdentityEntity i where i.playerId = b.playerId "
+                                    + "and i.playerUuid = b.playerUuid)",
+                            Long.class
+                    )
+                    .getSingleResult();
+            long accountsWithoutEntries = session.createSelectionQuery(
+                            "select count(*) from EconomyBalanceEntity b where not exists "
+                                    + "(select 1 from EconomyTransactionEntryEntity e where e.accountId = b.id)",
+                            Long.class
+                    )
+                    .getSingleResult();
             long invalidBalances = 0L;
             for (EconomySettings.Currency currency : settings.currencies().values()) {
                 invalidBalances += session.createSelectionQuery(
@@ -455,7 +745,11 @@ public final class EconomyRepository {
                     accounts,
                     transactions,
                     invalidBalances,
+                    invalidEntries,
                     orphanSettings,
+                    orphanEntries,
+                    identityMismatches,
+                    accountsWithoutEntries,
                     transactionsWithoutEntries
             );
         }));
@@ -468,34 +762,148 @@ public final class EconomyRepository {
             long now,
             boolean lock
     ) {
+        ensurePlayerIdentity(session, identity, now, lock);
         String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
         EconomyBalanceEntity account = lock
                 ? session.find(EconomyBalanceEntity.class, id, LockModeType.PESSIMISTIC_WRITE)
                 : session.find(EconomyBalanceEntity.class, id);
         if (account == null) {
-            account = new EconomyBalanceEntity();
-            account.setId(id);
-            account.setPlayerId(identity.playerId());
-            account.setPlayerUuid(identity.playerUuid().toString());
-            account.setPlayerName(trim(identity.playerName(), 32));
-            account.setCurrencyId(currency.id());
-            account.setScopeKey(currency.scope().key());
-            account.setBalance(databaseAmount(currency.balances().starting()));
-            account.setCreatedAt(now);
-            account.setUpdatedAt(now);
-            session.persist(account);
-            session.flush();
-        } else if (lock) {
-            String playerUuid = identity.playerUuid().toString();
+            return createAccount(session, id, identity, currency, now);
+        }
+        validateAccountIdentity(account, identity);
+        if (lock) {
             String playerName = trim(identity.playerName(), 32);
-            if (!Objects.equals(account.getPlayerUuid(), playerUuid)
-                    || !Objects.equals(account.getPlayerName(), playerName)) {
-                account.setPlayerUuid(playerUuid);
+            if (!Objects.equals(account.getPlayerName(), playerName)) {
                 account.setPlayerName(playerName);
                 account.setUpdatedAt(now);
             }
         }
         return account;
+    }
+
+    private EconomyBalanceEntity createAccount(
+            Session session,
+            String id,
+            Identity identity,
+            EconomySettings.Currency currency,
+            long now
+    ) {
+        EconomyBalanceEntity account = new EconomyBalanceEntity();
+        account.setId(id);
+        account.setPlayerId(identity.playerId());
+        account.setPlayerUuid(identity.playerUuid().toString());
+        account.setPlayerName(trim(identity.playerName(), 32));
+        account.setCurrencyId(currency.id());
+        account.setScopeKey(currency.scope().key());
+        BigDecimal startingBalance = databaseAmount(currency.balances().starting());
+        account.setBalance(startingBalance);
+        account.setCreatedAt(now);
+        account.setUpdatedAt(now);
+        session.persist(account);
+        session.flush();
+        persistAccountCreation(session, account, currency, startingBalance, now);
+        return account;
+    }
+
+    private static void validateAccountIdentity(EconomyBalanceEntity account, Identity identity) {
+        if (account.getPlayerId() != identity.playerId()
+                || !Objects.equals(account.getPlayerUuid(), identity.playerUuid().toString())) {
+            throw new IllegalStateException(
+                    "Economy account identity mismatch for player ID " + identity.playerId()
+            );
+        }
+    }
+
+
+    private EconomyPlayerIdentityEntity ensurePlayerIdentity(
+            Session session,
+            Identity identity,
+            long now,
+            boolean lock
+    ) {
+        EconomyPlayerIdentityEntity canonical = lock
+                ? session.find(EconomyPlayerIdentityEntity.class, identity.playerId(), LockModeType.PESSIMISTIC_WRITE)
+                : session.find(EconomyPlayerIdentityEntity.class, identity.playerId());
+        String playerUuid = identity.playerUuid().toString();
+        String playerName = trim(identity.playerName(), 32);
+        if (canonical == null) {
+            EconomyPlayerIdentityEntity uuidOwner = session.createSelectionQuery(
+                            "from EconomyPlayerIdentityEntity where playerUuid = :uuid",
+                            EconomyPlayerIdentityEntity.class
+                    )
+                    .setParameter("uuid", playerUuid)
+                    .setMaxResults(1)
+                    .getResultStream()
+                    .findFirst()
+                    .orElse(null);
+            if (uuidOwner != null && uuidOwner.getPlayerId() != identity.playerId()) {
+                throw new IllegalStateException(
+                        "Economy UUID " + playerUuid + " is already owned by player ID " + uuidOwner.getPlayerId()
+                );
+            }
+            canonical = new EconomyPlayerIdentityEntity();
+            canonical.setPlayerId(identity.playerId());
+            canonical.setPlayerUuid(playerUuid);
+            canonical.setPlayerName(playerName);
+            canonical.setCreatedAt(now);
+            canonical.setUpdatedAt(now);
+            session.persist(canonical);
+            session.flush();
+            return canonical;
+        }
+        if (!Objects.equals(canonical.getPlayerUuid(), playerUuid)) {
+            throw new IllegalStateException(
+                    "Economy player ID " + identity.playerId() + " is already owned by UUID "
+                            + canonical.getPlayerUuid()
+            );
+        }
+        if (lock && !Objects.equals(canonical.getPlayerName(), playerName)) {
+            canonical.setPlayerName(playerName);
+            canonical.setUpdatedAt(now);
+        }
+        return canonical;
+    }
+
+
+    private static void persistAccountCreation(
+            Session session,
+            EconomyBalanceEntity account,
+            EconomySettings.Currency currency,
+            BigDecimal startingBalance,
+            long now
+    ) {
+        String idempotencyKey = "account:" + account.getId();
+        String requestFingerprint = fingerprint(
+                "account-creation-v1",
+                account.getId(),
+                currency.id(),
+                currency.scope().key(),
+                startingBalance.toPlainString()
+        );
+        EconomyTransactionEntity transaction = transaction(
+                TransactionType.ACCOUNT_CREATED,
+                currency,
+                "economy-account",
+                idempotencyKey,
+                requestFingerprint,
+                null,
+                "system",
+                "Economy account created",
+                Map.of("account_id", account.getId()),
+                now
+        );
+        session.persist(transaction);
+        session.flush();
+        persistEntry(
+                session,
+                transaction.getId(),
+                account,
+                "TARGET",
+                startingBalance,
+                BigDecimal.ZERO,
+                startingBalance
+        );
+        session.flush();
     }
 
     private EconomyPlayerSettingsEntity ensureSettings(
@@ -509,60 +917,110 @@ public final class EconomyRepository {
                 ? session.find(EconomyPlayerSettingsEntity.class, accountId, LockModeType.PESSIMISTIC_WRITE)
                 : session.find(EconomyPlayerSettingsEntity.class, accountId);
         if (settings == null) {
-            settings = new EconomyPlayerSettingsEntity();
-            settings.setAccountId(accountId);
-            settings.setPaymentsEnabled(currency.payments().defaultEnabled());
-            settings.setAccountStatus(AccountStatus.ACTIVE.name());
-            settings.setCreatedAt(now);
-            settings.setUpdatedAt(now);
-            session.persist(settings);
-            session.flush();
+            return createSettings(session, accountId, currency, now);
         }
         return settings;
     }
 
-    private void applyDailyLimit(
+    private EconomyPlayerSettingsEntity createSettings(
+            Session session,
+            String accountId,
+            EconomySettings.Currency currency,
+            long now
+    ) {
+        EconomyPlayerSettingsEntity settings = new EconomyPlayerSettingsEntity();
+        settings.setAccountId(accountId);
+        settings.setPaymentsEnabled(currency.payments().defaultEnabled());
+        settings.setAccountStatus(AccountStatus.ACTIVE.name());
+        settings.setCreatedAt(now);
+        settings.setUpdatedAt(now);
+        session.persist(settings);
+        session.flush();
+        return settings;
+    }
+
+    private void applyDailyLimits(
             Session session,
             EconomyBalanceEntity sender,
+            EconomyBalanceEntity recipient,
             EconomySettings.Currency currency,
             BigDecimal amount,
             long now
     ) {
-        BigDecimal limit = currency.payments().dailySendLimit();
-        if (limit.signum() <= 0) {
+        BigDecimal sendLimit = currency.payments().dailySendLimit();
+        BigDecimal receiveLimit = currency.payments().dailyReceiveLimit();
+        if (sendLimit.signum() <= 0 && receiveLimit.signum() <= 0) {
             return;
         }
         String date = Instant.ofEpochMilli(now).atZone(ZoneOffset.UTC).toLocalDate().toString();
-        String id = sender.getId() + ":" + date;
-        EconomyDailyUsageEntity usage = session.find(EconomyDailyUsageEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
-        if (usage == null) {
-            usage = new EconomyDailyUsageEntity();
-            usage.setId(id);
-            usage.setAccountId(sender.getId());
-            usage.setUsageDate(date);
-            usage.setSentAmount(databaseAmount(BigDecimal.ZERO));
-            usage.setReceivedAmount(databaseAmount(BigDecimal.ZERO));
-            usage.setSentCount(0);
-            usage.setUpdatedAt(now);
-            session.persist(usage);
-            session.flush();
+        EconomyDailyUsageEntity senderUsage;
+        EconomyDailyUsageEntity recipientUsage;
+        if (sender.getId().compareTo(recipient.getId()) < 0) {
+            senderUsage = usage(session, sender, date, now);
+            recipientUsage = usage(session, recipient, date, now);
+        } else {
+            recipientUsage = usage(session, recipient, date, now);
+            senderUsage = usage(session, sender, date, now);
         }
-        BigDecimal next = usage.getSentAmount().add(amount);
-        if (next.compareTo(limit) > 0) {
+
+        BigDecimal sent = senderUsage.getSentAmount().add(amount);
+        if (sendLimit.signum() > 0 && sent.compareTo(sendLimit) > 0) {
             throw new EconomyRejectedException(EconomyResultStatus.LIMIT_EXCEEDED, "Daily send limit exceeded");
         }
-        usage.setSentAmount(databaseAmount(next));
-        usage.setSentCount(Math.addExact(usage.getSentCount(), 1));
-        usage.setUpdatedAt(now);
+        BigDecimal received = recipientUsage.getReceivedAmount().add(amount);
+        if (receiveLimit.signum() > 0 && received.compareTo(receiveLimit) > 0) {
+            throw new EconomyRejectedException(EconomyResultStatus.LIMIT_EXCEEDED, "Daily receive limit exceeded");
+        }
+
+        senderUsage.setSentAmount(databaseAmount(sent));
+        senderUsage.setSentCount(Math.addExact(senderUsage.getSentCount(), 1));
+        senderUsage.setUpdatedAt(now);
+        recipientUsage.setReceivedAmount(databaseAmount(received));
+        recipientUsage.setUpdatedAt(now);
     }
 
-    private MutationOutcome replay(Session session, String source, String idempotencyKey) {
+    private EconomyDailyUsageEntity usage(
+            Session session,
+            EconomyBalanceEntity account,
+            String date,
+            long now
+    ) {
+        String id = account.getId() + ":" + date;
+        EconomyDailyUsageEntity usage = session.find(
+                EconomyDailyUsageEntity.class,
+                id,
+                LockModeType.PESSIMISTIC_WRITE
+        );
+        if (usage != null) {
+            return usage;
+        }
+        usage = new EconomyDailyUsageEntity();
+        usage.setId(id);
+        usage.setAccountId(account.getId());
+        usage.setUsageDate(date);
+        usage.setSentAmount(databaseAmount(BigDecimal.ZERO));
+        usage.setReceivedAmount(databaseAmount(BigDecimal.ZERO));
+        usage.setSentCount(0);
+        usage.setUpdatedAt(now);
+        session.persist(usage);
+        session.flush();
+        return usage;
+    }
+
+    private MutationOutcome replay(
+            Session session,
+            String source,
+            String idempotencyKey,
+            String requestFingerprint
+    ) {
+        String normalizedSource = bounded(source, 64, "source", true);
+        String normalizedKey = bounded(idempotencyKey, 160, "idempotencyKey", true);
         EconomyTransactionEntity transaction = session.createSelectionQuery(
-                        "from EconomyTransactionEntity where source = :source and idempotencyKey = :key",
+                        "from EconomyTransactionEntity where source = :source and idempotencyKeyHash = :keyHash",
                         EconomyTransactionEntity.class
                 )
-                .setParameter("source", trim(source, 64))
-                .setParameter("key", trim(idempotencyKey, 160))
+                .setParameter("source", normalizedSource)
+                .setParameter("keyHash", hash(normalizedKey))
                 .setMaxResults(1)
                 .getResultStream()
                 .findFirst()
@@ -570,22 +1028,56 @@ public final class EconomyRepository {
         if (transaction == null) {
             return null;
         }
+        if (!Objects.equals(transaction.getIdempotencyKey(), normalizedKey)
+                || !Objects.equals(transaction.getRequestFingerprint(), requestFingerprint)) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.IDEMPOTENCY_CONFLICT,
+                    "Idempotency key was already used for a different economy request"
+            );
+        }
         List<EconomyTransactionEntryEntity> entries = session.createSelectionQuery(
                         "from EconomyTransactionEntryEntity where transactionId = :transactionId order by id asc",
                         EconomyTransactionEntryEntity.class
                 )
                 .setParameter("transactionId", transaction.getId())
                 .getResultList();
-        BigDecimal balance = entries.isEmpty() ? null : entries.get(0).getBalanceAfter();
-        BigDecimal counterpart = entries.size() < 2 ? null : entries.get(1).getBalanceAfter();
+        if (entries.isEmpty()) {
+            throw new IllegalStateException(
+                    "Economy transaction " + transaction.getOperationId() + " has no journal entries"
+            );
+        }
+        BigDecimal balance = null;
+        BigDecimal counterpartBalance = null;
+        Account account = null;
+        Account counterpart = null;
+        for (EconomyTransactionEntryEntity entry : entries) {
+            EconomyBalanceEntity balanceEntity = session.find(EconomyBalanceEntity.class, entry.getAccountId());
+            EconomyPlayerSettingsEntity settingsEntity = session.find(
+                    EconomyPlayerSettingsEntity.class,
+                    entry.getAccountId()
+            );
+            if (balanceEntity == null || settingsEntity == null) {
+                throw new IllegalStateException(
+                        "Economy transaction " + transaction.getOperationId() + " references a missing account"
+                );
+            }
+            Account snapshot = snapshot(balanceEntity, settingsEntity);
+            if ("RECIPIENT".equals(entry.getEntryRole())) {
+                counterpartBalance = entry.getBalanceAfter();
+                counterpart = snapshot;
+            } else {
+                balance = entry.getBalanceAfter();
+                account = snapshot;
+            }
+        }
         return outcome(
                 EconomyResultStatus.IDEMPOTENT_REPLAY,
                 transaction.getOperationId(),
                 balance,
-                counterpart,
+                counterpartBalance,
                 "",
-                null,
-                null
+                account,
+                counterpart
         );
     }
 
@@ -594,6 +1086,7 @@ public final class EconomyRepository {
             EconomySettings.Currency currency,
             String source,
             String idempotencyKey,
+            String requestFingerprint,
             Long actorPlayerId,
             String actorName,
             String reason,
@@ -602,16 +1095,25 @@ public final class EconomyRepository {
     ) {
         EconomyTransactionEntity entity = new EconomyTransactionEntity();
         entity.setOperationId(UUID.randomUUID().toString());
-        entity.setSource(trim(source, 64));
-        entity.setIdempotencyKey(trim(idempotencyKey, 160));
+        entity.setSource(bounded(source, 64, "source", true));
+        String normalizedKey = bounded(idempotencyKey, 160, "idempotencyKey", true);
+        entity.setIdempotencyKey(normalizedKey);
+        entity.setIdempotencyKeyHash(hash(normalizedKey));
+        entity.setRequestFingerprint(requestFingerprint);
         entity.setTransactionType(type.name());
         entity.setCurrencyId(currency.id());
         entity.setScopeKey(currency.scope().key());
         entity.setActorPlayerId(actorPlayerId);
-        entity.setActorName(trim(actorName == null ? "system" : actorName, 64));
-        entity.setReason(trim(reason == null ? "" : reason, 255));
+        entity.setActorName(bounded(normalizedActor(actorName), 64, "actorName", true));
+        entity.setReason(bounded(reason == null ? "" : reason, 255, "reason", false));
         String json = GSON.toJson(metadata == null ? Map.of() : metadata);
-        entity.setMetadataJson(trim(json, 4096));
+        if (json.length() > 4096) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.INVALID_AMOUNT,
+                    "Economy metadata exceeds 4096 serialized characters"
+            );
+        }
+        entity.setMetadataJson(json);
         entity.setCreatedAt(now);
         return entity;
     }
@@ -636,18 +1138,23 @@ public final class EconomyRepository {
         session.persist(entry);
     }
 
+    private static Identity identity(EconomyBalanceEntity balance) {
+        return new Identity(
+                balance.getPlayerId(),
+                UUID.fromString(balance.getPlayerUuid()),
+                balance.getPlayerName()
+        );
+    }
+
     private static Account snapshot(EconomyBalanceEntity balance, EconomyPlayerSettingsEntity settings) {
         return new Account(
                 balance.getId(),
-                new Identity(
-                        balance.getPlayerId(),
-                        UUID.fromString(balance.getPlayerUuid()),
-                        balance.getPlayerName()
-                ),
+                identity(balance),
                 balance.getCurrencyId(),
                 balance.getScopeKey(),
                 balance.getBalance(),
                 balance.getVersion(),
+                settings.getVersion(),
                 settings.isPaymentsEnabled(),
                 AccountStatus.valueOf(settings.getAccountStatus())
         );
@@ -678,7 +1185,143 @@ public final class EconomyRepository {
             case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> -1;
             case SET, ADMIN_SET -> 0;
             case TRANSFER -> 2;
+            case ACCOUNT_CREATED -> 4;
+            case PAYMENTS_ENABLED, PAYMENTS_DISABLED, ACCOUNT_FROZEN, ACCOUNT_UNFROZEN -> 3;
         };
+    }
+
+    private static void enforcePaymentCooldown(
+            EconomyPlayerSettingsEntity senderSettings,
+            EconomySettings.Currency currency,
+            long now
+    ) {
+        long cooldownMillis = currency.payments().cooldown().toMillis();
+        if (cooldownMillis <= 0L) {
+            return;
+        }
+        Long previous = senderSettings.getLastPaymentAt();
+        if (previous != null) {
+            long elapsed = Math.max(0L, now - previous);
+            if (elapsed < cooldownMillis) {
+                long remaining = cooldownMillis - elapsed;
+                throw new EconomyRejectedException(
+                        EconomyResultStatus.LIMIT_EXCEEDED,
+                        "Payment cooldown active for " + remaining + " ms"
+                );
+            }
+        }
+        senderSettings.setLastPaymentAt(now);
+        senderSettings.setUpdatedAt(now);
+    }
+
+    static String mutationFingerprint(
+            TransactionType operationType,
+            TransactionType journalType,
+            Identity identity,
+            EconomySettings.Currency currency,
+            BigDecimal amount,
+            Long actorPlayerId,
+            String actorName,
+            String reason,
+            Map<String, String> metadata,
+            boolean bypassFreeze
+    ) {
+        return fingerprint(
+                "mutation-v2",
+                operationType.name(),
+                journalType.name(),
+                accountId(identity.playerId(), currency.id(), currency.scope().key()),
+                identity.playerUuid().toString(),
+                currency.id(),
+                currency.scope().key(),
+                amount.toPlainString(),
+                actorPlayerId == null ? "" : actorPlayerId.toString(),
+                normalizedActor(actorName),
+                reason == null ? "" : reason.trim(),
+                canonicalMetadata(metadata),
+                Boolean.toString(bypassFreeze)
+        );
+    }
+
+    static String transferFingerprint(
+            Identity sender,
+            Identity recipient,
+            EconomySettings.Currency currency,
+            BigDecimal amount,
+            Long actorPlayerId,
+            String actorName,
+            String reason,
+            Map<String, String> metadata,
+            boolean bypassPaymentsToggle,
+            boolean bypassFreeze
+    ) {
+        return fingerprint(
+                "transfer-v2",
+                accountId(sender.playerId(), currency.id(), currency.scope().key()),
+                sender.playerUuid().toString(),
+                accountId(recipient.playerId(), currency.id(), currency.scope().key()),
+                recipient.playerUuid().toString(),
+                currency.id(),
+                currency.scope().key(),
+                amount.toPlainString(),
+                actorPlayerId == null ? "" : actorPlayerId.toString(),
+                normalizedActor(actorName),
+                reason == null ? "" : reason.trim(),
+                canonicalMetadata(metadata),
+                Boolean.toString(bypassPaymentsToggle),
+                Boolean.toString(bypassFreeze)
+        );
+    }
+
+    static String accountSettingFingerprint(
+            TransactionType type,
+            Identity identity,
+            EconomySettings.Currency currency,
+            Long actorPlayerId,
+            String actorName,
+            String reason,
+            Map<String, String> metadata
+    ) {
+        return fingerprint(
+                "account-setting-v1",
+                type.name(),
+                accountId(identity.playerId(), currency.id(), currency.scope().key()),
+                identity.playerUuid().toString(),
+                currency.id(),
+                currency.scope().key(),
+                actorPlayerId == null ? "" : actorPlayerId.toString(),
+                normalizedActor(actorName),
+                reason == null ? "" : reason.trim(),
+                canonicalMetadata(metadata)
+        );
+    }
+
+    private static String normalizedActor(String actorName) {
+        return actorName == null || actorName.isBlank() ? "system" : actorName.trim();
+    }
+
+    private static String canonicalMetadata(Map<String, String> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return "";
+        }
+        StringBuilder builder = new StringBuilder();
+        new TreeMap<>(metadata).forEach((key, value) -> {
+            appendFingerprintPart(builder, key == null ? "" : key);
+            appendFingerprintPart(builder, value == null ? "" : value);
+        });
+        return builder.toString();
+    }
+
+    private static String fingerprint(String... parts) {
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            appendFingerprintPart(builder, part == null ? "" : part);
+        }
+        return hash(builder.toString());
+    }
+
+    private static void appendFingerprintPart(StringBuilder builder, String part) {
+        builder.append(part.length()).append(':').append(part).append(';');
     }
 
     private static BigDecimal normalizeMutationAmount(
@@ -690,6 +1333,13 @@ public final class EconomyRepository {
             BigDecimal normalized = normalize(amount, currency);
             validateBalance(normalized, currency);
             return normalized;
+        }
+        if (type == TransactionType.ACCOUNT_CREATED
+                || type == TransactionType.PAYMENTS_ENABLED
+                || type == TransactionType.PAYMENTS_DISABLED
+                || type == TransactionType.ACCOUNT_FROZEN
+                || type == TransactionType.ACCOUNT_UNFROZEN) {
+            throw new IllegalArgumentException("Account-setting operations do not accept an amount");
         }
         return normalizePositive(amount, currency);
     }
@@ -706,10 +1356,21 @@ public final class EconomyRepository {
         if (amount == null) {
             throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT, "Amount is required");
         }
+        validateAmountShape(amount);
         try {
             return amount.setScale(currency.display().fractionalDigits(), currency.balances().rounding());
         } catch (ArithmeticException exception) {
             throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT, "Amount has invalid precision");
+        }
+    }
+
+    private static void validateAmountShape(BigDecimal amount) {
+        long integerDigits = (long) amount.precision() - amount.scale();
+        if (amount.scale() > DATABASE_SCALE || amount.signum() != 0 && integerDigits > 30L) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.INVALID_AMOUNT,
+                    "Amount exceeds DECIMAL(38,8) storage precision"
+            );
         }
     }
 
@@ -787,11 +1448,11 @@ public final class EconomyRepository {
     }
 
     private static String accountId(long playerId, String currencyId, String scopeKey) {
-        return playerId + ":" + currencyId + ":" + hash(scopeKey).substring(0, 32);
+        return playerId + ":" + currencyId + ":" + hash(scopeKey);
     }
 
     private static String definitionId(String currencyId, String scopeKey) {
-        return currencyId + ":" + hash(scopeKey).substring(0, 32);
+        return currencyId + ":" + hash(scopeKey);
     }
 
     private static String definitionHash(EconomySettings.Currency currency) {
@@ -803,7 +1464,15 @@ public final class EconomyRepository {
                 currency.balances().starting().toPlainString(),
                 currency.balances().minimum().toPlainString(),
                 currency.balances().maximum().toPlainString(),
-                Boolean.toString(currency.balances().allowNegative())
+                Boolean.toString(currency.balances().allowNegative()),
+                currency.balances().rounding().name(),
+                Boolean.toString(currency.payments().defaultEnabled()),
+                currency.payments().minimum().toPlainString(),
+                currency.payments().maximum().toPlainString(),
+                currency.payments().confirmationThreshold().toPlainString(),
+                currency.payments().dailySendLimit().toPlainString(),
+                currency.payments().dailyReceiveLimit().toPlainString(),
+                Long.toString(currency.payments().cooldown().toMillis())
         ));
     }
 
@@ -817,7 +1486,36 @@ public final class EconomyRepository {
     }
 
     private static BigDecimal databaseAmount(BigDecimal value) {
-        return value.setScale(DATABASE_SCALE, RoundingMode.UNNECESSARY);
+        BigDecimal normalized;
+        try {
+            normalized = value.setScale(DATABASE_SCALE, RoundingMode.UNNECESSARY);
+        } catch (ArithmeticException exception) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.INVALID_AMOUNT,
+                    "Amount exceeds supported decimal precision"
+            );
+        }
+        if (normalized.precision() > 38) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.INVALID_AMOUNT,
+                    "Amount exceeds DECIMAL(38,8) storage precision"
+            );
+        }
+        return normalized;
+    }
+
+    private static String bounded(String value, int maximum, String field, boolean required) {
+        String normalized = value == null ? "" : value.trim();
+        if (required && normalized.isBlank()) {
+            throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT, field + " must not be blank");
+        }
+        if (normalized.length() > maximum) {
+            throw new EconomyRejectedException(
+                    EconomyResultStatus.INVALID_AMOUNT,
+                    field + " exceeds " + maximum + " characters"
+            );
+        }
+        return normalized;
     }
 
     private static String trim(String value, int maximum) {

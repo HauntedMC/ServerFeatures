@@ -1,16 +1,20 @@
 package nl.hauntedmc.serverfeatures.features.economy.messaging;
 
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDataAccess;
+import nl.hauntedmc.dataprovider.database.messaging.api.AbstractEventMessage;
 import nl.hauntedmc.dataprovider.database.messaging.api.Subscription;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Owns Economy Redis publish/subscribe lifecycle. */
+/** Owns Economy Redis publish/subscribe lifecycle. Messages never mutate balances. */
 public final class EconomyMessaging {
     private static final long UNSUBSCRIBE_TIMEOUT_SECONDS = 5L;
 
@@ -18,7 +22,7 @@ public final class EconomyMessaging {
     private final MessagingDataAccess messaging;
     private final String channel;
     private final AtomicBoolean closed = new AtomicBoolean();
-    private Subscription subscription;
+    private final List<Subscription> subscriptions = new ArrayList<>();
 
     public EconomyMessaging(Economy feature, MessagingDataAccess messaging, String channel) {
         this.feature = Objects.requireNonNull(feature, "feature");
@@ -30,18 +34,34 @@ public final class EconomyMessaging {
         if (closed.get()) {
             throw new IllegalStateException("Economy messaging is closed");
         }
-        if (subscription != null) {
+        if (!subscriptions.isEmpty()) {
             return;
         }
-        subscription = Objects.requireNonNull(
-                messaging.subscribe(
-                        channel,
-                        EconomyBalanceMessage.TYPE,
-                        EconomyBalanceMessage.class,
-                        message -> feature.service().applyRemoteBalance(message)
-                ),
-                "Redis subscribe returned no subscription"
-        );
+        List<Subscription> created = new ArrayList<>();
+        try {
+            created.add(Objects.requireNonNull(
+                    messaging.subscribe(
+                            channel,
+                            EconomyBalanceMessage.TYPE,
+                            EconomyBalanceMessage.class,
+                            message -> feature.service().applyRemoteBalance(message)
+                    ),
+                    "Redis balance subscription was not created"
+            ));
+            created.add(Objects.requireNonNull(
+                    messaging.subscribe(
+                            channel,
+                            EconomyTransferMessage.TYPE,
+                            EconomyTransferMessage.class,
+                            message -> feature.service().applyRemoteTransfer(message)
+                    ),
+                    "Redis transfer subscription was not created"
+            ));
+            subscriptions.addAll(created);
+        } catch (RuntimeException failure) {
+            created.forEach(this::unsubscribe);
+            throw failure;
+        }
     }
 
     public void publish(String operationId, Account account) {
@@ -53,33 +73,75 @@ public final class EconomyMessaging {
                 operationId,
                 account.identity().playerId(),
                 account.identity().playerUuid().toString(),
-                account.identity().playerName(),
                 account.currencyId(),
                 account.scopeKey(),
-                account.balance(),
                 account.version(),
+                account.settingsVersion(),
                 System.currentTimeMillis()
         );
-        messaging.publish(channel, message).exceptionally(failure -> {
-            feature.getLogger().warning("Could not publish Economy balance update: " + rootMessage(failure));
-            return null;
-        });
+        publishMessage(message, "balance update");
+    }
+
+    public void publishTransfer(
+            String operationId,
+            Identity recipient,
+            String currencyId,
+            String scopeKey
+    ) {
+        if (closed.get() || operationId == null || operationId.isBlank()) {
+            return;
+        }
+        EconomyTransferMessage message = new EconomyTransferMessage(
+                feature.settings().serverKey(),
+                operationId,
+                recipient.playerId(),
+                recipient.playerUuid().toString(),
+                currencyId,
+                scopeKey,
+                System.currentTimeMillis()
+        );
+        publishMessage(message, "transfer notification");
+    }
+
+    private void publishMessage(AbstractEventMessage message, String description) {
+        try {
+            CompletableFuture<Void> publication = messaging.publish(channel, message);
+            if (publication == null) {
+                feature.getLogger().warning("Economy messaging returned no future for " + description);
+                return;
+            }
+            publication.exceptionally(failure -> {
+                feature.getLogger().warning(
+                        "Could not publish Economy " + description + ": " + rootMessage(failure)
+                );
+                return null;
+            });
+        } catch (RuntimeException failure) {
+            // This is strictly post-commit fan-out. A Redis failure must never turn a
+            // committed monetary transaction into an apparent failure for the caller.
+            feature.getLogger().warning(
+                    "Could not publish Economy " + description + ": " + rootMessage(failure)
+            );
+        }
     }
 
     public void close() {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        Subscription current;
+        List<Subscription> current;
         synchronized (this) {
-            current = subscription;
-            subscription = null;
+            current = List.copyOf(subscriptions);
+            subscriptions.clear();
         }
-        if (current == null) {
-            return;
+        for (Subscription subscription : current) {
+            unsubscribe(subscription);
         }
+    }
+
+    private void unsubscribe(Subscription subscription) {
         try {
-            CompletableFuture<Void> future = current.unsubscribe();
+            CompletableFuture<Void> future = subscription.unsubscribe();
             if (future != null) {
                 future.orTimeout(UNSUBSCRIBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .exceptionally(failure -> {

@@ -13,6 +13,9 @@ public record EconomyAccountRef(
 ) {
     public EconomyAccountRef {
         Objects.requireNonNull(playerUuid, "playerUuid");
+        if (playerId != null && playerId <= 0L) {
+            throw new IllegalArgumentException("playerId must be positive when provided");
+        }
         if (currencyId == null || currencyId.isBlank()) {
             throw new IllegalArgumentException("currencyId must not be blank");
         }
@@ -21,6 +24,9 @@ public record EconomyAccountRef(
             throw new IllegalArgumentException("currencyId must not exceed 64 characters");
         }
         playerName = playerName == null ? "" : playerName.trim();
+        if (playerName.length() > 32) {
+            throw new IllegalArgumentException("playerName must not exceed 32 characters");
+        }
         scopeKey = scopeKey == null || scopeKey.isBlank() ? null : scopeKey.trim();
         if (scopeKey != null && scopeKey.length() > 128) {
             throw new IllegalArgumentException("scopeKey must not exceed 128 characters");

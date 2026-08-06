@@ -25,6 +25,7 @@ public record EconomySettings(
         String databaseConnection,
         Vault vault,
         Messaging messaging,
+        Cache cache,
         Map<String, Currency> currencies
 ) {
 
@@ -36,6 +37,7 @@ public record EconomySettings(
         databaseConnection = requireText(databaseConnection, "database.connection");
         Objects.requireNonNull(vault, "vault");
         Objects.requireNonNull(messaging, "messaging");
+        Objects.requireNonNull(cache, "cache");
         currencies = Collections.unmodifiableMap(new LinkedHashMap<>(currencies));
         if (currencies.isEmpty()) {
             throw new IllegalArgumentException("At least one enabled currency is required");
@@ -48,7 +50,11 @@ public record EconomySettings(
 
     public static EconomySettings load(FeatureConfigHandler config, String globalServerName) {
         String networkKey = key(text(config.node(), "network_key", "hauntedmc"), "network_key");
-        String configuredServer = text(config.node(), "server_key", "$server");
+        String configuredServer = firstNonBlank(
+                text(config.node(), "local_key", ""),
+                text(config.node(), "gamemode_key", ""),
+                text(config.node(), "server_key", "$server")
+        );
         String serverKey = "$server".equalsIgnoreCase(configuredServer)
                 ? key(globalServerName, "global server_name")
                 : key(configuredServer, "server_key");
@@ -65,6 +71,13 @@ public record EconomySettings(
                 text(config.node(), "messaging.connection", "hauntedmc"),
                 text(config.node(), "messaging.channel", "serverfeatures.economy.balance")
         );
+        Cache cache = new Cache(duration(
+                config.node(),
+                "cache.authoritative_refresh_interval",
+                "10s",
+                Duration.ofSeconds(1),
+                Duration.ofMinutes(5)
+        ));
 
         ConfigNode currenciesNode = config.node("currencies");
         Map<String, Currency> currencies = new LinkedHashMap<>();
@@ -74,13 +87,12 @@ public record EconomySettings(
             if (!bool(node, "enabled", true)) {
                 continue;
             }
-            EconomyScopeType scopeType = enumValue(
-                    EconomyScopeType.class,
+            EconomyScopeType scopeType = scopeType(
                     text(node, "scope.type", "SERVER"),
                     "currencies." + id + ".scope.type"
             );
             String scopeKey = switch (scopeType) {
-                case SERVER -> networkKey + "/server/" + serverKey;
+                case SERVER -> networkKey + "/server/" + localScopeKey(node, id, serverKey);
                 case GROUP -> networkKey + "/group/" + key(
                         text(node, "scope.group_key", ""),
                         "currencies." + id + ".scope.group_key"
@@ -129,13 +141,25 @@ public record EconomySettings(
                     bool(node, "commands.history", true),
                     bool(node, "commands.top", false)
             );
+            ConfigNode offlineRecipientSetting = node.getAt("payments.allow_offline_recipient");
+            if (!offlineRecipientSetting.isNull()
+                    && !offlineRecipientSetting.as(Boolean.class, true)) {
+                throw new IllegalArgumentException(
+                        "Currency " + id + " cannot disable offline recipients: "
+                                + "known players must remain payable across the network"
+                );
+            }
+            String minimumPaymentDefault = BigDecimal.ONE
+                    .movePointLeft(fractionalDigits)
+                    .setScale(fractionalDigits)
+                    .toPlainString();
             Payments payments = new Payments(
                     bool(node, "payments.default_enabled", true),
-                    bool(node, "payments.allow_offline_recipient", true),
-                    positiveAmount(node, "payments.minimum", fractionalDigits, roundingMode, "0.01"),
+                    positiveAmount(node, "payments.minimum", fractionalDigits, roundingMode, minimumPaymentDefault),
                     nonNegativeAmount(node, "payments.maximum", fractionalDigits, roundingMode, "0"),
                     nonNegativeAmount(node, "payments.confirmation_threshold", fractionalDigits, roundingMode, "0"),
                     nonNegativeAmount(node, "payments.daily_send_limit", fractionalDigits, roundingMode, "0"),
+                    nonNegativeAmount(node, "payments.daily_receive_limit", fractionalDigits, roundingMode, "0"),
                     duration(node, "payments.cooldown", "1s", Duration.ZERO, Duration.ofHours(1))
             );
             if (!commands.pay() && commands.paytoggle()) {
@@ -144,8 +168,18 @@ public record EconomySettings(
             if (payments.maximum().signum() > 0 && payments.maximum().compareTo(payments.minimum()) < 0) {
                 throw new IllegalArgumentException("Currency " + id + " payment maximum is below the minimum");
             }
+            if (payments.dailySendLimit().signum() > 0
+                    && payments.dailySendLimit().compareTo(payments.minimum()) < 0) {
+                throw new IllegalArgumentException("Currency " + id + " daily send limit is below the minimum payment");
+            }
+            if (payments.dailyReceiveLimit().signum() > 0
+                    && payments.dailyReceiveLimit().compareTo(payments.minimum()) < 0) {
+                throw new IllegalArgumentException(
+                        "Currency " + id + " daily receive limit is below the minimum payment"
+                );
+            }
 
-            currencies.put(id, new Currency(
+            Currency currency = new Currency(
                     id,
                     new EconomyScope(scopeType, scopeKey),
                     new Display(
@@ -159,9 +193,12 @@ public record EconomySettings(
                     new Balances(starting, minimum, maximum, allowNegative, roundingMode),
                     commands,
                     payments
-            ));
+            );
+            if (currencies.putIfAbsent(id, currency) != null) {
+                throw new IllegalArgumentException("Duplicate normalized currency id: " + id);
+            }
         }
-        return new EconomySettings(networkKey, serverKey, connection, vault, messaging, currencies);
+        return new EconomySettings(networkKey, serverKey, connection, vault, messaging, cache, currencies);
     }
 
     public Currency requireCurrency(String id) {
@@ -183,6 +220,15 @@ public record EconomySettings(
         public Messaging {
             connection = requireText(connection, "messaging.connection");
             channel = requireText(channel, "messaging.channel");
+        }
+    }
+
+    public record Cache(Duration authoritativeRefreshInterval) {
+        public Cache {
+            Objects.requireNonNull(authoritativeRefreshInterval, "authoritativeRefreshInterval");
+            if (authoritativeRefreshInterval.isZero() || authoritativeRefreshInterval.isNegative()) {
+                throw new IllegalArgumentException("cache.authoritative_refresh_interval must be positive");
+            }
         }
     }
 
@@ -253,11 +299,11 @@ public record EconomySettings(
 
     public record Payments(
             boolean defaultEnabled,
-            boolean allowOfflineRecipient,
             BigDecimal minimum,
             BigDecimal maximum,
             BigDecimal confirmationThreshold,
             BigDecimal dailySendLimit,
+            BigDecimal dailyReceiveLimit,
             Duration cooldown
     ) {
         public Payments {
@@ -265,6 +311,7 @@ public record EconomySettings(
             Objects.requireNonNull(maximum, "maximum");
             Objects.requireNonNull(confirmationThreshold, "confirmationThreshold");
             Objects.requireNonNull(dailySendLimit, "dailySendLimit");
+            Objects.requireNonNull(dailyReceiveLimit, "dailyReceiveLimit");
             Objects.requireNonNull(cooldown, "cooldown");
         }
     }
@@ -281,6 +328,36 @@ public record EconomySettings(
             throw new IllegalArgumentException("Invalid currency id: " + value);
         }
         return id;
+    }
+
+
+    private static EconomyScopeType scopeType(String raw, String field) {
+        String normalized = raw.trim().toUpperCase(Locale.ROOT);
+        if (normalized.equals("LOCAL") || normalized.equals("GAMEMODE")) {
+            return EconomyScopeType.SERVER;
+        }
+        return enumValue(EconomyScopeType.class, normalized, field);
+    }
+
+    private static String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private static String localScopeKey(ConfigNode node, String currencyId, String fallback) {
+        String configured = text(node, "scope.local_key", "");
+        if (configured.isBlank()) {
+            configured = text(node, "scope.gamemode_key", "");
+        }
+        if (configured.isBlank()) {
+            configured = text(node, "scope.server_key", "");
+        }
+        return key(configured.isBlank() ? fallback : configured,
+                "currencies." + currencyId + ".scope.local_key");
     }
 
     private static void validateCommandLabels(Iterable<Currency> currencies) {
@@ -361,11 +438,19 @@ public record EconomySettings(
         String value = text(node, path, fallback);
         try {
             BigDecimal amount = new BigDecimal(value);
+            long integerDigits = (long) amount.precision() - amount.scale();
+            if (amount.scale() > 8 || amount.signum() != 0 && integerDigits > 30L) {
+                throw new IllegalArgumentException(path + " exceeds DECIMAL(38,8) storage precision");
+            }
             if (amount.scale() > fractionalDigits) {
                 amount = amount.setScale(fractionalDigits, roundingMode);
             }
-            return amount.setScale(fractionalDigits, roundingMode);
-        } catch (NumberFormatException exception) {
+            BigDecimal normalized = amount.setScale(fractionalDigits, roundingMode);
+            if (normalized.precision() > 38) {
+                throw new IllegalArgumentException(path + " exceeds DECIMAL(38,8) storage precision");
+            }
+            return normalized;
+        } catch (NumberFormatException | ArithmeticException exception) {
             throw new IllegalArgumentException("Invalid amount at " + path + ": " + value, exception);
         }
     }

@@ -137,4 +137,6 @@ economy:
 - `VAULT` preserves compatibility with legacy servers and external Vault providers.
 - `BUILTIN` uses the native ServerFeatures Economy API and the selected currency. The currency may be server-local, group-shared or global.
 
-There is no automatic fallback. A missing configured backend causes Lottery to fail with a clear startup error rather than silently using another balance system. Built-in withdrawals, refunds and payouts use deterministic idempotency identifiers; Vault mode retains the existing compensation behavior because external Vault providers do not expose an idempotency API.
+There is no automatic fallback. A missing configured backend causes Lottery to fail with a clear startup error rather than silently using another balance system. Built-in withdrawals, refunds and payouts use deterministic idempotency identifiers. A missing or warming display cache never becomes an authoritative zero-balance rejection: the built-in withdrawal performs the real MySQL balance check. Vault mode retains the existing compensation behavior because external Vault providers do not expose an idempotency API.
+
+For the HauntedMC topology, Lottery can use global Crowns/Credits or a gamemode-local currency by selecting its currency ID in `economy.builtin.currency`. The resolved scope comes from Economy configuration; Lottery does not construct or override account scopes itself.

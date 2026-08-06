@@ -7,12 +7,23 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
 
 @Entity
 @Table(
         name = "system_economy_transaction_entry",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_economy_entry_role",
+                        columnNames = {"transaction_id", "entry_role"}
+                ),
+                @UniqueConstraint(
+                        name = "uq_economy_entry_account",
+                        columnNames = {"transaction_id", "account_id"}
+                )
+        },
         indexes = {
                 @Index(name = "idx_economy_entry_transaction", columnList = "transaction_id"),
                 @Index(name = "idx_economy_entry_account", columnList = "account_id,transaction_id")

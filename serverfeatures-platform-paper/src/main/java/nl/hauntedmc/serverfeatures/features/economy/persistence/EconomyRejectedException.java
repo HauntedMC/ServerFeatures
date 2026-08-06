@@ -2,7 +2,8 @@ package nl.hauntedmc.serverfeatures.features.economy.persistence;
 
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 
-final class EconomyRejectedException extends RuntimeException {
+/** Structured policy rejection that must be returned to API callers without being logged as an infrastructure failure. */
+public final class EconomyRejectedException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     private final EconomyResultStatus status;
@@ -12,7 +13,7 @@ final class EconomyRejectedException extends RuntimeException {
         this.status = status;
     }
 
-    EconomyResultStatus status() {
+    public EconomyResultStatus status() {
         return status;
     }
 }

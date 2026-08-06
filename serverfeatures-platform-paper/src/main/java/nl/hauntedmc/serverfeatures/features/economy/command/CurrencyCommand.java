@@ -31,7 +31,6 @@ public final class CurrencyCommand implements BrigadierCommand {
 
     private final Economy feature;
     private final EconomySettings.Currency currency;
-    private final ConcurrentHashMap<UUID, Long> lastPayment = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, PendingPayment> confirmations = new ConcurrentHashMap<>();
 
     public CurrencyCommand(Economy feature, EconomySettings.Currency currency) {
@@ -125,8 +124,9 @@ public final class CurrencyCommand implements BrigadierCommand {
     }
 
     private int balance(CommandSender sender, String target) {
-        Player player = requirePlayer(sender);
-        if (player == null && target == null) {
+        Player player = sender instanceof Player online ? online : null;
+        if (target == null && player == null) {
+            feature.send(sender, "economy.player_only");
             return 0;
         }
         String identifier = target == null ? player.getUniqueId().toString() : target;
@@ -158,23 +158,9 @@ public final class CurrencyCommand implements BrigadierCommand {
             feature.send(player, "economy.invalid_amount", Map.of("reason", exception.getMessage()));
             return 0;
         }
-        long now = System.currentTimeMillis();
-        long cooldown = currency.payments().cooldown().toMillis();
-        Long previous = lastPayment.get(player.getUniqueId());
-        if (previous != null && now - previous < cooldown) {
-            feature.send(player, "economy.pay.cooldown", Map.of(
-                    "seconds", Long.toString(Math.max(1L, (cooldown - (now - previous) + 999L) / 1000L))
-            ));
-            return 0;
-        }
         if (!confirmed && currency.payments().confirmationThreshold().signum() > 0
                 && amount.compareTo(currency.payments().confirmationThreshold()) >= 0) {
-            confirmations.put(player.getUniqueId(), new PendingPayment(target, amount, now));
-            feature.send(player, "economy.pay.confirm", Map.of(
-                    "player", target,
-                    "amount", feature.service().format(currency.id(), amount),
-                    "command", "/" + name() + " confirm"
-            ));
+            prepareConfirmation(player, target, amount);
             return 1;
         }
         executePayment(player, target, amount);
@@ -191,23 +177,52 @@ public final class CurrencyCommand implements BrigadierCommand {
             feature.send(player, "economy.pay.no_confirmation");
             return 0;
         }
-        return pay(player, pending.target(), pending.amount().toPlainString(), true);
+        executePayment(player, pending.recipient(), pending.amount());
+        return 1;
+    }
+
+    private void prepareConfirmation(Player player, String target, BigDecimal amount) {
+        feature.service().resolveIdentifier(target).whenComplete((recipient, failure) ->
+                feature.service().main(() -> {
+                    if (failure != null) {
+                        feature.send(player, "economy.pay.failed", Map.of("reason", rootMessage(failure)));
+                        return;
+                    }
+                    confirmations.put(
+                            player.getUniqueId(),
+                            new PendingPayment(recipient, amount, System.currentTimeMillis())
+                    );
+                    feature.send(player, "economy.pay.confirm", Map.of(
+                            "player", recipient.playerName(),
+                            "amount", feature.service().format(currency.id(), amount),
+                            "command", "/" + name() + " confirm"
+                    ));
+                })
+        );
     }
 
     private void executePayment(Player player, String target, BigDecimal amount) {
-        feature.service().resolveIdentifier(player.getUniqueId().toString()).thenCombine(
-                feature.service().resolveIdentifier(target),
-                ResolvedPayment::new
-        ).thenCompose(resolved -> {
-            if (!currency.payments().allowOfflineRecipient()
-                    && feature.getPlugin().getServer().getPlayer(resolved.recipient().playerUuid()) == null) {
-                throw new IllegalArgumentException("Recipient must be online");
+        feature.service().resolveIdentifier(target).whenComplete((recipient, failure) -> {
+            if (failure != null) {
+                feature.service().main(() -> feature.send(
+                        player,
+                        "economy.pay.failed",
+                        Map.of("reason", rootMessage(failure))
+                ));
+                return;
             }
+            executePayment(player, recipient, amount);
+        });
+    }
+
+    private void executePayment(Player player, Identity recipient, BigDecimal amount) {
+        feature.service().resolveIdentifier(player.getUniqueId().toString()).thenCompose(sender -> {
+            ResolvedPayment resolved = new ResolvedPayment(sender, recipient);
             return feature.service().transfer(new EconomyTransferRequest(
                     "player-command",
                     UUID.randomUUID().toString(),
-                    feature.service().account(resolved.sender(), currency.id()),
-                    feature.service().account(resolved.recipient(), currency.id()),
+                    feature.service().account(sender, currency.id()),
+                    feature.service().account(recipient, currency.id()),
                     amount,
                     resolved.sender().playerId(),
                     resolved.sender().playerName(),
@@ -225,21 +240,12 @@ public final class CurrencyCommand implements BrigadierCommand {
                 feature.send(player, "economy.pay.failed", Map.of("reason", result.message()));
                 return;
             }
-            lastPayment.put(player.getUniqueId(), System.currentTimeMillis());
             String formatted = feature.service().format(currency.id(), amount);
             feature.send(player, "economy.pay.sent", Map.of(
                     "player", payment.resolved().recipient().playerName(),
                     "amount", formatted,
                     "balance", feature.service().format(currency.id(), result.balance())
             ));
-            Player recipient = feature.getPlugin().getServer().getPlayer(payment.resolved().recipient().playerUuid());
-            if (recipient != null) {
-                feature.send(recipient, "economy.pay.received", Map.of(
-                        "player", payment.resolved().sender().playerName(),
-                        "amount", formatted,
-                        "balance", feature.service().format(currency.id(), result.counterpartBalance())
-                ));
-            }
         }));
     }
 
@@ -250,7 +256,12 @@ public final class CurrencyCommand implements BrigadierCommand {
         }
         feature.service().resolveIdentifier(player.getUniqueId().toString())
                 .thenCompose(identity -> feature.service().setPaymentsEnabled(
-                        feature.service().account(identity, currency.id()), enabled
+                        feature.service().account(identity, currency.id()),
+                        enabled,
+                        identity.playerId(),
+                        identity.playerName(),
+                        "Player payment preference",
+                        "player-command"
                 ))
                 .whenComplete((account, failure) -> feature.service().main(() -> {
                     if (failure != null) {
@@ -268,10 +279,18 @@ public final class CurrencyCommand implements BrigadierCommand {
         if (player == null) {
             return 0;
         }
-        boolean enabled = feature.service().cachedAccount(player.getUniqueId(), currency.id())
-                .map(account -> account.paymentsEnabled())
-                .orElse(currency.payments().defaultEnabled());
-        feature.send(player, enabled ? "economy.paytoggle.enabled" : "economy.paytoggle.disabled");
+        feature.service().resolveIdentifier(player.getUniqueId().toString())
+                .thenCompose(identity -> feature.service().accountState(
+                        feature.service().account(identity, currency.id())
+                ))
+                .whenComplete((account, failure) -> feature.service().main(() -> {
+                    if (failure != null) {
+                        feature.send(player, "economy.error", Map.of("reason", rootMessage(failure)));
+                        return;
+                    }
+                    feature.send(player, account.paymentsEnabled()
+                            ? "economy.paytoggle.enabled" : "economy.paytoggle.disabled");
+                }));
         return 1;
     }
 
@@ -380,7 +399,7 @@ public final class CurrencyCommand implements BrigadierCommand {
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
 
-    private record PendingPayment(String target, BigDecimal amount, long createdAt) {
+    private record PendingPayment(Identity recipient, BigDecimal amount, long createdAt) {
     }
 
     private record ResolvedPayment(Identity sender, Identity recipient) {

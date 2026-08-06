@@ -3,11 +3,12 @@ package nl.hauntedmc.serverfeatures.features.lottery.economy;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import org.bukkit.OfflinePlayer;
 
+import java.util.Optional;
 import java.util.concurrent.CompletionStage;
 
 /** Selected monetary backend for one Lottery instance. */
 public interface LotteryEconomyGateway {
-    Money cachedBalance(OfflinePlayer player);
+    Optional<Money> cachedBalance(OfflinePlayer player);
 
     CompletionStage<EconomyResult> withdraw(OfflinePlayer player, Money amount, String idempotencyKey);
 

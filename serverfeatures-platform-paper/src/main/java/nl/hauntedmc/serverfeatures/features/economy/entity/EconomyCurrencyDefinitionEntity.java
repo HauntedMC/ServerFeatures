@@ -4,11 +4,18 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "system_economy_currency_definition")
+@Table(
+        name = "system_economy_currency_definition",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_economy_currency_definition",
+                columnNames = {"currency_id", "scope_key"}
+        )
+)
 public class EconomyCurrencyDefinitionEntity {
     @Id
     @Column(name = "id", length = 192, nullable = false)

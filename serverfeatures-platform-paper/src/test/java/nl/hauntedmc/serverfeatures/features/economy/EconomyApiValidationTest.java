@@ -92,4 +92,52 @@ class EconomyApiValidationTest {
                 false
         ));
     }
+    @Test
+    void rejectsInvalidIdentityAndUnboundedMetadata() {
+        assertThrows(IllegalArgumentException.class, () -> new EconomyAccountRef(
+                0L,
+                ACCOUNT.playerUuid(),
+                "Player",
+                "money",
+                "hauntedmc/global"
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyAccountRef(
+                1L,
+                ACCOUNT.playerUuid(),
+                "x".repeat(33),
+                "money",
+                "hauntedmc/global"
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
+                "Lottery With Spaces",
+                "operation",
+                ACCOUNT,
+                BigDecimal.ONE,
+                null,
+                "system",
+                "test",
+                Map.of()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
+                "lottery",
+                "operation",
+                ACCOUNT,
+                BigDecimal.ONE,
+                -1L,
+                "system",
+                "test",
+                Map.of()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
+                "lottery",
+                "operation",
+                ACCOUNT,
+                BigDecimal.ONE,
+                null,
+                "system",
+                "test",
+                Map.of("key", "x".repeat(513))
+        ));
+    }
+
 }

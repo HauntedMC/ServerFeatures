@@ -16,23 +16,16 @@ public record EconomyMutationRequest(
         Map<String, String> metadata
 ) {
     public EconomyMutationRequest {
-        source = requireText(source, "source", 64);
-        idempotencyKey = requireText(idempotencyKey, "idempotencyKey", 160);
+        source = EconomyRequestValidation.source(source);
+        idempotencyKey = EconomyRequestValidation.text(idempotencyKey, "idempotencyKey", 160, true);
         Objects.requireNonNull(account, "account");
         Objects.requireNonNull(amount, "amount");
-        actorName = actorName == null ? "" : actorName.trim();
-        reason = reason == null ? "" : reason.trim();
-        metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+        if (actorPlayerId != null && actorPlayerId <= 0L) {
+            throw new IllegalArgumentException("actorPlayerId must be positive when provided");
+        }
+        actorName = EconomyRequestValidation.text(actorName, "actorName", 64, false);
+        reason = EconomyRequestValidation.text(reason, "reason", 255, false);
+        metadata = EconomyRequestValidation.metadata(metadata);
     }
 
-    private static String requireText(String value, String name, int maximumLength) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        String normalized = value.trim();
-        if (normalized.length() > maximumLength) {
-            throw new IllegalArgumentException(name + " must not exceed " + maximumLength + " characters");
-        }
-        return normalized;
-    }
 }

@@ -4,6 +4,7 @@ package nl.hauntedmc.serverfeatures.api.economy;
 public enum EconomyResultStatus {
     SUCCESS,
     IDEMPOTENT_REPLAY,
+    IDEMPOTENCY_CONFLICT,
     INSUFFICIENT_FUNDS,
     ACCOUNT_FROZEN,
     PAYMENTS_DISABLED,

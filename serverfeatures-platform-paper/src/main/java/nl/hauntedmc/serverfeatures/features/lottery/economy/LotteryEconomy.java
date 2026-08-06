@@ -8,6 +8,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -28,9 +29,9 @@ public final class LotteryEconomy implements LotteryEconomyGateway {
     }
 
     @Override
-    public Money cachedBalance(OfflinePlayer player) {
+    public Optional<Money> cachedBalance(OfflinePlayer player) {
         requireMainThread();
-        return Money.fromVault(economy.getBalance(player));
+        return Optional.of(Money.fromVault(economy.getBalance(player)));
     }
 
     @Override

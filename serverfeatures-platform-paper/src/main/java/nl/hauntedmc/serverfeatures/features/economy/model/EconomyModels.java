@@ -29,6 +29,7 @@ public final class EconomyModels {
             String scopeKey,
             BigDecimal balance,
             long version,
+            long settingsVersion,
             boolean paymentsEnabled,
             AccountStatus status
     ) {
@@ -40,6 +41,7 @@ public final class EconomyModels {
     }
 
     public enum TransactionType {
+        ACCOUNT_CREATED,
         DEPOSIT,
         WITHDRAW,
         SET,
@@ -52,7 +54,11 @@ public final class EconomyModels {
         LOTTERY_PAYOUT,
         LOTTERY_REFUND,
         VAULT_DEPOSIT,
-        VAULT_WITHDRAW
+        VAULT_WITHDRAW,
+        PAYMENTS_ENABLED,
+        PAYMENTS_DISABLED,
+        ACCOUNT_FROZEN,
+        ACCOUNT_UNFROZEN
     }
 
     public record MutationOutcome(
@@ -90,16 +96,35 @@ public final class EconomyModels {
     public record TopEntry(long playerId, UUID playerUuid, String playerName, BigDecimal balance) {
     }
 
+    public record TransferReceipt(
+            UUID operationId,
+            Identity sender,
+            Identity recipient,
+            String currencyId,
+            String scopeKey,
+            BigDecimal amount,
+            BigDecimal recipientBalanceAfter
+    ) {
+    }
+
     public record VerificationReport(
             long accountCount,
             long transactionCount,
             long invalidBalanceCount,
+            long invalidEntryCount,
             long orphanSettingsCount,
+            long orphanEntryCount,
+            long identityMismatchCount,
+            long accountWithoutEntriesCount,
             long transactionWithoutEntriesCount
     ) {
         public boolean healthy() {
             return invalidBalanceCount == 0L
+                    && invalidEntryCount == 0L
                     && orphanSettingsCount == 0L
+                    && orphanEntryCount == 0L
+                    && identityMismatchCount == 0L
+                    && accountWithoutEntriesCount == 0L
                     && transactionWithoutEntriesCount == 0L;
         }
     }

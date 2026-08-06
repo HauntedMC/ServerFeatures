@@ -14,7 +14,9 @@ import nl.hauntedmc.serverfeatures.features.economy.command.EconomyAdminCommand;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyDefinitionEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyFamilyEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyDailyUsageEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentityEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
@@ -57,6 +59,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         defaults.put("messaging.enabled", true);
         defaults.put("messaging.connection", "hauntedmc");
         defaults.put("messaging.channel", "serverfeatures.economy.balance");
+        defaults.put("cache.authoritative_refresh_interval", "10s");
         defaults.put("vault.enabled", true);
         defaults.put("vault.primary_currency", "money");
         defaults.put("vault.conflict_policy", "FAIL");
@@ -83,11 +86,11 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         defaults.put("currencies.money.commands.history", true);
         defaults.put("currencies.money.commands.top", false);
         defaults.put("currencies.money.payments.default_enabled", true);
-        defaults.put("currencies.money.payments.allow_offline_recipient", true);
         defaults.put("currencies.money.payments.minimum", "0.01");
         defaults.put("currencies.money.payments.maximum", "1000000.00");
         defaults.put("currencies.money.payments.confirmation_threshold", "100000.00");
         defaults.put("currencies.money.payments.daily_send_limit", "0.00");
+        defaults.put("currencies.money.payments.daily_receive_limit", "0.00");
         defaults.put("currencies.money.payments.cooldown", "1s");
         return defaults;
     }
@@ -121,7 +124,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         messages.add("economy.admin.payments", "<green>Betalingen voor {player} staan nu {state}.</green>");
         messages.add("economy.admin.frozen", "<yellow>Account {player}/{currency} is bevroren.</yellow>");
         messages.add("economy.admin.unfrozen", "<green>Account {player}/{currency} is vrijgegeven.</green>");
-        messages.add("economy.admin.verify", "<gray>Status {health} · accounts {accounts} · transacties {transactions} · ongeldige saldi {invalid} · losse instellingen {orphan_settings} · lege transacties {empty_transactions}</gray>");
+        messages.add("economy.admin.verify", "<gray>Status {health} · accounts {accounts} · transacties {transactions} · ongeldige saldi {invalid} · ongeldige regels {invalid_entries} · losse instellingen {orphan_settings} · losse regels {orphan_entries} · identiteitsfouten {identity_mismatches} · accounts zonder journaal {accounts_without_entries} · lege transacties {empty_transactions}</gray>");
         return messages;
     }
 
@@ -135,7 +138,9 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         dataManager.registerConnection(ORM_CONNECTION, DatabaseType.MYSQL, settings.databaseConnection());
         ORMContext orm = dataManager.createORMContext(
                 ORM_CONNECTION,
+                EconomyCurrencyFamilyEntity.class,
                 EconomyCurrencyDefinitionEntity.class,
+                EconomyPlayerIdentityEntity.class,
                 EconomyBalanceEntity.class,
                 EconomyPlayerSettingsEntity.class,
                 EconomyTransactionEntity.class,

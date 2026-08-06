@@ -13,12 +13,17 @@ import java.math.BigDecimal;
 @Entity
 @Table(
         name = "player_economy_balance",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uq_economy_balance_account",
-                columnNames = {"player_id", "currency_id", "scope_key"}
-        ),
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uq_economy_balance_account",
+                        columnNames = {"player_id", "currency_id", "scope_key"}
+                ),
+                @UniqueConstraint(
+                        name = "uq_economy_balance_uuid_account",
+                        columnNames = {"player_uuid", "currency_id", "scope_key"}
+                )
+        },
         indexes = {
-                @Index(name = "idx_economy_balance_uuid", columnList = "player_uuid,currency_id,scope_key"),
                 @Index(name = "idx_economy_balance_top", columnList = "currency_id,scope_key,balance"),
                 @Index(name = "idx_economy_balance_player_scope", columnList = "player_id,scope_key")
         }

@@ -226,18 +226,28 @@ public final class EconomyAdminCommand implements BrigadierCommand {
     }
 
     private int payments(CommandSender sender, String target, String currencyId, boolean enabled) {
-        resolve(target, currencyId, (identity, currency) -> feature.service().setPaymentsEnabled(
-                feature.service().account(identity, currency.id()), enabled
-        ).whenComplete((account, failure) -> feature.service().main(() -> {
-            if (failure != null) {
-                fail(sender, failure);
-                return;
-            }
-            feature.send(sender, "economy.admin.payments", Map.of(
-                    "player", identity.playerName(),
-                    "state", enabled ? "on" : "off"
-            ));
-        })), sender);
+        resolve(target, currencyId, (identity, currency) -> {
+            Long actorId = sender instanceof Player player
+                    ? feature.service().resolveSync(player).map(Identity::playerId).orElse(null)
+                    : null;
+            feature.service().setPaymentsEnabled(
+                    feature.service().account(identity, currency.id()),
+                    enabled,
+                    actorId,
+                    sender.getName(),
+                    "Administrator changed payment preference",
+                    "admin-command"
+            ).whenComplete((account, failure) -> feature.service().main(() -> {
+                if (failure != null) {
+                    fail(sender, failure);
+                    return;
+                }
+                feature.send(sender, "economy.admin.payments", Map.of(
+                        "player", identity.playerName(),
+                        "state", enabled ? "on" : "off"
+                ));
+            }));
+        }, sender);
         return 1;
     }
 
@@ -247,7 +257,11 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                     ? feature.service().resolveSync(player).map(Identity::playerId).orElse(null)
                     : null;
             feature.service().setFrozen(
-                    feature.service().account(identity, currency.id()), frozen, actor, reason
+                    feature.service().account(identity, currency.id()),
+                    frozen,
+                    actor,
+                    sender.getName(),
+                    reason
             ).whenComplete((account, failure) -> feature.service().main(() -> {
                 if (failure != null) {
                     fail(sender, failure);
@@ -294,7 +308,11 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                     "accounts", Long.toString(report.accountCount()),
                     "transactions", Long.toString(report.transactionCount()),
                     "invalid", Long.toString(report.invalidBalanceCount()),
+                    "invalid_entries", Long.toString(report.invalidEntryCount()),
                     "orphan_settings", Long.toString(report.orphanSettingsCount()),
+                    "orphan_entries", Long.toString(report.orphanEntryCount()),
+                    "identity_mismatches", Long.toString(report.identityMismatchCount()),
+                    "accounts_without_entries", Long.toString(report.accountWithoutEntriesCount()),
                     "empty_transactions", Long.toString(report.transactionWithoutEntriesCount())
             ));
         }));

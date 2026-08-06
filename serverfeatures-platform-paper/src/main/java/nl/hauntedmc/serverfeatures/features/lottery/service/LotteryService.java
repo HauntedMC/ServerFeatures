@@ -107,7 +107,7 @@ public final class LotteryService {
     }
 
     public Money balance(OfflinePlayer player) {
-        return economy.cachedBalance(player);
+        return economy.cachedBalance(player).orElse(Money.ZERO);
     }
 
     public int maximumAffordable(Player player) {
@@ -115,10 +115,12 @@ public final class LotteryService {
         if (!isReady() || round == null || !round.acceptsEntries(now())) {
             return 0;
         }
-        int affordable = balance(player).amount()
-                .divide(round.ticketPrice().amount(), 0, RoundingMode.DOWN)
-                .min(BigDecimal.valueOf(settings.tickets().maximumPerCommand()))
-                .intValue();
+        int affordable = economy.cachedBalance(player)
+                .map(balance -> balance.amount()
+                        .divide(round.ticketPrice().amount(), 0, RoundingMode.DOWN)
+                        .min(BigDecimal.valueOf(settings.tickets().maximumPerCommand()))
+                        .intValue())
+                .orElse(0);
         PlayerSummary summary = cachedSummary(player.getUniqueId());
         if (settings.tickets().maximumPerPlayer() > 0) {
             affordable = Math.min(
@@ -208,12 +210,12 @@ public final class LotteryService {
         UUID playerUuid = player.getUniqueId();
         String playerName = player.getName();
         Money cost = round.ticketPrice().multiply(ticketCount);
-        Money currentBalance = balance(player);
-        if (currentBalance.compareTo(cost) < 0) {
+        Optional<Money> currentBalance = economy.cachedBalance(player);
+        if (currentBalance.isPresent() && currentBalance.get().compareTo(cost) < 0) {
             endPlayerOperation(playerUuid);
             feature.send(player, "lottery.buy.insufficient", Map.of(
                     "cost", format(cost),
-                    "balance", format(currentBalance)
+                    "balance", format(currentBalance.get())
             ));
             return;
         }
@@ -248,11 +250,11 @@ public final class LotteryService {
             feature.send(player, round.paused() ? "lottery.paused" : "lottery.closed");
             return;
         }
-        Money currentBalance = balance(player);
-        if (currentBalance.compareTo(amount) < 0) {
+        Optional<Money> currentBalance = economy.cachedBalance(player);
+        if (currentBalance.isPresent() && currentBalance.get().compareTo(amount) < 0) {
             feature.send(player, "lottery.donate.insufficient", Map.of(
                     "amount", format(amount),
-                    "balance", format(currentBalance)
+                    "balance", format(currentBalance.get())
             ));
             return;
         }

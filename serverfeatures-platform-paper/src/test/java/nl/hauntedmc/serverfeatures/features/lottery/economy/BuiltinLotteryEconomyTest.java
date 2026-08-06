@@ -1,0 +1,81 @@
+package nl.hauntedmc.serverfeatures.features.lottery.economy;
+
+import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyCurrency;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyScope;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyScopeType;
+import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
+import org.bukkit.OfflinePlayer;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class BuiltinLotteryEconomyTest {
+
+    @Test
+    void requiresCurrencyPrecisionThatMatchesLotteryStorage() {
+        EconomyApi economy = mock(EconomyApi.class);
+        when(economy.currency("money")).thenReturn(Optional.of(currency(2)));
+        when(economy.currency("crowns")).thenReturn(Optional.of(currency(0)));
+
+        assertDoesNotThrow(() -> new BuiltinLotteryEconomy(economy, "money"));
+        assertThrows(IllegalStateException.class, () -> new BuiltinLotteryEconomy(economy, "crowns"));
+    }
+
+
+    @Test
+    void retriesTemporaryNativeFailureWithTheSameIdempotentRequest() {
+        EconomyApi economy = mock(EconomyApi.class);
+        when(economy.currency("money")).thenReturn(Optional.of(currency(2)));
+        when(economy.withdraw(any()))
+                .thenReturn(CompletableFuture.completedFuture(new EconomyResult(
+                        EconomyResultStatus.TEMPORARY_FAILURE, null, null, null, "temporary"
+                )))
+                .thenReturn(CompletableFuture.completedFuture(new EconomyResult(
+                        EconomyResultStatus.SUCCESS,
+                        UUID.fromString("00000000-0000-0000-0000-000000000010"),
+                        new BigDecimal("90.00"),
+                        null,
+                        ""
+                )));
+        OfflinePlayer player = mock(OfflinePlayer.class);
+        when(player.getUniqueId()).thenReturn(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+        when(player.getName()).thenReturn("Player");
+
+        LotteryEconomyGateway.EconomyResult result = new BuiltinLotteryEconomy(economy, "money")
+                .withdraw(player, Money.of(new BigDecimal("10.00")), "purchase:test")
+                .toCompletableFuture()
+                .join();
+
+        assertTrue(result.successful());
+        verify(economy, times(2)).withdraw(any());
+    }
+
+    private static EconomyCurrency currency(int fractionalDigits) {
+        return new EconomyCurrency(
+                "money",
+                "coin",
+                "coins",
+                "$",
+                fractionalDigits,
+                new EconomyScope(EconomyScopeType.SERVER, "hauntedmc/server/survival"),
+                BigDecimal.ZERO,
+                new BigDecimal("1000000000.00"),
+                true
+        );
+    }
+}

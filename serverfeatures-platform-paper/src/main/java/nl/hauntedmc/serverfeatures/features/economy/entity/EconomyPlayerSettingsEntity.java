@@ -20,8 +20,8 @@ public class EconomyPlayerSettingsEntity {
     private String statusReason;
     @Column(name = "status_actor_player_id")
     private Long statusActorPlayerId;
-    @Column(name = "last_notified_transaction_id")
-    private Long lastNotifiedTransactionId;
+    @Column(name = "last_payment_at")
+    private Long lastPaymentAt;
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -40,8 +40,8 @@ public class EconomyPlayerSettingsEntity {
     public void setStatusReason(String statusReason) { this.statusReason = statusReason; }
     public Long getStatusActorPlayerId() { return statusActorPlayerId; }
     public void setStatusActorPlayerId(Long statusActorPlayerId) { this.statusActorPlayerId = statusActorPlayerId; }
-    public Long getLastNotifiedTransactionId() { return lastNotifiedTransactionId; }
-    public void setLastNotifiedTransactionId(Long lastNotifiedTransactionId) { this.lastNotifiedTransactionId = lastNotifiedTransactionId; }
+    public Long getLastPaymentAt() { return lastPaymentAt; }
+    public void setLastPaymentAt(Long lastPaymentAt) { this.lastPaymentAt = lastPaymentAt; }
     public long getVersion() { return version; }
     public long getCreatedAt() { return createdAt; }
     public void setCreatedAt(long createdAt) { this.createdAt = createdAt; }
