@@ -59,10 +59,9 @@ jobs:
     needs: lint
     if: >-
       github.actor != 'github-actions[bot]' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/agent/advanced-economy') ||
-      (github.event_name == 'pull_request' &&
+      github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'agent/advanced-economy'))
+      github.event.pull_request.head.ref == 'agent/economy-final-trigger'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -74,7 +73,7 @@ jobs:
       PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
 
     steps:
-      - name: Checkout branch
+      - name: Checkout Economy branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: agent/advanced-economy
@@ -123,4 +122,4 @@ jobs:
           git add -A
           git diff --cached --check
           git commit -m "Harden Economy for production operation"
-          git push
+          git push origin HEAD:agent/advanced-economy
