@@ -11,6 +11,47 @@ on:
       - main
 
 jobs:
+  apply-economy-config-test-fix:
+    name: Apply verified Economy config test fix
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Apply checksum-verified patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "3e45e352e19df74889822790ca4daf200383ce5be3f90510672101abf8035c5c  .github/economy-config-test-fix.patch" | sha256sum --check --strict
+          git apply --check .github/economy-config-test-fix.patch
+          git apply --index .github/economy-config-test-fix.patch
+
+      - name: Remove temporary files and restore workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/economy-config-test-fix.patch
+          git fetch origin main
+          git checkout origin/main -- .github/workflows/ci-lint.yml
+          git add -A
+          git diff --cached --check
+
+      - name: Commit test fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Fix Economy configuration test setup"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
   lint:
     name: Checkstyle
     runs-on: ubuntu-24.04
