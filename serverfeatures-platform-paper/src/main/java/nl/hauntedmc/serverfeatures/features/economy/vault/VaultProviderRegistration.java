@@ -30,7 +30,7 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
             return;
         }
         RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> existing = Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
-        if (existing != null && existing.getProvider() != null) {
+        if (existing != null) {
             VaultConflictPolicy policy = feature.settings().vault().conflictPolicy();
             if (policy == VaultConflictPolicy.FAIL) {
                 throw new IllegalStateException(

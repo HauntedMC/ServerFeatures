@@ -40,7 +40,7 @@ class EconomyRequestFingerprintTest {
         rightMetadata.put("type", "purchase");
         rightMetadata.put("round", "12");
 
-        String left = EconomyRepository.mutationFingerprint(
+        String left = EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -52,7 +52,7 @@ class EconomyRequestFingerprintTest {
                 leftMetadata,
                 false
         );
-        String right = EconomyRepository.mutationFingerprint(
+        String right = EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -66,7 +66,7 @@ class EconomyRequestFingerprintTest {
         );
 
         assertEquals(left, right);
-        assertNotEquals(left, EconomyRepository.mutationFingerprint(
+        assertNotEquals(left, EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -78,7 +78,7 @@ class EconomyRequestFingerprintTest {
                 rightMetadata,
                 false
         ));
-        assertNotEquals(left, EconomyRepository.mutationFingerprint(
+        assertNotEquals(left, EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -94,7 +94,7 @@ class EconomyRequestFingerprintTest {
 
     @Test
     void transferFingerprintBindsRecipientAndBypassPolicy() {
-        String normal = EconomyRepository.transferFingerprint(
+        String normal = EconomyRequestFingerprint.transfer(
                 SENDER,
                 RECIPIENT,
                 CURRENCY,
@@ -112,7 +112,7 @@ class EconomyRequestFingerprintTest {
                 "Other"
         );
 
-        assertNotEquals(normal, EconomyRepository.transferFingerprint(
+        assertNotEquals(normal, EconomyRequestFingerprint.transfer(
                 SENDER,
                 otherRecipient,
                 CURRENCY,
@@ -124,7 +124,7 @@ class EconomyRequestFingerprintTest {
                 false,
                 false
         ));
-        assertNotEquals(normal, EconomyRepository.transferFingerprint(
+        assertNotEquals(normal, EconomyRequestFingerprint.transfer(
                 SENDER,
                 RECIPIENT,
                 CURRENCY,
@@ -140,7 +140,7 @@ class EconomyRequestFingerprintTest {
 
     @Test
     void metadataFramingCannotCollideAndIdentityUuidIsBound() {
-        String metadataKeyContainsEquals = EconomyRepository.mutationFingerprint(
+        String metadataKeyContainsEquals = EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -152,7 +152,7 @@ class EconomyRequestFingerprintTest {
                 Map.of("a=b", "c"),
                 false
         );
-        String metadataValueContainsEquals = EconomyRepository.mutationFingerprint(
+        String metadataValueContainsEquals = EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 SENDER,
@@ -169,7 +169,7 @@ class EconomyRequestFingerprintTest {
                 UUID.fromString("00000000-0000-0000-0000-000000000099"),
                 SENDER.playerName()
         );
-        String differentUuid = EconomyRepository.mutationFingerprint(
+        String differentUuid = EconomyRequestFingerprint.mutation(
                 TransactionType.WITHDRAW,
                 TransactionType.WITHDRAW,
                 samePlayerIdDifferentUuid,

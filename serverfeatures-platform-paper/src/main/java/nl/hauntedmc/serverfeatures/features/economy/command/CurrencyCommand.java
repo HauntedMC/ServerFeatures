@@ -7,35 +7,29 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
-import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
-import nl.hauntedmc.serverfeatures.api.economy.EconomyTransferRequest;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryItem;
-import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TopEntry;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 /** One dynamically registered player command root for a configured currency. */
 public final class CurrencyCommand implements BrigadierCommand {
     private static final int PAGE_SIZE = 10;
-    private static final long CONFIRMATION_TTL_MILLIS = 30_000L;
 
     private final Economy feature;
     private final EconomySettings.Currency currency;
-    private final ConcurrentHashMap<UUID, PendingPayment> confirmations = new ConcurrentHashMap<>();
+    private final CurrencyPaymentHandler payments;
 
     public CurrencyCommand(Economy feature, EconomySettings.Currency currency) {
         this.feature = feature;
         this.currency = currency;
+        this.payments = new CurrencyPaymentHandler(feature, currency);
     }
 
     @Override
@@ -79,16 +73,15 @@ public final class CurrencyCommand implements BrigadierCommand {
                     .requires(source -> allowed(source.getSender(), "pay"))
                     .then(Commands.argument("player", StringArgumentType.word())
                             .then(Commands.argument("amount", StringArgumentType.word())
-                                    .executes(context -> pay(
+                                    .executes(context -> payments.pay(
                                             context.getSource().getSender(),
                                             StringArgumentType.getString(context, "player"),
-                                            StringArgumentType.getString(context, "amount"),
-                                            false
+                                            StringArgumentType.getString(context, "amount")
                                     )))));
             if (currency.payments().confirmationThreshold().signum() > 0) {
                 root.then(Commands.literal("confirm")
                         .requires(source -> allowed(source.getSender(), "pay"))
-                        .executes(context -> confirm(context.getSource().getSender())));
+                        .executes(context -> payments.confirm(context.getSource().getSender())));
             }
         }
         if (currency.commands().paytoggle()) {
@@ -144,109 +137,6 @@ public final class CurrencyCommand implements BrigadierCommand {
                     ));
                 }));
         return 1;
-    }
-
-    private int pay(CommandSender sender, String target, String rawAmount, boolean confirmed) {
-        Player player = requirePlayer(sender);
-        if (player == null) {
-            return 0;
-        }
-        BigDecimal amount;
-        try {
-            amount = parseAmount(rawAmount);
-        } catch (IllegalArgumentException exception) {
-            feature.send(player, "economy.invalid_amount", Map.of("reason", exception.getMessage()));
-            return 0;
-        }
-        if (!confirmed && currency.payments().confirmationThreshold().signum() > 0
-                && amount.compareTo(currency.payments().confirmationThreshold()) >= 0) {
-            prepareConfirmation(player, target, amount);
-            return 1;
-        }
-        executePayment(player, target, amount);
-        return 1;
-    }
-
-    private int confirm(CommandSender sender) {
-        Player player = requirePlayer(sender);
-        if (player == null) {
-            return 0;
-        }
-        PendingPayment pending = confirmations.remove(player.getUniqueId());
-        if (pending == null || System.currentTimeMillis() - pending.createdAt() > CONFIRMATION_TTL_MILLIS) {
-            feature.send(player, "economy.pay.no_confirmation");
-            return 0;
-        }
-        executePayment(player, pending.recipient(), pending.amount());
-        return 1;
-    }
-
-    private void prepareConfirmation(Player player, String target, BigDecimal amount) {
-        feature.service().resolveIdentifier(target).whenComplete((recipient, failure) ->
-                feature.service().main(() -> {
-                    if (failure != null) {
-                        feature.send(player, "economy.pay.failed", Map.of("reason", rootMessage(failure)));
-                        return;
-                    }
-                    confirmations.put(
-                            player.getUniqueId(),
-                            new PendingPayment(recipient, amount, System.currentTimeMillis())
-                    );
-                    feature.send(player, "economy.pay.confirm", Map.of(
-                            "player", recipient.playerName(),
-                            "amount", feature.service().format(currency.id(), amount),
-                            "command", "/" + name() + " confirm"
-                    ));
-                })
-        );
-    }
-
-    private void executePayment(Player player, String target, BigDecimal amount) {
-        feature.service().resolveIdentifier(target).whenComplete((recipient, failure) -> {
-            if (failure != null) {
-                feature.service().main(() -> feature.send(
-                        player,
-                        "economy.pay.failed",
-                        Map.of("reason", rootMessage(failure))
-                ));
-                return;
-            }
-            executePayment(player, recipient, amount);
-        });
-    }
-
-    private void executePayment(Player player, Identity recipient, BigDecimal amount) {
-        feature.service().resolveIdentifier(player.getUniqueId().toString()).thenCompose(sender -> {
-            ResolvedPayment resolved = new ResolvedPayment(sender, recipient);
-            return feature.service().transfer(new EconomyTransferRequest(
-                    "player-command",
-                    UUID.randomUUID().toString(),
-                    feature.service().account(sender, currency.id()),
-                    feature.service().account(recipient, currency.id()),
-                    amount,
-                    resolved.sender().playerId(),
-                    resolved.sender().playerName(),
-                    "Player payment",
-                    Map.of("command", name()),
-                    false
-            )).thenApply(result -> new PaymentResult(resolved, result));
-        }).whenComplete((payment, failure) -> feature.service().main(() -> {
-            if (failure != null) {
-                feature.send(player, "economy.pay.failed", Map.of("reason", rootMessage(failure)));
-                return;
-            }
-            EconomyResult result = payment.result();
-            if (!result.successful()) {
-                feature.send(player, "economy.pay.failed", Map.of("reason", result.message()));
-                return;
-            }
-            String formatted = feature.service().format(currency.id(), amount);
-            feature.send(player, "economy.pay.sent", Map.of(
-                    "player", payment.resolved().recipient().playerName(),
-                    "amount", formatted,
-                    "balance", feature.service().format(currency.id(), result.balance())
-            ));
-        }));
     }
 
     private int setPayToggle(CommandSender sender, boolean enabled) {
@@ -346,19 +236,6 @@ public final class CurrencyCommand implements BrigadierCommand {
         return 1;
     }
 
-    private BigDecimal parseAmount(String raw) {
-        if (raw == null || !raw.matches("[0-9]+(?:\\.[0-9]{1,8})?")) {
-            throw new IllegalArgumentException("Use a positive decimal amount");
-        }
-        BigDecimal amount = new BigDecimal(raw).setScale(
-                currency.display().fractionalDigits(), currency.balances().rounding()
-        );
-        if (amount.signum() <= 0) {
-            throw new IllegalArgumentException("Amount must be positive");
-        }
-        return amount;
-    }
-
     private Player requirePlayer(CommandSender sender) {
         if (sender instanceof Player player) {
             return player;
@@ -386,25 +263,6 @@ public final class CurrencyCommand implements BrigadierCommand {
     }
 
     private static String rootMessage(Throwable failure) {
-        Throwable current = failure;
-        while ((current instanceof java.util.concurrent.CompletionException
-                || current instanceof java.util.concurrent.ExecutionException)
-                && current.getCause() != null) {
-            current = current.getCause();
-        }
-        while (current.getCause() != null && current.getCause() != current) {
-            current = current.getCause();
-        }
-        String message = current.getMessage();
-        return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
-    }
-
-    private record PendingPayment(Identity recipient, BigDecimal amount, long createdAt) {
-    }
-
-    private record ResolvedPayment(Identity sender, Identity recipient) {
-    }
-
-    private record PaymentResult(ResolvedPayment resolved, EconomyResult result) {
+        return EconomyCommandSupport.rootMessage(failure);
     }
 }

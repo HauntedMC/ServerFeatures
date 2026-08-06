@@ -11,10 +11,18 @@ import org.bukkit.OfflinePlayer;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Complete Vault compatibility adapter for the configured primary currency. */
+/**
+ * Vault compatibility adapter for the configured primary currency.
+ *
+ * <p>The apparent size is largely imposed by Vault's legacy interface: every operation has name,
+ * {@link OfflinePlayer}, and world overloads plus unsupported bank methods. World parameters are
+ * intentionally ignored because scope is fixed by the configured currency, and authoritative
+ * operations delegate to the synchronous service bridge.</p>
+ */
 @SuppressWarnings("deprecation")
 public final class VaultEconomyProvider implements Economy {
     private final EconomyService service;
@@ -22,8 +30,8 @@ public final class VaultEconomyProvider implements Economy {
     private volatile boolean enabled = true;
 
     public VaultEconomyProvider(EconomyService service, String currencyId) {
-        this.service = service;
-        this.currencyId = currencyId;
+        this.service = Objects.requireNonNull(service, "service");
+        this.currencyId = Objects.requireNonNull(currencyId, "currencyId");
     }
 
     public void disable() {

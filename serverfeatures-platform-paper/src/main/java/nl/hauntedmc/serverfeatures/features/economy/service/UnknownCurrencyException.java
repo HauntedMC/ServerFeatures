@@ -1,7 +1,10 @@
 package nl.hauntedmc.serverfeatures.features.economy.service;
 
+import java.io.Serial;
+
 /** Signals that a caller requested an absent currency or a mismatched currency scope. */
 final class UnknownCurrencyException extends IllegalArgumentException {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     UnknownCurrencyException(String message) {

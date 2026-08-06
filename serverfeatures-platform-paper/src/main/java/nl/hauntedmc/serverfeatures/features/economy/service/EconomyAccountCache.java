@@ -69,7 +69,7 @@ final class EconomyAccountCache {
         String playerName = player.getName();
         onlinePlayers.add(playerUuid);
         identities.whenReady(playerUuid).whenComplete((resolved, failure) -> {
-            if (failure != null || resolved == null || resolved.isEmpty() || closed.getAsBoolean()) {
+            if (failure != null || resolved.isEmpty() || closed.getAsBoolean()) {
                 return;
             }
             Identity identity = resolved.get();
@@ -78,7 +78,7 @@ final class EconomyAccountCache {
                         identity,
                         settings.currencies().values()
                 ));
-                created.whenComplete((unused, error) -> batchRefreshes.remove(identity.playerUuid(), created));
+                created.whenComplete((_, _) -> batchRefreshes.remove(identity.playerUuid(), created));
                 return created;
             });
             refresh.thenAccept(result -> {
@@ -154,7 +154,7 @@ final class EconomyAccountCache {
         return refreshes.computeIfAbsent(key, ignored -> {
             CompletableFuture<Account> refresh = submit(() -> repository.balance(identity, currency))
                     .thenApply(account -> onlinePlayers.contains(identity.playerUuid()) ? cache(account) : account);
-            refresh.whenComplete((unused, failure) -> refreshes.remove(key, refresh));
+            refresh.whenComplete((_, _) -> refreshes.remove(key, refresh));
             return refresh;
         });
     }

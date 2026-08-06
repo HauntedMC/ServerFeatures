@@ -78,7 +78,7 @@ final class EconomyIdentityResolver {
     /** Resolves a canonical identity for a message that also carries a committed player id. */
     CompletionStage<Identity> resolveCanonical(UUID playerUuid, long expectedPlayerId) {
         return resolver.findByUuid(playerUuid).thenCompose(resolved -> {
-            if (resolved == null || resolved.isEmpty() || closed.getAsBoolean()) {
+            if (resolved.isEmpty() || closed.getAsBoolean()) {
                 return java.util.concurrent.CompletableFuture.failedFuture(new IllegalArgumentException(
                         "Unknown player identity: " + playerUuid
                 ));
