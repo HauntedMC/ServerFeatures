@@ -58,19 +58,23 @@ public final class PerkStateService {
 
         boolean storedFlight = readBoolean(player, FLY_ENABLED_KEY);
         boolean hadStaleFlight = storedFlight
-                || readBoolean(player, FLY_OWNED_KEY)
-                || (!isNativeFlightMode(player) && (player.getAllowFlight() || player.isFlying()));
+                || readBoolean(player, FLY_ACTIVE_KEY)
+                || readBoolean(player, FLY_OWNED_KEY);
         boolean canRestoreFlight = player.hasPermission(FairPerks.FLY_USE_PERMISSION)
                 && player.hasPermission(FairPerks.FLY_PERSIST_PERMISSION)
                 && settings.flight().persistenceEnabled();
 
         if (storedFlight && canRestoreFlight) {
             state.flyDesired = true;
-            boolean restoreActive = settings.flight().restoreActiveFlight()
-                    && (readBoolean(player, FLY_ACTIVE_KEY)
-                    || (settings.flight().restoreWhenAirborne() && isAirborne(player)));
-            if (policy.allowsEnvironment(player, PerkType.FLY)) {
-                applyFlight(player, state, restoreActive, true);
+            if (policy.isCombatTagged(player)) {
+                disableFlightForCombat(player);
+            } else {
+                boolean restoreActive = settings.flight().restoreActiveFlight()
+                        && (readBoolean(player, FLY_ACTIVE_KEY)
+                        || (settings.flight().restoreWhenAirborne() && isAirborne(player)));
+                if (policy.allowsEnvironment(player, PerkType.FLY)) {
+                    applyFlight(player, state, restoreActive, true);
+                }
             }
         } else {
             clearFlightPersistence(player);
@@ -216,6 +220,19 @@ public final class PerkStateService {
         return PerkChangeResult.changed(enabled);
     }
 
+    public boolean disableFlightForCombat(Player player) {
+        SessionState state = stateFor(player);
+        if (!hasManagedFlight(player, state)) {
+            return false;
+        }
+
+        state.flyDesired = false;
+        revokeFlight(player, state, false, true);
+        clearFlightPersistence(player);
+        feature.sendMessage(player, "fairperks.fly.disabled");
+        return true;
+    }
+
     public boolean isDesired(Player player, PerkType perk) {
         SessionState state = states.get(player.getUniqueId());
         return state != null && desired(state, perk);
@@ -299,7 +316,9 @@ public final class PerkStateService {
         if (!enforceAllowedWorld(player, state, true)) {
             return;
         }
-        if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
+        if (state.flyDesired && policy.isCombatTagged(player)) {
+            disableFlightForCombat(player);
+        } else if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
             applyFlight(player, state, false, false);
         }
         if (state.godDesired && policy.allowsEnvironment(player, PerkType.GOD)) {
@@ -371,7 +390,9 @@ public final class PerkStateService {
             if (!enforceAllowedWorld(player, state, true)) {
                 continue;
             }
-            if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
+            if (policy.isCombatTagged(player)) {
+                disableFlightForCombat(player);
+            } else if (state.flyDesired && policy.allowsEnvironment(player, PerkType.FLY)) {
                 applyFlight(player, state, player.isFlying(), true);
             }
             if (state.godDesired && policy.allowsEnvironment(player, PerkType.GOD)) {
@@ -441,17 +462,13 @@ public final class PerkStateService {
     }
 
     private boolean disableForBlockedWorld(Player player, SessionState state, boolean grantFallGrace) {
-        boolean hadFlight = state.flyDesired
-                || state.flyOwned
-                || readBoolean(player, FLY_ENABLED_KEY)
-                || readBoolean(player, FLY_ACTIVE_KEY)
-                || readBoolean(player, FLY_OWNED_KEY);
+        boolean hadFlight = hasManagedFlight(player, state);
         boolean hadGod = state.godDesired || readBoolean(player, GOD_ENABLED_KEY);
         boolean hadMacro = state.godMacroEnabled || readBoolean(player, GOD_MACRO_KEY);
 
         state.flyDesired = false;
         if (hadFlight) {
-            revokeFlight(player, state, true, grantFallGrace);
+            revokeFlight(player, state, false, grantFallGrace);
         }
         clearFlightPersistence(player);
         state.godDesired = false;
@@ -459,6 +476,14 @@ public final class PerkStateService {
         state.godMacroEnabled = false;
         remove(player, GOD_MACRO_KEY);
         return hadFlight || hadGod || hadMacro;
+    }
+
+    private static boolean hasManagedFlight(Player player, SessionState state) {
+        return state.flyDesired
+                || state.flyOwned
+                || readBoolean(player, FLY_ENABLED_KEY)
+                || readBoolean(player, FLY_ACTIVE_KEY)
+                || readBoolean(player, FLY_OWNED_KEY);
     }
 
     private void applyFlight(
@@ -531,7 +556,7 @@ public final class PerkStateService {
         }
         player.getNearbyEntities(horizontalRadius, verticalRadius, horizontalRadius).forEach(entity -> {
             if (entity instanceof Mob mob
-                    && feature.hostileClassifier().isHostile(mob)
+                    && feature.hostileClassifier().isRestrictedHostile(mob)
                     && player.equals(mob.getTarget())) {
                 mob.setTarget(null);
             }

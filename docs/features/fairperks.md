@@ -15,6 +15,7 @@ The feature owns:
 - permission cleanup when a player logs in;
 - global world availability with per-perk world and game-mode suspension/restoration;
 - native CombatTag and hostile-mob activation guards;
+- automatic FairPerks flight revocation when combat starts or refreshes;
 - PvP, hostile-mob, targeting, explosive, ignition, lava, and tamed-pet restrictions;
 - direct and indirect player-action attribution.
 
@@ -64,10 +65,13 @@ FairPerks distinguishes desired flight from active flight.
 - Tamed-pet damage is the deliberate exception: pets are blocked whenever fly mode is enabled in an allowed environment, even while the owner is standing on the ground.
 - Creative and spectator flight are native Minecraft capabilities and are never removed by FairPerks.
 - When FairPerks grants flight, it records ownership so disabling the perk restores any pre-existing non-FairPerks capability instead of blindly clearing it.
+- Login cleanup only revokes state carrying a FairPerks persistence or ownership marker; unrelated flight capability is not treated as stale FairPerks state.
 - Persistent flight requires both the use and persist permissions.
 - On login, a persistent flyer can be placed back into active flight when they logged out flying or join in mid-air, according to configuration.
 - Active flight is captured before normal server shutdown or feature disable, before FairPerks revokes its live capability.
 - If invalid FairPerks flight is removed while airborne, the next fall-damage event can be cancelled once. The grace is cleared one tick after a safe landing, or immediately on damage, death, or logout.
+
+When CombatTag creates or refreshes a tag, FairPerks immediately clears desired and persisted FairPerks flight, revokes its owned capability, and stops active flying. This transition is enforced for ordinary combat events and public `CombatTagApi` tags. It is also rechecked during login, respawn, and feature-state restoration, so a CombatTag/FairPerks cascade reload cannot restore flight while combat remains active. The activation-bypass permission only affects enabling a perk; it does not keep already-enabled FairPerks flight active after a real combat tag is applied.
 
 Per-perk world and game-mode changes suspend effective flight without clearing the desired state. Returning to an allowed environment restores the capability. The global world policy is stricter: entering a globally disallowed world disables fly, god, and godmacro and clears their persistent choices. Returning to an allowed world does not automatically turn them back on. These environment reconciliations do not recheck permissions.
 
@@ -91,13 +95,13 @@ Ordinary damage is cancelled while effective god mode is active. Void protection
 Enabling fly or god can be blocked when:
 
 - the native `CombatTagApi` reports the player in combat;
-- a hostile mob within the configured horizontal and vertical radii is currently targeting the player;
+- a non-exempt hostile mob within the configured horizontal and vertical radii is currently targeting the player;
 - the current world is blocked;
 - the current game mode is blocked.
 
-Disabling a perk is always allowed. The relevant FairPerks activation-bypass permission skips combat and hostile checks, but it does not bypass world or game-mode policy.
+Disabling a perk is always allowed. The relevant FairPerks activation-bypass permission skips combat and hostile checks, but it does not bypass world or game-mode policy. Automatic flight revocation on an applied combat tag is a lifecycle rule rather than an activation guard and is therefore not bypassed by this permission.
 
-Feature dependency metadata ensures CombatTag loads first. Reloading or disabling CombatTag cascades through FairPerks, so FairPerks never retains a stale service reference. The previous reflection bridge and unavailable-service fallback have been removed.
+Feature dependency metadata ensures CombatTag loads first. Reloading or disabling CombatTag cascades through FairPerks, so FairPerks never retains a stale service reference. Restored CombatTag sessions are visible before FairPerks restores its snapshot, allowing flight restoration to fail closed during a cascade reload. The previous reflection bridge and unavailable-service fallback have been removed.
 
 ## Fairness restrictions
 
@@ -119,9 +123,9 @@ Indirect attribution covers ordinary projectile shooters, projectile owner UUIDs
 
 When `restrictions.tamed-pet-damage` is enabled, a pet owned by a player with effective god mode or enabled FairPerks flight in an allowed environment cannot damage any entity, including its owner. This includes supported indirect pet damage chains such as projectiles. The owner's restrictions-bypass permission applies.
 
-Spawner-created hostile mobs can be exempt through the feature's own marker. Malformed markers are treated as absent rather than breaking event handling. Marker creation remains independently controlled by `hostiles.mark-spawner-mobs`.
+Spawner-created hostile mobs can be exempt across activation guards, direct and indirect hostile damage restrictions, hostile targeting, target clearing, and nearby lava, ignition, or TNT checks. The exemption uses Paper's persistent entity spawn reason, so it remains correct across reloads and chunk unloads without requiring a runtime UUID cache. The optional FairPerks marker remains available for compatibility and explicit marking. Malformed markers are treated as absent rather than breaking event handling.
 
-The classifier follows Bukkit's `Enemy` hierarchy. Configured exclusions always win, and configured inclusions can add custom entity types. The activation guard only treats a classified mob as aggressive when its current Bukkit target is the player enabling the perk.
+The classifier follows Bukkit's `Enemy` hierarchy. Configured exclusions always win, and configured inclusions can add custom entity types. The activation guard only treats a classified, non-exempt mob as aggressive when its current Bukkit target is the player enabling the perk.
 
 ## Configuration
 
@@ -206,7 +210,7 @@ Aliases are trimmed, normalized to lowercase, validated against Bukkit command-l
 
 The top-level `worlds.mode` accepts `ALL`, `BLACKLIST`, or `WHITELIST`. It defaults to `ALL` when omitted, making FairPerks available in every world. `BLACKLIST` allows every world except entries in `values`; `WHITELIST` allows only entries in `values`. World names are normalized case-insensitively. The same three modes are accepted by the per-flight and per-god world rules.
 
-The top-level rule cannot be bypassed by activation-guard or administrative command permissions. In a disallowed world, fly, god, and godmacro cannot be enabled. Entering one hard-disables all three and removes their saved enabled state. Per-flight and per-god world rules still suspend and restore only their respective perk inside worlds allowed by the top-level rule.
+The top-level rule cannot be bypassed by activation-guard or administrative command permissions. In a disallowed world, fly, god, and godmacro cannot be enabled. Entering one hard-disables all three and removes their saved enabled state. Returning to an allowed world does not automatically turn them back on. Per-flight and per-god world rules still suspend and restore only their respective perk inside worlds allowed by the top-level rule.
 
 Empty game-mode sets and invalid enum values fail configuration loading instead of silently weakening policy.
 
@@ -214,21 +218,24 @@ Empty game-mode sets and invalid enum values fail configuration loading instead 
 
 - Enable and disable fly in survival and adventure mode.
 - Verify creative and spectator flight remain native when FairPerks flight is disabled.
+- Verify an unrelated, unowned `allowFlight` capability is not removed during FairPerks login initialization.
 - Log out while flying and reconnect in mid-air with persistent permissions.
 - Stop the server while a persistent player is flying and verify active flight restores after startup.
-- Repeat without the use or persist permission and verify cleanup on login.
+- Repeat without the use or persist permission and verify FairPerks-owned state is cleaned on login.
 - Remove a permission while online and verify there is no automatic scan; confirm `/fly off` or `/god off` still works for the active state.
 - Enable the feature while players are already online and verify they receive initialized state without reconnecting.
 - Use the `*.others` command on a target without the personal use permission and verify the grant works only for that session.
 - Test `ALL`, `BLACKLIST`, and `WHITELIST` top-level world modes; verify entering a blocked world disables and forgets fly, god, and godmacro.
 - Enable god mode at low health and hunger and verify neither value changes.
 - Verify native CombatTag blocks activation and both activation-bypass permissions work.
+- Enter and refresh combat while FairPerks flight is active and verify desired state, persistence, owned capability, and active flying are removed exactly once.
+- Create a tag through `CombatTagApi` and verify it performs the same flight revocation.
+- Reload FairPerks alone and reload CombatTag with its dependent cascade while combat is active; verify flight cannot restore from either snapshot.
 - Verify melee, projectiles, owner-UUID projectiles, pets, fangs, fireworks, TNT, area effects, and PvP restrictions.
 - Enable fly mode while standing on the ground and verify the owner's pet cannot damage players, neutral mobs, hostile mobs, or its owner; repeat while actively flying and with god mode.
 - Verify the restrictions bypass allows pet damage in every state.
 - Verify beds, anchors, crystals, TNT, creepers, lava, and block ignition.
-- Verify spawner mobs remain exempt when configured.
-- Reload CombatTag while FairPerks state is active and confirm dependent reload restores both features cleanly.
+- Verify spawner mobs remain exempt from activation, damage, targeting, target clearing, and nearby-action checks before and after reload or chunk unload.
 - Reload FairPerks while a player is flying and while a player is in god mode.
 - Verify fall grace survives the landing move event long enough to cancel the matching fall-damage event, and clears after a safe landing.
 - Verify no duplicate commands, listeners, or tasks remain after reload.

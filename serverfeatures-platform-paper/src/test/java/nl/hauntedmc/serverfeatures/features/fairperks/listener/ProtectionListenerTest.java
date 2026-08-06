@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
+import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
@@ -19,10 +21,25 @@ import java.util.Set;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ProtectionListenerTest {
+
+    @Test
+    void combatTransitionsDelegateToAuthoritativeFlightRevocation() {
+        FairPerks feature = mock(FairPerks.class);
+        PerkStateService stateService = mock(PerkStateService.class);
+        Player player = mock(Player.class);
+        when(feature.stateService()).thenReturn(stateService);
+
+        ProtectionListener listener = new ProtectionListener(feature);
+        listener.onCombatTagApplied(new CombatTagAppliedEvent(player, CombatTagResult.TAGGED));
+        listener.onCombatTagApplied(new CombatTagAppliedEvent(player, CombatTagResult.RETAGGED));
+
+        verify(stateService, times(2)).disableFlightForCombat(player);
+    }
 
     @Test
     void landingGraceIsClearedOnNextTickInsteadOfDuringMoveEvent() {

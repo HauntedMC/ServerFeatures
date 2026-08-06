@@ -54,6 +54,30 @@ class CombatSourceResolverTest {
     }
 
     @Test
+    void entityDamageEventDamagerWinsWhenDamageSourceDirectEntityDiffers() {
+        LivingEntity mob = mock(LivingEntity.class);
+        Player misleadingDirectEntity = player("Misleading");
+        DamageSource damageSource = mock(DamageSource.class);
+        EntityDamageByEntityEvent event = mock(EntityDamageByEntityEvent.class);
+        UUID mobId = UUID.randomUUID();
+        when(mob.getUniqueId()).thenReturn(mobId);
+        when(mob.getType()).thenReturn(EntityType.ZOMBIE);
+        when(mob.getName()).thenReturn("Zombie");
+        when(mob.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.NATURAL);
+        when(event.getDamager()).thenReturn(mob);
+        when(event.getDamageSource()).thenReturn(damageSource);
+        when(damageSource.getDirectEntity()).thenReturn(misleadingDirectEntity);
+        when(damageSource.getCausingEntity()).thenReturn(misleadingDirectEntity);
+        CombatSourceResolver resolver = resolver(true, true, true, Set.of());
+
+        var source = resolver.resolve(event).orElseThrow();
+
+        assertEquals(mobId, source.damageSourceId());
+        assertSame(mob, source.sourceEntity());
+        assertEquals(CombatTagReason.MELEE, source.reason());
+    }
+
+    @Test
     void paperCausingEntityLinksPlayerCausedExplosionsWithoutARecognizedCarrier() {
         Player player = player("CrystalUser");
         Entity crystal = mock(Entity.class);
@@ -68,6 +92,7 @@ class CombatSourceResolverTest {
         var source = resolver.resolve(event).orElseThrow();
 
         assertSame(player, source.player());
+        assertSame(player, source.sourceEntity());
         assertEquals(CombatTagReason.EXPLOSION, source.reason());
     }
 
@@ -82,6 +107,7 @@ class CombatSourceResolverTest {
         var source = resolver.resolve(projectile).orElseThrow();
 
         assertSame(player, source.player());
+        assertSame(player, source.sourceEntity());
         assertEquals(player.getUniqueId(), source.opponent().uniqueId());
         assertEquals(CombatTagReason.PROJECTILE, source.reason());
     }
@@ -101,6 +127,7 @@ class CombatSourceResolverTest {
         var source = resolver.resolve(firework).orElseThrow();
 
         assertSame(owner, source.player());
+        assertSame(owner, source.sourceEntity());
         assertEquals(ownerId, source.opponent().uniqueId());
         assertEquals(CombatTagReason.FIREWORK, source.reason());
     }
@@ -127,6 +154,7 @@ class CombatSourceResolverTest {
         var source = resolver.resolve(mob).orElseThrow();
 
         assertEquals(mobId, source.damageSourceId());
+        assertSame(mob, source.sourceEntity());
         assertEquals(CreatureSpawnEvent.SpawnReason.SPAWNER, source.spawnReason());
     }
 
@@ -144,6 +172,7 @@ class CombatSourceResolverTest {
         var source = resolver.resolve((Entity) pet).orElseThrow();
 
         assertSame(owner, source.player());
+        assertSame(pet, source.sourceEntity());
         assertEquals(owner.getUniqueId(), source.opponent().uniqueId());
         assertEquals(owner.getUniqueId(), source.damageSourceId());
         assertEquals(CombatTagReason.PET, source.reason());

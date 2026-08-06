@@ -9,6 +9,7 @@ import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolve
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver.ResolvedCombatSource;
 import nl.hauntedmc.serverfeatures.framework.lifecycle.FeatureTaskManager;
 import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -88,7 +89,8 @@ public final class CombatTagListener implements Listener {
                 fisher.getUniqueId(),
                 fisher,
                 CombatTagReason.FISHING_HOOK,
-                null
+                null,
+                fisher
         );
         applyCombat(source, target);
     }
@@ -181,7 +183,7 @@ public final class CombatTagListener implements Listener {
             boolean enabled = source.playerSource()
                     ? settings.tagging().pvpEnabled()
                     : settings.tagging().mobsEnabled();
-            if (!enabled) {
+            if (!enabled || (!source.playerSource() && !(source.sourceEntity() instanceof Enemy))) {
                 return;
             }
             service.tagIncoming(
@@ -210,7 +212,7 @@ public final class CombatTagListener implements Listener {
             return;
         }
 
-        if (settings.tagging().mobsEnabled()) {
+        if (settings.tagging().mobsEnabled() && target instanceof Enemy) {
             service.tagOutgoing(
                     sourcePlayer,
                     CombatSourceResolver.opponent(target),

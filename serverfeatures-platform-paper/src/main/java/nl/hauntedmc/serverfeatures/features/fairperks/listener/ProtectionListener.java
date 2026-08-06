@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.listener;
 
+import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.fairperks.FairPerks;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
 import nl.hauntedmc.serverfeatures.features.fairperks.util.DamageSourceResolver;
@@ -19,6 +20,11 @@ public final class ProtectionListener implements Listener {
 
     public ProtectionListener(FairPerks feature) {
         this.feature = feature;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onCombatTagApplied(CombatTagAppliedEvent event) {
+        feature.stateService().disableFlightForCombat(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -67,8 +73,7 @@ public final class ProtectionListener implements Listener {
             return;
         }
 
-        if (!feature.hostileClassifier().isHostile(event.getEntity())
-                || feature.hostileClassifier().isExemptSpawnerMob(event.getEntity())) {
+        if (!feature.hostileClassifier().isRestrictedHostile(event.getEntity())) {
             return;
         }
         boolean directMelee = event.getDamager() instanceof Player;
@@ -91,7 +96,7 @@ public final class ProtectionListener implements Listener {
         if (!feature.settings().restrictions().hostileTargeting()
                 || !(event.getTarget() instanceof Player player)
                 || player.hasPermission(FairPerks.RESTRICTION_BYPASS_PERMISSION)
-                || !feature.hostileClassifier().isHostile(event.getEntity())
+                || !feature.hostileClassifier().isRestrictedHostile(event.getEntity())
                 || !feature.stateService().isRestricted(player)) {
             return;
         }

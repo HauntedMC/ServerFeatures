@@ -32,18 +32,25 @@ public final class CombatSourceResolver {
     }
 
     /**
-     * Resolves the authoritative causing entity supplied by Paper while preserving explicit
-     * carrier policies such as ignored projectiles and disabled TNT linking.
+     * Resolves the event damager first because Paper documents that it can be populated even when
+     * the underlying {@link DamageSource} did not originally contain the same direct entity. The
+     * authoritative damage source remains the fallback for indirect attribution.
      */
     public Optional<ResolvedCombatSource> resolve(EntityDamageEvent event) {
         Objects.requireNonNull(event, "event");
-        DamageSource damageSource = event.getDamageSource();
-        Entity direct = damageSource.getDirectEntity();
-        if (direct == null && event instanceof EntityDamageByEntityEvent byEntity) {
-            direct = byEntity.getDamager();
+
+        Entity eventDamager = null;
+        if (event instanceof EntityDamageByEntityEvent byEntity) {
+            eventDamager = byEntity.getDamager();
+            Optional<ResolvedCombatSource> resolved = resolve(eventDamager, null);
+            if (resolved.isPresent() || isPolicyControlledCarrier(eventDamager)) {
+                return resolved;
+            }
         }
 
-        if (direct != null) {
+        DamageSource damageSource = event.getDamageSource();
+        Entity direct = damageSource.getDirectEntity();
+        if (direct != null && direct != eventDamager) {
             Optional<ResolvedCombatSource> resolved = resolve(direct, null);
             if (resolved.isPresent() || isPolicyControlledCarrier(direct)) {
                 return resolved;
@@ -51,7 +58,7 @@ public final class CombatSourceResolver {
         }
 
         Entity causing = damageSource.getCausingEntity();
-        if (causing == null || causing == direct) {
+        if (causing == null || causing == direct || causing == eventDamager) {
             return Optional.empty();
         }
         return resolve(causing, fallbackReason(event));
@@ -68,7 +75,8 @@ public final class CombatSourceResolver {
                     player.getUniqueId(),
                     player,
                     forcedReason == null ? CombatTagReason.MELEE : forcedReason,
-                    null
+                    null,
+                    player
             ));
         }
 
@@ -89,7 +97,8 @@ public final class CombatSourceResolver {
                             owner.getUniqueId(),
                             owner,
                             CombatTagReason.FIREWORK,
-                            null
+                            null,
+                            owner
                     ));
         }
 
@@ -110,7 +119,8 @@ public final class CombatSourceResolver {
                             owner.getUniqueId(),
                             owner,
                             CombatTagReason.PROJECTILE,
-                            null
+                            null,
+                            owner
                     ));
         }
 
@@ -139,7 +149,8 @@ public final class CombatSourceResolver {
                         owner.getUniqueId(),
                         owner,
                         CombatTagReason.PET,
-                        null
+                        null,
+                        source
                 ));
             }
             UUID ownerId = tameable.getOwnerUniqueId();
@@ -150,7 +161,8 @@ public final class CombatSourceResolver {
                         owner.getUniqueId(),
                         owner,
                         CombatTagReason.PET,
-                        null
+                        null,
+                        source
                 ));
             }
             if (ownerId != null) {
@@ -159,7 +171,8 @@ public final class CombatSourceResolver {
                         source.getUniqueId(),
                         null,
                         CombatTagReason.PET,
-                        source.getEntitySpawnReason()
+                        source.getEntitySpawnReason(),
+                        source
                 ));
             }
         }
@@ -170,7 +183,8 @@ public final class CombatSourceResolver {
                     source.getUniqueId(),
                     null,
                     forcedReason == null ? CombatTagReason.MELEE : forcedReason,
-                    source.getEntitySpawnReason()
+                    source.getEntitySpawnReason(),
+                    source
             ));
         }
         return Optional.empty();
@@ -192,9 +206,17 @@ public final class CombatSourceResolver {
             UUID damageSourceId,
             Player player,
             CombatTagReason reason,
-            CreatureSpawnEvent.SpawnReason spawnReason
+            CreatureSpawnEvent.SpawnReason spawnReason,
+            Entity sourceEntity
     ) {
-        return new ResolvedCombatSource(opponent, damageSourceId, player, reason, spawnReason);
+        return new ResolvedCombatSource(
+                opponent,
+                damageSourceId,
+                player,
+                reason,
+                spawnReason,
+                sourceEntity
+        );
     }
 
     public static CombatOpponent opponent(Entity entity) {
@@ -215,12 +237,14 @@ public final class CombatSourceResolver {
             UUID damageSourceId,
             Player player,
             CombatTagReason reason,
-            CreatureSpawnEvent.SpawnReason spawnReason
+            CreatureSpawnEvent.SpawnReason spawnReason,
+            Entity sourceEntity
     ) {
         public ResolvedCombatSource {
             Objects.requireNonNull(opponent, "opponent");
             Objects.requireNonNull(damageSourceId, "damageSourceId");
             Objects.requireNonNull(reason, "reason");
+            Objects.requireNonNull(sourceEntity, "sourceEntity");
         }
 
         public boolean playerSource() {

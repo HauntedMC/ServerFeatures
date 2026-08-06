@@ -13,8 +13,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,6 +28,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,6 +44,18 @@ class PerkStateServiceTest {
         fixture.service().initializeIfAbsent(fixture.player());
 
         assertTrue(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+    }
+
+    @Test
+    void initializationDoesNotRevokeUnownedExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().hasPermission(FairPerks.FLY_USE_PERMISSION)).thenReturn(false);
+        when(fixture.player().hasPermission(FairPerks.FLY_PERSIST_PERMISSION)).thenReturn(false);
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+
+        fixture.service().initialize(fixture.player());
+
+        verify(fixture.player(), never()).setAllowFlight(false);
     }
 
     @Test
@@ -87,6 +103,75 @@ class PerkStateServiceTest {
     }
 
     @Test
+    void reloadDoesNotRestoreFlightWhileCombatTagged() {
+        Fixture fixture = fixture();
+        when(fixture.policy().isCombatTagged(fixture.player())).thenReturn(true);
+        UUID playerId = fixture.player().getUniqueId();
+
+        fixture.service().restore(Map.of(
+                playerId,
+                new PerkStateService.PlayerSnapshot(
+                        true,
+                        false,
+                        false,
+                        true,
+                        false,
+                        false,
+                        false
+                )
+        ));
+
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+        verify(fixture.player()).setAllowFlight(false);
+        verify(fixture.feature()).sendMessage(fixture.player(), "fairperks.fly.disabled");
+        verify(fixture.data()).remove(
+                argThat(key -> key != null && "fairperks_fly_enabled".equals(key.getKey()))
+        );
+    }
+
+    @Test
+    void combatCleanupDoesNotStopUnownedActiveFlight() {
+        Fixture fixture = fixture();
+        when(fixture.policy().isCombatTagged(fixture.player())).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        UUID playerId = fixture.player().getUniqueId();
+
+        fixture.service().restore(Map.of(
+                playerId,
+                new PerkStateService.PlayerSnapshot(
+                        true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false
+                )
+        ));
+
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+        verify(fixture.player(), never()).setFlying(false);
+    }
+
+    @Test
+    void combatCleanupRestoresPreExistingExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        fixture.service().initialize(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
+        clearInvocations(fixture.player());
+
+        assertTrue(fixture.service().disableFlightForCombat(fixture.player()));
+
+        ArgumentCaptor<Boolean> flying = ArgumentCaptor.forClass(Boolean.class);
+        verify(fixture.player(), times(2)).setFlying(flying.capture());
+        assertEquals(List.of(false, true), flying.getAllValues());
+        verify(fixture.player()).setAllowFlight(true);
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+    }
+
+    @Test
     void enteringGloballyBlockedWorldDisablesAllFairPerksState() {
         Fixture fixture = fixture();
         fixture.service().initialize(fixture.player());
@@ -118,6 +203,25 @@ class PerkStateServiceTest {
         assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
         assertFalse(fixture.service().isDesired(fixture.player(), PerkType.GOD));
         assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
+    }
+
+    @Test
+    void globallyBlockedWorldRestoresPreExistingExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        fixture.service().initialize(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
+        clearInvocations(fixture.player());
+        when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(false);
+
+        fixture.service().reconcileEnvironment(fixture.player());
+
+        ArgumentCaptor<Boolean> flying = ArgumentCaptor.forClass(Boolean.class);
+        verify(fixture.player(), times(2)).setFlying(flying.capture());
+        assertEquals(List.of(false, true), flying.getAllValues());
+        verify(fixture.player()).setAllowFlight(true);
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
     }
 
     @Test
@@ -157,6 +261,7 @@ class PerkStateServiceTest {
         when(player.hasPermission(FairPerks.GOD_PERSIST_PERMISSION)).thenReturn(true);
         when(player.hasPermission(FairPerks.GOD_MACRO_PERMISSION)).thenReturn(true);
         when(player.isFlying()).thenReturn(false);
+        when(policy.isCombatTagged(player)).thenReturn(false);
         when(policy.allowsFairPerksWorld(player)).thenReturn(true);
         when(policy.allowsEnvironment(player, PerkType.FLY)).thenReturn(true);
         when(policy.canEnable(player, PerkType.FLY, true)).thenReturn(
@@ -166,7 +271,7 @@ class PerkStateServiceTest {
                 PerkChangeResult.Status.CHANGED
         );
         PerkStateService service = new PerkStateService(feature, settings, policy);
-        return new Fixture(player, data, policy, service);
+        return new Fixture(feature, player, data, policy, service);
     }
 
     private static FairPerksSettings settings() {
@@ -219,6 +324,7 @@ class PerkStateServiceTest {
     }
 
     private record Fixture(
+            FairPerks feature,
             Player player,
             PersistentDataContainer data,
             FairPerksPolicy policy,

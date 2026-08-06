@@ -7,6 +7,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,17 @@ class HostileEntityClassifierTest {
     }
 
     @Test
+    void persistentSpawnerReasonExemptsHostileMobWithoutMarker() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Enemy enemy = mock(Enemy.class);
+        when(enemy.getType()).thenReturn(EntityType.ZOMBIE);
+        when(enemy.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.SPAWNER);
+
+        assertTrue(classifier.isExemptSpawnerMob(enemy));
+        assertFalse(classifier.isRestrictedHostile(enemy));
+    }
+
+    @Test
     void nearbyLookupUsesConfiguredClassifier() {
         HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
         Player player = mock(Player.class);
@@ -86,6 +98,20 @@ class HostileEntityClassifierTest {
         when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(monster));
 
         assertTrue(classifier.hasNearbyHostileTargeting(player, 16, 8));
+    }
+
+    @Test
+    void nearbySpawnerHostileDoesNotBlockOrTargetProtectedPlayer() {
+        HostileEntityClassifier classifier = classifier(Set.of(), Set.of());
+        Player player = mock(Player.class);
+        Monster monster = mock(Monster.class);
+        when(monster.getType()).thenReturn(EntityType.ZOMBIE);
+        when(monster.getEntitySpawnReason()).thenReturn(CreatureSpawnEvent.SpawnReason.SPAWNER);
+        when(monster.getTarget()).thenReturn(player);
+        when(player.getNearbyEntities(16.0D, 8.0D, 16.0D)).thenReturn(List.of(monster));
+
+        assertFalse(classifier.hasNearbyHostile(player, 16, 8));
+        assertFalse(classifier.hasNearbyHostileTargeting(player, 16, 8));
     }
 
     @Test

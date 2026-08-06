@@ -6,6 +6,8 @@ import org.bukkit.entity.Enemy;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Objects;
@@ -30,6 +32,10 @@ public final class HostileEntityClassifier {
                 || entity instanceof Enemy;
     }
 
+    public boolean isRestrictedHostile(Entity entity) {
+        return isHostile(entity) && !isExemptSpawnerMob(entity);
+    }
+
     public boolean hasNearbyHostile(Player player, int horizontalRadius, int verticalRadius) {
         if (horizontalRadius <= 0 || verticalRadius < 0) {
             return false;
@@ -38,7 +44,7 @@ public final class HostileEntityClassifier {
                 horizontalRadius,
                 verticalRadius,
                 horizontalRadius
-        ).stream().anyMatch(this::isHostile);
+        ).stream().anyMatch(this::isRestrictedHostile);
     }
 
     public boolean hasNearbyHostileTargeting(Player player, int horizontalRadius, int verticalRadius) {
@@ -50,7 +56,7 @@ public final class HostileEntityClassifier {
                 verticalRadius,
                 horizontalRadius
         ).stream().anyMatch(entity -> entity instanceof Mob mob
-                && isHostile(mob)
+                && isRestrictedHostile(mob)
                 && player.equals(mob.getTarget()));
     }
 
@@ -58,7 +64,8 @@ public final class HostileEntityClassifier {
         if (!settings.spawnerMobsExempt()) {
             return false;
         }
-        return isMarked(entity, SPAWNER_MOB_KEY);
+        return entity.getEntitySpawnReason() == CreatureSpawnEvent.SpawnReason.SPAWNER
+                || isMarked(entity, SPAWNER_MOB_KEY);
     }
 
     public void markSpawnerMob(Entity entity) {
@@ -67,7 +74,11 @@ public final class HostileEntityClassifier {
 
     private static boolean isMarked(Entity entity, NamespacedKey key) {
         try {
-            Byte marker = entity.getPersistentDataContainer().get(key, PersistentDataType.BYTE);
+            PersistentDataContainer data = entity.getPersistentDataContainer();
+            if (data == null) {
+                return false;
+            }
+            Byte marker = data.get(key, PersistentDataType.BYTE);
             return marker != null && marker == TRUE;
         } catch (IllegalArgumentException ignored) {
             return false;
