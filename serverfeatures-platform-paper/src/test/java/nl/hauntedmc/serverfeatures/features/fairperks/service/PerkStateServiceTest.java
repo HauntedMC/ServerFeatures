@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -152,6 +154,24 @@ class PerkStateServiceTest {
     }
 
     @Test
+    void combatCleanupRestoresPreExistingExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        fixture.service().initialize(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
+        clearInvocations(fixture.player());
+
+        assertTrue(fixture.service().disableFlightForCombat(fixture.player()));
+
+        ArgumentCaptor<Boolean> flying = ArgumentCaptor.forClass(Boolean.class);
+        verify(fixture.player(), times(2)).setFlying(flying.capture());
+        assertEquals(List.of(false, true), flying.getAllValues());
+        verify(fixture.player()).setAllowFlight(true);
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
+    }
+
+    @Test
     void enteringGloballyBlockedWorldDisablesAllFairPerksState() {
         Fixture fixture = fixture();
         fixture.service().initialize(fixture.player());
@@ -183,6 +203,25 @@ class PerkStateServiceTest {
         assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
         assertFalse(fixture.service().isDesired(fixture.player(), PerkType.GOD));
         assertFalse(fixture.service().isGodMacroEnabled(fixture.player()));
+    }
+
+    @Test
+    void globallyBlockedWorldRestoresPreExistingExternalFlight() {
+        Fixture fixture = fixture();
+        when(fixture.player().getAllowFlight()).thenReturn(true);
+        when(fixture.player().isFlying()).thenReturn(true);
+        fixture.service().initialize(fixture.player());
+        fixture.service().set(fixture.player(), PerkType.FLY, true, true);
+        clearInvocations(fixture.player());
+        when(fixture.policy().allowsFairPerksWorld(fixture.player())).thenReturn(false);
+
+        fixture.service().reconcileEnvironment(fixture.player());
+
+        ArgumentCaptor<Boolean> flying = ArgumentCaptor.forClass(Boolean.class);
+        verify(fixture.player(), times(2)).setFlying(flying.capture());
+        assertEquals(List.of(false, true), flying.getAllValues());
+        verify(fixture.player()).setAllowFlight(true);
+        assertFalse(fixture.service().isDesired(fixture.player(), PerkType.FLY));
     }
 
     @Test
