@@ -120,7 +120,11 @@ public record LotterySettings(
                 String.class,
                 List.of("1h", "30m", "10m", "5m", "1m", "30s", "10s")
         )) {
-            remainingTimes.add(parseDuration(value, "broadcasts.remaining_times"));
+            Duration threshold = parseDuration(value, "broadcasts.remaining_times");
+            if (threshold.isZero() || threshold.isNegative()) {
+                throw new IllegalArgumentException("broadcasts.remaining_times values must be positive");
+            }
+            remainingTimes.add(threshold);
         }
         remainingTimes = remainingTimes.stream().distinct().sorted(Comparator.reverseOrder()).toList();
 

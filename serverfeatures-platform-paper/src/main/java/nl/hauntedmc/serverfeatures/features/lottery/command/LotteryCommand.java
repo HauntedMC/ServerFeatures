@@ -63,7 +63,7 @@ public final class LotteryCommand implements BrigadierCommand {
                         ))));
         root.then(Commands.literal("claim")
                 .requires(source -> source.getSender().hasPermission(Lottery.CLAIM_PERMISSION))
-                .executes(context -> claim(context.getSource().getSender())));
+                .executes(context -> claim(context.getSource().getSender()));
         root.then(pageCommand("history", (sender, page) -> feature.service().requestHistory(sender, page)));
         root.then(Commands.literal("leaderboard")
                 .then(pageCommand("wins", (sender, page) -> feature.service().requestLeaderboard(sender, false, page)))
@@ -72,7 +72,7 @@ public final class LotteryCommand implements BrigadierCommand {
                         (sender, page) -> feature.service().requestLeaderboard(sender, true, page)
                 )));
         root.then(Commands.literal("help")
-                .executes(context -> help(context.getSource().getSender())));
+                .executes(context -> help(context.getSource().getSender()));
         root.then(adminTree());
         return root.build();
     }
@@ -88,10 +88,10 @@ public final class LotteryCommand implements BrigadierCommand {
                 }));
         admin.then(Commands.literal("pause")
                 .requires(source -> source.getSender().hasPermission(Lottery.ADMIN_PAUSE_PERMISSION))
-                .executes(context -> pause(context.getSource().getSender(), true)));
+                .executes(context -> pause(context.getSource().getSender(), true));
         admin.then(Commands.literal("resume")
                 .requires(source -> source.getSender().hasPermission(Lottery.ADMIN_PAUSE_PERMISSION))
-                .executes(context -> pause(context.getSource().getSender(), false)));
+                .executes(context -> pause(context.getSource().getSender(), false));
         admin.then(Commands.literal("addpot")
                 .requires(source -> source.getSender().hasPermission(Lottery.ADMIN_ADDPOT_PERMISSION))
                 .then(Commands.argument("amount", StringArgumentType.word())
@@ -123,8 +123,8 @@ public final class LotteryCommand implements BrigadierCommand {
                 .then(Commands.argument("page", IntegerArgumentType.integer(1, MAXIMUM_PAGE))
                         .executes(context -> {
                             action.execute(
-                                    context.getSource().getSender(),
-                                    IntegerArgumentType.getInteger(context, "page")
+                                context.getSource().getSender(),
+                                IntegerArgumentType.getInteger(context, "page")
                             );
                             return 1;
                         }));
@@ -151,10 +151,7 @@ public final class LotteryCommand implements BrigadierCommand {
         }
         int amount = feature.service().maximumAffordable(player);
         if (amount <= 0) {
-            feature.send(player, "lottery.buy.insufficient", Map.of(
-                    "cost", feature.service().format(feature.settings().tickets().price()),
-                    "balance", feature.service().format(feature.service().balance(player))
-            ));
+            feature.service().explainCannotBuy(player);
             return 0;
         }
         feature.service().purchase(player, amount);

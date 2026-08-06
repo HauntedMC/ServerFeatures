@@ -1,24 +1,17 @@
 package nl.hauntedmc.serverfeatures.features.lottery.service;
 
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
-import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lottery.Lottery;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy.EconomyResult;
-import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.DrawResult;
-import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.HistoryItem;
-import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.LeaderboardEntry;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PendingPayout;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PayoutStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PlayerSummary;
-import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PurchaseReceipt;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.RoundSnapshot;
-import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.RoundStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository;
-import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository.PreparedDraw;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -27,11 +20,8 @@ import org.bukkit.entity.Player;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,8 +32,6 @@ import java.util.logging.Level;
 /** Coordinates the Lottery gameplay flow while keeping Vault on the main thread. */
 public final class LotteryService {
 
-    private static final long ROUND_REFRESH_INTERVAL_MILLIS = 30_000L;
-
     private final Lottery feature;
     private final LotterySettings settings;
     private final LotteryRepository repository;
@@ -51,15 +39,12 @@ public final class LotteryService {
     private final LotteryDrawEngine drawEngine;
     private final PlayerIdentityResolver identityResolver;
     private final AtomicReference<RoundSnapshot> snapshot = new AtomicReference<>();
-    private final AtomicReference<List<HistoryItem>> recentHistory = new AtomicReference<>(List.of());
     private final Map<UUID, PlayerSummary> playerSummaries = new ConcurrentHashMap<>();
-    private final Set<UUID> activePlayerOperations = ConcurrentHashMap.newKeySet();
-    private final AtomicBoolean drawing = new AtomicBoolean();
+    private final java.util.Set<UUID> activePlayerOperations = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean ready = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final Set<Long> announcedThresholds = new HashSet<>();
-    private String announcedRoundId;
-    private long lastRoundRefresh;
+    private final LotteryViewService views;
+    private final LotteryDrawCoordinator rounds;
 
     public LotteryService(
             Lottery feature,
@@ -75,6 +60,8 @@ public final class LotteryService {
         this.drawEngine = drawEngine;
         this.identityResolver = new PlayerIdentityResolver(feature.getPlugin().getDataRegistry()
                 .orElseThrow(() -> new IllegalStateException("DataRegistry is required for Lottery")));
+        this.views = new LotteryViewService(this, feature, settings, repository);
+        this.rounds = new LotteryDrawCoordinator(this, feature, settings, repository, drawEngine);
     }
 
     public void start() {
@@ -87,27 +74,20 @@ public final class LotteryService {
                     }
                     ready.set(true);
                     updateSnapshot(round);
-                    refreshHistory();
                     for (Player player : Bukkit.getOnlinePlayers()) {
                         refreshPlayerSummary(player.getUniqueId());
                     }
                 }));
-        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
-                this::tick,
-                BukkitTime.ticks(20L),
-                BukkitTime.ticks(20L)
-        );
+        rounds.start();
     }
 
     public void close() {
         closed.set(true);
         ready.set(false);
-        drawing.set(false);
         snapshot.set(null);
-        recentHistory.set(List.of());
         playerSummaries.clear();
         activePlayerOperations.clear();
-        announcedThresholds.clear();
+        rounds.close();
     }
 
     public boolean isReady() {
@@ -120,10 +100,6 @@ public final class LotteryService {
 
     public PlayerSummary cachedSummary(UUID playerUuid) {
         return playerSummaries.getOrDefault(playerUuid, PlayerSummary.empty(playerUuid));
-    }
-
-    public List<HistoryItem> recentHistory() {
-        return recentHistory.get();
     }
 
     public String format(Money amount) {
@@ -159,6 +135,37 @@ public final class LotteryService {
         return Math.max(0, affordable);
     }
 
+    public void explainCannotBuy(Player player) {
+        RoundSnapshot round = snapshot.get();
+        if (!isReady() || round == null) {
+            feature.send(player, "lottery.unavailable");
+            return;
+        }
+        if (!round.acceptsEntries(now())) {
+            feature.send(player, round.paused() ? "lottery.paused" : "lottery.closed");
+            return;
+        }
+        PlayerSummary summary = cachedSummary(player.getUniqueId());
+        if (settings.tickets().maximumPerPlayer() > 0
+                && summary.tickets() >= settings.tickets().maximumPerPlayer()) {
+            feature.send(player, "lottery.buy.player_limit", Map.of(
+                    "current", Integer.toString(summary.tickets()),
+                    "limit", Integer.toString(settings.tickets().maximumPerPlayer())
+            ));
+            return;
+        }
+        if (settings.tickets().maximumPerRound() > 0
+                && round.totalTickets() >= settings.tickets().maximumPerRound()) {
+            feature.send(player, "lottery.buy.round_limit", Map.of("remaining", "0"));
+            return;
+        }
+        Money currentBalance = balance(player);
+        feature.send(player, "lottery.buy.insufficient", Map.of(
+                "cost", format(round.ticketPrice()),
+                "balance", format(currentBalance)
+        ));
+    }
+
     public void purchase(Player player, int ticketCount) {
         requireMainThread();
         RoundSnapshot round = snapshot.get();
@@ -176,17 +183,37 @@ public final class LotteryService {
             ));
             return;
         }
+        PlayerSummary summary = cachedSummary(player.getUniqueId());
+        if (settings.tickets().maximumPerPlayer() > 0
+                && summary.tickets() + ticketCount > settings.tickets().maximumPerPlayer()) {
+            feature.send(player, "lottery.buy.player_limit", Map.of(
+                    "current", Integer.toString(summary.tickets()),
+                    "limit", Integer.toString(settings.tickets().maximumPerPlayer())
+            ));
+            return;
+        }
+        if (settings.tickets().maximumPerRound() > 0
+                && round.totalTickets() + ticketCount > settings.tickets().maximumPerRound()) {
+            feature.send(player, "lottery.buy.round_limit", Map.of(
+                    "remaining", Integer.toString(Math.max(
+                            0,
+                            settings.tickets().maximumPerRound() - round.totalTickets()
+                    ))
+            ));
+            return;
+        }
         if (!beginPlayerOperation(player)) {
             return;
         }
         UUID playerUuid = player.getUniqueId();
         String playerName = player.getName();
         Money cost = round.ticketPrice().multiply(ticketCount);
-        if (balance(player).compareTo(cost) < 0) {
+        Money currentBalance = balance(player);
+        if (currentBalance.compareTo(cost) < 0) {
             endPlayerOperation(playerUuid);
             feature.send(player, "lottery.buy.insufficient", Map.of(
                     "cost", format(cost),
-                    "balance", format(balance(player))
+                    "balance", format(currentBalance)
             ));
             return;
         }
@@ -221,10 +248,11 @@ public final class LotteryService {
             feature.send(player, round.paused() ? "lottery.paused" : "lottery.closed");
             return;
         }
-        if (balance(player).compareTo(amount) < 0) {
+        Money currentBalance = balance(player);
+        if (currentBalance.compareTo(amount) < 0) {
             feature.send(player, "lottery.donate.insufficient", Map.of(
                     "amount", format(amount),
-                    "balance", format(balance(player))
+                    "balance", format(currentBalance)
             ));
             return;
         }
@@ -268,121 +296,31 @@ public final class LotteryService {
     }
 
     public void onQuit(Player player) {
-        activePlayerOperations.remove(player.getUniqueId());
+        // In-flight work owns this guard and releases it when that work actually ends.
         playerSummaries.remove(player.getUniqueId());
     }
 
     public void requestOverview(CommandSender sender) {
-        RoundSnapshot round = snapshot.get();
-        if (!isReady() || round == null) {
-            feature.send(sender, "lottery.unavailable");
-            return;
-        }
-        PlayerSummary summary = sender instanceof Player player
-                ? cachedSummary(player.getUniqueId())
-                : null;
-        feature.send(sender, "lottery.ui.header");
-        feature.send(sender, "lottery.ui.pot", Map.of("pot", format(round.grossPot())));
-        feature.send(sender, "lottery.ui.draw", Map.of(
-                "remaining", formatDuration(round.remainingMillis(now())),
-                "status", round.paused() ? "paused" : round.status().name().toLowerCase(java.util.Locale.ROOT)
-        ));
-        feature.send(sender, "lottery.ui.sales", Map.of(
-                "tickets", Integer.toString(round.totalTickets()),
-                "participants", Integer.toString(round.participants()),
-                "price", format(round.ticketPrice())
-        ));
-        if (summary != null) {
-            feature.send(sender, "lottery.ui.player", Map.of(
-                    "tickets", Integer.toString(summary.tickets()),
-                    "odds", summary.odds().setScale(2, RoundingMode.HALF_UP).toPlainString(),
-                    "pending", format(summary.pendingPayout())
-            ));
-        }
-        feature.send(sender, "lottery.ui.footer");
+        views.requestOverview(sender);
     }
 
     public void requestHistory(CommandSender sender, int page) {
-        int offset = Math.multiplyExact(page - 1, settings.history().pageSize());
-        submit(() -> repository.history(settings.lotteryKey(), offset, settings.history().pageSize()))
-                .whenComplete((items, failure) -> main(() -> {
-                    if (failure != null) {
-                        feature.send(sender, "lottery.query_failed");
-                        log("Could not load Lottery history", failure);
-                        return;
-                    }
-                    feature.send(sender, "lottery.history.header", Map.of("page", Integer.toString(page)));
-                    if (items.isEmpty()) {
-                        feature.send(sender, "lottery.history.empty");
-                        return;
-                    }
-                    for (HistoryItem item : items) {
-                        String winners = item.winners().isEmpty()
-                                ? "-"
-                                : item.winners().stream()
-                                .map(winner -> winner.playerName() + " (" + format(winner.amount()) + ")")
-                                .collect(java.util.stream.Collectors.joining(", "));
-                        feature.send(sender, "lottery.history.entry", Map.of(
-                                "round", item.roundId(),
-                                "winners", winners,
-                                "payout", format(item.payout()),
-                                "tickets", Integer.toString(item.tickets()),
-                                "participants", Integer.toString(item.participants())
-                        ));
-                    }
-                }));
+        views.requestHistory(sender, page);
     }
 
     public void requestLeaderboard(CommandSender sender, boolean donations, int page) {
-        int offset = Math.multiplyExact(page - 1, settings.history().leaderboardSize());
-        submit(() -> repository.leaderboard(
-                        settings.lotteryKey(),
-                        donations,
-                        offset,
-                        settings.history().leaderboardSize()
-                ))
-                .whenComplete((entries, failure) -> main(() -> {
-                    if (failure != null) {
-                        feature.send(sender, "lottery.query_failed");
-                        log("Could not load Lottery leaderboard", failure);
-                        return;
-                    }
-                    feature.send(sender, donations
-                            ? "lottery.leaderboard.donations_header"
-                            : "lottery.leaderboard.wins_header", Map.of("page", Integer.toString(page)));
-                    if (entries.isEmpty()) {
-                        feature.send(sender, "lottery.leaderboard.empty");
-                        return;
-                    }
-                    for (LeaderboardEntry entry : entries) {
-                        feature.send(sender, "lottery.leaderboard.entry", Map.of(
-                                "rank", Integer.toString(entry.rank()),
-                                "player", entry.playerName(),
-                                "amount", format(entry.amount()),
-                                "count", Long.toString(entry.count())
-                        ));
-                    }
-                }));
+        views.requestLeaderboard(sender, donations, page);
     }
 
     public void requestAdminStatus(CommandSender sender) {
-        RoundSnapshot round = snapshot.get();
-        if (round == null) {
-            feature.send(sender, "lottery.unavailable");
-            return;
-        }
-        feature.send(sender, "lottery.admin.status", Map.of(
-                "lottery", round.lotteryKey(),
-                "round", round.roundId(),
-                "status", round.paused() ? "paused" : round.status().name(),
-                "pot", format(round.grossPot()),
-                "tickets", Integer.toString(round.totalTickets()),
-                "participants", Integer.toString(round.participants()),
-                "remaining", formatDuration(round.remainingMillis(now()))
-        ));
+        views.requestAdminStatus(sender);
     }
 
     public void setPaused(CommandSender sender, boolean paused) {
+        if (!isReady()) {
+            feature.send(sender, "lottery.unavailable");
+            return;
+        }
         submit(() -> repository.setPaused(settings.lotteryKey(), paused, now()))
                 .whenComplete((round, failure) -> main(() -> {
                     if (failure != null) {
@@ -395,6 +333,10 @@ public final class LotteryService {
     }
 
     public void addToPot(CommandSender sender, Money amount) {
+        if (!isReady()) {
+            feature.send(sender, "lottery.unavailable");
+            return;
+        }
         submit(() -> repository.addPot(settings.lotteryKey(), amount, now()))
                 .whenComplete((round, failure) -> main(() -> {
                     if (failure != null) {
@@ -410,15 +352,14 @@ public final class LotteryService {
     }
 
     public void forceDraw(CommandSender sender) {
+        rounds.forceDraw(sender);
+    }
+
+    public void cancelRound(CommandSender sender) {
         if (!isReady()) {
             feature.send(sender, "lottery.unavailable");
             return;
         }
-        feature.send(sender, "lottery.admin.draw_started");
-        draw(true);
-    }
-
-    public void cancelRound(CommandSender sender) {
         String seed = drawEngine.newSeed();
         submit(() -> repository.cancelRound(
                         settings,
@@ -432,7 +373,6 @@ public final class LotteryService {
                         return;
                     }
                     updateSnapshot(cancelled.nextRound());
-                    refreshHistory();
                     feature.broadcast("lottery.broadcast.cancelled", Map.of(
                             "refunds", format(cancelled.refunds())
                     ));
@@ -446,21 +386,7 @@ public final class LotteryService {
     }
 
     public String formatDuration(long millis) {
-        long seconds = Math.max(0L, millis / 1_000L);
-        long days = seconds / 86_400L;
-        long hours = seconds % 86_400L / 3_600L;
-        long minutes = seconds % 3_600L / 60L;
-        long remainingSeconds = seconds % 60L;
-        if (days > 0L) {
-            return days + "d " + hours + "h";
-        }
-        if (hours > 0L) {
-            return hours + "h " + minutes + "m";
-        }
-        if (minutes > 0L) {
-            return minutes + "m " + remainingSeconds + "s";
-        }
-        return remainingSeconds + "s";
+        return LotteryViewService.formatDuration(millis);
     }
 
     private void withdrawAndStorePurchase(
@@ -472,8 +398,17 @@ public final class LotteryService {
             Money cost
     ) {
         Player player = Bukkit.getPlayer(playerUuid);
-        if (player == null || !player.isOnline() || !isReady()) {
+        RoundSnapshot current = snapshot.get();
+        if (player == null
+                || !player.isOnline()
+                || !isReady()
+                || current == null
+                || !current.roundId().equals(roundId)
+                || !current.acceptsEntries(now())) {
             endPlayerOperation(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, current != null && current.paused() ? "lottery.paused" : "lottery.closed");
+            }
             return;
         }
         EconomyResult withdrawal = economy.withdraw(player, cost);
@@ -500,7 +435,7 @@ public final class LotteryService {
                         refund(player, cost, "purchase", failure);
                         return;
                     }
-                    updateFromReceipt(receipt);
+                    rounds.refreshRound();
                     refreshPlayerSummary(playerUuid);
                     feature.send(player, "lottery.buy.success", Map.of(
                             "tickets", Integer.toString(receipt.purchasedTickets()),
@@ -519,8 +454,17 @@ public final class LotteryService {
             Money amount
     ) {
         Player player = Bukkit.getPlayer(playerUuid);
-        if (player == null || !player.isOnline() || !isReady()) {
+        RoundSnapshot current = snapshot.get();
+        if (player == null
+                || !player.isOnline()
+                || !isReady()
+                || current == null
+                || !current.roundId().equals(roundId)
+                || !current.acceptsEntries(now())) {
             endPlayerOperation(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, current != null && current.paused() ? "lottery.paused" : "lottery.closed");
+            }
             return;
         }
         EconomyResult withdrawal = economy.withdraw(player, amount);
@@ -546,7 +490,7 @@ public final class LotteryService {
                         refund(player, amount, "donation", failure);
                         return;
                     }
-                    refreshRound();
+                    rounds.refreshRound();
                     refreshPlayerSummary(playerUuid);
                     feature.send(player, "lottery.donate.success", Map.of(
                             "amount", format(receipt.amount()),
@@ -591,7 +535,12 @@ public final class LotteryService {
                         }
                         return;
                     }
-                    deliverPayout(player, optional.get(), automatic, paid);
+                    Player currentPlayer = Bukkit.getPlayer(playerUuid);
+                    if (currentPlayer == null || !currentPlayer.isOnline() || !isReady()) {
+                        releasePayout(optional.get(), playerUuid);
+                        return;
+                    }
+                    deliverPayout(currentPlayer, optional.get(), automatic, paid);
                 }));
     }
 
@@ -601,13 +550,16 @@ public final class LotteryService {
                 ? PayoutStatus.PAID
                 : result.uncertain() ? PayoutStatus.FAILED : PayoutStatus.PENDING;
         submit(() -> {
-            repository.finishPayout(
+            boolean updated = repository.finishPayout(
                     settings.lotteryKey(),
                     payout.payoutId(),
                     status,
                     result.successful() ? null : result.message(),
                     now()
             );
+            if (!updated) {
+                throw new IllegalStateException("Payout is no longer reserved for delivery");
+            }
             return null;
         }).whenComplete((ignored, failure) -> main(() -> {
             if (failure != null) {
@@ -630,161 +582,28 @@ public final class LotteryService {
         }));
     }
 
-    private void tick() {
-        if (!isReady()) {
-            return;
-        }
-        long currentTime = now();
-        RoundSnapshot round = snapshot.get();
-        if (round == null) {
-            return;
-        }
-        if (currentTime - lastRoundRefresh >= ROUND_REFRESH_INTERVAL_MILLIS) {
-            lastRoundRefresh = currentTime;
-            refreshRound();
-        }
-        if (!round.roundId().equals(announcedRoundId)) {
-            announcedRoundId = round.roundId();
-            announcedThresholds.clear();
-        }
-        announceRemaining(round, currentTime);
-        if (!round.paused() && round.status() == RoundStatus.OPEN && round.closesAt() <= currentTime) {
-            draw(false);
-        }
-    }
-
-    private void draw(boolean force) {
-        if (!isReady() || !drawing.compareAndSet(false, true)) {
-            return;
-        }
-        submit(() -> repository.prepareDraw(settings.lotteryKey(), force, now()))
-                .whenComplete((prepared, prepareFailure) -> {
-                    if (prepareFailure != null) {
-                        drawing.set(false);
-                        if (force) {
-                            log("Could not prepare Lottery draw", prepareFailure);
-                        }
-                        return;
-                    }
-                    completeDraw(prepared);
-                });
-    }
-
-    private void completeDraw(PreparedDraw prepared) {
+    private void releasePayout(PendingPayout payout, UUID playerUuid) {
         submit(() -> {
-            DrawResult result = drawEngine.draw(prepared.round(), prepared.entries(), settings);
-            String nextSeed = drawEngine.newSeed();
-            RoundSnapshot nextRound = repository.completeDraw(
-                    settings,
-                    prepared,
-                    result,
-                    nextSeed,
-                    drawEngine.commitment(nextSeed),
+            boolean released = repository.finishPayout(
+                    settings.lotteryKey(),
+                    payout.payoutId(),
+                    PayoutStatus.PENDING,
+                    null,
                     now()
             );
-            return new DrawOutcome(result, nextRound);
-        }).whenComplete((outcome, failure) -> main(() -> {
-            drawing.set(false);
+            if (!released) {
+                throw new IllegalStateException("Payout is no longer reserved for delivery");
+            }
+            return null;
+        }).whenComplete((ignored, failure) -> {
+            endPlayerOperation(playerUuid);
             if (failure != null) {
-                submit(() -> {
-                    repository.releaseDraw(settings.lotteryKey(), prepared.round().roundId(), now());
-                    return null;
-                });
-                feature.broadcast("lottery.broadcast.draw_failed", Map.of());
-                log("Lottery draw failed", failure);
-                refreshRound();
-                return;
+                log("Could not release Lottery payout " + payout.payoutId(), failure);
             }
-            updateSnapshot(outcome.nextRound());
-            refreshHistory();
-            broadcastDraw(outcome.result());
-            for (var winner : outcome.result().winners()) {
-                refreshPlayerSummary(winner.playerUuid());
-                Player online = Bukkit.getPlayer(winner.playerUuid());
-                if (online != null && settings.payouts().automaticOnJoin()) {
-                    claim(online, true);
-                }
-            }
-        }));
+        });
     }
 
-    private void broadcastDraw(DrawResult result) {
-        if (result.tickets() == 0) {
-            feature.broadcast("lottery.broadcast.no_tickets", Map.of(
-                    "carry", format(result.nextCarry())
-            ));
-            return;
-        }
-        feature.broadcast("lottery.broadcast.draw_header", Map.of(
-                "pot", format(result.grossPot()),
-                "tickets", Integer.toString(result.tickets()),
-                "participants", Integer.toString(result.participants())
-        ));
-        if (result.winners().isEmpty()) {
-            feature.broadcast("lottery.broadcast.no_payout", Map.of(
-                    "carry", format(result.nextCarry())
-            ));
-            return;
-        }
-        for (var winner : result.winners()) {
-            feature.broadcast("lottery.broadcast.winner", Map.of(
-                    "position", Integer.toString(winner.position()),
-                    "player", winner.playerName(),
-                    "amount", format(winner.amount())
-            ));
-        }
-        feature.broadcast("lottery.broadcast.proof", Map.of(
-                "round", result.roundId(),
-                "commitment", result.seedCommitment(),
-                "seed", result.seedReveal(),
-                "entry_digest", result.entryDigest()
-        ));
-    }
-
-    private void announceRemaining(RoundSnapshot round, long currentTime) {
-        if (!settings.broadcasts().enabled() || round.paused()) {
-            return;
-        }
-        long remaining = round.remainingMillis(currentTime);
-        for (var threshold : settings.broadcasts().remainingTimes()) {
-            long millis = threshold.toMillis();
-            if (remaining <= millis && announcedThresholds.add(millis)) {
-                feature.broadcast("lottery.broadcast.remaining", Map.of(
-                        "remaining", formatDuration(remaining),
-                        "pot", format(round.grossPot())
-                ));
-                break;
-            }
-        }
-    }
-
-    private void refreshRound() {
-        String seed = drawEngine.newSeed();
-        submit(() -> repository.ensureOpenRound(
-                        settings,
-                        seed,
-                        drawEngine.commitment(seed),
-                        now()
-                ))
-                .whenComplete((round, failure) -> {
-                    if (failure == null && round != null && !closed.get()) {
-                        main(() -> updateSnapshot(round));
-                    } else if (failure != null) {
-                        log("Could not refresh Lottery round", failure);
-                    }
-                });
-    }
-
-    private void refreshHistory() {
-        submit(() -> repository.history(settings.lotteryKey(), 0, settings.history().pageSize()))
-                .whenComplete((history, failure) -> {
-                    if (failure == null && history != null && !closed.get()) {
-                        recentHistory.set(List.copyOf(history));
-                    }
-                });
-    }
-
-    private void refreshPlayerSummary(UUID playerUuid) {
+    void refreshPlayerSummary(UUID playerUuid) {
         if (!isReady()) {
             return;
         }
@@ -796,38 +615,9 @@ public final class LotteryService {
                 });
     }
 
-    private void updateSnapshot(RoundSnapshot round) {
-        snapshot.set(round);
-    }
-
-    private void updateFromReceipt(PurchaseReceipt receipt) {
-        RoundSnapshot round = snapshot.get();
-        if (round == null) {
-            refreshRound();
-            return;
-        }
-        snapshot.set(new RoundSnapshot(
-                round.lotteryKey(),
-                round.roundId(),
-                round.status(),
-                round.openedAt(),
-                receipt.closesAt(),
-                round.ticketPrice(),
-                round.basePot(),
-                round.carriedPot(),
-                round.ticketRevenue().add(receipt.charged()),
-                round.donations(),
-                round.adminAdditions(),
-                round.payoutTotal(),
-                round.retainedTotal(),
-                receipt.totalTickets(),
-                receipt.participants(),
-                round.extensionCount() + (receipt.extensionMillis() > 0L ? 1 : 0),
-                round.totalExtensionMillis() + receipt.extensionMillis(),
-                round.seedCommitment(),
-                round.seedReveal(),
-                round.paused()
-        ));
+    void updateSnapshot(RoundSnapshot round) {
+        RoundSnapshot previous = snapshot.getAndSet(round);
+        rounds.onSnapshotUpdated(previous, round);
     }
 
     private void resolveIdentity(UUID playerUuid, java.util.function.Consumer<PlayerIdentity> consumer) {
@@ -861,19 +651,19 @@ public final class LotteryService {
         activePlayerOperations.remove(playerUuid);
     }
 
-    private void actionFailed(CommandSender sender, Throwable failure) {
+    void actionFailed(CommandSender sender, Throwable failure) {
         feature.send(sender, "lottery.admin.action_failed", Map.of("reason", rootMessage(failure)));
         log("Lottery administrator action failed", failure);
     }
 
-    private <T> CompletableFuture<T> submit(java.util.function.Supplier<T> supplier) {
+    <T> CompletableFuture<T> submit(java.util.function.Supplier<T> supplier) {
         if (closed.get()) {
             return CompletableFuture.failedFuture(new IllegalStateException("Lottery is closed"));
         }
         return feature.getLifecycleManager().getTaskManager().supplyAsync(supplier);
     }
 
-    private void main(Runnable task) {
+    void main(Runnable task) {
         if (closed.get()) {
             return;
         }
@@ -890,11 +680,11 @@ public final class LotteryService {
         }
     }
 
-    private long now() {
+    long now() {
         return System.currentTimeMillis();
     }
 
-    private void log(String message, Throwable failure) {
+    void log(String message, Throwable failure) {
         feature.getLogger().log(Level.WARNING, message, unwrap(failure));
     }
 
@@ -915,8 +705,5 @@ public final class LotteryService {
             current = current.getCause();
         }
         return current;
-    }
-
-    private record DrawOutcome(DrawResult result, RoundSnapshot nextRound) {
     }
 }

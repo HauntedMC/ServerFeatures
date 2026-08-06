@@ -44,7 +44,6 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
     private static final String ORM_CONNECTION = "lotteryOrmConnection";
 
     private LotterySettings settings;
-    private ORMContext ormContext;
     private LotteryService service;
     private LotteryPlaceholder placeholder;
 
@@ -98,6 +97,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
 
         messages.add("lottery.buy.invalid_amount", "<red>Kies een aantal tussen 1 en {maximum}, of gebruik /lottery buy max.</red>");
         messages.add("lottery.buy.insufficient", "<red>Deze aankoop kost {cost}; je saldo is {balance}.</red>");
+        messages.add("lottery.buy.player_limit", "<yellow>Je hebt {current} lot(en) en mag er maximaal {limit} hebben.</yellow>");
+        messages.add("lottery.buy.round_limit", "<yellow>Er zijn nog {remaining} lot(en) beschikbaar in deze trekking.</yellow>");
         messages.add("lottery.buy.withdraw_failed", "<red>De betaling is geweigerd: {reason}</red>");
         messages.add("lottery.buy.success", "<green>Je kocht {tickets} lot(en) voor {cost}.</green> <gray>Je hebt nu {player_tickets} lot(en); pot {pot}.</gray>");
 
@@ -159,7 +160,7 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
                 DatabaseType.MYSQL,
                 "system_data_rw"
         );
-        ormContext = getLifecycleManager().getDataManager().createORMContext(
+        ORMContext ormContext = getLifecycleManager().getDataManager().createORMContext(
                 ORM_CONNECTION,
                 LotteryRoundEntity.class,
                 LotteryEntryEntity.class,
@@ -198,7 +199,6 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
             service.close();
             service = null;
         }
-        ormContext = null;
         settings = null;
     }
 

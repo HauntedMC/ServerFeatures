@@ -47,38 +47,39 @@ public final class LotteryRepository {
     }
 
     public RoundSnapshot ensureOpenRound(
-        LotterySettings settings,
-        String seed,
-        String commitment,
-        long now
-) {
-    try {
-        return orm.runInTransaction(session -> {
-            failStalePayouts(session, settings.lotteryKey(), now);
-            LotteryRoundEntity current = findCurrentRound(
-                    session,
-                    settings.lotteryKey(),
-                    true
-            ).orElse(null);
-            if (current != null && RoundStatus.DRAWING.name().equals(current.getStatus())
-                    && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
-                current.setStatus(RoundStatus.OPEN.name());
-                current.setUpdatedAt(now);
+            LotterySettings settings,
+            String seed,
+            String commitment,
+            long now
+    ) {
+        try {
+            return orm.runInTransaction(session -> {
+                failStalePayouts(session, settings.lotteryKey(), now);
+                LotteryRoundEntity current = findCurrentRound(
+                        session,
+                        settings.lotteryKey(),
+                        true
+                ).orElse(null);
+                if (current != null
+                        && RoundStatus.DRAWING.name().equals(current.getStatus())
+                        && current.getUpdatedAt() < now - STALE_DRAW_MILLIS) {
+                    current.setStatus(RoundStatus.OPEN.name());
+                    current.setUpdatedAt(now);
+                }
+                if (current != null) {
+                    return snapshot(current);
+                }
+                LotteryRoundEntity created = newRound(settings, Money.ZERO, seed, commitment, now);
+                session.persist(created);
+                return snapshot(created);
+            });
+        } catch (RuntimeException failure) {
+            if (!activeRoundConstraintFailure(failure)) {
+                throw failure;
             }
-            if (current != null) {
-                return snapshot(current);
-            }
-            LotteryRoundEntity created = newRound(settings, Money.ZERO, seed, commitment, now);
-            session.persist(created);
-            return snapshot(created);
-        });
-    } catch (RuntimeException failure) {
-        if (!activeRoundConstraintFailure(failure)) {
-            throw failure;
+            return currentRound(settings.lotteryKey()).orElseThrow(() -> failure);
         }
-        return currentRound(settings.lotteryKey()).orElseThrow(() -> failure);
     }
-}
 
     public Optional<RoundSnapshot> currentRound(String lotteryKey) {
         return orm.runInTransaction(session -> findCurrentRound(session, lotteryKey, false).map(this::snapshot));
@@ -94,9 +95,20 @@ public final class LotteryRepository {
             Money charged,
             long now
     ) {
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(expectedRoundId, "expectedRoundId");
+        Objects.requireNonNull(playerUuid, "playerUuid");
+        Objects.requireNonNull(charged, "charged");
+        if (ticketCount <= 0) {
+            throw new IllegalArgumentException("ticketCount must be positive");
+        }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = requiredRound(session, expectedRoundId, settings.lotteryKey(), true);
             requireOpen(round, now);
+            Money expectedCharge = Money.of(round.getTicketPrice()).multiply(ticketCount);
+            if (!expectedCharge.equals(charged)) {
+                throw new LotteryStateException("charged amount does not match the round ticket price");
+            }
             String entryId = entryId(round.getId(), playerUuid);
             LotteryEntryEntity entry = session.find(LotteryEntryEntity.class, entryId, LockModeType.PESSIMISTIC_WRITE);
             int existingTickets = entry == null ? 0 : entry.getTicketCount();
@@ -163,6 +175,10 @@ public final class LotteryRepository {
             Money amount,
             long now
     ) {
+        Objects.requireNonNull(amount, "amount");
+        if (!amount.isPositive()) {
+            throw new IllegalArgumentException("donation amount must be positive");
+        }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = requiredRound(session, expectedRoundId, settings.lotteryKey(), true);
             requireOpen(round, now);
@@ -218,15 +234,15 @@ public final class LotteryRepository {
             long now
     ) {
         DrawResult expected = new LotteryDrawEngine().draw(
-            prepared.round(),
-            prepared.entries(),
-            settings
-    );
-    if (!expected.equals(result)) {
-        throw new LotteryStateException(
-                "draw result does not match the configured deterministic draw"
+                prepared.round(),
+                prepared.entries(),
+                settings
         );
-    }
+        if (!expected.equals(result)) {
+            throw new LotteryStateException(
+                    "draw result does not match the configured deterministic draw"
+            );
+        }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = requiredRound(
                     session,
@@ -286,6 +302,8 @@ public final class LotteryRepository {
                 stats.setUpdatedAt(now);
             }
 
+            // Release the unique active key before inserting the next active round.
+            session.flush();
             LotteryRoundEntity next = newRound(
                     settings,
                     result.nextCarry(),
@@ -315,6 +333,9 @@ public final class LotteryRepository {
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = findCurrentRound(session, lotteryKey, true)
                     .orElseThrow(() -> new LotteryStateException("no active round"));
+            if (!RoundStatus.OPEN.name().equals(round.getStatus())) {
+                throw new LotteryStateException("round is not open");
+            }
             round.setPaused(paused);
             round.setUpdatedAt(now);
             return snapshot(round);
@@ -322,6 +343,10 @@ public final class LotteryRepository {
     }
 
     public RoundSnapshot addPot(String lotteryKey, Money amount, long now) {
+        Objects.requireNonNull(amount, "amount");
+        if (!amount.isPositive()) {
+            throw new IllegalArgumentException("amount must be positive");
+        }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = findCurrentRound(session, lotteryKey, true)
                     .orElseThrow(() -> new LotteryStateException("no active round"));
@@ -343,6 +368,9 @@ public final class LotteryRepository {
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = findCurrentRound(session, settings.lotteryKey(), true)
                     .orElseThrow(() -> new LotteryStateException("no active round"));
+            if (!RoundStatus.OPEN.name().equals(round.getStatus())) {
+                throw new LotteryStateException("round is not open");
+            }
             List<LotteryEntryEntity> entries = session.createSelectionQuery(
                             "from LotteryEntryEntity entry where entry.lotteryKey = :key and entry.roundId = :round",
                             LotteryEntryEntity.class
@@ -419,15 +447,27 @@ public final class LotteryRepository {
         });
     }
 
-    public void finishPayout(String lotteryKey, String payoutId, PayoutStatus status, String error, long now) {
-        orm.runInTransaction(session -> {
+    public boolean finishPayout(
+            String lotteryKey,
+            String payoutId,
+            PayoutStatus status,
+            String error,
+            long now
+    ) {
+        Objects.requireNonNull(status, "status");
+        if (status == PayoutStatus.PAYING) {
+            throw new IllegalArgumentException("finishPayout cannot keep a payout in PAYING");
+        }
+        return orm.runInTransaction(session -> {
             LotteryPayoutEntity payout = session.find(
                     LotteryPayoutEntity.class,
                     payoutId,
                     LockModeType.PESSIMISTIC_WRITE
             );
-            if (payout == null || !lotteryKey.equals(payout.getLotteryKey())) {
-                return null;
+            if (payout == null
+                    || !lotteryKey.equals(payout.getLotteryKey())
+                    || !PayoutStatus.PAYING.name().equals(payout.getStatus())) {
+                return false;
             }
             payout.setStatus(status.name());
             payout.setErrorMessage(error == null ? null : trim(error, 500));
@@ -435,7 +475,7 @@ public final class LotteryRepository {
             if (status == PayoutStatus.PAID) {
                 payout.setPaidAt(now);
             }
-            return null;
+            return true;
         });
     }
 
@@ -452,12 +492,13 @@ public final class LotteryRepository {
             BigDecimal pending = session.createSelectionQuery(
                             "select coalesce(sum(payout.amount), 0) from LotteryPayoutEntity payout "
                                     + "where payout.lotteryKey = :key and payout.playerUuid = :uuid "
-                                    + "and payout.status = :status",
+                                    + "and payout.status in (:pending, :paying)",
                             BigDecimal.class
                     )
                     .setParameter("key", lotteryKey)
                     .setParameter("uuid", playerUuid.toString())
-                    .setParameter("status", PayoutStatus.PENDING.name())
+                    .setParameter("pending", PayoutStatus.PENDING.name())
+                    .setParameter("paying", PayoutStatus.PAYING.name())
                     .getSingleResult();
             LotteryPlayerStatsEntity stats = stats(session, lotteryKey, playerUuid, false);
             BigDecimal odds = totalTickets == 0
@@ -534,13 +575,21 @@ public final class LotteryRepository {
                     .setMaxResults(limit)
                     .getResultList();
             List<LeaderboardEntry> result = new ArrayList<>(rows.size());
-            int rank = offset + 1;
             for (LotteryPlayerStatsEntity row : rows) {
+                BigDecimal amount = donations ? row.getTotalDonated() : row.getTotalWon();
+                long greater = session.createSelectionQuery(
+                                "select count(stats) from LotteryPlayerStatsEntity stats "
+                                        + "where stats.lotteryKey = :key and " + field + " > :amount",
+                                Long.class
+                        )
+                        .setParameter("key", lotteryKey)
+                        .setParameter("amount", amount)
+                        .getSingleResult();
                 result.add(new LeaderboardEntry(
-                        rank++,
+                        Math.toIntExact(greater + 1L),
                         UUID.fromString(row.getPlayerUuid()),
                         row.getPlayerName(),
-                        Money.of(donations ? row.getTotalDonated() : row.getTotalWon()),
+                        Money.of(amount),
                         donations ? row.getDonationCount() : row.getRoundsWon()
                 ));
             }
@@ -549,21 +598,21 @@ public final class LotteryRepository {
     }
 
     private Optional<LotteryRoundEntity> findCurrentRound(
-        Session session,
-        String lotteryKey,
-        boolean lock
-) {
-    var query = session.createSelectionQuery(
-                    "from LotteryRoundEntity round where round.activeKey = :key",
-                    LotteryRoundEntity.class
-            )
-            .setParameter("key", lotteryKey)
-            .setMaxResults(1);
-    if (lock) {
-        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+            Session session,
+            String lotteryKey,
+            boolean lock
+    ) {
+        var query = session.createSelectionQuery(
+                        "from LotteryRoundEntity round where round.activeKey = :key",
+                        LotteryRoundEntity.class
+                )
+                .setParameter("key", lotteryKey)
+                .setMaxResults(1);
+        if (lock) {
+            query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        }
+        return query.getResultStream().findFirst();
     }
-    return query.getResultStream().findFirst();
-}
 
     private LotteryRoundEntity requiredRound(Session session, String id, String lotteryKey, boolean lock) {
         LotteryRoundEntity round = lock

@@ -34,7 +34,7 @@ public class LotteryRoundEntity {
     @Column(name = "status", length = 16, nullable = false)
     private String status;
 
-    @Column(name = "active_key", length = 64, unique = true)
+    @Column(name = "active_key", length = 64)
     private String activeKey;
 
     @Column(name = "opened_at", nullable = false)
