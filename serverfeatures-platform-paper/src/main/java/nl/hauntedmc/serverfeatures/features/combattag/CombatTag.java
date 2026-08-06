@@ -89,8 +89,8 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
         config.put("display.chat.enter", true);
         config.put("display.chat.exit", true);
         config.put("display.action-bar.enabled", true);
-        config.put("display.action-bar.update-interval-ticks", 5);
-        config.put("display.action-bar.segments", 20);
+        config.put("display.action-bar.update-interval-ticks", 2);
+        config.put("display.action-bar.segments", 15);
         config.put("display.action-bar.filled-symbol", "█");
         config.put("display.action-bar.empty-symbol", "█");
 
