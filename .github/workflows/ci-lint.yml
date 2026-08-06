@@ -58,9 +58,11 @@ jobs:
     name: Apply and validate Economy hardening
     needs: lint
     if: >-
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/agent/advanced-economy' &&
-      github.actor != 'github-actions[bot]'
+      github.actor != 'github-actions[bot]' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/agent/advanced-economy') ||
+      (github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/advanced-economy'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
