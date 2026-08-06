@@ -30,4 +30,15 @@ class EconomyServiceTest {
                 )
         );
     }
+
+    @Test
+    void ignoresUnknownJournalClassification() {
+        assertEquals(
+                TransactionType.DEPOSIT,
+                EconomyService.requestedJournalType(
+                        TransactionType.DEPOSIT,
+                        Map.of("transaction_type", "not-a-transaction-type")
+                )
+        );
+    }
 }
