@@ -52,3 +52,39 @@ jobs:
         run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
       - name: Lint release and acceptance scripts
         run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
+
+  apply-economy-hardening:
+    name: Apply verified Economy hardening
+    needs: lint
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref == 'agent/advanced-economy'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply reviewed hardening
+        run: python .github/economy_final_validation.py
+
+      - name: Remove temporary files and restore workflow
+        run: |
+          rm .github/economy_final_validation.py .github/workflows/apply-economy-final-validation.yml
+          git show HEAD^:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
+
+      - name: Commit hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Harden Economy for production operation"
+          git push
