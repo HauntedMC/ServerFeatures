@@ -222,8 +222,12 @@ public final class EconomyRepository {
         Objects.requireNonNull(currency, "currency");
         String id = accountId(identity.playerId(), currency.id(), currency.scope().key());
         return executeWithRetry(() -> orm.runInTransaction(session -> {
-            ensurePlayerIdentity(session, identity, new TransactionClock(session), false);
-            return session.find(EconomyBalanceEntity.class, id) != null;
+            EconomyBalanceEntity account = session.find(EconomyBalanceEntity.class, id);
+            if (account == null) {
+                return false;
+            }
+            validateAccountIdentity(account, identity);
+            return true;
         }));
     }
 
