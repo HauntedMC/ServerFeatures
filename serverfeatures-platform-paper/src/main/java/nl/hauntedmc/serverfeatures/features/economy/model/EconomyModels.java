@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 public final class EconomyModels {
@@ -87,14 +88,48 @@ public final class EconomyModels {
     ) {
     }
 
-    public record HistoryPage(List<HistoryItem> entries, int page, boolean hasMore) {
-        public HistoryPage {
-            entries = List.copyOf(entries);
+    public static final class HistoryPage {
+        private final List<HistoryItem> entries;
+        private final int page;
+        private final boolean hasMore;
+
+        public HistoryPage(List<HistoryItem> entries, int page, boolean hasMore) {
+            this.entries = List.copyOf(Objects.requireNonNull(entries, "entries"));
+            this.page = page;
+            this.hasMore = hasMore;
+        }
+
+        public List<HistoryItem> entries() {
+            return List.copyOf(entries);
+        }
+
+        public int page() {
+            return page;
+        }
+
+        public boolean hasMore() {
+            return hasMore;
         }
 
         @Override
-        public List<HistoryItem> entries() {
-            return entries;
+        public boolean equals(Object candidate) {
+            if (this == candidate) {
+                return true;
+            }
+            if (!(candidate instanceof HistoryPage other)) {
+                return false;
+            }
+            return page == other.page && hasMore == other.hasMore && entries.equals(other.entries);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entries, page, hasMore);
+        }
+
+        @Override
+        public String toString() {
+            return "HistoryPage[entries=" + entries + ", page=" + page + ", hasMore=" + hasMore + "]";
         }
     }
 
