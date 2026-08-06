@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.lottery.economy;
 
 import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyCurrency;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyScope;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
@@ -9,6 +10,7 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyScopeType;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import org.bukkit.OfflinePlayer;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -16,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -67,7 +70,35 @@ class BuiltinLotteryEconomyTest {
                 .join();
 
         assertTrue(result.successful());
-        verify(economy, times(2)).withdraw(any());
+        ArgumentCaptor<EconomyMutationRequest> requests = ArgumentCaptor.forClass(EconomyMutationRequest.class);
+        verify(economy, times(2)).withdraw(requests.capture());
+        assertEquals(requests.getAllValues().getFirst(), requests.getAllValues().getLast());
+        EconomyMutationRequest request = requests.getValue();
+        assertEquals("lottery", request.source());
+        assertEquals("Lottery ticket purchase", request.reason());
+        assertEquals("purchase", request.metadata().get("lottery_operation"));
+    }
+
+    @Test
+    void rejectsLotteryOperationsWithTheWrongEconomyDirection() {
+        EconomyApi economy = mock(EconomyApi.class);
+        when(economy.currency("money")).thenReturn(Optional.of(currency(2)));
+        OfflinePlayer player = mock(OfflinePlayer.class);
+
+        BuiltinLotteryEconomy backend = new BuiltinLotteryEconomy(economy, "money");
+
+        assertThrows(IllegalArgumentException.class, () -> backend.withdraw(
+                player,
+                Money.of(new BigDecimal("10.00")),
+                LotteryEconomyGateway.Operation.PAYOUT,
+                "payout:test"
+        ));
+        assertThrows(IllegalArgumentException.class, () -> backend.deposit(
+                player,
+                Money.of(new BigDecimal("10.00")),
+                LotteryEconomyGateway.Operation.DONATION,
+                "donation:test"
+        ));
     }
 
     private static EconomyCurrency currency(int fractionalDigits) {
