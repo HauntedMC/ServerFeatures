@@ -732,7 +732,6 @@ public final class EconomyRepository {
                     .getSingleResult();
             long invalidTransactions = session.createSelectionQuery(
                             "select count(*) from EconomyTransactionEntity t where "
-                                    + "t.transactionType not in :knownTypes or "
                                     + "(t.transactionType = :transfer and ("
                                     + "(select count(*) from EconomyTransactionEntryEntity e "
                                     + "where e.transactionId = t.id) <> 2 or "
@@ -755,9 +754,6 @@ public final class EconomyRepository {
                                     + "where e.transactionId = t.id and e.entryRole = :target) <> 1))",
                             Long.class
                     )
-                    .setParameter("knownTypes", java.util.Arrays.stream(TransactionType.values())
-                            .map(Enum::name)
-                            .toList())
                     .setParameter("transfer", TransactionType.TRANSFER.name())
                     .setParameter("sender", "SENDER")
                     .setParameter("recipient", "RECIPIENT")
