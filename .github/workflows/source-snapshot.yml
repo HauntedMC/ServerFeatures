@@ -1,4 +1,4 @@
-name: Apply economy implementation
+name: Diagnose economy implementation payload
 
 on:
   pull_request:
@@ -10,11 +10,11 @@ on:
       - reopened
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  apply:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'github-actions[bot]'
+  diagnose:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Check out pull request branch
@@ -23,27 +23,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Verify and apply implementation
+      - name: Report payload segment integrity
         shell: bash
         run: |
           set -euo pipefail
+          wc -c .github/economy-patch/*
+          sha256sum .github/economy-patch/*
           cat .github/economy-patch/* > /tmp/economy.patch.gz.b64
-          echo "2a4cce8678a90f16994f2e875465f7dc99f6315568af13d1dbe4e5bdd15af4ab  /tmp/economy.patch.gz.b64" | sha256sum --check
-          base64 --decode /tmp/economy.patch.gz.b64 | gzip --decompress > /tmp/economy.patch
-          git apply --index /tmp/economy.patch
-
-      - name: Remove temporary transport files
-        shell: bash
-        run: |
-          rm -rf .github/economy-patch
-          rm -f .github/workflows/apply-economy-patch.yml
-          rm -f .github/workflows/source-snapshot.yml
-          git add -A
-
-      - name: Commit implementation
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Implement advanced multi-currency economy"
-          git push
+          wc -c /tmp/economy.patch.gz.b64
+          sha256sum /tmp/economy.patch.gz.b64
