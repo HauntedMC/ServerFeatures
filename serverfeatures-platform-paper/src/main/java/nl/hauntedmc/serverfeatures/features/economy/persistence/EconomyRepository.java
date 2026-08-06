@@ -33,6 +33,8 @@ import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -53,6 +55,8 @@ import java.util.function.Supplier;
 public final class EconomyRepository {
     private static final int MAX_RETRIES = 3;
     private static final int DATABASE_SCALE = 8;
+    private static final String DATABASE_TIME_QUERY =
+            "SELECT CAST(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(3)) * 1000 AS SIGNED)";
     private static final Gson GSON = new Gson();
 
     private final ORMContext orm;
@@ -265,6 +269,7 @@ public final class EconomyRepository {
                         now,
                         true
                 );
+                long transactionNow = databaseNow(session);
                 requireActive(
                         playerSettings,
                         bypassFreeze || journalType == TransactionType.LOTTERY_REFUND
@@ -284,7 +289,7 @@ public final class EconomyRepository {
                 balance.setBalance(databaseAmount(after));
                 balance.setPlayerName(trim(identity.playerName(), 32));
                 balance.setPlayerUuid(identity.playerUuid().toString());
-                balance.setUpdatedAt(now);
+                balance.setUpdatedAt(transactionNow);
 
                 EconomyTransactionEntity transaction = transaction(
                         journalType,
@@ -296,7 +301,7 @@ public final class EconomyRepository {
                         actorName,
                         reason,
                         metadata,
-                        now
+                        transactionNow
                 );
                 session.persist(transaction);
                 session.flush();
@@ -388,6 +393,7 @@ public final class EconomyRepository {
                 EconomyBalanceEntity recipient = locked.get(recipientIdentity.playerId());
                 EconomyPlayerSettingsEntity senderSettings = settings.get(senderIdentity.playerId());
                 EconomyPlayerSettingsEntity recipientSettings = settings.get(recipientIdentity.playerId());
+                long transactionNow = databaseNow(session);
                 requireActive(senderSettings, bypassFreeze);
                 requireActive(recipientSettings, bypassFreeze);
                 if (!bypassPaymentsToggle && !recipientSettings.isPaymentsEnabled()) {
@@ -403,15 +409,15 @@ public final class EconomyRepository {
                 BigDecimal recipientAfter = recipientBefore.add(amount);
                 validateBalance(senderAfter, currency);
                 validateBalance(recipientAfter, currency);
-                enforcePaymentCooldown(senderSettings, currency, now);
-                applyDailyLimits(session, sender, recipient, currency, amount, now);
+                enforcePaymentCooldown(senderSettings, currency, transactionNow);
+                applyDailyLimits(session, sender, recipient, currency, amount, transactionNow);
 
                 sender.setBalance(databaseAmount(senderAfter));
                 sender.setPlayerName(trim(senderIdentity.playerName(), 32));
-                sender.setUpdatedAt(now);
+                sender.setUpdatedAt(transactionNow);
                 recipient.setBalance(databaseAmount(recipientAfter));
                 recipient.setPlayerName(trim(recipientIdentity.playerName(), 32));
-                recipient.setUpdatedAt(now);
+                recipient.setUpdatedAt(transactionNow);
 
                 EconomyTransactionEntity transaction = transaction(
                         TransactionType.TRANSFER,
@@ -423,7 +429,7 @@ public final class EconomyRepository {
                         actorName,
                         reason,
                         metadata,
-                        now
+                        transactionNow
                 );
                 session.persist(transaction);
                 session.flush();
@@ -539,9 +545,10 @@ public final class EconomyRepository {
             }
             EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
             EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            long transactionNow = databaseNow(session);
             BigDecimal unchanged = balance.getBalance();
             settings.setPaymentsEnabled(enabled);
-            settings.setUpdatedAt(now);
+            settings.setUpdatedAt(transactionNow);
             EconomyTransactionEntity transaction = transaction(
                     type,
                     currency,
@@ -552,7 +559,7 @@ public final class EconomyRepository {
                     actorName,
                     reason,
                     metadata,
-                    now
+                    transactionNow
             );
             session.persist(transaction);
             session.flush();
@@ -593,11 +600,12 @@ public final class EconomyRepository {
             }
             EconomyBalanceEntity balance = ensureAccount(session, identity, currency, now, true);
             EconomyPlayerSettingsEntity settings = ensureSettings(session, balance.getId(), currency, now, true);
+            long transactionNow = databaseNow(session);
             BigDecimal unchanged = balance.getBalance();
             settings.setAccountStatus(frozen ? AccountStatus.FROZEN.name() : AccountStatus.ACTIVE.name());
             settings.setStatusActorPlayerId(actorPlayerId);
             settings.setStatusReason(trim(reason, 255));
-            settings.setUpdatedAt(now);
+            settings.setUpdatedAt(transactionNow);
             EconomyTransactionEntity transaction = transaction(
                     type,
                     currency,
@@ -608,7 +616,7 @@ public final class EconomyRepository {
                     actorName,
                     reason,
                     metadata,
-                    now
+                    transactionNow
             );
             session.persist(transaction);
             session.flush();
@@ -1412,6 +1420,18 @@ public final class EconomyRepository {
             }
         }
         throw last == null ? new IllegalStateException("Economy operation did not execute") : last;
+    }
+
+    private static long databaseNow(Session session) {
+        return session.doReturningWork(connection -> {
+            try (PreparedStatement statement = connection.prepareStatement(DATABASE_TIME_QUERY);
+                 ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new SQLException("MySQL returned no authoritative Economy timestamp");
+                }
+                return result.getLong(1);
+            }
+        });
     }
 
     static boolean isTransient(Throwable failure) {

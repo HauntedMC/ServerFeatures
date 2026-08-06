@@ -8,6 +8,7 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 - Redis messaging should use the same configured connection and channel on all participating instances. Redis is an invalidation and notification transport only; MySQL remains authoritative.
 - DataRegistry must resolve the same immutable player ID and UUID pair on every instance.
 - Every participating instance must run the same ServerFeatures build. Do not operate mixed Economy schema or messaging versions during rollout.
+- Keep every MySQL node synchronized to reliable time. Economy uses the database clock for mutation timestamps, cooldowns and UTC daily-limit buckets.
 
 ## Stable scope keys
 
