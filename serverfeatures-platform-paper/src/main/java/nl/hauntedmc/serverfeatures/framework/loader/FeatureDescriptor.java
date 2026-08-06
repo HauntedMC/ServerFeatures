@@ -64,8 +64,9 @@ public record FeatureDescriptor(
         featureDependencies = normalizeDependencies(featureDependencies, registryName);
         optionalFeatureDependencies = normalizeDependencies(optionalFeatureDependencies, registryName);
         if (!featureDependencies.isEmpty() && !optionalFeatureDependencies.isEmpty()) {
+            Set<String> requiredDependencies = featureDependencies;
             LinkedHashSet<String> optional = new LinkedHashSet<>(optionalFeatureDependencies);
-            optional.removeIf(candidate -> featureDependencies.stream().anyMatch(candidate::equalsIgnoreCase));
+            optional.removeIf(candidate -> requiredDependencies.stream().anyMatch(candidate::equalsIgnoreCase));
             optionalFeatureDependencies = optional.isEmpty()
                     ? Set.of()
                     : Collections.unmodifiableSet(optional);

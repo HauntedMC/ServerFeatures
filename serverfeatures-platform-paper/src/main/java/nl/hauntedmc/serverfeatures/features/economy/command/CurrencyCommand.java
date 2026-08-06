@@ -7,7 +7,6 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
-import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyTransferRequest;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;

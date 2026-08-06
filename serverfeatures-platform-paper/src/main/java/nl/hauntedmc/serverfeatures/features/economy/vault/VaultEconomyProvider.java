@@ -2,7 +2,6 @@ package nl.hauntedmc.serverfeatures.features.economy.vault;
 
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
-import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
