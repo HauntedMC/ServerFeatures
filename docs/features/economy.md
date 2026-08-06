@@ -317,6 +317,7 @@ Known offline players remain valid payment recipients. This cannot be disabled p
 
 - MySQL is authoritative; there is no local-file fallback and no write-behind balance queue.
 - Every mutation and its journal entries commit atomically.
+- Journal operation types describe generic money movement and account-state changes only. Integrations identify their own domain action through the stable source, reason, and metadata fields.
 - Transfers lock both accounts in canonical player-ID order.
 - Concurrent withdrawals cannot spend the same balance twice.
 - Account creation is protected by deterministic IDs and database uniqueness, so starting balances are applied once.

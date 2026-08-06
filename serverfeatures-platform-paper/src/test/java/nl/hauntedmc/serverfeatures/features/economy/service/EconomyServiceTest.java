@@ -3,50 +3,15 @@ package nl.hauntedmc.serverfeatures.features.economy.service;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.AccountStatus;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
-import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class EconomyServiceTest {
-
-    @Test
-    void acceptsCompatibleLotteryJournalClassification() {
-        assertEquals(
-                TransactionType.LOTTERY_DONATION,
-                EconomyService.requestedJournalType(
-                        TransactionType.WITHDRAW,
-                        Map.of("transaction_type", "LOTTERY_DONATION")
-                )
-        );
-    }
-
-    @Test
-    void rejectsJournalClassificationThatWouldChangeMutationDirection() {
-        assertEquals(
-                TransactionType.WITHDRAW,
-                EconomyService.requestedJournalType(
-                        TransactionType.WITHDRAW,
-                        Map.of("transaction_type", "LOTTERY_PAYOUT")
-                )
-        );
-    }
-
-    @Test
-    void ignoresUnknownJournalClassification() {
-        assertEquals(
-                TransactionType.DEPOSIT,
-                EconomyService.requestedJournalType(
-                        TransactionType.DEPOSIT,
-                        Map.of("transaction_type", "not-a-transaction-type")
-                )
-        );
-    }
 
     @Test
     void mergesBalanceAndSettingsUsingIndependentVersions() {

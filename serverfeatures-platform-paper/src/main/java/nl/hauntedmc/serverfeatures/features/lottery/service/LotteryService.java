@@ -414,7 +414,8 @@ public final class LotteryService {
             return;
         }
         String economyKey = "purchase:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
-        economy.withdraw(player, cost, economyKey).whenComplete((withdrawal, economyFailure) -> main(() -> {
+        economy.withdraw(player, cost, LotteryEconomyGateway.Operation.PURCHASE, economyKey)
+                .whenComplete((withdrawal, economyFailure) -> main(() -> {
             if (economyFailure != null) {
                 endPlayerOperation(playerUuid);
                 feature.send(player, "lottery.transaction.uncertain");
@@ -446,7 +447,7 @@ public final class LotteryService {
                                 "pot", format(receipt.pot())
                         ));
                     }));
-        }));
+                }));
     }
 
     private void withdrawAndStoreDonation(
@@ -471,7 +472,8 @@ public final class LotteryService {
             return;
         }
         String economyKey = "donation:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
-        economy.withdraw(player, amount, economyKey).whenComplete((withdrawal, economyFailure) -> main(() -> {
+        economy.withdraw(player, amount, LotteryEconomyGateway.Operation.DONATION, economyKey)
+                .whenComplete((withdrawal, economyFailure) -> main(() -> {
             if (economyFailure != null) {
                 endPlayerOperation(playerUuid);
                 feature.send(player, "lottery.transaction.uncertain");
@@ -501,7 +503,7 @@ public final class LotteryService {
                                 "pot", format(receipt.pot())
                         ));
                     }));
-        }));
+                }));
     }
 
     private void refund(
@@ -511,7 +513,8 @@ public final class LotteryService {
             String originalEconomyKey,
             Throwable failure
     ) {
-        economy.deposit(player, amount, "refund:" + originalEconomyKey).whenComplete((refund, refundFailure) -> main(() -> {
+        economy.deposit(player, amount, LotteryEconomyGateway.Operation.REFUND, "refund:" + originalEconomyKey)
+                .whenComplete((refund, refundFailure) -> main(() -> {
             if (refundFailure == null && refund != null && refund.successful()) {
                 feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
             } else {
@@ -520,7 +523,7 @@ public final class LotteryService {
             String result = refundFailure != null ? rootMessage(refundFailure)
                     : refund == null ? "no result" : refund.message();
             log("Lottery " + transaction + " could not be stored; refund result: " + result, failure);
-        }));
+                }));
     }
 
     private void claimNext(UUID playerUuid, boolean automatic, Money paid) {
@@ -559,7 +562,7 @@ public final class LotteryService {
     }
 
     private void deliverPayout(Player player, PendingPayout payout, boolean automatic, Money paid) {
-        economy.deposit(player, payout.amount(), "payout:" + payout.payoutId())
+        economy.deposit(player, payout.amount(), LotteryEconomyGateway.Operation.PAYOUT, "payout:" + payout.payoutId())
                 .whenComplete((result, economyFailure) -> main(() -> {
                     EconomyResult effective = economyFailure == null && result != null
                             ? result

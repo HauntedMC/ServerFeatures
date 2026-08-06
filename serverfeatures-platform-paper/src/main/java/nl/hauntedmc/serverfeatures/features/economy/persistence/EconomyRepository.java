@@ -233,8 +233,7 @@ public final class EconomyRepository {
 
 
     public MutationOutcome mutate(
-            TransactionType operationType,
-            TransactionType journalType,
+            TransactionType type,
             Identity identity,
             EconomySettings.Currency currency,
             BigDecimal rawAmount,
@@ -246,11 +245,10 @@ public final class EconomyRepository {
             Map<String, String> metadata,
             boolean bypassFreeze
     ) {
-        requireCompatibleMutationTypes(operationType, journalType);
-        BigDecimal amount = normalizeMutationAmount(operationType, rawAmount, currency);
+        BigDecimal amount = normalizeMutationAmount(type, rawAmount, currency);
         String requestFingerprint = mutationFingerprint(
-                operationType,
-                journalType,
+                type,
+                type,
                 identity,
                 currency,
                 amount,
@@ -276,16 +274,13 @@ public final class EconomyRepository {
                         true
                 );
                 long transactionNow = databaseNow(session);
-                requireActive(
-                        playerSettings,
-                        bypassFreeze || journalType == TransactionType.LOTTERY_REFUND
-                );
+                requireActive(playerSettings, bypassFreeze);
 
                 BigDecimal before = balance.getBalance();
-                BigDecimal after = switch (operationType) {
-                    case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> before.add(amount);
-                    case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> before.subtract(amount);
-                    case SET, ADMIN_SET -> amount;
+                BigDecimal after = switch (type) {
+                    case DEPOSIT -> before.add(amount);
+                    case WITHDRAW -> before.subtract(amount);
+                    case SET -> amount;
                     case TRANSFER -> throw new IllegalArgumentException("Use transfer() for transfers");
                     case ACCOUNT_CREATED -> throw new IllegalArgumentException("Account creation is internal");
                     case PAYMENTS_ENABLED, PAYMENTS_DISABLED, ACCOUNT_FROZEN, ACCOUNT_UNFROZEN ->
@@ -298,7 +293,7 @@ public final class EconomyRepository {
                 balance.setUpdatedAt(transactionNow);
 
                 EconomyTransactionEntity transaction = transaction(
-                        journalType,
+                        type,
                         currency,
                         source,
                         idempotencyKey,
@@ -1259,30 +1254,6 @@ public final class EconomyRepository {
         }
     }
 
-    private static void requireCompatibleMutationTypes(
-            TransactionType operationType,
-            TransactionType journalType
-    ) {
-        Objects.requireNonNull(operationType, "operationType");
-        Objects.requireNonNull(journalType, "journalType");
-        if (mutationDirection(operationType) != mutationDirection(journalType)) {
-            throw new IllegalArgumentException(
-                    "Journal transaction type " + journalType + " is incompatible with " + operationType
-            );
-        }
-    }
-
-    private static int mutationDirection(TransactionType type) {
-        return switch (type) {
-            case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> 1;
-            case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> -1;
-            case SET, ADMIN_SET -> 0;
-            case TRANSFER -> 2;
-            case ACCOUNT_CREATED -> 4;
-            case PAYMENTS_ENABLED, PAYMENTS_DISABLED, ACCOUNT_FROZEN, ACCOUNT_UNFROZEN -> 3;
-        };
-    }
-
     private static void enforcePaymentCooldown(
             EconomyPlayerSettingsEntity senderSettings,
             EconomySettings.Currency currency,
@@ -1422,7 +1393,7 @@ public final class EconomyRepository {
             BigDecimal amount,
             EconomySettings.Currency currency
     ) {
-        if (type == TransactionType.SET || type == TransactionType.ADMIN_SET) {
+        if (type == TransactionType.SET) {
             BigDecimal normalized = normalize(amount, currency);
             validateBalance(normalized, currency);
             return normalized;

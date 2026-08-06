@@ -166,12 +166,12 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public EconomyResponse withdrawPlayer(String playerName, double amount) {
-        return mutateResolved(() -> service.resolveSync(playerName), amount, TransactionType.VAULT_WITHDRAW);
+        return mutateResolved(() -> service.resolveSync(playerName), amount, TransactionType.WITHDRAW);
     }
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount) {
-        return mutateResolved(() -> service.resolveSync(player), amount, TransactionType.VAULT_WITHDRAW);
+        return mutateResolved(() -> service.resolveSync(player), amount, TransactionType.WITHDRAW);
     }
 
     @Override
@@ -186,12 +186,12 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public EconomyResponse depositPlayer(String playerName, double amount) {
-        return mutateResolved(() -> service.resolveSync(playerName), amount, TransactionType.VAULT_DEPOSIT);
+        return mutateResolved(() -> service.resolveSync(playerName), amount, TransactionType.DEPOSIT);
     }
 
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount) {
-        return mutateResolved(() -> service.resolveSync(player), amount, TransactionType.VAULT_DEPOSIT);
+        return mutateResolved(() -> service.resolveSync(player), amount, TransactionType.DEPOSIT);
     }
 
     @Override

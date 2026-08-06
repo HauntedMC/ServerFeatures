@@ -57,7 +57,12 @@ class BuiltinLotteryEconomyTest {
         when(player.getName()).thenReturn("Player");
 
         LotteryEconomyGateway.EconomyResult result = new BuiltinLotteryEconomy(economy, "money")
-                .withdraw(player, Money.of(new BigDecimal("10.00")), "purchase:test")
+                .withdraw(
+                        player,
+                        Money.of(new BigDecimal("10.00")),
+                        LotteryEconomyGateway.Operation.PURCHASE,
+                        "purchase:test"
+                )
                 .toCompletableFuture()
                 .join();
 

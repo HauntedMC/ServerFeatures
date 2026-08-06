@@ -10,13 +10,30 @@ import java.util.concurrent.CompletionStage;
 public interface LotteryEconomyGateway {
     Optional<Money> cachedBalance(OfflinePlayer player);
 
-    CompletionStage<EconomyResult> withdraw(OfflinePlayer player, Money amount, String idempotencyKey);
+    CompletionStage<EconomyResult> withdraw(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    );
 
-    CompletionStage<EconomyResult> deposit(OfflinePlayer player, Money amount, String idempotencyKey);
+    CompletionStage<EconomyResult> deposit(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    );
 
     String format(Money amount);
 
     String backendName();
+
+    enum Operation {
+        PURCHASE,
+        DONATION,
+        PAYOUT,
+        REFUND
+    }
 
     record EconomyResult(boolean successful, boolean uncertain, String message, String operationId) {
         public EconomyResult {

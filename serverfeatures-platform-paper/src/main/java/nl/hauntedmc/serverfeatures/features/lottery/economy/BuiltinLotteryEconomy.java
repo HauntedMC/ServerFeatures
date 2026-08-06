@@ -39,17 +39,27 @@ public final class BuiltinLotteryEconomy implements LotteryEconomyGateway {
     }
 
     @Override
-    public CompletionStage<EconomyResult> withdraw(OfflinePlayer player, Money amount, String idempotencyKey) {
-        String type = idempotencyKey.startsWith("donation:") ? "LOTTERY_DONATION" : "LOTTERY_PURCHASE";
-        EconomyMutationRequest request = request(player, amount, idempotencyKey, type);
+    public CompletionStage<EconomyResult> withdraw(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    ) {
+        requireWithdrawal(operation);
+        EconomyMutationRequest request = request(player, amount, operation, idempotencyKey);
         return executeIdempotently(() -> economy.withdraw(request), 1)
                 .thenApply(BuiltinLotteryEconomy::result);
     }
 
     @Override
-    public CompletionStage<EconomyResult> deposit(OfflinePlayer player, Money amount, String idempotencyKey) {
-        String type = idempotencyKey.startsWith("payout:") ? "LOTTERY_PAYOUT" : "LOTTERY_REFUND";
-        EconomyMutationRequest request = request(player, amount, idempotencyKey, type);
+    public CompletionStage<EconomyResult> deposit(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    ) {
+        requireDeposit(operation);
+        EconomyMutationRequest request = request(player, amount, operation, idempotencyKey);
         return executeIdempotently(() -> economy.deposit(request), 1)
                 .thenApply(BuiltinLotteryEconomy::result);
     }
@@ -67,8 +77,8 @@ public final class BuiltinLotteryEconomy implements LotteryEconomyGateway {
     private EconomyMutationRequest request(
             OfflinePlayer player,
             Money amount,
-            String idempotencyKey,
-            String transactionType
+            Operation operation,
+            String idempotencyKey
     ) {
         return new EconomyMutationRequest(
                 "lottery",
@@ -77,9 +87,30 @@ public final class BuiltinLotteryEconomy implements LotteryEconomyGateway {
                 amount.amount(),
                 null,
                 "Lottery",
-                transactionType,
-                Map.of("transaction_type", transactionType)
+                reason(operation),
+                Map.of("lottery_operation", operation.name().toLowerCase(java.util.Locale.ROOT))
         );
+    }
+
+    private static void requireWithdrawal(Operation operation) {
+        if (operation != Operation.PURCHASE && operation != Operation.DONATION) {
+            throw new IllegalArgumentException("Lottery " + operation + " must use a deposit");
+        }
+    }
+
+    private static void requireDeposit(Operation operation) {
+        if (operation != Operation.PAYOUT && operation != Operation.REFUND) {
+            throw new IllegalArgumentException("Lottery " + operation + " must use a withdrawal");
+        }
+    }
+
+    private static String reason(Operation operation) {
+        return switch (operation) {
+            case PURCHASE -> "Lottery ticket purchase";
+            case DONATION -> "Lottery pot donation";
+            case PAYOUT -> "Lottery payout";
+            case REFUND -> "Lottery refund";
+        };
     }
 
     private EconomyAccountRef account(OfflinePlayer player) {

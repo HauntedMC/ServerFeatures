@@ -35,7 +35,12 @@ public final class LotteryEconomy implements LotteryEconomyGateway {
     }
 
     @Override
-    public CompletionStage<EconomyResult> withdraw(OfflinePlayer player, Money amount, String idempotencyKey) {
+    public CompletionStage<EconomyResult> withdraw(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    ) {
         requireMainThread();
         if (!amount.isPositive()) {
             return CompletableFuture.completedFuture(EconomyResult.failure("Amount must be positive"));
@@ -51,7 +56,12 @@ public final class LotteryEconomy implements LotteryEconomyGateway {
     }
 
     @Override
-    public CompletionStage<EconomyResult> deposit(OfflinePlayer player, Money amount, String idempotencyKey) {
+    public CompletionStage<EconomyResult> deposit(
+            OfflinePlayer player,
+            Money amount,
+            Operation operation,
+            String idempotencyKey
+    ) {
         requireMainThread();
         if (!amount.isPositive()) {
             return CompletableFuture.completedFuture(EconomyResult.failure("Amount must be positive"));

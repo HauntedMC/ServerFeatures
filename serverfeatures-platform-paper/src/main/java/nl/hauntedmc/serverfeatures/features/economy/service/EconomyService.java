@@ -198,10 +198,8 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
                     request.account().currencyId(),
                     request.account().scopeKey()
             );
-            TransactionType journalType = requestedJournalType(type, request.metadata());
             return submit(() -> repository.mutate(
                             type,
-                            journalType,
                             identity,
                             currency,
                             request.amount(),
@@ -484,7 +482,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
             );
         }
         MutationOutcome outcome = repository.mutate(
-                type, type, identity, currency, amount, source, idempotencyKey, null,
+                type, identity, currency, amount, source, idempotencyKey, null,
                 source, source + " economy operation", Map.of(), false
         );
         publish(outcome);
@@ -1036,42 +1034,6 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
 
     private static String cacheKey(UUID playerUuid, String currencyId, String scopeKey) {
         return playerUuid + "|" + currencyId + "|" + scopeKey;
-    }
-
-    static TransactionType requestedJournalType(
-            TransactionType operationType,
-            Map<String, String> metadata
-    ) {
-        if (metadata == null) {
-            return operationType;
-        }
-        String requested = metadata.get("transaction_type");
-        if (requested == null || requested.isBlank()) {
-            return operationType;
-        }
-        try {
-            TransactionType candidate = TransactionType.valueOf(requested.trim().toUpperCase(Locale.ROOT));
-            return sameMutationDirection(operationType, candidate) ? candidate : operationType;
-        } catch (IllegalArgumentException ignored) {
-            return operationType;
-        }
-    }
-
-    private static boolean sameMutationDirection(TransactionType left, TransactionType right) {
-        return switch (left) {
-            case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> switch (right) {
-                case DEPOSIT, ADMIN_ADD, LOTTERY_PAYOUT, LOTTERY_REFUND, VAULT_DEPOSIT -> true;
-                default -> false;
-            };
-            case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> switch (right) {
-                case WITHDRAW, ADMIN_REMOVE, LOTTERY_PURCHASE, LOTTERY_DONATION, VAULT_WITHDRAW -> true;
-                default -> false;
-            };
-            case SET, ADMIN_SET -> right == TransactionType.SET || right == TransactionType.ADMIN_SET;
-            case TRANSFER -> right == TransactionType.TRANSFER;
-            case ACCOUNT_CREATED -> right == TransactionType.ACCOUNT_CREATED;
-            case PAYMENTS_ENABLED, PAYMENTS_DISABLED, ACCOUNT_FROZEN, ACCOUNT_UNFROZEN -> left == right;
-        };
     }
 
     private long now() {

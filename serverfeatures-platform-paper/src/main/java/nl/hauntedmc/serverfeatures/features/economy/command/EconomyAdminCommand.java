@@ -55,9 +55,9 @@ public final class EconomyAdminCommand implements BrigadierCommand {
         root.then(Commands.literal("balance")
                 .requires(source -> source.getSender().hasPermission(permission("balance")))
                 .then(playerCurrencyArguments(this::balance)));
-        root.then(mutation("add", TransactionType.ADMIN_ADD));
-        root.then(mutation("remove", TransactionType.ADMIN_REMOVE));
-        root.then(mutation("set", TransactionType.ADMIN_SET));
+        root.then(mutation("add", TransactionType.DEPOSIT));
+        root.then(mutation("remove", TransactionType.WITHDRAW));
+        root.then(mutation("set", TransactionType.SET));
         root.then(Commands.literal("payments")
                 .requires(source -> source.getSender().hasPermission(permission("payments")))
                 .then(Commands.argument("player", StringArgumentType.word())
@@ -204,7 +204,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
             return 0;
         }
         resolve(target, currencyId, (identity, currency) -> {
-            BigDecimal amount = parseAmount(rawAmount, currency, type == TransactionType.ADMIN_SET);
+            BigDecimal amount = parseAmount(rawAmount, currency, type == TransactionType.SET);
             Long actorId = sender instanceof Player player
                     ? feature.service().resolveSync(player).map(Identity::playerId).orElse(null)
                     : null;
@@ -216,7 +216,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                     actorId,
                     sender.getName(),
                     reason,
-                    Map.of("transaction_type", type.name())
+                    Map.of()
             );
             feature.service().mutate(request, type, true).whenComplete((result, failure) ->
                     feature.service().main(() -> mutationResult(sender, identity, currency, result, failure)));

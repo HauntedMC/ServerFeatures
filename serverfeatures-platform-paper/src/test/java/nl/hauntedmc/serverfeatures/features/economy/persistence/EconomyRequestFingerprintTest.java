@@ -42,25 +42,25 @@ class EconomyRequestFingerprintTest {
 
         String left = EconomyRepository.mutationFingerprint(
                 TransactionType.WITHDRAW,
-                TransactionType.LOTTERY_PURCHASE,
+                TransactionType.WITHDRAW,
                 SENDER,
                 CURRENCY,
                 new BigDecimal("10.00"),
                 1L,
                 "Sender",
-                "Lottery purchase",
+                "External purchase",
                 leftMetadata,
                 false
         );
         String right = EconomyRepository.mutationFingerprint(
                 TransactionType.WITHDRAW,
-                TransactionType.LOTTERY_PURCHASE,
+                TransactionType.WITHDRAW,
                 SENDER,
                 CURRENCY,
                 new BigDecimal("10.00"),
                 1L,
                 "Sender",
-                "Lottery purchase",
+                "External purchase",
                 rightMetadata,
                 false
         );
@@ -68,19 +68,19 @@ class EconomyRequestFingerprintTest {
         assertEquals(left, right);
         assertNotEquals(left, EconomyRepository.mutationFingerprint(
                 TransactionType.WITHDRAW,
-                TransactionType.LOTTERY_PURCHASE,
+                TransactionType.WITHDRAW,
                 SENDER,
                 CURRENCY,
                 new BigDecimal("11.00"),
                 1L,
                 "Sender",
-                "Lottery purchase",
+                "External purchase",
                 rightMetadata,
                 false
         ));
         assertNotEquals(left, EconomyRepository.mutationFingerprint(
                 TransactionType.WITHDRAW,
-                TransactionType.LOTTERY_PURCHASE,
+                TransactionType.WITHDRAW,
                 SENDER,
                 CURRENCY,
                 new BigDecimal("10.00"),
