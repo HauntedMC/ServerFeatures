@@ -420,6 +420,10 @@ Registration fails closed unless Vault reports the new ServerFeatures provider a
 
 `EconomyApi` is registered through the feature service catalog. All native mutations are asynchronous and explicitly select a currency/account scope. Strong balance reads and all mutations use MySQL; cache reads are an optional display optimization only.
 
+`EconomyApi` is an in-process Java API, not a website endpoint. A website or another external process must use an authenticated, authorized server-side gateway that delegates to this API, or a separately reviewed service that preserves the identical MySQL row-lock, journal and idempotency transaction. Do not give external applications direct write access to Economy tables.
+
+The gateway must persist a stable idempotency key before sending a logical operation, reuse the exact source/key/request after timeouts or connection loss, and return success only after the authoritative mutation commits. A balance read is never a reservation: purchase flows must perform the withdrawal atomically, then deliver the purchased item idempotently or through a durable outbox/saga so application retries cannot charge or fulfill twice.
+
 ## PlaceholderAPI
 
 Cache-only placeholders include:
