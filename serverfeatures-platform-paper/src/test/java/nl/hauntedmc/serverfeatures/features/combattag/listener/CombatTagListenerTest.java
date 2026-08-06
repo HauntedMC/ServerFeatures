@@ -122,13 +122,14 @@ class CombatTagListenerTest {
         CombatTagListener listener = listener(settings, service);
         Player attacker = player("Attacker");
         LivingEntity enemy = hostileMob(CreatureSpawnEvent.SpawnReason.NATURAL);
+        UUID enemyId = enemy.getUniqueId();
 
         listener.onDamage(damageEvent(attacker, enemy));
 
         verify(service).tagOutgoing(
                 eq(attacker),
                 any(),
-                eq(enemy.getUniqueId()),
+                eq(enemyId),
                 eq(CombatTagReason.MELEE)
         );
     }
