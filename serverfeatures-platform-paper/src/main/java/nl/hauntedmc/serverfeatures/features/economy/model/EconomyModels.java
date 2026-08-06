@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.economy.model;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -95,7 +94,7 @@ public final class EconomyModels {
 
         @Override
         public List<HistoryItem> entries() {
-            return List.copyOf(new ArrayList<>(entries));
+            return entries;
         }
     }
 
