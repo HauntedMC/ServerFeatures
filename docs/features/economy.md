@@ -334,7 +334,7 @@ Native callers provide both a stable `source` and an `idempotencyKey`. The uniqu
 
 The stored request fingerprint binds the operation type, account or transfer parties, scope, normalized amount, actor, reason, metadata and bypass policy. Reusing the same key for the same request returns the original operation as `IDEMPOTENT_REPLAY`. Reusing it for a different request returns `IDEMPOTENCY_CONFLICT`; the second request is not applied.
 
-Integration sources should be globally stable names such as `lottery`, `shop`, or `quest-rewards`. Retry attempts for one logical operation must reuse the same idempotency key.
+Integration sources should be globally stable names such as `shop`, `quest-rewards`, or `website-store`. Retry attempts for one logical operation must reuse the same idempotency key.
 
 ## Storage
 
@@ -358,7 +358,7 @@ The feature registers these ORM entities:
 - Duplicate/reordered Redis delivery: versioned invalidation and authoritative reload prevent stale overwrites.
 - Server crash after commit: the balance and journal remain committed; idempotent callers can safely replay the request.
 - Transient connection loss during commit: the repository retries the same idempotent request, so an uncertain commit resolves to either the original journaled operation or one new commit.
-- Lottery built-in backend: one automatic retry reuses the exact same idempotency key, so an uncertain first response cannot charge or pay twice.
+- Built-in integrations retry an uncertain operation with the exact same idempotency key, so a timeout cannot charge or pay twice.
 - Server crash before commit: the transaction rolls back.
 
 ## Player commands

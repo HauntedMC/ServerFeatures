@@ -1,6 +1,5 @@
 package nl.hauntedmc.serverfeatures.features.economy;
 
-import nl.hauntedmc.serverfeatures.features.lottery.Lottery;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -15,7 +14,6 @@ class VaultOptionalClassloadingTest {
     @Test
     void nativeFeatureEntryPointsDoNotLinkVaultApiClasses() throws IOException {
         assertNoVaultApiReference(Economy.class);
-        assertNoVaultApiReference(Lottery.class);
     }
 
     private static void assertNoVaultApiReference(Class<?> type) throws IOException {

@@ -109,7 +109,7 @@ class EconomyApiValidationTest {
                 "hauntedmc/global"
         ));
         assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
-                "Lottery With Spaces",
+                "Integration With Spaces",
                 "operation",
                 ACCOUNT,
                 BigDecimal.ONE,
@@ -119,7 +119,7 @@ class EconomyApiValidationTest {
                 Map.of()
         ));
         assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
-                "lottery",
+                "integration",
                 "operation",
                 ACCOUNT,
                 BigDecimal.ONE,
@@ -129,7 +129,7 @@ class EconomyApiValidationTest {
                 Map.of()
         ));
         assertThrows(IllegalArgumentException.class, () -> new EconomyMutationRequest(
-                "lottery",
+                "integration",
                 "operation",
                 ACCOUNT,
                 BigDecimal.ONE,
