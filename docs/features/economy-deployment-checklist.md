@@ -12,6 +12,7 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 ## Stable scope keys
 
 - Give every logical gamemode one permanent local key, such as `survival`, `skyblock`, or `kitpvp`.
+- Set the top-level `server_key`, `gamemode_key`, or `local_key` to that logical gamemode key. A per-currency `scope.local_key` may override it when replicas need an explicitly shared local scope.
 - Physical replicas of one gamemode must use the same logical local key when they should share gamemode-local balances.
 - Do not rename a logical key after accounts exist. A different key intentionally selects a different account scope.
 - Configure Crowns and Credits as `GLOBAL` on every participating gamemode.
