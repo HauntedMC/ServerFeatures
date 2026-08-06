@@ -178,7 +178,9 @@ class EconomySettingsTest {
 
     private static EconomySettings load(Map<String, Object> values) {
         FeatureConfigHandler config = mock(FeatureConfigHandler.class);
-        when(config.node()).thenReturn(ConfigNode.ofRaw(values, "economy"));
+        ConfigNode root = ConfigNode.ofRaw(values, "economy");
+        when(config.node()).thenReturn(root);
+        when(config.node("currencies")).thenReturn(root.getAt("currencies"));
         return EconomySettings.load(config, "physical-server");
     }
 
