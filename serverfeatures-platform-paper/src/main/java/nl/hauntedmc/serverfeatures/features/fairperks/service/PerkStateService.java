@@ -222,18 +222,12 @@ public final class PerkStateService {
 
     public boolean disableFlightForCombat(Player player) {
         SessionState state = stateFor(player);
-        boolean stopActiveFlight = state.flyOwned
-                || readBoolean(player, FLY_ACTIVE_KEY)
-                || readBoolean(player, FLY_OWNED_KEY);
         if (!hasManagedFlight(player, state)) {
             return false;
         }
 
         state.flyDesired = false;
         revokeFlight(player, state, false, true);
-        if (stopActiveFlight && !isNativeFlightMode(player) && player.isFlying()) {
-            player.setFlying(false);
-        }
         clearFlightPersistence(player);
         feature.sendMessage(player, "fairperks.fly.disabled");
         return true;
@@ -474,7 +468,7 @@ public final class PerkStateService {
 
         state.flyDesired = false;
         if (hadFlight) {
-            revokeFlight(player, state, true, grantFallGrace);
+            revokeFlight(player, state, false, grantFallGrace);
         }
         clearFlightPersistence(player);
         state.godDesired = false;
