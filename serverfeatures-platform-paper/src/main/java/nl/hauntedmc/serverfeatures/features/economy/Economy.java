@@ -26,6 +26,7 @@ import nl.hauntedmc.serverfeatures.features.economy.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRepository;
 import nl.hauntedmc.serverfeatures.features.economy.placeholder.EconomyPlaceholder;
 import nl.hauntedmc.serverfeatures.features.economy.service.EconomyService;
+import nl.hauntedmc.serverfeatures.features.economy.vault.EconomyVaultIntegration;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 

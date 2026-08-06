@@ -1,7 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.economy.vault;
 
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
-import nl.hauntedmc.serverfeatures.features.economy.EconomyVaultIntegration;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings.VaultConflictPolicy;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
