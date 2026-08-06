@@ -302,17 +302,21 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                 fail(sender, failure);
                 return;
             }
-            feature.send(sender, "economy.admin.verify", Map.of(
-                    "health", report.healthy() ? "healthy" : "issues",
-                    "accounts", Long.toString(report.accountCount()),
-                    "transactions", Long.toString(report.transactionCount()),
-                    "invalid", Long.toString(report.invalidBalanceCount()),
-                    "invalid_entries", Long.toString(report.invalidEntryCount()),
-                    "orphan_settings", Long.toString(report.orphanSettingsCount()),
-                    "orphan_entries", Long.toString(report.orphanEntryCount()),
-                    "identity_mismatches", Long.toString(report.identityMismatchCount()),
-                    "accounts_without_entries", Long.toString(report.accountWithoutEntriesCount()),
-                    "empty_transactions", Long.toString(report.transactionWithoutEntriesCount())
+            feature.send(sender, "economy.admin.verify", Map.ofEntries(
+                    Map.entry("health", report.healthy() ? "healthy" : "issues"),
+                    Map.entry("accounts", Long.toString(report.accountCount())),
+                    Map.entry("transactions", Long.toString(report.transactionCount())),
+                    Map.entry("invalid", Long.toString(report.invalidBalanceCount())),
+                    Map.entry("invalid_entries", Long.toString(report.invalidEntryCount())),
+                    Map.entry("invalid_transactions", Long.toString(report.invalidTransactionCount())),
+                    Map.entry("orphan_settings", Long.toString(report.orphanSettingsCount())),
+                    Map.entry("orphan_entries", Long.toString(report.orphanEntryCount())),
+                    Map.entry("identity_mismatches", Long.toString(report.identityMismatchCount())),
+                    Map.entry("entry_account_mismatches", Long.toString(report.entryAccountMismatchCount())),
+                    Map.entry("accounts_without_entries", Long.toString(report.accountWithoutEntriesCount())),
+                    Map.entry("empty_transactions", Long.toString(report.transactionWithoutEntriesCount())),
+                    Map.entry("balance_journal_mismatches", Long.toString(report.balanceJournalMismatchCount())),
+                    Map.entry("continuity_errors", Long.toString(report.journalContinuityErrorCount()))
             ));
         }));
         return 1;

@@ -125,7 +125,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         messages.add("economy.admin.payments", "<green>Betalingen voor {player} staan nu {state}.</green>");
         messages.add("economy.admin.frozen", "<yellow>Account {player}/{currency} is bevroren.</yellow>");
         messages.add("economy.admin.unfrozen", "<green>Account {player}/{currency} is vrijgegeven.</green>");
-        messages.add("economy.admin.verify", "<gray>Status {health} · accounts {accounts} · transacties {transactions} · ongeldige saldi {invalid} · ongeldige regels {invalid_entries} · losse instellingen {orphan_settings} · losse regels {orphan_entries} · identiteitsfouten {identity_mismatches} · accounts zonder journaal {accounts_without_entries} · lege transacties {empty_transactions}</gray>");
+        messages.add("economy.admin.verify", "<gray>Status {health} · accounts {accounts} · transacties {transactions} · ongeldige saldi {invalid} · ongeldige regels {invalid_entries} · ongeldige transacties {invalid_transactions} · losse instellingen {orphan_settings} · losse regels {orphan_entries} · identiteitsfouten {identity_mismatches} · verkeerde accountregels {entry_account_mismatches} · accounts zonder journaal {accounts_without_entries} · lege transacties {empty_transactions} · saldo/journaalfouten {balance_journal_mismatches} · ketenfouten {continuity_errors}</gray>");
         return messages;
     }
 

@@ -696,7 +696,7 @@ public final class EconomyRepository {
                 .toList()));
     }
 
-    public VerificationReport verify(EconomySettings settings) {
+    public VerificationReport verify() {
         return executeWithRetry(() -> orm.runInTransaction(session -> {
             long accounts = session.createSelectionQuery("select count(*) from EconomyBalanceEntity", Long.class)
                     .getSingleResult();
@@ -720,6 +720,39 @@ public final class EconomyRepository {
                             Long.class
                     )
                     .getSingleResult();
+            long invalidTransactions = session.createSelectionQuery(
+                            "select count(*) from EconomyTransactionEntity t where "
+                                    + "t.transactionType not in :knownTypes or "
+                                    + "(t.transactionType = :transfer and ("
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id) <> 2 or "
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id and e.entryRole = :sender) <> 1 or "
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id and e.entryRole = :recipient) <> 1 or "
+                                    + "(select count(distinct e.accountId) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id) <> 2 or "
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id and e.entryRole = :sender and e.delta < 0) <> 1 or "
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id and e.entryRole = :recipient and e.delta > 0) <> 1 or "
+                                    + "(select sum(e.delta) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id) <> 0)) or "
+                                    + "(t.transactionType <> :transfer and ("
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id) <> 1 or "
+                                    + "(select count(*) from EconomyTransactionEntryEntity e "
+                                    + "where e.transactionId = t.id and e.entryRole = :target) <> 1))",
+                            Long.class
+                    )
+                    .setParameter("knownTypes", java.util.Arrays.stream(TransactionType.values())
+                            .map(Enum::name)
+                            .toList())
+                    .setParameter("transfer", TransactionType.TRANSFER.name())
+                    .setParameter("sender", "SENDER")
+                    .setParameter("recipient", "RECIPIENT")
+                    .setParameter("target", "TARGET")
+                    .getSingleResult();
             long orphanEntries = session.createSelectionQuery(
                             "select count(*) from EconomyTransactionEntryEntity e where not exists "
                                     + "(select 1 from EconomyTransactionEntity t where t.id = e.transactionId) "
@@ -734,35 +767,65 @@ public final class EconomyRepository {
                             Long.class
                     )
                     .getSingleResult();
+            long entryAccountMismatches = session.createSelectionQuery(
+                            "select count(*) from EconomyTransactionEntryEntity e, "
+                                    + "EconomyTransactionEntity t, EconomyBalanceEntity b "
+                                    + "where t.id = e.transactionId and b.id = e.accountId and ("
+                                    + "e.playerId <> b.playerId or t.currencyId <> b.currencyId "
+                                    + "or t.scopeKey <> b.scopeKey)",
+                            Long.class
+                    )
+                    .getSingleResult();
             long accountsWithoutEntries = session.createSelectionQuery(
                             "select count(*) from EconomyBalanceEntity b where not exists "
                                     + "(select 1 from EconomyTransactionEntryEntity e where e.accountId = b.id)",
                             Long.class
                     )
                     .getSingleResult();
-            long invalidBalances = 0L;
-            for (EconomySettings.Currency currency : settings.currencies().values()) {
-                invalidBalances += session.createSelectionQuery(
-                                "select count(*) from EconomyBalanceEntity where currencyId = :currency "
-                                        + "and scopeKey = :scope and (balance < :minimum or balance > :maximum)",
-                                Long.class
-                        )
-                        .setParameter("currency", currency.id())
-                        .setParameter("scope", currency.scope().key())
-                        .setParameter("minimum", databaseAmount(currency.balances().minimum()))
-                        .setParameter("maximum", databaseAmount(currency.balances().maximum()))
-                        .getSingleResult();
-            }
+            long balanceJournalMismatches = session.createSelectionQuery(
+                            "select count(*) from EconomyBalanceEntity b where exists ("
+                                    + "select 1 from EconomyTransactionEntryEntity e where e.accountId = b.id "
+                                    + "and e.transactionId = (select max(latest.transactionId) "
+                                    + "from EconomyTransactionEntryEntity latest where latest.accountId = b.id) "
+                                    + "and e.balanceAfter <> b.balance)",
+                            Long.class
+                    )
+                    .getSingleResult();
+            long journalContinuityErrors = session.createSelectionQuery(
+                            "select count(*) from EconomyTransactionEntryEntity e where exists ("
+                                    + "select 1 from EconomyTransactionEntryEntity previous "
+                                    + "where previous.accountId = e.accountId and previous.transactionId = ("
+                                    + "select max(candidate.transactionId) from EconomyTransactionEntryEntity candidate "
+                                    + "where candidate.accountId = e.accountId "
+                                    + "and candidate.transactionId < e.transactionId) "
+                                    + "and previous.balanceAfter <> e.balanceBefore)",
+                            Long.class
+                    )
+                    .getSingleResult();
+            long invalidBalances = session.createSelectionQuery(
+                            "select count(*) from EconomyBalanceEntity b where not exists ("
+                                    + "select 1 from EconomyCurrencyDefinitionEntity d where "
+                                    + "d.currencyId = b.currencyId and d.scopeKey = b.scopeKey) or exists ("
+                                    + "select 1 from EconomyCurrencyDefinitionEntity d where "
+                                    + "d.currencyId = b.currencyId and d.scopeKey = b.scopeKey and "
+                                    + "(b.balance < d.minimumBalance or b.balance > d.maximumBalance))",
+                            Long.class
+                    )
+                    .getSingleResult();
             return new VerificationReport(
                     accounts,
                     transactions,
                     invalidBalances,
                     invalidEntries,
+                    invalidTransactions,
                     orphanSettings,
                     orphanEntries,
                     identityMismatches,
+                    entryAccountMismatches,
                     accountsWithoutEntries,
-                    transactionsWithoutEntries
+                    transactionsWithoutEntries,
+                    balanceJournalMismatches,
+                    journalContinuityErrors
             );
         }));
     }

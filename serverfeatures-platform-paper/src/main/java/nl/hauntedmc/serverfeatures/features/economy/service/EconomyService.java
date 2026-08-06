@@ -374,7 +374,7 @@ public final class EconomyService implements EconomyApi, AutoCloseable {
     }
 
     public CompletionStage<VerificationReport> verify() {
-        return submit(() -> repository.verify(settings));
+        return submit(repository::verify);
     }
 
     @Override

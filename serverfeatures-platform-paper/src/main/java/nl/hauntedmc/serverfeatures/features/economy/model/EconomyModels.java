@@ -152,20 +152,28 @@ public final class EconomyModels {
             long transactionCount,
             long invalidBalanceCount,
             long invalidEntryCount,
+            long invalidTransactionCount,
             long orphanSettingsCount,
             long orphanEntryCount,
             long identityMismatchCount,
+            long entryAccountMismatchCount,
             long accountWithoutEntriesCount,
-            long transactionWithoutEntriesCount
+            long transactionWithoutEntriesCount,
+            long balanceJournalMismatchCount,
+            long journalContinuityErrorCount
     ) {
         public boolean healthy() {
             return invalidBalanceCount == 0L
                     && invalidEntryCount == 0L
+                    && invalidTransactionCount == 0L
                     && orphanSettingsCount == 0L
                     && orphanEntryCount == 0L
                     && identityMismatchCount == 0L
+                    && entryAccountMismatchCount == 0L
                     && accountWithoutEntriesCount == 0L
-                    && transactionWithoutEntriesCount == 0L;
+                    && transactionWithoutEntriesCount == 0L
+                    && balanceJournalMismatchCount == 0L
+                    && journalContinuityErrorCount == 0L;
         }
     }
 }

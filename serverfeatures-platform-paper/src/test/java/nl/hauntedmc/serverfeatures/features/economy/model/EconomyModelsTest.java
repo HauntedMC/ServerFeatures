@@ -57,15 +57,19 @@ class EconomyModelsTest {
 
     @Test
     void verificationHealthFailsForEveryIntegrityViolation() {
-        assertTrue(report(0, 0, 0, 0, 0, 0, 0).healthy());
+        assertTrue(report(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).healthy());
         assertAll(
-                () -> assertFalse(report(1, 0, 0, 0, 0, 0, 0).healthy()),
-                () -> assertFalse(report(0, 1, 0, 0, 0, 0, 0).healthy()),
-                () -> assertFalse(report(0, 0, 1, 0, 0, 0, 0).healthy()),
-                () -> assertFalse(report(0, 0, 0, 1, 0, 0, 0).healthy()),
-                () -> assertFalse(report(0, 0, 0, 0, 1, 0, 0).healthy()),
-                () -> assertFalse(report(0, 0, 0, 0, 0, 1, 0).healthy()),
-                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 1).healthy())
+                () -> assertFalse(report(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0).healthy()),
+                () -> assertFalse(report(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1).healthy())
         );
     }
 
@@ -89,22 +93,30 @@ class EconomyModelsTest {
     private static VerificationReport report(
             long invalidBalances,
             long invalidEntries,
+            long invalidTransactions,
             long orphanSettings,
             long orphanEntries,
             long identityMismatches,
+            long entryAccountMismatches,
             long accountsWithoutEntries,
-            long transactionsWithoutEntries
+            long transactionsWithoutEntries,
+            long balanceJournalMismatches,
+            long journalContinuityErrors
     ) {
         return new VerificationReport(
                 10L,
                 20L,
                 invalidBalances,
                 invalidEntries,
+                invalidTransactions,
                 orphanSettings,
                 orphanEntries,
                 identityMismatches,
+                entryAccountMismatches,
                 accountsWithoutEntries,
-                transactionsWithoutEntries
+                transactionsWithoutEntries,
+                balanceJournalMismatches,
+                journalContinuityErrors
         );
     }
 }

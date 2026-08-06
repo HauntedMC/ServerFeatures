@@ -348,7 +348,7 @@ The feature registers these ORM entities:
 - `system_economy_transaction_entry`
 - `player_economy_daily_usage`
 
-`/economy verify` is read-only. It checks balance bounds, journal arithmetic, orphaned settings/entries and transactions without entries; it never repairs or rewrites balances.
+`/economy verify` is read-only. It checks balance bounds, journal arithmetic and continuity, transaction shapes, entry/account ownership, current balances against the latest journal entries, orphaned settings/entries and transactions without entries; it never repairs or rewrites balances.
 
 ## Failure behavior
 
