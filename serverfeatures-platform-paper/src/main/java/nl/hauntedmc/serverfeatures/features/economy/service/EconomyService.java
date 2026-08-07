@@ -60,6 +60,7 @@ public final class EconomyService implements EconomyApi {
     private final EconomyRepository repository;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final EconomyMainThreadExecutor mainThread;
+    private final EconomyWorkExecutor workExecutor;
     private final EconomyIdentityResolver identities;
     private final EconomyAccountCache cache;
     private final EconomyTransferNotifier transferNotifier;
@@ -72,9 +73,10 @@ public final class EconomyService implements EconomyApi {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.mainThread = new EconomyMainThreadExecutor(feature, closed::get);
         this.identities = new EconomyIdentityResolver(feature, closed::get);
-        this.cache = new EconomyAccountCache(feature, settings, repository, identities, mainThread, closed::get);
+        this.workExecutor = new EconomyWorkExecutor(settings.execution());
+        this.cache = new EconomyAccountCache(feature, settings, repository, identities, mainThread, workExecutor, closed::get);
         this.transferNotifier = new EconomyTransferNotifier(feature, repository, cache, mainThread, this::format);
-        this.workflows = new EconomyWorkflowDispatcher(feature, repository, closed::get);
+        this.workflows = new EconomyWorkflowDispatcher(feature, repository, workExecutor, closed::get);
     }
 
     /** Starts online-player cache maintenance. */
@@ -285,7 +287,8 @@ public final class EconomyService implements EconomyApi {
     public Optional<Account> balanceSync(Identity identity, String currencyId) {
         return identity == null || closed.get()
                 ? Optional.empty()
-                : Optional.of(cache.cache(repository.balance(identity, requireCurrency(currencyId, null))));
+                : Optional.of(cache.cache(workExecutor.await(() -> repository.balance(identity,
+                        requireCurrency(currencyId, null)))));
     }
     public Optional<Account> balanceSync(OfflinePlayer player, String currencyId) { return resolveSync(player).flatMap(identity -> balanceSync(identity, currencyId)); }
     public MutationOutcome mutateSync(Identity identity, String currencyId, BigDecimal amount, TransactionType type, String source, String idempotencyKey) {
@@ -295,8 +298,8 @@ public final class EconomyService implements EconomyApi {
         }
         EconomySettings.Currency currency = requireCurrency(currencyId, null);
         if (identity == null) return new MutationOutcome(EconomyResultStatus.UNKNOWN_PLAYER, null, null, null, "Player identity is unavailable", null, null);
-        MutationOutcome outcome = repository.mutate(type, identity, currency, amount, source, idempotencyKey, null, source,
-                source + " economy operation", Map.of(), false);
+        MutationOutcome outcome = workExecutor.await(() -> repository.mutate(type, identity, currency, amount, source,
+                idempotencyKey, null, source, source + " economy operation", Map.of(), false));
         publish(outcome);
         return outcome;
     }
@@ -306,7 +309,7 @@ public final class EconomyService implements EconomyApi {
     public boolean hasAccountSync(OfflinePlayer player, String currencyId) { return resolveSync(player).map(identity -> hasAccountSync(identity, currencyId)).orElse(false); }
     public boolean hasAccountSync(Identity identity, String currencyId) {
         return identity != null && !closed.get()
-                && repository.accountExists(identity, requireCurrency(currencyId, null));
+                && workExecutor.await(() -> repository.accountExists(identity, requireCurrency(currencyId, null)));
     }
 
     /** Validates a balance invalidation before asking the cache to refresh from MySQL. */
@@ -342,6 +345,7 @@ public final class EconomyService implements EconomyApi {
     public void shutdown() {
         if (closed.compareAndSet(false, true)) {
             workflows.close();
+            workExecutor.close();
             cache.clear();
             transferNotifier.clear();
             messaging = null;
@@ -358,7 +362,7 @@ public final class EconomyService implements EconomyApi {
     }
     private <T> CompletableFuture<T> submit(java.util.function.Supplier<T> work) {
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Economy is closed"));
-        return feature.getLifecycleManager().getTaskManager().supplyAsync(work);
+        return workExecutor.submit(work);
     }
     private Account publishAccountMutation(MutationOutcome outcome) {
         if (outcome == null || !outcome.successful() || outcome.account() == null)
@@ -394,6 +398,9 @@ public final class EconomyService implements EconomyApi {
         if (root instanceof UnknownPlayerException) return new EconomyResult(EconomyResultStatus.UNKNOWN_PLAYER, null, null, null, EconomyFailure.rootMessage(root));
         if (root instanceof UnknownCurrencyException) return new EconomyResult(EconomyResultStatus.UNKNOWN_CURRENCY, null, null, null, EconomyFailure.rootMessage(root));
         if (root instanceof IllegalArgumentException) return new EconomyResult(EconomyResultStatus.INVALID_AMOUNT, null, null, null, EconomyFailure.rootMessage(root));
+        if (root instanceof EconomyOverloadedException) {
+            return new EconomyResult(EconomyResultStatus.TEMPORARY_FAILURE, null, null, null, EconomyFailure.rootMessage(root));
+        }
         feature.getLogger().warning("Economy operation failed: " + EconomyFailure.rootMessage(root));
         return new EconomyResult(EconomyResultStatus.TEMPORARY_FAILURE, null, null, null, EconomyFailure.rootMessage(root));
     }

@@ -31,6 +31,7 @@ final class EconomyAccountCache {
     private final EconomyRepository repository;
     private final EconomyIdentityResolver identities;
     private final EconomyMainThreadExecutor mainThread;
+    private final EconomyWorkExecutor workExecutor;
     private final BooleanSupplier closed;
     private final ConcurrentHashMap<String, Account> accounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CompletableFuture<Account>> refreshes = new ConcurrentHashMap<>();
@@ -43,6 +44,7 @@ final class EconomyAccountCache {
             EconomyRepository repository,
             EconomyIdentityResolver identities,
             EconomyMainThreadExecutor mainThread,
+            EconomyWorkExecutor workExecutor,
             BooleanSupplier closed
     ) {
         this.feature = Objects.requireNonNull(feature, "feature");
@@ -50,6 +52,7 @@ final class EconomyAccountCache {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.identities = Objects.requireNonNull(identities, "identities");
         this.mainThread = Objects.requireNonNull(mainThread, "mainThread");
+        this.workExecutor = Objects.requireNonNull(workExecutor, "workExecutor");
         this.closed = Objects.requireNonNull(closed, "closed");
     }
 
@@ -222,7 +225,7 @@ final class EconomyAccountCache {
         if (closed.getAsBoolean()) {
             return CompletableFuture.failedFuture(new IllegalStateException("Economy is closed"));
         }
-        return feature.getLifecycleManager().getTaskManager().supplyAsync(work);
+        return workExecutor.submit(work);
     }
 
     private static String key(UUID playerUuid, EconomySettings.Currency currency) {

@@ -25,6 +25,7 @@ public record EconomySettings(
         Vault vault,
         Messaging messaging,
         Cache cache,
+        Execution execution,
         Map<String, Currency> currencies
 ) {
     public EconomySettings {
@@ -34,12 +35,19 @@ public record EconomySettings(
         Objects.requireNonNull(vault, "vault");
         Objects.requireNonNull(messaging, "messaging");
         Objects.requireNonNull(cache, "cache");
+        Objects.requireNonNull(execution, "execution");
         currencies = Collections.unmodifiableMap(new LinkedHashMap<>(currencies));
         if (currencies.isEmpty()) throw new IllegalArgumentException("At least one enabled currency is required");
         if (vault.enabled() && !currencies.containsKey(vault.primaryCurrency())) {
             throw new IllegalArgumentException("vault.primary_currency must reference an enabled currency");
         }
         EconomyConfigValues.validateCommandLabels(currencies.values());
+    }
+
+    /** Compatibility constructor for integrations/tests that use the default bounded executor settings. */
+    public EconomySettings(String networkKey, String serverKey, String databaseConnection, Vault vault,
+                           Messaging messaging, Cache cache, Map<String, Currency> currencies) {
+        this(networkKey, serverKey, databaseConnection, vault, messaging, cache, Execution.defaults(), currencies);
     }
 
     /** Parses and validates Economy settings from the feature configuration. */
@@ -74,6 +82,31 @@ public record EconomySettings(
             if (authoritativeRefreshInterval.isZero() || authoritativeRefreshInterval.isNegative()) {
                 throw new IllegalArgumentException("cache.authoritative_refresh_interval must be positive");
             }
+        }
+    }
+
+    /** Dedicated Economy execution lane. It bounds database admission independently of Bukkit's async scheduler. */
+    public record Execution(int workers, int queueCapacity, Duration synchronousTimeout, Duration shutdownDrain) {
+        public Execution {
+            if (workers < 1 || workers > 64) {
+                throw new IllegalArgumentException("execution.workers must be between 1 and 64");
+            }
+            if (queueCapacity < 1 || queueCapacity > 100_000) {
+                throw new IllegalArgumentException("execution.queue_capacity must be between 1 and 100000");
+            }
+            Objects.requireNonNull(synchronousTimeout, "synchronousTimeout");
+            Objects.requireNonNull(shutdownDrain, "shutdownDrain");
+            if (synchronousTimeout.isZero() || synchronousTimeout.isNegative()
+                    || synchronousTimeout.compareTo(Duration.ofSeconds(30)) > 0) {
+                throw new IllegalArgumentException("execution.synchronous_timeout must be between 1ms and 30s");
+            }
+            if (shutdownDrain.isNegative() || shutdownDrain.compareTo(Duration.ofSeconds(30)) > 0) {
+                throw new IllegalArgumentException("execution.shutdown_drain must be between zero and 30s");
+            }
+        }
+
+        public static Execution defaults() {
+            return new Execution(4, 256, Duration.ofSeconds(2), Duration.ofSeconds(5));
         }
     }
 

@@ -20,6 +20,10 @@ public final class EconomyDefaults {
         defaults.put("messaging.connection", "hauntedmc");
         defaults.put("messaging.channel", "serverfeatures.economy.balance");
         defaults.put("cache.authoritative_refresh_interval", "10s");
+        defaults.put("execution.workers", 4);
+        defaults.put("execution.queue_capacity", 256);
+        defaults.put("execution.synchronous_timeout", "2s");
+        defaults.put("execution.shutdown_drain", "5s");
         defaults.put("vault.enabled", true);
         defaults.put("vault.primary_currency", "money");
         defaults.put("vault.conflict_policy", "FAIL");

@@ -19,15 +19,18 @@ final class EconomyWorkflowDispatcher {
 
     private final Economy feature;
     private final EconomyRepository repository;
+    private final EconomyWorkExecutor workExecutor;
     private final BooleanSupplier closed;
     private final ConcurrentHashMap<String, EconomyWorkflowHandler> handlers = new ConcurrentHashMap<>();
     private final AtomicBoolean dispatching = new AtomicBoolean();
     private final AtomicBoolean running = new AtomicBoolean();
     private final String owner;
 
-    EconomyWorkflowDispatcher(Economy feature, EconomyRepository repository, BooleanSupplier closed) {
+    EconomyWorkflowDispatcher(Economy feature, EconomyRepository repository, EconomyWorkExecutor workExecutor,
+                              BooleanSupplier closed) {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.repository = Objects.requireNonNull(repository, "repository");
+        this.workExecutor = Objects.requireNonNull(workExecutor, "workExecutor");
         this.closed = Objects.requireNonNull(closed, "closed");
         this.owner = "paper:" + feature.settings().serverKey() + ":" + java.util.UUID.randomUUID();
     }
@@ -59,11 +62,22 @@ final class EconomyWorkflowDispatcher {
             return;
         }
         try {
-            repository.claimWorkflows(handlers.keySet(), owner, BATCH_SIZE).forEach(this::deliver);
+            workExecutor.submit(() -> repository.claimWorkflows(handlers.keySet(), owner, BATCH_SIZE))
+                    .whenComplete((claims, failure) -> {
+                        try {
+                            if (failure != null) {
+                                feature.getLogger().warning("Could not claim Economy workflow events: "
+                                        + EconomyFailure.rootMessage(failure));
+                            } else {
+                                claims.forEach(this::deliver);
+                            }
+                        } finally {
+                            dispatching.set(false);
+                        }
+                    });
         } catch (RuntimeException failure) {
-            feature.getLogger().warning("Could not claim Economy workflow events: " + EconomyFailure.rootMessage(failure));
-        } finally {
             dispatching.set(false);
+            feature.getLogger().warning("Could not schedule Economy workflow claim: " + EconomyFailure.rootMessage(failure));
         }
     }
 
@@ -85,7 +99,7 @@ final class EconomyWorkflowDispatcher {
                 return;
             }
             try {
-                feature.getLifecycleManager().getTaskManager().runAsync(() -> {
+                workExecutor.submit(() -> {
                     try {
                         if (failure == null) {
                             repository.acknowledgeWorkflow(claim.eventId(), claim.owner());
@@ -96,6 +110,7 @@ final class EconomyWorkflowDispatcher {
                         feature.getLogger().warning("Could not acknowledge Economy workflow " + claim.eventId()
                                 + ": " + EconomyFailure.rootMessage(databaseFailure));
                     }
+                    return null;
                 });
             } catch (RuntimeException schedulingFailure) {
                 feature.getLogger().warning("Could not schedule Economy workflow acknowledgement " + claim.eventId()
@@ -106,13 +121,14 @@ final class EconomyWorkflowDispatcher {
 
     private void release(EconomyRepository.WorkflowClaim claim, String message) {
         try {
-            feature.getLifecycleManager().getTaskManager().runAsync(() -> {
+            workExecutor.submit(() -> {
                 try {
                     repository.releaseWorkflow(claim.eventId(), claim.owner(), message);
                 } catch (RuntimeException failure) {
                     feature.getLogger().warning("Could not release Economy workflow " + claim.eventId()
                             + ": " + EconomyFailure.rootMessage(failure));
                 }
+                return null;
             });
         } catch (RuntimeException schedulingFailure) {
             feature.getLogger().warning("Could not schedule Economy workflow release " + claim.eventId()

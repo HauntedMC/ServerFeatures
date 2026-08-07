@@ -44,6 +44,14 @@ final class EconomySettingsLoader {
         );
         EconomySettings.Cache cache = new EconomySettings.Cache(EconomyConfigValues.duration(config.node(),
                 "cache.authoritative_refresh_interval", "10s", Duration.ofSeconds(1), Duration.ofMinutes(5)));
+        EconomySettings.Execution execution = new EconomySettings.Execution(
+                EconomyConfigValues.integer(config.node(), "execution.workers", 4, 1, 64),
+                EconomyConfigValues.integer(config.node(), "execution.queue_capacity", 256, 1, 100_000),
+                EconomyConfigValues.duration(config.node(), "execution.synchronous_timeout", "2s",
+                        Duration.ofMillis(1), Duration.ofSeconds(30)),
+                EconomyConfigValues.duration(config.node(), "execution.shutdown_drain", "5s",
+                        Duration.ZERO, Duration.ofSeconds(30))
+        );
 
         Map<String, EconomySettings.Currency> currencies = new LinkedHashMap<>();
         for (Map.Entry<String, ConfigNode> entry : config.node("currencies").children().entrySet()) {
@@ -72,7 +80,7 @@ final class EconomySettingsLoader {
             if (currencies.putIfAbsent(id, currency) != null) throw new IllegalArgumentException("Duplicate normalized currency id: " + id);
         }
         return new EconomySettings(networkKey, serverKey, EconomyConfigValues.text(config.node(), "database.connection", "system_data_rw"),
-                vault, messaging, cache, currencies);
+                vault, messaging, cache, execution, currencies);
     }
 
     private static String scopeKey(ConfigNode node, String id, String networkKey, String serverKey, EconomyScopeType type) {

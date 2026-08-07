@@ -172,6 +172,19 @@ class EconomySettingsTest {
         ));
     }
 
+    @Test
+    void boundsDedicatedEconomyExecutionSettings() {
+        assertThrows(IllegalArgumentException.class, () -> new EconomySettings.Execution(
+                0, 10, Duration.ofSeconds(1), Duration.ZERO
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomySettings.Execution(
+                1, 0, Duration.ofSeconds(1), Duration.ZERO
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomySettings.Execution(
+                1, 10, Duration.ZERO, Duration.ZERO
+        ));
+    }
+
     private static EconomySettings load(String gamemode, boolean sharedReplicaScope) {
         return load(configuration(gamemode, sharedReplicaScope));
     }
