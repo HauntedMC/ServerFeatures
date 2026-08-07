@@ -42,6 +42,9 @@ final class EconomyIdempotencyStore {
         Account account = null;
         Account counterpart = null;
         for (EconomyTransactionEntryEntity entry : entries) {
+            if ("SYSTEM".equals(entry.getAccountKind())) {
+                continue;
+            }
             EconomyBalanceEntity balanceEntity = session.find(EconomyBalanceEntity.class, entry.getAccountId());
             EconomyPlayerSettingsEntity settingsEntity = session.find(EconomyPlayerSettingsEntity.class, entry.getAccountId());
             if (balanceEntity == null || settingsEntity == null) {

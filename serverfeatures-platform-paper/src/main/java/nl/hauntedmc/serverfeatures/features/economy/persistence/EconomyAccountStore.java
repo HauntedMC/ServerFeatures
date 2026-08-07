@@ -132,6 +132,7 @@ final class EconomyAccountStore {
         session.flush();
         EconomyLedgerWriter.persistEntry(session, transaction.getId(), account, "TARGET", starting,
                 BigDecimal.ZERO, starting);
+        EconomyLedgerWriter.persistSystemEntry(session, transaction.getId(), currency, starting.negate());
         session.flush();
     }
 }

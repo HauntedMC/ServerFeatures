@@ -40,13 +40,16 @@ public class EconomyTransactionEntryEntity {
     private String accountId;
     @Column(name = "player_id", nullable = false)
     private long playerId;
+    /** PLAYER rows reference a materialized balance; SYSTEM rows are a logical ledger counterparty. */
+    @Column(name = "account_kind", length = 16, nullable = false)
+    private String accountKind;
     @Column(name = "entry_role", length = 24, nullable = false)
     private String entryRole;
     @Column(name = "delta", precision = 38, scale = 8, nullable = false)
     private BigDecimal delta;
-    @Column(name = "balance_before", precision = 38, scale = 8, nullable = false)
+    @Column(name = "balance_before", precision = 38, scale = 8)
     private BigDecimal balanceBefore;
-    @Column(name = "balance_after", precision = 38, scale = 8, nullable = false)
+    @Column(name = "balance_after", precision = 38, scale = 8)
     private BigDecimal balanceAfter;
 
     public Long getId() { return id; }
@@ -56,6 +59,8 @@ public class EconomyTransactionEntryEntity {
     public void setAccountId(String accountId) { this.accountId = accountId; }
     public long getPlayerId() { return playerId; }
     public void setPlayerId(long playerId) { this.playerId = playerId; }
+    public String getAccountKind() { return accountKind; }
+    public void setAccountKind(String accountKind) { this.accountKind = accountKind; }
     public String getEntryRole() { return entryRole; }
     public void setEntryRole(String entryRole) { this.entryRole = entryRole; }
     public BigDecimal getDelta() { return delta; }

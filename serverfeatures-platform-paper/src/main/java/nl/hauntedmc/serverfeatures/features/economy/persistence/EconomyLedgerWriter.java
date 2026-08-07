@@ -49,14 +49,39 @@ final class EconomyLedgerWriter {
 
     static void persistEntry(Session session, long transactionId, EconomyBalanceEntity account, String role,
                              BigDecimal delta, BigDecimal before, BigDecimal after) {
+        persistEntry(session, transactionId, account.getId(), account.getPlayerId(), "PLAYER", role, delta, before, after);
+    }
+
+    /**
+     * Records the counterpart of issuance, burn, and administrative adjustment operations.
+     *
+     * <p>System accounts are logical ledger accounts rather than a mutable aggregate balance row.
+     * This deliberately avoids serializing every shop purchase through one global treasury lock;
+     * their balance is reconciled from the append-only entries. Player entries retain before/after
+     * snapshots because they back the authoritative current-balance projection.</p>
+     */
+    static void persistSystemEntry(Session session, long transactionId, EconomySettings.Currency currency,
+                                   BigDecimal delta) {
+        persistEntry(session, transactionId, systemIssuanceAccountId(currency), 0L, "SYSTEM", "SYSTEM",
+                delta, null, null);
+    }
+
+    static String systemIssuanceAccountId(EconomySettings.Currency currency) {
+        return "system:issuance:" + currency.id() + ":" + EconomyPersistenceValues.hash(currency.scope().key());
+    }
+
+    private static void persistEntry(Session session, long transactionId, String accountId, long playerId,
+                                     String accountKind, String role, BigDecimal delta, BigDecimal before,
+                                     BigDecimal after) {
         EconomyTransactionEntryEntity entry = new EconomyTransactionEntryEntity();
         entry.setTransactionId(transactionId);
-        entry.setAccountId(account.getId());
-        entry.setPlayerId(account.getPlayerId());
+        entry.setAccountId(accountId);
+        entry.setPlayerId(playerId);
+        entry.setAccountKind(accountKind);
         entry.setEntryRole(role);
         entry.setDelta(EconomyPersistenceValues.databaseAmount(delta));
-        entry.setBalanceBefore(EconomyPersistenceValues.databaseAmount(before));
-        entry.setBalanceAfter(EconomyPersistenceValues.databaseAmount(after));
+        entry.setBalanceBefore(before == null ? null : EconomyPersistenceValues.databaseAmount(before));
+        entry.setBalanceAfter(after == null ? null : EconomyPersistenceValues.databaseAmount(after));
         session.persist(entry);
     }
 }

@@ -94,7 +94,8 @@ final class EconomyQueryStore {
         long transactionsWithoutEntries = count(session, "select count(*) from EconomyTransactionEntity t where not exists "
                 + "(select 1 from EconomyTransactionEntryEntity e where e.transactionId = t.id)");
         long invalidEntries = count(session, "select count(*) from EconomyTransactionEntryEntity e "
-                + "where e.balanceBefore + e.delta <> e.balanceAfter");
+                + "where e.accountKind = :player and (e.balanceBefore is null or e.balanceAfter is null "
+                + "or e.balanceBefore + e.delta <> e.balanceAfter)", "player", "PLAYER");
         long invalidTransactions = session.createSelectionQuery(
                         "select count(*) from EconomyTransactionEntity t where "
                                 + "(t.transactionType = :transfer and ((select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 2 "
@@ -104,30 +105,39 @@ final class EconomyQueryStore {
                                 + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :sender and e.delta < 0) <> 1 "
                                 + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :recipient and e.delta > 0) <> 1 "
                                 + "or (select sum(e.delta) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 0)) "
-                                + "or (t.transactionType <> :transfer and ((select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 1 "
-                                + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :target) <> 1))",
+                                + "or (t.transactionType in (:deposit, :withdraw, :set, :created) and ((select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 2 "
+                                + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :target and e.accountKind = :player) <> 1 "
+                                + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :system and e.accountKind = :system) <> 1 "
+                                + "or (select sum(e.delta) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 0)) "
+                                + "or (t.transactionType not in (:transfer, :deposit, :withdraw, :set, :created) and ((select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id) <> 1 "
+                                + "or (select count(*) from EconomyTransactionEntryEntity e where e.transactionId = t.id and e.entryRole = :target and e.accountKind = :player and e.delta = 0) <> 1))",
                         Long.class).setParameter("transfer", TransactionType.TRANSFER.name())
+                .setParameter("deposit", TransactionType.DEPOSIT.name())
+                .setParameter("withdraw", TransactionType.WITHDRAW.name())
+                .setParameter("set", TransactionType.SET.name())
+                .setParameter("created", TransactionType.ACCOUNT_CREATED.name())
                 .setParameter("sender", "SENDER").setParameter("recipient", "RECIPIENT")
-                .setParameter("target", "TARGET").getSingleResult();
+                .setParameter("target", "TARGET").setParameter("system", "SYSTEM")
+                .setParameter("player", "PLAYER").getSingleResult();
         long orphanEntries = count(session, "select count(*) from EconomyTransactionEntryEntity e where not exists "
-                + "(select 1 from EconomyTransactionEntity t where t.id = e.transactionId) or not exists "
-                + "(select 1 from EconomyBalanceEntity b where b.id = e.accountId)");
+                + "(select 1 from EconomyTransactionEntity t where t.id = e.transactionId) or (e.accountKind = :player and not exists "
+                + "(select 1 from EconomyBalanceEntity b where b.id = e.accountId))", "player", "PLAYER");
         long identityMismatches = count(session, "select count(*) from EconomyBalanceEntity b where not exists "
                 + "(select 1 from EconomyPlayerIdentityEntity i where i.playerId = b.playerId and i.playerUuid = b.playerUuid)");
         long entryAccountMismatches = count(session, "select count(*) from EconomyTransactionEntryEntity e, "
-                + "EconomyTransactionEntity t, EconomyBalanceEntity b where t.id = e.transactionId and b.id = e.accountId "
-                + "and (e.playerId <> b.playerId or t.currencyId <> b.currencyId or t.scopeKey <> b.scopeKey)");
+                + "EconomyTransactionEntity t, EconomyBalanceEntity b where e.accountKind = :player and t.id = e.transactionId and b.id = e.accountId "
+                + "and (e.playerId <> b.playerId or t.currencyId <> b.currencyId or t.scopeKey <> b.scopeKey)", "player", "PLAYER");
         long accountsWithoutEntries = count(session, "select count(*) from EconomyBalanceEntity b where not exists "
-                + "(select 1 from EconomyTransactionEntryEntity e where e.accountId = b.id)");
+                + "(select 1 from EconomyTransactionEntryEntity e where e.accountKind = :player and e.accountId = b.id)", "player", "PLAYER");
         long balanceJournalMismatches = count(session, "select count(*) from EconomyBalanceEntity b where exists "
-                + "(select 1 from EconomyTransactionEntryEntity e where e.accountId = b.id and e.transactionId = "
+                + "(select 1 from EconomyTransactionEntryEntity e where e.accountKind = :player and e.accountId = b.id and e.transactionId = "
                 + "(select max(latest.transactionId) from EconomyTransactionEntryEntity latest where latest.accountId = b.id) "
-                + "and e.balanceAfter <> b.balance)");
+                + "and e.balanceAfter <> b.balance)", "player", "PLAYER");
         long continuityErrors = count(session, "select count(*) from EconomyTransactionEntryEntity e where exists "
-                + "(select 1 from EconomyTransactionEntryEntity previous where previous.accountId = e.accountId "
+                + "(select 1 from EconomyTransactionEntryEntity previous where e.accountKind = :player and previous.accountKind = :player and previous.accountId = e.accountId "
                 + "and previous.transactionId = (select max(candidate.transactionId) from EconomyTransactionEntryEntity candidate "
-                + "where candidate.accountId = e.accountId and candidate.transactionId < e.transactionId) "
-                + "and previous.balanceAfter <> e.balanceBefore)");
+                + "where candidate.accountKind = :player and candidate.accountId = e.accountId and candidate.transactionId < e.transactionId) "
+                + "and previous.balanceAfter <> e.balanceBefore)", "player", "PLAYER");
         long invalidBalances = count(session, "select count(*) from EconomyBalanceEntity b where not exists "
                 + "(select 1 from EconomyCurrencyDefinitionEntity d where d.currencyId = b.currencyId and d.scopeKey = b.scopeKey) "
                 + "or exists (select 1 from EconomyCurrencyDefinitionEntity d where d.currencyId = b.currencyId "
@@ -143,5 +153,9 @@ final class EconomyQueryStore {
 
     private static long count(Session session, String query) {
         return session.createSelectionQuery(query, Long.class).getSingleResult();
+    }
+
+    private static long count(Session session, String query, String parameter, String value) {
+        return session.createSelectionQuery(query, Long.class).setParameter(parameter, value).getSingleResult();
     }
 }

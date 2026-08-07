@@ -75,8 +75,9 @@ final class EconomyMutationStore {
                         idempotencyKey, fingerprint, actorPlayerId, actorName, reason, metadata, now);
                 session.persist(transaction);
                 session.flush();
-                EconomyLedgerWriter.persistEntry(session, transaction.getId(), balance, "TARGET",
-                        after.subtract(before), before, after);
+                BigDecimal delta = after.subtract(before);
+                EconomyLedgerWriter.persistEntry(session, transaction.getId(), balance, "TARGET", delta, before, after);
+                EconomyLedgerWriter.persistSystemEntry(session, transaction.getId(), currency, delta.negate());
                 session.flush();
                 return EconomyPersistenceValues.outcome(EconomyResultStatus.SUCCESS, transaction.getOperationId(),
                         after, null, "", EconomyPersistenceValues.snapshot(balance, settings), null);
