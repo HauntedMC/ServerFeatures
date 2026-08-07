@@ -1,12 +1,9 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
-import nl.hauntedmc.dataregistry.api.DataRegistryApi;
-import nl.hauntedmc.dataregistry.api.service.FeatureServiceDirectory;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
-import nl.hauntedmc.serverfeatures.test.TestFeatureServiceDirectory;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
+import nl.hauntedmc.serverfeatures.framework.service.DefaultCapabilityRegistry;
+import nl.hauntedmc.serverfeatures.framework.service.InternalServiceRegistry;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -14,77 +11,109 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class FeatureApiManagerTest {
 
     @Test
     void servicesAreStagedUntilActivationAndWithdrawnOnCleanup() {
-        FeatureServiceDirectory directory = new TestFeatureServiceDirectory();
-        FeatureApiManager manager = manager(directory, "Example");
-        manager.registerService(String.class, "value");
-        assertTrue(directory.find(String.class).isEmpty());
+        DefaultCapabilityRegistry publicRegistry = new DefaultCapabilityRegistry();
+        InternalServiceRegistry internalRegistry = new InternalServiceRegistry();
+        FeatureApiManager manager = manager(publicRegistry, internalRegistry, "Example");
+        EconomyApi economy = mock(EconomyApi.class);
+        Runnable runtime = () -> { };
+
+        manager.registerService(EconomyApi.class, economy);
+        manager.registerInternalService(Runnable.class, runtime);
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isEmpty());
+        assertTrue(internalRegistry.find(Runnable.class).isEmpty());
         assertFalse(manager.isActive());
 
         manager.activateServices();
-        assertEquals("value", directory.find(String.class).orElseThrow());
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isPresent());
+        assertSame(runtime, internalRegistry.require(Runnable.class));
         assertTrue(manager.isActive());
 
         manager.unregisterAllServices();
-        assertTrue(directory.find(String.class).isEmpty());
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isEmpty());
+        assertTrue(internalRegistry.find(Runnable.class).isEmpty());
         assertEquals(FeatureResourceState.CLOSED, manager.state());
     }
 
     @Test
-    void differentOwnersCannotActivateSameApiType() {
-        FeatureServiceDirectory directory = new TestFeatureServiceDirectory();
-        FeatureApiManager first = manager(directory, "First");
-        FeatureApiManager second = manager(directory, "Second");
-        first.registerService(String.class, "first");
-        second.registerService(String.class, "second");
+    void differentOwnersCannotActivateSamePublicCapability() {
+        DefaultCapabilityRegistry publicRegistry = new DefaultCapabilityRegistry();
+        InternalServiceRegistry internalRegistry = new InternalServiceRegistry();
+        FeatureApiManager first = manager(publicRegistry, internalRegistry, "First");
+        FeatureApiManager second = manager(publicRegistry, internalRegistry, "Second");
+        first.registerService(EconomyApi.class, mock(EconomyApi.class));
+        second.registerService(EconomyApi.class, mock(EconomyApi.class));
         first.activateServices();
+
         assertThrows(IllegalStateException.class, second::activateServices);
-        assertEquals("first", directory.find(String.class).orElseThrow());
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isPresent());
     }
 
     @Test
-    void registeringTheSameInstanceIsIdempotent() {
-        FeatureServiceDirectory directory = new TestFeatureServiceDirectory();
-        FeatureApiManager manager = manager(directory, "Example");
-        Object service = new Object();
-        manager.registerService(Object.class, service);
-        manager.registerService(Object.class, service);
-        assertSame(service, manager.findService(Object.class).orElseThrow());
+    void registeringSameInstanceIsIdempotent() {
+        DefaultCapabilityRegistry publicRegistry = new DefaultCapabilityRegistry();
+        InternalServiceRegistry internalRegistry = new InternalServiceRegistry();
+        FeatureApiManager manager = manager(publicRegistry, internalRegistry, "Example");
+        EconomyApi economy = mock(EconomyApi.class);
+        manager.registerService(EconomyApi.class, economy);
+        manager.registerService(EconomyApi.class, economy);
         assertEquals(1, manager.getRegisteredServiceCount());
     }
 
     @Test
-    void servicesRemainDiscoverableWithoutDataRegistryAfterActivation() {
-        FeatureServiceCatalog catalog = new FeatureServiceCatalog();
-        FeatureApiManager manager = new FeatureApiManager("Example", Optional::empty, catalog);
-        manager.registerService(String.class, "local");
-        assertTrue(catalog.find(String.class).isEmpty());
+    void activeOwnerCanReplaceServiceWithoutAvailabilityGap() {
+        DefaultCapabilityRegistry publicRegistry = new DefaultCapabilityRegistry();
+        InternalServiceRegistry internalRegistry = new InternalServiceRegistry();
+        FeatureApiManager manager = manager(publicRegistry, internalRegistry, "Example");
+        EconomyApi first = mock(EconomyApi.class);
+        EconomyApi second = mock(EconomyApi.class);
+        manager.registerService(EconomyApi.class, first);
         manager.activateServices();
-        assertEquals("local", catalog.find(String.class).orElseThrow());
-        manager.unregisterAllServices();
-        assertTrue(catalog.find(String.class).isEmpty());
+        long generation = publicRegistry.reference(EconomyApi.class).generation().orElseThrow();
+
+        manager.registerService(EconomyApi.class, second);
+
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isPresent());
+        assertTrue(publicRegistry.reference(EconomyApi.class).generation().orElseThrow() > generation);
     }
 
     @Test
     void activationHooksRunBeforePublication() {
-        FeatureServiceCatalog catalog = new FeatureServiceCatalog();
-        FeatureApiManager manager = new FeatureApiManager("Example", Optional::empty, catalog);
+        DefaultCapabilityRegistry publicRegistry = new DefaultCapabilityRegistry();
+        InternalServiceRegistry internalRegistry = new InternalServiceRegistry();
+        FeatureApiManager manager = manager(publicRegistry, internalRegistry, "Example");
         boolean[] hookRan = {false};
-        manager.registerActivationHook(() -> hookRan[0] = true);
-        manager.registerService(String.class, "local");
+        manager.registerActivationHook(() -> {
+            assertTrue(publicRegistry.reference(EconomyApi.class).get().isEmpty());
+            hookRan[0] = true;
+        });
+        manager.registerService(EconomyApi.class, mock(EconomyApi.class));
         manager.activateServices();
+
         assertTrue(hookRan[0]);
-        assertEquals("local", catalog.find(String.class).orElseThrow());
+        assertTrue(publicRegistry.reference(EconomyApi.class).get().isPresent());
     }
 
-    private static FeatureApiManager manager(FeatureServiceDirectory directory, String owner) {
-        DataRegistryApi registry = mock(DataRegistryApi.class);
-        when(registry.featureServices()).thenReturn(directory);
-        return new FeatureApiManager(owner, () -> Optional.of(registry));
+    @Test
+    void managerMustBeBoundBeforeRegistration() {
+        FeatureApiManager manager = new FeatureApiManager();
+        assertThrows(
+                IllegalStateException.class,
+                () -> manager.registerInternalService(Runnable.class, (Runnable) () -> { })
+        );
+    }
+
+    private static FeatureApiManager manager(
+            DefaultCapabilityRegistry publicRegistry,
+            InternalServiceRegistry internalRegistry,
+            String owner
+    ) {
+        FeatureApiManager manager = new FeatureApiManager();
+        manager.bindRegistry(publicRegistry, internalRegistry, owner);
+        return manager;
     }
 }
