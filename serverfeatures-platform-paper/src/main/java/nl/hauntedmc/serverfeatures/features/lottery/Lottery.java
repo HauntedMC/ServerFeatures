@@ -3,15 +3,16 @@ package nl.hauntedmc.serverfeatures.features.lottery;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
+import nl.hauntedmc.serverfeatures.api.service.CapabilityRef;
 import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.lottery.command.LotteryCommand;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
-import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
@@ -48,12 +49,14 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
 
     private static final String ORM_CONNECTION = "lotteryOrmConnection";
 
+    private final CapabilityRef<EconomyApi> economyApi;
     private LotterySettings settings;
     private LotteryService service;
     private LotteryPlaceholder placeholder;
 
     public Lottery(FeatureContext<Meta> context) {
         super(context);
+        this.economyApi = context.plugin().capabilities().reference(EconomyApi.class);
     }
 
     @Override
@@ -206,10 +209,9 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         return switch (settings.economy().backend()) {
             case VAULT -> createVaultEconomyGateway();
             case BUILTIN -> {
-                EconomyApi api = getLifecycleManager().getApiManager().findService(EconomyApi.class)
-                        .orElseThrow(() -> new IllegalStateException(
-                                "Lottery BUILTIN backend requires the Economy feature to be enabled"
-                        ));
+                EconomyApi api = economyApi.get().orElseThrow(() -> new IllegalStateException(
+                        "Lottery BUILTIN backend requires the Economy feature to be enabled"
+                ));
                 yield new BuiltinLotteryEconomy(api, settings.economy().builtinCurrency());
             }
         };
