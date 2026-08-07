@@ -9,7 +9,6 @@ on:
   push:
     branches:
       - main
-      - agent/advanced-economy
 
 jobs:
   lint:
@@ -53,74 +52,3 @@ jobs:
         run: ./mvnw -U -B -ntp -DskipTests checkstyle:check
       - name: Lint release and acceptance scripts
         run: shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
-
-  apply-economy-hardening:
-    name: Apply and validate Economy hardening
-    needs: lint
-    if: >-
-      github.actor != 'github-actions[bot]' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/agent/advanced-economy') ||
-      (github.event_name == 'pull_request' &&
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'agent/advanced-economy'))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      packages: read
-    env:
-      PACKAGES_USER: ${{ secrets.HAUNTEDMC_PACKAGES_USERNAME }}
-      PACKAGES_TOKEN: ${{ secrets.HAUNTEDMC_PACKAGES_TOKEN }}
-      PLATFORM_ACCEPTANCE_KEEP_WORK_DIRECTORY: "true"
-
-    steps:
-      - name: Checkout branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: agent/advanced-economy
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Apply reviewed hardening
-        run: python .github/economy_final_validation.py
-
-      - name: Validate package token
-        run: |
-          test -n "$PACKAGES_USER" || { echo "Missing secret HAUNTEDMC_PACKAGES_USERNAME." >&2; exit 1; }
-          test -n "$PACKAGES_TOKEN" || { echo "Missing secret HAUNTEDMC_PACKAGES_TOKEN." >&2; exit 1; }
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          server-id: github
-          server-username: PACKAGES_USER
-          server-password: PACKAGES_TOKEN
-
-      - name: Validate patched source
-        run: |
-          ./mvnw -U -B -ntp -DskipTests checkstyle:check
-          shellcheck update_version.sh serverfeatures-platform-acceptance/run-platform-acceptance.sh
-          ./mvnw -U -B -ntp verify
-
-      - name: Run bundled Paper acceptance
-        env:
-          PLATFORM_ACCEPTANCE_WORK_DIRECTORY: ${{ runner.temp }}/serverfeatures-platform-acceptance
-        run: ./mvnw -U -B -ntp -Pplatform-acceptance verify
-
-      - name: Remove temporary files and restore protected workflow
-        run: |
-          rm .github/economy_final_validation.py .github/workflows/apply-economy-final-validation.yml
-          git fetch origin main --depth=1
-          git show origin/main:.github/workflows/ci-lint.yml > .github/workflows/ci-lint.yml
-
-      - name: Commit validated hardening
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "Harden Economy for production operation"
-          git push

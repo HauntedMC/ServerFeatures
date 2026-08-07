@@ -213,7 +213,7 @@ Behaviour:
 - cached nickname: return stored MiniMessage string;
 - uncached: asynchronously warm cache and immediately return `OfflinePlayer#getName()` or empty when unavailable.
 
-The first read can show real name until a later PAPI evaluation. The returned nickname is the stored formatted string, not explicitly serialized to legacy text. Whether consuming plugin parses MiniMessage or displays raw tags depends on that plugin/PAPI context.
+The first read can show real name until a later PAPI evaluation. The returned nickname is the stored formatted string, not explicitly serialized to colour-code text. Whether consuming plugin parses MiniMessage or displays raw tags depends on that plugin/PAPI context.
 
 Warm failures log warning with UUID.
 
@@ -295,7 +295,7 @@ Disable is empty:
 7. Simulate persistence/identity failure and actor disconnect during completion.
 8. Race slow join cache load against nickname mutation.
 9. Query `%serverfeatures_nickname%` before/after warm and with offline/null player.
-10. Consume formatted placeholder in plugins expecting legacy/plain/MiniMessage.
+10. Consume formatted placeholder in plugins expecting colour-code/plain/MiniMessage.
 11. Verify chat/tab/nametags do not automatically update unless configured as consumers.
 12. Reload feature and check PAPI expansion duplication/stale references.
 

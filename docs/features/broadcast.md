@@ -2,7 +2,7 @@
 
 > Paper · Feature name `Broadcast` · feature package `features.broadcast` · disabled by default
 
-Broadcast provides one local administrative command for sending either a chat component or a title/subtitle pair to every player currently online on the Paper backend. It formats mixed legacy/MiniMessage input into Adventure components and acknowledges successful dispatch to the sender.
+Broadcast provides one local administrative command for sending either a chat component or a title/subtitle pair to every player currently online on the Paper backend. It formats mixed colour-code/MiniMessage input into Adventure components and acknowledges successful dispatch to the sender.
 
 It is not network-wide: no ProxyFeatures message, Redis channel, database queue, offline delivery, audience filter, schedule, or history is involved.
 
@@ -43,7 +43,7 @@ There is no configurable prefix, target audience, permission per mode, sound, ti
 Both modes use the same component conversion:
 
 1. `TextFormatter.convert(raw)`;
-2. expect `MIXED_INPUT`, allowing supported legacy and MiniMessage syntax;
+2. expect `MIXED_INPUT`, allowing supported colour-code and MiniMessage syntax;
 3. convert to MiniMessage text;
 4. deserialize with `ComponentFormatter` expecting MiniMessage;
 5. enable `ComponentFormatter.ALL_DEFAULTS()`;
@@ -151,7 +151,7 @@ Config values are read when title mode executes, so timing edits may affect the 
 ## Operational verification
 
 1. Verify permission denial from player and console.
-2. Send legacy-coloured, MiniMessage-formatted and URL-containing chat text.
+2. Send colour-coded, MiniMessage-formatted and URL-containing chat text.
 3. Verify all local players, including sender and vanished staff, receive it.
 4. Verify no proxy/backend peers receive it.
 5. Test title-only, title/subtitle, empty sides, and multiple pipe characters.

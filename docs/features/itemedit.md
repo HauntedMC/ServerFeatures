@@ -2,7 +2,7 @@
 
 > Paper · Feature name `ItemEdit` · feature package `features.itemedit` · disabled by default
 
-ItemEdit allows permitted players to use legacy colour codes, hex formats and a restricted subset of MiniMessage in an anvil rename field. It only intervenes when formatting syntax is detected; ordinary unformatted anvil renames remain vanilla. The feature can suppress formatted results for configured materials and reject exact blocked plain names.
+ItemEdit allows permitted players to use colour codes, hex formats and a restricted subset of MiniMessage in an anvil rename field. It only intervenes when formatting syntax is detected; ordinary unformatted anvil renames remain vanilla. The feature can suppress formatted results for configured materials and reject exact blocked plain names.
 
 It does not provide commands, lore editing, item serialization, arbitrary NBT/component editing, length limits, persistent settings, database, Redis, API or PlaceholderAPI integration.
 
@@ -31,7 +31,7 @@ File: `plugins/ServerFeatures/features/ItemEdit/config.yml`.
 | `blockedNames` | not generated | The handler reads this key once through `CastUtils.safeCastToList`. Only exact plain-name matches are rejected. Unless operators manually add it, the effective list is empty. |
 | `blockedAnvilItems` | `['CHEST','HOPPER']` | Bukkit material-name strings for formatted rename results that should be replaced with `AIR`. Read once at handler construction. Matching is exact/case-sensitive against `result.getType().name()`. |
 
-The `blockedWords` versus `blockedNames` mismatch is important: the bundled profanity defaults do not currently affect renaming. Correcting the code/config migration should be handled explicitly so existing installations do not receive surprising policy changes.
+The `blockedWords` versus `blockedNames` mismatch is important: the bundled profanity defaults do not currently affect renaming. Correcting the code/config mismatch should be handled explicitly so existing installations do not receive surprising policy changes.
 
 There are no keys for maximum length, permitted format features, click/hover security, lore, allowed items, costs, sounds, worlds or messages.
 
@@ -220,7 +220,7 @@ Handler snapshots lists at initialization. Disable is empty; lifecycle cleanup u
 ## Operational verification
 
 1. Test ordinary unformatted renames with/without permission—ItemEdit should not intervene.
-2. Test every supported legacy/hex/MiniMessage format.
+2. Test every supported colour-code/hex/MiniMessage format.
 3. Test hostile click/hover/font/etc. tags and verify restricted features.
 4. Test root/nested italics.
 5. Add `blockedNames` manually and test exact/case/whitespace/punctuation/substring results.

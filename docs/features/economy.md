@@ -323,7 +323,7 @@ running server; restart the feature/server as part of a controlled rollout.
 
 | Setting | Meaning |
 | --- | --- |
-| `network_key` | Permanent identifier for this economy network. Changing it selects completely different scopes and must be treated as a migration. |
+| `network_key` | Permanent identifier for this economy network. Changing it selects completely separate scopes. |
 | `server_key` | Logical gamemode key used by `SERVER` currencies. Use the same value for physical replicas that must share a gamemode-local balance. |
 | `currencies.<id>.enabled` | Whether this server exposes and validates that currency. Disabling it hides the currency here; it does not delete accounts or definitions. |
 | `definition.scope.type` | `SERVER`, `GROUP`, or `GLOBAL`; immutable scope identity for the currency. |
@@ -342,8 +342,8 @@ configuration—such as a starting balance outside its bounds, a payment maximum
 or enabling `paytoggle` while `pay` is disabled—prevents Economy from starting.
 
 Only `definition.*` is immutable and must match where a scope is shared. `display.*`,
-`payments.*` and `commands.*` are local policy and may differ per gamemode. Existing legacy
-configuration paths are read for compatibility; move them into `definition.*` when updating.
+`payments.*` and `commands.*` are local policy and may differ per gamemode. Use the documented
+`definition.*` paths for immutable monetary settings.
 
 Use the same currency definitions on Skyblock, KitPvP and other gamemodes, but set their top-level logical key accordingly:
 
@@ -453,8 +453,8 @@ the guard: it does not matter whether the server that originally created it is s
 | Situation | Result |
 | --- | --- |
 | A new server has the same monetary definition | It starts and shares the existing accounts. |
-| A server has an old or different monetary definition | Only that currency is skipped; other valid currencies, API and administration remain available. |
-| An already-running server still has an old definition | It continues using its in-memory configuration until it is stopped or restarted. It is not changed remotely. |
+| A server has a non-matching monetary definition | Only that currency is skipped; other valid currencies, API and administration remain available. |
+| An already-running server has a non-matching definition | It continues using its in-memory configuration until it is stopped or restarted. It is not changed remotely. |
 | Only display labels, payment limits/defaults/cooldowns, commands, or Vault enablement differ | Startup is permitted; these are local operational policy. |
 
 This prevents a newly starting server from applying incompatible precision or balance bounds to the
@@ -464,29 +464,15 @@ reconfigure a server that was already running when a rollout began.
 ### Safe rollout and configuration changes
 
 Use one config revision for every server that shares an account scope. A normal release that does
-not change a monetary definition can be rolled out according to the deployment checklist. For a
-monetary-definition change, such as precision, bounds, rounding or scope, use this
-process:
-
-1. Schedule maintenance and stop Economy on every server that can access the shared scope.
-2. Back up MySQL and retain the relevant transaction history and configuration revision.
-3. Have the change reviewed as a data migration. Some changes—especially reducing precision,
-   lowering a maximum, changing scope, or changing whether negative balances are allowed—can make
-   existing rows invalid and require an explicit reconciliation plan.
-4. Deploy the reviewed migration and the identical new configuration together. Do not edit the
-   fingerprint tables by hand and do not delete them to force a startup.
-5. Start one controlled server, run `/economy verify`, and test the changed policy.
-6. Start the remaining servers with that same configuration and complete the deployment checklist.
-
-There is no automatic live migration of a persisted currency definition. A definition mismatch is
-a release-blocking safety stop, not an error to bypass. If a server reports one, keep Economy off on
+not change a monetary definition can be rolled out according to the deployment checklist. A
+definition mismatch is a release-blocking safety stop, not an error to bypass. Keep Economy off on
 that server, compare its resolved configuration with the stored/network configuration, and follow
 the incident runbook.
 
 ### Discovering and importing shared currencies
 
 When the first server starts a new enabled currency, Economy stores both its immutable fingerprint
-and a versioned canonical **monetary-definition payload** in MySQL. The payload makes a global or
+and a canonical **monetary-definition payload** in MySQL. The payload makes a global or
 group currency discoverable by other servers without trying to reverse a hash.
 
 Administrators with `serverfeatures.feature.economy.admin.definitions` can inspect shared
@@ -518,25 +504,8 @@ policy, but deliberately uses local defaults for display and commands. It enable
 commands and leaves player `pay`/`paytoggle` disabled until a local administrator explicitly
 reviews and enables them. Vault selection remains local as well.
 
-Older definition rows created before this feature version have only a fingerprint and are listed as
-`legacy`; they cannot be imported yet. Starting a server with the known-good matching configuration
-backfills the canonical payload safely. Never guess the missing policy or edit definition rows by
-hand.
-
-#### Database schema upgrade
-
-Economy needs the nullable `definition_payload` column on
-`economy_currency_definition`. Networks using the normal ORM `validate` schema mode must
-apply this migration before deploying this feature version:
-
-```sql
-ALTER TABLE economy_currency_definition
-    ADD COLUMN definition_payload VARCHAR(2048) NULL;
-```
-
-Alternatively, use the platform's reviewed ORM schema-update process during the deployment, then
-return it to validation mode. Do not deploy part of the network before this column exists: servers
-will correctly refuse to start Economy when the schema does not match.
+Definition rows without a canonical payload cannot be imported. Never guess missing policy values
+or edit definition rows by hand.
 
 ## Network-wide transfer behavior
 

@@ -44,7 +44,7 @@ mvn -B -DskipTests checkstyle:check
 
 - Use a clear title and summary.
 - Explain what changed and why.
-- Call out configuration or migration impact.
+- Call out configuration and operational impact.
 - Link related issues where relevant.
 - Keep commits readable and review-friendly.
 

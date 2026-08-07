@@ -11,7 +11,7 @@ The feature deliberately uses the same persistence style as other ServerFeatures
 - one feature-owned `ORMContext` on `system_data_rw`;
 - five normal JPA entities registered directly with `createORMContext`;
 - short transactions through `ORMContext.runInTransaction`;
-- no migration importer, state-binding layer, operation journal, maintenance service, review queue or reconciliation commands.
+- no state-binding layer, operation journal, maintenance service, review queue or reconciliation commands.
 
 The tables are:
 
@@ -137,7 +137,7 @@ economy:
     currency: money
 ```
 
-- `VAULT` preserves compatibility with legacy servers and external Vault providers.
+- `VAULT` preserves compatibility with external Vault providers.
 - `BUILTIN` uses the native ServerFeatures Economy API and the selected currency. The currency may be server-local, group-shared or global.
 
 There is no automatic fallback. A missing configured backend causes Lottery to fail with a clear startup error rather than silently using another balance system. Built-in withdrawals, refunds and payouts use deterministic idempotency identifiers. A missing or warming display cache never becomes an authoritative zero-balance rejection: the built-in withdrawal performs the real MySQL balance check. Vault mode retains the existing compensation behavior because external Vault providers do not expose an idempotency API.

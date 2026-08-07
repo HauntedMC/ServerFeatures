@@ -25,7 +25,7 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 - Keep precision, starting balance, bounds, negative-balance policy, rounding, payment limits, cooldown, and payment-default settings identical for every server sharing a currency account scope.
 - Keep each currency ID in one scope family across the network. For example, `crowns` must not be global on one gamemode and local on another.
 - Startup must remain blocked when the persisted currency-family or scope definition conflicts with configuration. Do not bypass these guards.
-- The MySQL definition is persistent: stopping an old server does not make a new monetary definition acceptable. A changed monetary definition needs a coordinated, reviewed data migration; see [Currency configuration and network consistency](economy.md#currency-configuration-and-network-consistency).
+- The MySQL definition is persistent. Keep the configured monetary definition aligned with its stored definition; see [Currency configuration and network consistency](economy.md#currency-configuration-and-network-consistency).
 - Display formatting and local command/Vault settings are not part of the monetary definition guard. Keep them aligned as well unless a per-server difference is intentional.
 - A new `GLOBAL` or `GROUP` currency created on one server becomes discoverable after that server starts successfully. Other servers may use `/economy definitions import ...` to generate a local policy-matching scaffold, then review and roll it out normally; import never reloads Economy automatically.
 
@@ -33,7 +33,7 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 
 1. Back up the economy database and retain the exact configuration revision.
 2. Deploy the same plugin build and the same configuration revision to every participating Paper instance.
-3. If the release changes monetary policy, follow the coordinated migration procedure in the Economy guide instead of a rolling deployment.
+3. Do not roll out a release that changes a persisted monetary policy.
 4. Enable and validate one non-production gamemode first.
 5. Run `/economy status`, `/economy currencies`, and `/economy verify`.
 6. Test one local Money transfer between physical replicas of the same gamemode.

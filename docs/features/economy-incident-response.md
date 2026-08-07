@@ -49,11 +49,10 @@ Respond as follows:
    limits are deliberately not part of the immutable definition and can be changed normally.
 4. If the server is simply stale, deploy the known-good config and restart it. The same fingerprint
    will then validate.
-5. If the monetary policy is intentionally changing, stop Economy on every server sharing that
-   scope, take a backup, and escalate it as a reviewed data migration. Scope changes, lower limits,
-   precision reductions and negative-policy changes may require reconciling existing balances.
-6. After the migration, start one controlled server, run `/economy verify`, test the changed policy,
-   then bring up the remaining servers with the identical configuration.
+5. Do not change a persisted monetary policy in place. Keep the established policy or create a
+   separately reviewed operational plan outside the running service.
+6. Start one controlled server, run `/economy verify`, test the configured policy, then bring up
+   the remaining servers with the identical configuration.
 
 Display-only differences (names, symbols, formatting/grouping) and local command/Vault choices do
 not form part of the monetary fingerprint. They can start, but inconsistent player-facing behavior

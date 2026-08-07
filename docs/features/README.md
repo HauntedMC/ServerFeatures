@@ -60,7 +60,7 @@ This directory documents all **64** feature modules currently present in ServerF
 ## Moderation and administration
 
 - [Vanish](vanish.md) — Provides staff invisibility with persisted state, visibility filtering, interaction protections, tab-list handling, and cross-feature availability through `VanishAPI`.
-- [InvTools](invtools.md) — Provides safe online and offline inventory and ender-chest inspection, editing, clearing, migration, conflict detection, and audit logging.
+- [InvTools](invtools.md) — Provides safe online and offline inventory and ender-chest inspection, editing, clearing, conflict detection, and audit logging.
 - [ChatFilter](chatfilter.md) — Filters local chat against configured rules while preserving the server's broader chat pipeline.
 - [ChatLayout](chatlayout.md) — Formats Paper chat messages with ranks, names, hover/click content, and signed-chat compatibility.
 - [ChatTools](chattools.md) — Provides staff chat-management utilities such as clearing or controlling the local server chat.

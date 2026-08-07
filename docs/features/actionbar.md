@@ -10,7 +10,7 @@ Actionbar is the feature-level controller for ServerFeatures' shared `ActionBars
 - Only one cycle handle can be active for this feature at a time.
 - Timed manual messages pause the cycle through `PauseMode.PAUSE_CYCLE`; one-shot messages do not create a timed override.
 - Cycle entries are rendered separately for each player so localization and player-specific placeholders can differ.
-- Manual text is also formatted per player and supports mixed legacy/MiniMessage input plus PlaceholderAPI processing.
+- Manual text is also formatted per player and supports mixed colour-code/MiniMessage input plus PlaceholderAPI processing.
 - There is no database state, Redis messaging, persisted running flag, or per-player opt-out in this feature.
 
 ## Commands and permissions
@@ -44,7 +44,7 @@ The root permission is evaluated before Brigadier exposes or executes any subcom
 | `actionbar.sent_once` | `{message}` | One-shot message sent with `seconds = 0`. |
 | `actionbar.sent_timer` | `{time}`, `{message}` | Timed message sent. `{time}` is the integer number of seconds. |
 
-`actionbar.usage`, `actionbar.send_usage`, and `actionbar.invalid_time` remain available in the default message map for compatibility/localization, but Brigadier's command shape and integer validation normally prevent those legacy-style usage paths from being reached by this implementation.
+`actionbar.usage`, `actionbar.send_usage`, and `actionbar.invalid_time` remain available in the default message map for compatibility/localization, but Brigadier's command shape and integer validation normally prevent those alternate usage paths from being reached by this implementation.
 
 ## Feature configuration
 
@@ -227,7 +227,7 @@ When changing the shared ActionBars API, verify this feature's assumptions about
 5. Run `start` twice and verify the second call reports `actionbar.already_running` without creating another handle.
 6. Send a zero-second manual message and confirm it appears once without a timed override.
 7. Send a positive-duration message and confirm the normal cycle pauses and later resumes.
-8. Test legacy colour codes, MiniMessage, URLs and player-specific PlaceholderAPI values in a manual message.
+8. Test colour codes, MiniMessage, URLs and player-specific PlaceholderAPI values in a manual message.
 9. Edit `local/actionbars.yml` while a cycle is running and verify changes appear only after stop/start.
 10. Disable the feature while a cycle or timed message is active and verify no feature-owned repeating cycle remains.
 

@@ -224,7 +224,7 @@ There is no retry, persisted webhook status, rate-limit handling, response valid
 
 ## Data retention and privacy
 
-The feature defines no cleanup task or retention query for either table. Rows remain until an external migration/job/admin deletes them.
+The feature defines no cleanup task or retention query for either table. Rows remain until an external job or administrator deletes them.
 
 Stored data includes plain chat content, canonical player identity, backend name and timestamp; reported rows duplicate that content. Operators should define:
 

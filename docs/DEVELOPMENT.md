@@ -30,7 +30,7 @@ Target one module and its reactor dependencies during a tight feedback loop:
 2. Implement behavior and tests in the same pass.
 3. Run local validation (`test` at minimum).
 4. Update docs when behavior or operator workflow changes.
-5. Open a PR with context, impact, and migration notes when relevant.
+5. Open a PR with context and operational impact.
 
 ## Engineering Guidelines
 
@@ -64,4 +64,4 @@ When adding a new feature module:
 - New behavior is covered by tests.
 - Operationally important failures are logged clearly.
 - `./mvnw -B -ntp verify` passes from a clean checkout.
-- Public API changes include compatibility and migration notes.
+- Public API changes include compatibility notes.
