@@ -57,10 +57,9 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
             feature.getLogger().warning("Registering Economy above existing Vault provider: "
                     + existing.getProvider().getName());
         }
-        VaultEconomyProvider candidate = new VaultEconomyProvider(
-                feature.service(),
-                feature.settings().vault().primaryCurrency()
-        );
+        String primaryCurrency = feature.settings().vault().primaryCurrency();
+        VaultEconomyProvider.validateDoubleCompatibility(feature.service().primaryCurrency());
+        VaultEconomyProvider candidate = new VaultEconomyProvider(feature.service(), primaryCurrency);
         try {
             services.register(
                     net.milkbowl.vault.economy.Economy.class,
@@ -85,7 +84,7 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
             throw failure;
         }
         provider = candidate;
-        status = "registered:" + feature.settings().vault().primaryCurrency();
+        status = "registered:" + primaryCurrency;
     }
 
     @Override

@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,8 +45,8 @@ class VaultEconomyProviderTest {
     @BeforeEach
     void setUp() {
         service = mock(EconomyService.class);
-        provider = new VaultEconomyProvider(service, CURRENCY_ID);
         when(service.requireCurrency(CURRENCY_ID)).thenReturn(currency());
+        provider = new VaultEconomyProvider(service, CURRENCY_ID);
     }
 
     @Test
@@ -135,6 +136,24 @@ class VaultEconomyProviderTest {
         assertFalse(response.transactionSuccess());
         assertEquals(0.0D, response.amount, 0.0D);
         verifyNoInteractions(isolatedService);
+    }
+
+    @Test
+    void rejectsAPrimaryCurrencyThatVaultDoublesCannotRepresentExactly() {
+        when(service.requireCurrency(CURRENCY_ID)).thenReturn(new EconomySettings.Currency(
+                CURRENCY_ID,
+                new EconomyScope(EconomyScopeType.GLOBAL, "hauntedmc/global"),
+                new EconomySettings.Display("coin", "coins", "$", "{symbol}{amount}", 2, true),
+                new EconomySettings.Balances(BigDecimal.ZERO, BigDecimal.ZERO,
+                        new BigDecimal("90071992547410.00"), false, RoundingMode.HALF_UP),
+                new EconomySettings.Commands("money", List.of(), true, true, true, true, true, true),
+                new EconomySettings.Payments(true, new BigDecimal("0.01"), BigDecimal.ZERO, BigDecimal.ZERO,
+                        BigDecimal.ZERO, BigDecimal.ZERO, Duration.ZERO)
+        ));
+
+        assertThrows(IllegalArgumentException.class, () -> VaultEconomyProvider.validateDoubleCompatibility(
+                service.requireCurrency(CURRENCY_ID)
+        ));
     }
 
     private static Account account(String balance) {

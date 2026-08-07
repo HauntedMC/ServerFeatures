@@ -27,6 +27,9 @@ import java.util.UUID;
  */
 @SuppressWarnings("deprecation")
 public final class VaultEconomyProvider implements Economy {
+    /** A double cannot faithfully distinguish adjacent integer currency units above 2^53. */
+    private static final BigDecimal MAX_SAFE_INTEGER_UNITS = new BigDecimal("9007199254740992");
+
     private final EconomyService service;
     private final String currencyId;
     private volatile boolean enabled = true;
@@ -421,6 +424,22 @@ public final class VaultEconomyProvider implements Economy {
                 currency.display().fractionalDigits(),
                 currency.balances().rounding()
         );
+    }
+
+    /**
+     * Vault's double-based API cannot represent every configured smallest unit once the currency
+     * range exceeds 2^53 unscaled units. Refuse registration rather than silently reporting or
+     * charging a different amount at the top of the configured range.
+     */
+    static void validateDoubleCompatibility(EconomySettings.Currency currency) {
+        BigDecimal scale = BigDecimal.TEN.pow(currency.display().fractionalDigits());
+        BigDecimal largestUnitCount = currency.balances().minimum().abs()
+                .max(currency.balances().maximum().abs())
+                .multiply(scale);
+        if (largestUnitCount.compareTo(MAX_SAFE_INTEGER_UNITS) > 0) {
+            throw new IllegalArgumentException("Vault primary currency " + currency.id()
+                    + " exceeds the exact IEEE-754 double range for its smallest unit; use a lower bound or native Economy API");
+        }
     }
 
     private static boolean valid(double amount) {

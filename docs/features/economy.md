@@ -670,7 +670,7 @@ vault:
 
 Standard Vault does not tell an economy provider which consuming plugin made a call, so it cannot route different third-party plugins to different currencies on the same server. HauntedMC integrations that need Crowns, Credits, Essence, Relics or Soulstones must use the native `EconomyApi`.
 
-Vault calls are synchronous by contract. The adapter performs a bounded persisted DataRegistry identity lookup when required and a short indexed MySQL operation. It returns success only after commit and converts lookup/database failures into failed `EconomyResponse` values. It never acknowledges a queued write. External Vault providers do not provide caller idempotency, so the built-in native API remains preferable for high-value HauntedMC operations.
+Vault calls are synchronous by contract. The adapter performs a bounded persisted DataRegistry identity lookup when required and a short indexed MySQL operation. It returns success only after commit and converts lookup/database failures into failed `EconomyResponse` values. It never acknowledges a queued write. External Vault providers do not provide caller idempotency, so the built-in native API remains preferable for high-value HauntedMC operations. Because Vault represents amounts as `double`, Economy refuses to register a primary currency whose configured range cannot distinguish every smallest currency unit in IEEE-754; use the native API/gateway for larger real-value ranges.
 
 Conflict policies:
 
