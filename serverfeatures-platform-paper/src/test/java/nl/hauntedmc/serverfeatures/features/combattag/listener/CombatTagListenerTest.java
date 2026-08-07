@@ -116,6 +116,20 @@ class CombatTagListenerTest {
     }
 
     @Test
+    void attackingExcludedSpawnerEnemyDoesNotTagThePlayer() {
+        CombatTagSettings settings = settings(Set.of(CreatureSpawnEvent.SpawnReason.SPAWNER));
+        CombatTagService service = mock(CombatTagService.class);
+        CombatTagListener listener = listener(settings, service);
+        Player attacker = player("Attacker");
+        LivingEntity enemy = hostileMob(CreatureSpawnEvent.SpawnReason.SPAWNER);
+
+        listener.onDamage(damageEvent(attacker, enemy));
+
+        verify(service, never()).tagIncoming(any(), any(), any(), any());
+        verify(service, never()).tagOutgoing(any(), any(), any(), any());
+    }
+
+    @Test
     void attackingEnemyMobTagsThePlayer() {
         CombatTagSettings settings = settings(Set.of());
         CombatTagService service = mock(CombatTagService.class);
