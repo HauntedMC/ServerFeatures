@@ -59,7 +59,7 @@ import nl.hauntedmc.serverfeatures.features.staffchat.StaffChat;
 import nl.hauntedmc.serverfeatures.features.tablist.Tablist;
 import nl.hauntedmc.serverfeatures.features.teleportation.Teleportation;
 import nl.hauntedmc.serverfeatures.features.titles.Titles;
-import nl.hauntedmc.serverfeatures.features.van​ish.Vanish;
+import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.versionrecommender.VersionRecommender;
 import nl.hauntedmc.serverfeatures.features.villageroptimizer.VillagerOptimizer;
 import nl.hauntedmc.serverfeatures.features.votereward.VoteReward;
