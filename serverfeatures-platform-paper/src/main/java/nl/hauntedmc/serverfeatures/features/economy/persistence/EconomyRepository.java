@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryPage;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
@@ -57,6 +58,21 @@ public final class EconomyRepository {
             definitions.validate(session, settings);
             return null;
         }));
+    }
+
+    /** Discovers canonical global/group definitions without reading or provisioning player accounts. */
+    public List<DiscoveredCurrencyDefinition> sharedDefinitions(String networkKey) {
+        Objects.requireNonNull(networkKey, "networkKey");
+        return executeWithRetry(() -> orm.runInTransaction(session -> definitions.discoverShared(session, networkKey)));
+    }
+
+    /** Finds one importable or legacy shared definition by its stable currency ID and scope key. */
+    public Optional<DiscoveredCurrencyDefinition> sharedDefinition(String networkKey, String currencyId, String scopeKey) {
+        Objects.requireNonNull(networkKey, "networkKey");
+        Objects.requireNonNull(currencyId, "currencyId");
+        Objects.requireNonNull(scopeKey, "scopeKey");
+        return executeWithRetry(() -> orm.runInTransaction(session ->
+                definitions.sharedDefinition(session, networkKey, currencyId, scopeKey)));
     }
 
     /** Returns the authoritative account snapshot, provisioning the account when absent. */

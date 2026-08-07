@@ -72,5 +72,6 @@ class EconomyEntitySchemaTest {
         assertNotNull(EconomyPlayerSettingsEntity.class.getDeclaredField("lastPaymentAt"));
         assertNotNull(EconomyTransactionEntity.class.getDeclaredField("idempotencyKeyHash"));
         assertNotNull(EconomyTransactionEntity.class.getDeclaredField("requestFingerprint"));
+        assertNotNull(EconomyCurrencyDefinitionEntity.class.getDeclaredField("definitionPayload"));
     }
 }

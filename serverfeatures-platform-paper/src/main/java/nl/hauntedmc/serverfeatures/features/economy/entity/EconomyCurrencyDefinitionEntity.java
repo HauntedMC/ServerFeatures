@@ -36,6 +36,9 @@ public class EconomyCurrencyDefinitionEntity {
     private BigDecimal maximumBalance;
     @Column(name = "allow_negative", nullable = false)
     private boolean allowNegative;
+    /** Versioned JSON required to reconstruct a definition without reversing its hash. */
+    @Column(name = "definition_payload", length = 2048)
+    private String definitionPayload;
     @Column(name = "definition_hash", length = 64, nullable = false)
     private String definitionHash;
     @Column(name = "created_at", nullable = false)
@@ -61,6 +64,8 @@ public class EconomyCurrencyDefinitionEntity {
     public void setMaximumBalance(BigDecimal maximumBalance) { this.maximumBalance = maximumBalance; }
     public boolean isAllowNegative() { return allowNegative; }
     public void setAllowNegative(boolean allowNegative) { this.allowNegative = allowNegative; }
+    public String getDefinitionPayload() { return definitionPayload; }
+    public void setDefinitionPayload(String definitionPayload) { this.definitionPayload = definitionPayload; }
     public String getDefinitionHash() { return definitionHash; }
     public void setDefinitionHash(String definitionHash) { this.definitionHash = definitionHash; }
     public long getCreatedAt() { return createdAt; }

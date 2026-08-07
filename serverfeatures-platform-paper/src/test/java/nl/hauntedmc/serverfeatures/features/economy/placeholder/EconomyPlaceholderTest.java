@@ -103,7 +103,7 @@ class EconomyPlaceholderTest {
                 new EconomySettings.Display("token", "tokens", "T", "{symbol}{amount}", 0, true),
                 new EconomySettings.Balances(BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("999999"), false,
                         RoundingMode.HALF_UP),
-                new EconomySettings.Commands("tokens", List.of("tokens"), true, true, true, true, true, true),
+                new EconomySettings.Commands("tokens", List.of("events"), true, true, true, true, true, true),
                 new EconomySettings.Payments(true, BigDecimal.ONE, new BigDecimal("1000"), new BigDecimal("100"),
                         BigDecimal.ZERO, BigDecimal.ZERO, Duration.ofSeconds(1)));
         return new EconomySettings("hauntedmc", "survival", "system_data_rw",

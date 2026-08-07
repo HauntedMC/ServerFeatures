@@ -27,6 +27,7 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 - Startup must remain blocked when the persisted currency-family or scope definition conflicts with configuration. Do not bypass these guards.
 - The MySQL definition is persistent: stopping an old server does not make a new monetary definition acceptable. A changed monetary definition needs a coordinated, reviewed data migration; see [Currency configuration and network consistency](economy.md#currency-configuration-and-network-consistency).
 - Display formatting and local command/Vault settings are not part of the monetary definition guard. Keep them aligned as well unless a per-server difference is intentional.
+- A new `GLOBAL` or `GROUP` currency created on one server becomes discoverable after that server starts successfully. Other servers may use `/economy definitions import ...` to generate a local policy-matching scaffold, then review and roll it out normally; import never reloads Economy automatically.
 
 ## Rollout
 

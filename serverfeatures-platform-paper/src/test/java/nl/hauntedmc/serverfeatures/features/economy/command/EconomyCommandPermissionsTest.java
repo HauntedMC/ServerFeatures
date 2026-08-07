@@ -26,6 +26,25 @@ class EconomyCommandPermissionsTest {
         assertTrue(EconomyCommandPermissions.hasAnyAdminPermission(sender));
         assertTrue(EconomyCommandPermissions.adminAction(sender, "verify"));
         assertTrue(EconomyCommandPermissions.adminAction(sender, "freeze"));
+        assertTrue(EconomyCommandPermissions.adminAction(sender, "definitions"));
+        assertTrue(EconomyCommandPermissions.canImportDefinitions(sender));
+    }
+
+    @Test
+    void definitionReadPermissionDoesNotGrantConfigurationImport() {
+        CommandSender sender = senderWith("serverfeatures.feature.economy.admin.definitions");
+
+        assertTrue(EconomyCommandPermissions.canInspectDefinitions(sender));
+        assertFalse(EconomyCommandPermissions.canImportDefinitions(sender));
+    }
+
+    @Test
+    void definitionImportPermissionKeepsTheAdministrativeRootReachable() {
+        CommandSender sender = senderWith("serverfeatures.feature.economy.admin.definitions.import");
+
+        assertTrue(EconomyCommandPermissions.hasAnyAdminPermission(sender));
+        assertTrue(EconomyCommandPermissions.canUseDefinitionCommands(sender));
+        assertFalse(EconomyCommandPermissions.canInspectDefinitions(sender));
     }
 
     @Test

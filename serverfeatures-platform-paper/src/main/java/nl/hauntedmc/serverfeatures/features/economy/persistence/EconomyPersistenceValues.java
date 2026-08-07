@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.economy.persistence;
 
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.CurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
@@ -81,14 +82,19 @@ final class EconomyPersistenceValues {
     }
 
     static String definitionHash(EconomySettings.Currency currency) {
-        return hash(String.join("|", currency.id(), currency.scope().type().name(), currency.scope().key(),
-                Integer.toString(currency.display().fractionalDigits()), currency.balances().starting().toPlainString(),
-                currency.balances().minimum().toPlainString(), currency.balances().maximum().toPlainString(),
-                Boolean.toString(currency.balances().allowNegative()), currency.balances().rounding().name(),
-                Boolean.toString(currency.payments().defaultEnabled()), currency.payments().minimum().toPlainString(),
-                currency.payments().maximum().toPlainString(), currency.payments().confirmationThreshold().toPlainString(),
-                currency.payments().dailySendLimit().toPlainString(), currency.payments().dailyReceiveLimit().toPlainString(),
-                Long.toString(currency.payments().cooldown().toMillis())));
+        return definitionHash(EconomyDefinitionPayload.fromCurrency(currency));
+    }
+
+    /** Hashes precisely the monetary fields stored in a discoverable currency definition. */
+    static String definitionHash(CurrencyDefinition definition) {
+        return hash(String.join("|", definition.currencyId(), definition.scope().type().name(), definition.scope().key(),
+                Integer.toString(definition.fractionalDigits()), definition.startingBalance().toPlainString(),
+                definition.minimumBalance().toPlainString(), definition.maximumBalance().toPlainString(),
+                Boolean.toString(definition.allowNegative()), definition.rounding().name(),
+                Boolean.toString(definition.paymentsDefaultEnabled()), definition.paymentMinimum().toPlainString(),
+                definition.paymentMaximum().toPlainString(), definition.confirmationThreshold().toPlainString(),
+                definition.dailySendLimit().toPlainString(), definition.dailyReceiveLimit().toPlainString(),
+                Long.toString(definition.paymentCooldown().toMillis())));
     }
 
     static String hash(String value) {

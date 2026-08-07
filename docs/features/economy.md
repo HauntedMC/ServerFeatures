@@ -478,6 +478,61 @@ a release-blocking safety stop, not an error to bypass. If a server reports one,
 that server, compare its resolved configuration with the stored/network configuration, and follow
 the incident runbook.
 
+### Discovering and importing shared currencies
+
+When the first server starts a new enabled currency, Economy stores both its immutable fingerprint
+and a versioned canonical **monetary-definition payload** in MySQL. The payload makes a global or
+group currency discoverable by other servers without trying to reverse a hash.
+
+Administrators with `serverfeatures.feature.economy.admin.definitions` can inspect shared
+definitions:
+
+```text
+/economy definitions list
+/economy definitions show <currency> <resolved-scope-key>
+```
+
+Writing a local configuration scaffold additionally requires
+`serverfeatures.feature.economy.admin.definitions.import`:
+
+```text
+/economy definitions import <currency> <resolved-scope-key>
+/economy definitions import <currency> <resolved-scope-key> confirm
+```
+
+`list` shows discoverable `GLOBAL` and `GROUP` definitions for the configured `network_key`. Copy
+the scope key from this output into `show` or `import`; examples are `hauntedmc/global` and
+`hauntedmc/group/survival`. `show` displays policy values only—never balances, identities or
+transaction data.
+
+The first `import` is a dry run. `confirm` writes a missing-only currency scaffold to this server's
+Economy YAML; it never overwrites an existing currency, never changes MySQL, and never reloads a
+running feature. Review the saved config and deploy/reload it through the normal network rollout
+process. The generated scaffold preserves the authoritative scope, precision, balance and payment
+policy, but deliberately uses local defaults for display and commands. It enables balance/history
+commands and leaves player `pay`/`paytoggle` disabled until a local administrator explicitly
+reviews and enables them. Vault selection remains local as well.
+
+Older definition rows created before this feature version have only a fingerprint and are listed as
+`legacy`; they cannot be imported yet. Starting a server with the known-good matching configuration
+backfills the canonical payload safely. Never guess the missing policy or edit definition rows by
+hand.
+
+#### Database schema upgrade
+
+Economy needs the nullable `definition_payload` column on
+`system_economy_currency_definition`. Networks using the normal ORM `validate` schema mode must
+apply this migration before deploying this feature version:
+
+```sql
+ALTER TABLE system_economy_currency_definition
+    ADD COLUMN definition_payload VARCHAR(2048) NULL;
+```
+
+Alternatively, use the platform's reviewed ORM schema-update process during the deployment, then
+return it to validation mode. Do not deploy part of the network before this column exists: servers
+will correctly refuse to start Economy when the schema does not match.
+
 ## Network-wide transfer behavior
 
 A global payment from gamemode A to a player online on gamemode B follows this path:
@@ -581,6 +636,9 @@ grant their relevant currency actions. Valid player actions are `balance`, `bala
 /economy status
 /economy help
 /economy currencies
+/economy definitions list
+/economy definitions show <currency> <resolved-scope-key>
+/economy definitions import <currency> <resolved-scope-key> [confirm]
 /economy balance <player> <currency>
 /economy account <player> <currency>
 /economy add <player> <currency> <amount> <reason...>
@@ -594,7 +652,8 @@ grant their relevant currency actions. Valid player actions are `balance`, `bala
 ```
 
 Administrative balance changes require a reason, are journaled, and return an operation ID.
-Administrative permissions use `serverfeatures.feature.economy.admin.<action>`;
+Administrative permissions use `serverfeatures.feature.economy.admin.<action>`; definition
+inspection uses `definitions`, while the configuration-writing import uses `definitions.import`.
 `serverfeatures.feature.economy.admin` grants all administration actions. Treat balance changes,
 freeze changes and payment-preference changes as audited operational actions, not routine player
 support shortcuts.

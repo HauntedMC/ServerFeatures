@@ -3,8 +3,10 @@ package nl.hauntedmc.serverfeatures.features.economy.command;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
+import nl.hauntedmc.serverfeatures.features.economy.config.EconomyDefinitionImporter;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryItem;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
@@ -14,6 +16,7 @@ import org.bukkit.entity.Player;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /** Executes audited administrator use cases and renders their localized command feedback. */
 final class EconomyAdminActions {
@@ -43,6 +46,9 @@ final class EconomyAdminActions {
         sendHelp(sender, "freeze", "unfreeze <speler> <currency> <reden>", "Geef een account vrij");
         sendHelp(sender, "history", "history <speler> <currency> [pagina]", "Bekijk transacties");
         sendHelp(sender, "verify", "verify", "Controleer de journaalintegriteit");
+        sendHelp(sender, "definitions", "definitions list", "Bekijk gedeelde currency-definities");
+        sendHelp(sender, "definitions", "definitions show <currency> <scope>", "Bekijk een definitie");
+        sendHelp(sender, "definitions.import", "definitions import <currency> <scope> [confirm]", "Importeer een config-scaffold");
         return 1;
     }
 
@@ -60,6 +66,72 @@ final class EconomyAdminActions {
                     "currency", currency.id(), "scope", currency.scope().type().name(),
                     "scope_key", currency.scope().key(), "command", "/" + currency.commands().root()));
         }
+        return 1;
+    }
+
+    /** Lists shared definitions only; this command never reads or exposes player accounts. */
+    int definitions(CommandSender sender) {
+        feature.service().sharedDefinitions().whenComplete((definitions, failure) -> feature.service().main(() -> {
+            if (failure != null) { fail(sender, failure); return; }
+            if (definitions.isEmpty()) {
+                feature.send(sender, "economy.admin.definition.empty");
+                return;
+            }
+            for (DiscoveredCurrencyDefinition definition : definitions) {
+                feature.send(sender, "economy.admin.definition.list", Map.of(
+                        "currency", definition.currencyId(), "scope", definition.scope().key(),
+                        "type", definition.scope().type().name(),
+                        "state", definition.importable() ? "importable" : "legacy"));
+            }
+        }));
+        return 1;
+    }
+
+    int definition(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            if (!definition.importable()) {
+                feature.send(sender, "economy.admin.definition.legacy", Map.of(
+                        "currency", definition.currencyId(), "scope", definition.scope().key()));
+                return;
+            }
+            var policy = definition.definition();
+            feature.send(sender, "economy.admin.definition.detail", Map.ofEntries(
+                    Map.entry("currency", policy.currencyId()), Map.entry("scope", policy.scope().key()),
+                    Map.entry("type", policy.scope().type().name()), Map.entry("digits", Integer.toString(policy.fractionalDigits())),
+                    Map.entry("starting", policy.startingBalance().toPlainString()), Map.entry("minimum", policy.minimumBalance().toPlainString()),
+                    Map.entry("maximum", policy.maximumBalance().toPlainString()), Map.entry("negative", Boolean.toString(policy.allowNegative())),
+                    Map.entry("rounding", policy.rounding().name()), Map.entry("payments", Boolean.toString(policy.paymentsDefaultEnabled())),
+                    Map.entry("payment_minimum", policy.paymentMinimum().toPlainString()),
+                    Map.entry("payment_maximum", policy.paymentMaximum().toPlainString()),
+                    Map.entry("confirmation", policy.confirmationThreshold().toPlainString()),
+                    Map.entry("daily_send", policy.dailySendLimit().toPlainString()),
+                    Map.entry("daily_receive", policy.dailyReceiveLimit().toPlainString()),
+                    Map.entry("cooldown", policy.paymentCooldown().toMillis() + "ms")));
+        });
+        return 1;
+    }
+
+    /** Provides a non-mutating import preview; confirm is required before configuration is written. */
+    int importPreview(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            EconomyDefinitionImporter.ImportPreview preview = EconomyDefinitionImporter.preview(feature.getConfigHandler(), definition);
+            feature.send(sender, "economy.admin.definition.import_preview", Map.of(
+                    "currency", definition.currencyId(), "scope", definition.scope().key(), "message", preview.message()));
+        });
+        return 1;
+    }
+
+    int importDefinition(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            EconomyDefinitionImporter.ImportPreview result = EconomyDefinitionImporter.apply(feature.getConfigHandler(), definition);
+            if (result.status() == EconomyDefinitionImporter.ImportStatus.IMPORTED) {
+                feature.getLogger().info("Imported Economy definition " + definition.currencyId() + " ("
+                        + definition.scope().key() + ") into local configuration at the request of " + sender.getName() + ".");
+            }
+            feature.send(sender, result.status() == EconomyDefinitionImporter.ImportStatus.IMPORTED
+                    ? "economy.admin.definition.imported" : "economy.admin.definition.import_preview", Map.of(
+                    "currency", definition.currencyId(), "scope", definition.scope().key(), "message", result.message()));
+        });
         return 1;
     }
 
@@ -219,6 +291,26 @@ final class EconomyAdminActions {
                 feature.service().main(() -> fail(sender, exception));
             }
         });
+    }
+
+    private void sharedDefinition(
+            CommandSender sender, String currencyId, String scopeKey, Consumer<DiscoveredCurrencyDefinition> action
+    ) {
+        feature.service().sharedDefinition(currencyId, scopeKey).whenComplete((result, failure) ->
+                feature.service().main(() -> {
+                    if (failure != null) {
+                        fail(sender, failure);
+                    } else if (result.isEmpty()) {
+                        feature.send(sender, "economy.admin.definition.missing", Map.of(
+                                "currency", currencyId, "scope", scopeKey));
+                    } else {
+                        try {
+                            action.accept(result.get());
+                        } catch (RuntimeException exception) {
+                            fail(sender, exception);
+                        }
+                    }
+                }));
     }
 
     private void mutationResult(CommandSender sender, Identity identity, EconomySettings.Currency currency,

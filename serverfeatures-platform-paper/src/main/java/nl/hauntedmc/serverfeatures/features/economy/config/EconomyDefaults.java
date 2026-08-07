@@ -79,6 +79,13 @@ public final class EconomyDefaults {
         messages.add("economy.help.entry", "<white>{command} {usage}</white> <gray>— {description}</gray>");
         messages.add("economy.admin.status", "<gold>Economy</gold> <gray>· server {server} · {currencies} currencies · Vault {vault} · messaging {messaging}</gray>");
         messages.add("economy.admin.currency", "<white>{currency}</white> <gray>· {scope} · {scope_key} · {command}</gray>");
+        messages.add("economy.admin.definition.empty", "<gray>Geen gedeelde currency-definities gevonden voor dit netwerk.</gray>");
+        messages.add("economy.admin.definition.list", "<white>{currency}</white> <gray>· {type} · {scope} · {state}</gray>");
+        messages.add("economy.admin.definition.missing", "<red>Geen gedeelde definitie gevonden voor {currency} in {scope}.</red>");
+        messages.add("economy.admin.definition.legacy", "<yellow>{currency} in {scope} is een legacy-definitie zonder import-payload. Start eerst een server met de bekende goede config.</yellow>");
+        messages.add("economy.admin.definition.detail", "<white>{currency}</white> <gray>· {type} · {scope} · {digits} decimalen · start {starting} · grenzen {minimum}..{maximum} · negatief {negative} · {rounding} · betalingen standaard {payments} · min/max {payment_minimum}/{payment_maximum} · bevestiging {confirmation} · daglimieten uit/in {daily_send}/{daily_receive} · cooldown {cooldown}</gray>");
+        messages.add("economy.admin.definition.import_preview", "<yellow>Import {currency} ({scope}): {message}</yellow>");
+        messages.add("economy.admin.definition.imported", "<green>Import {currency} ({scope}): {message}</green>");
         messages.add("economy.admin.balance", "<white>{player}</white> <gray>· {currency} · {scope} ·</gray> <gold>{balance}</gold>");
         messages.add("economy.admin.account", "<white>{player}</white> <gray>· {currency} · {scope} · saldo</gray> <gold>{balance}</gold> <gray>· betalingen {payments} · status {status}</gray>");
         messages.add("economy.admin.help.header", "<gold><bold>Economy-beheer</bold></gold>");

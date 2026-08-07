@@ -49,9 +49,28 @@ final class EconomyCommandPermissions {
                 || sender.hasPermission(ADMIN_PERMISSION + ".*");
     }
 
+    /**
+     * Returns whether a sender may access the shared-definition command branch.
+     *
+     * <p>Reading definitions and writing a configuration scaffold deliberately use separate
+     * permissions. This keeps a support role from being able to change a server's configuration
+     * merely because it needs to inspect the shared monetary policy.</p>
+     */
+    static boolean canUseDefinitionCommands(CommandSender sender) {
+        return adminAction(sender, "definitions") || adminAction(sender, "definitions.import");
+    }
+
+    static boolean canInspectDefinitions(CommandSender sender) {
+        return adminAction(sender, "definitions");
+    }
+
+    static boolean canImportDefinitions(CommandSender sender) {
+        return adminAction(sender, "definitions.import");
+    }
+
     static boolean hasAnyAdminPermission(CommandSender sender) {
         return sender.hasPermission(ADMIN_PERMISSION) || sender.hasPermission(ADMIN_PERMISSION + ".*")
-                || java.util.stream.Stream.of("status", "balance", "add", "remove", "set", "payments", "freeze", "history", "verify")
+                || java.util.stream.Stream.of("status", "balance", "add", "remove", "set", "payments", "freeze", "history", "verify", "definitions", "definitions.import")
                 .anyMatch(action -> adminAction(sender, action));
     }
 

@@ -14,6 +14,7 @@ import nl.hauntedmc.serverfeatures.features.economy.messaging.EconomyBalanceMess
 import nl.hauntedmc.serverfeatures.features.economy.messaging.EconomyMessaging;
 import nl.hauntedmc.serverfeatures.features.economy.messaging.EconomyTransferMessage;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryPage;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
@@ -29,6 +30,7 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -169,6 +171,24 @@ public final class EconomyService implements EconomyApi {
 
     public Optional<Account> cachedAccount(UUID playerUuid, String currencyId) {
         return cache.get(playerUuid, requireCurrency(currencyId, null));
+    }
+
+    /** Reads global and group definitions that this logical network can safely discover/import. */
+    public CompletionStage<List<DiscoveredCurrencyDefinition>> sharedDefinitions() {
+        return submit(() -> repository.sharedDefinitions(settings.networkKey()));
+    }
+
+    /** Reads one shared definition by stable currency ID and resolved scope key. */
+    public CompletionStage<Optional<DiscoveredCurrencyDefinition>> sharedDefinition(String currencyId, String scopeKey) {
+        try {
+            String normalizedId = EconomySettings.normalizeCurrencyId(currencyId);
+            if (scopeKey == null || scopeKey.isBlank() || scopeKey.length() > 128) {
+                return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid shared currency scope key"));
+            }
+            return submit(() -> repository.sharedDefinition(settings.networkKey(), normalizedId, scopeKey.trim()));
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
     }
 
     public CompletionStage<Account> accountState(EconomyAccountRef account) {

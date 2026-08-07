@@ -34,6 +34,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                 .executes(context -> actions.status(context.getSource().getSender())));
         root.then(Commands.literal("currencies").requires(source -> allowed(source, "status"))
                 .executes(context -> actions.currencies(context.getSource().getSender())));
+        root.then(definitions());
         root.then(Commands.literal("balance").requires(source -> allowed(source, "balance"))
                 .then(playerCurrencyArguments(actions::balance)));
         root.then(Commands.literal("account").requires(source -> allowed(source, "balance"))
@@ -60,6 +61,35 @@ public final class EconomyAdminCommand implements BrigadierCommand {
         root.then(Commands.literal("verify").requires(source -> allowed(source, "verify"))
                 .executes(context -> actions.verify(context.getSource().getSender())));
         return root.build();
+    }
+
+    private LiteralArgumentBuilder<CommandSourceStack> definitions() {
+        return Commands.literal("definitions").requires(source -> EconomyCommandPermissions
+                        .canUseDefinitionCommands(source.getSender()))
+                .then(Commands.literal("list").requires(source -> EconomyCommandPermissions
+                        .canInspectDefinitions(source.getSender()))
+                        .executes(context -> actions.definitions(context.getSource().getSender())))
+                .then(Commands.literal("show").requires(source -> EconomyCommandPermissions
+                        .canInspectDefinitions(source.getSender()))
+                        .then(definitionArguments((sender, currency, scope) -> actions.definition(sender, currency, scope))))
+                .then(Commands.literal("import").requires(source -> EconomyCommandPermissions
+                        .canImportDefinitions(source.getSender()))
+                        .then(definitionArguments((sender, currency, scope) -> actions.importPreview(sender, currency, scope),
+                                (sender, currency, scope) -> actions.importDefinition(sender, currency, scope))));
+    }
+
+    private ArgumentBuilder<CommandSourceStack, ?> definitionArguments(DefinitionAction action) {
+        return definitionArguments(action, null);
+    }
+
+    private ArgumentBuilder<CommandSourceStack, ?> definitionArguments(DefinitionAction action, DefinitionAction confirmation) {
+        var scope = Commands.argument("scope", StringArgumentType.word())
+                .executes(context -> action.execute(context.getSource().getSender(), word(context, "currency"), word(context, "scope")));
+        if (confirmation != null) {
+            scope.then(Commands.literal("confirm").executes(context -> confirmation.execute(
+                    context.getSource().getSender(), word(context, "currency"), word(context, "scope"))));
+        }
+        return Commands.argument("currency", StringArgumentType.word()).then(scope);
     }
 
     private LiteralArgumentBuilder<CommandSourceStack> mutation(String action, TransactionType type) {
@@ -111,5 +141,10 @@ public final class EconomyAdminCommand implements BrigadierCommand {
     @FunctionalInterface
     private interface AdminAction {
         int execute(CommandSender sender, String player, String currency);
+    }
+
+    @FunctionalInterface
+    private interface DefinitionAction {
+        int execute(CommandSender sender, String currency, String scope);
     }
 }
