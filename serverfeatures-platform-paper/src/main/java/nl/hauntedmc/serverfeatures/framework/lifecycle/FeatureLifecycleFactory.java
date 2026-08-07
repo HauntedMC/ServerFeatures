@@ -32,7 +32,12 @@ public final class FeatureLifecycleFactory {
         this.cacheManagerFactory = () -> new FeatureCacheManager(plugin);
         this.guiManagerFactory = tasks -> new FeatureGUIManager(plugin, tasks);
         this.apiManagerFactory = name -> new FeatureApiManager(
-                name, plugin::getDataRegistry, serviceCatalog, plugin.getCapabilityRegistry());
+                name,
+                plugin::getDataRegistry,
+                serviceCatalog,
+                plugin.getCapabilityRegistry(),
+                plugin.getInternalServiceRegistry()
+        );
     }
 
     FeatureLifecycleFactory(
@@ -68,6 +73,7 @@ public final class FeatureLifecycleFactory {
     }
 
     public <T> Optional<T> findService(Class<T> type) {
-        return serviceCatalog.find(type);
+        Optional<T> internal = serviceCatalog.find(type);
+        return internal;
     }
 }
