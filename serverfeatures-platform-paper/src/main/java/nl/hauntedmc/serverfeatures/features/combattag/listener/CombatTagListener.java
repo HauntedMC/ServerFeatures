@@ -73,6 +73,12 @@ public final class CombatTagListener implements Listener {
                 && settings.attribution().mobSpawnExclusions().contains(resolved.spawnReason())) {
             return;
         }
+        if (resolved.playerSource()
+                && !(target instanceof Player)
+                && target.getEntitySpawnReason() != null
+                && settings.attribution().mobSpawnExclusions().contains(target.getEntitySpawnReason())) {
+            return;
+        }
         applyCombat(resolved, target);
     }
 
