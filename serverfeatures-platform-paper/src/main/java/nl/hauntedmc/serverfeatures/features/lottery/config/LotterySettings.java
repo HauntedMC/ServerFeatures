@@ -267,6 +267,10 @@ public record LotterySettings(
             }
         }
 
+        public Broadcasts(boolean enabled, List<Duration> remainingTimes) {
+            this(enabled, remainingTimes, false, false, Money.parse("1000.00"));
+        }
+
         public boolean shouldAnnounceTicketPurchase() {
             return ticketPurchasesEnabled;
         }
