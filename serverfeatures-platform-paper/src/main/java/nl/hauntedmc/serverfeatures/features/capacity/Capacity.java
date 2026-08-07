@@ -69,7 +69,6 @@ public final class Capacity extends BukkitBaseFeature<Meta> {
                 publisherId
         );
         api = new CapacityAPI(store);
-        getLifecycleManager().getApiManager().registerService(CapacityAPI.class, api);
 
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             CapacityPlaceholder candidate = new CapacityPlaceholder(api);
