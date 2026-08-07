@@ -96,7 +96,8 @@ class ConfigViewTest {
         assertEquals(List.of(9), view.getList("bad.list", Integer.class, List.of(9)));
         assertEquals(Map.of("fallback", 1),
                 view.getMapValues("bad.map", Integer.class, Map.of("fallback", 1)));
-        assertEquals(1, view.scope(null).putIfAbsent("new", 1) ? view.get("new", Integer.class) : 0);
+        assertTrue(view.scope(null).putIfAbsent("new", 1));
+        assertEquals(Integer.valueOf(1), view.get("new", Integer.class));
     }
 
     private ConfigView create(String fileName, String base) throws Exception {
