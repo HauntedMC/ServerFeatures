@@ -6,6 +6,7 @@ import jakarta.persistence.Version;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
+import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPurchaseIntentEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;
 import org.junit.jupiter.api.Test;
 
@@ -18,14 +19,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class LotteryEntitySchemaTest {
 
     @Test
-    void usesFourNormalOrmEntities() throws NoSuchFieldException {
+    void usesFiveNormalOrmEntities() throws NoSuchFieldException {
         List<Class<?>> entities = List.of(
                 LotteryRoundEntity.class,
                 LotteryEntryEntity.class,
                 LotteryPayoutEntity.class,
-                LotteryPlayerStatsEntity.class
+                LotteryPlayerStatsEntity.class,
+                LotteryPurchaseIntentEntity.class
         );
-        assertEquals(4, entities.size());
+        assertEquals(5, entities.size());
         for (Class<?> entity : entities) {
             assertNotNull(entity.getAnnotation(Entity.class));
             assertNotNull(entity.getAnnotation(Table.class));

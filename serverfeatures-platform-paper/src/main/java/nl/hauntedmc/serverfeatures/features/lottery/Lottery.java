@@ -17,6 +17,7 @@ import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGatewa
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
+import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPurchaseIntentEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.listener.LotteryPlayerListener;
 import nl.hauntedmc.serverfeatures.features.lottery.meta.Meta;
@@ -171,7 +172,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
                 LotteryRoundEntity.class,
                 LotteryEntryEntity.class,
                 LotteryPayoutEntity.class,
-                LotteryPlayerStatsEntity.class
+                LotteryPlayerStatsEntity.class,
+                LotteryPurchaseIntentEntity.class
         ).orElseThrow(() -> new IllegalStateException(
                 "Lottery requires MYSQL/system_data_rw and could not create its ORM context."
         ));

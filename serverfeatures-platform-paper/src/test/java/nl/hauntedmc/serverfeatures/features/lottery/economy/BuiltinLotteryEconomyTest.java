@@ -7,6 +7,7 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyScope;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyScopeType;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import org.bukkit.OfflinePlayer;
 import org.junit.jupiter.api.Test;
@@ -99,6 +100,33 @@ class BuiltinLotteryEconomyTest {
                 LotteryEconomyGateway.Operation.DONATION,
                 "donation:test"
         ));
+    }
+
+    @Test
+    void chargesNativePurchasesThroughTheDurableWorkflowApi() {
+        EconomyApi economy = mock(EconomyApi.class);
+        when(economy.currency("money")).thenReturn(Optional.of(currency(2)));
+        when(economy.chargeAndDispatch(any())).thenReturn(CompletableFuture.completedFuture(
+                new nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowResult(
+                        new EconomyResult(EconomyResultStatus.SUCCESS,
+                                UUID.fromString("00000000-0000-0000-0000-000000000010"), null, null, ""),
+                        nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState.PENDING_FULFILMENT,
+                        UUID.fromString("00000000-0000-0000-0000-000000000011"), 0, ""
+                )
+        ));
+
+        new BuiltinLotteryEconomy(economy, "money").chargePurchase(
+                UUID.fromString("00000000-0000-0000-0000-000000000001"), "Player", 42L,
+                Money.of(new BigDecimal("10.00")), "00000000-0000-0000-0000-000000000012"
+        ).toCompletableFuture().join();
+
+        ArgumentCaptor<EconomyWorkflowRequest> requests = ArgumentCaptor.forClass(EconomyWorkflowRequest.class);
+        verify(economy).chargeAndDispatch(requests.capture());
+        EconomyWorkflowRequest request = requests.getValue();
+        assertEquals("lottery", request.workflow().source());
+        assertEquals("00000000-0000-0000-0000-000000000012", request.workflow().workflowId());
+        assertEquals("lottery.purchase.v1", request.eventType());
+        assertEquals("00000000-0000-0000-0000-000000000012", request.metadata().get("purchase_intent_id"));
     }
 
     private static EconomyCurrency currency(int fractionalDigits) {

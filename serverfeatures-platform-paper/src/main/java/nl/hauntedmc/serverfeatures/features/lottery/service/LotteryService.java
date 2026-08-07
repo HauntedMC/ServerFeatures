@@ -1,17 +1,23 @@
 package nl.hauntedmc.serverfeatures.features.lottery.service;
 
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowEvent;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRegistration;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lottery.Lottery;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway.EconomyResult;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PendingPayout;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PayoutStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PlayerSummary;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.RoundSnapshot;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository;
+import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository.PurchaseFulfilment;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -45,6 +51,8 @@ public final class LotteryService {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final LotteryViewService views;
     private final LotteryDrawCoordinator rounds;
+    private EconomyWorkflowRegistration purchaseWorkflowRegistration;
+    private final AtomicBoolean reconcilingNativePurchases = new AtomicBoolean();
 
     public LotteryService(
             Lottery feature,
@@ -65,6 +73,12 @@ public final class LotteryService {
     }
 
     public void start() {
+        if (economy instanceof BuiltinLotteryEconomy builtin) {
+            purchaseWorkflowRegistration = builtin.registerPurchaseHandler(this::fulfilNativePurchase);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
+                    () -> reconcileNativePurchases(builtin), BukkitTime.seconds(5), BukkitTime.seconds(30)
+            );
+        }
         String seed = drawEngine.newSeed();
         submit(() -> repository.ensureOpenRound(settings, seed, drawEngine.commitment(seed), now()))
                 .whenComplete((round, failure) -> main(() -> {
@@ -87,6 +101,10 @@ public final class LotteryService {
         snapshot.set(null);
         playerSummaries.clear();
         activePlayerOperations.clear();
+        if (purchaseWorkflowRegistration != null) {
+            purchaseWorkflowRegistration.close();
+            purchaseWorkflowRegistration = null;
+        }
         rounds.close();
     }
 
@@ -413,6 +431,10 @@ public final class LotteryService {
             }
             return;
         }
+        if (economy instanceof BuiltinLotteryEconomy builtin) {
+            reserveAndChargeNativePurchase(builtin, playerUuid, playerName, playerId, roundId, ticketCount, cost);
+            return;
+        }
         String economyKey = "purchase:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
         economy.withdraw(player, cost, LotteryEconomyGateway.Operation.PURCHASE, economyKey)
                 .whenComplete((withdrawal, economyFailure) -> main(() -> {
@@ -448,6 +470,188 @@ public final class LotteryService {
                         ));
                     }));
                 }));
+    }
+
+    private void reserveAndChargeNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            UUID playerUuid,
+            String playerName,
+            Long playerId,
+            String roundId,
+            int ticketCount,
+            Money cost
+    ) {
+        if (playerId == null || playerId <= 0L) {
+            endPlayerOperation(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, "lottery.identity_unavailable");
+            }
+            return;
+        }
+        submit(() -> repository.reservePurchase(
+                        settings, roundId, playerUuid, playerId, playerName, ticketCount, cost, now()
+                ))
+                .whenComplete((intent, reservationFailure) -> main(() -> {
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (reservationFailure != null) {
+                        endPlayerOperation(playerUuid);
+                        if (player != null && player.isOnline()) {
+                            feature.send(player, "lottery.buy.withdraw_failed", Map.of(
+                                    "reason", rootMessage(reservationFailure)
+                            ));
+                        }
+                        return;
+                    }
+                    builtin.chargePurchase(playerUuid, playerName, playerId, cost, intent.id())
+                            .whenComplete((workflow, chargeFailure) -> main(() -> {
+                                if (chargeFailure != null || workflow == null) {
+                                    endPlayerOperation(playerUuid);
+                                    if (player != null && player.isOnline()) {
+                                        feature.send(player, "lottery.transaction.uncertain");
+                                    }
+                                    if (chargeFailure != null) {
+                                        log("Could not start durable Lottery purchase " + intent.id(), chargeFailure);
+                                    }
+                                    return;
+                                }
+                                if (workflow.charged()) {
+                                    // The registered handler sends the success message only after the entry is durable.
+                                    return;
+                                }
+                                endPlayerOperation(playerUuid);
+                                if (workflow.transaction().status() != EconomyResultStatus.TEMPORARY_FAILURE) {
+                                    submit(() -> {
+                                        repository.declinePurchase(intent.id(), now());
+                                        return null;
+                                    });
+                                }
+                                if (player != null && player.isOnline()) {
+                                    feature.send(player, workflow.transaction().status() == EconomyResultStatus.TEMPORARY_FAILURE
+                                            ? "lottery.transaction.uncertain"
+                                            : "lottery.buy.withdraw_failed", Map.of(
+                                                    "reason", workflow.transaction().message()
+                                            ));
+                                }
+                            }));
+                }));
+    }
+
+    /** Completes or compensates one committed native-Economy ticket charge. */
+    private CompletableFuture<Void> fulfilNativePurchase(EconomyWorkflowEvent event) {
+        if (!(economy instanceof BuiltinLotteryEconomy builtin)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Native Lottery workflow has no native backend"));
+        }
+        String intentId = event.metadata().get("purchase_intent_id");
+        if (intentId == null || !intentId.equals(event.workflow().workflowId())) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Lottery workflow does not identify its purchase intent"));
+        }
+        return submit(() -> repository.fulfilPurchase(settings, intentId, Money.of(event.amount()), now()))
+                .thenCompose(fulfilment -> fulfilment.refundRequired()
+                        ? refundNativePurchase(builtin, event)
+                        : notifyNativePurchaseFulfilled(event, fulfilment));
+    }
+
+    private CompletableFuture<Void> refundNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            EconomyWorkflowEvent event
+    ) {
+        return builtin.refundPurchase(event).thenCompose(refund -> {
+            if (!refund.successful()) {
+                return CompletableFuture.failedFuture(new IllegalStateException(
+                        "Lottery purchase refund was not accepted: " + refund.message()
+                ));
+            }
+            return submit(() -> repository.markPurchaseRefunded(event.workflow().workflowId(), now()));
+        }).thenAccept(intent -> main(() -> {
+            UUID playerUuid = intent.playerUuid();
+            endPlayerOperation(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(intent.charged())));
+            }
+        })).toCompletableFuture();
+    }
+
+    private CompletableFuture<Void> notifyNativePurchaseFulfilled(
+            EconomyWorkflowEvent event,
+            PurchaseFulfilment fulfilment
+    ) {
+        main(() -> {
+            UUID playerUuid = event.account().playerUuid();
+            endPlayerOperation(playerUuid);
+            rounds.refreshRound();
+            refreshPlayerSummary(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline() && fulfilment.receipt() != null) {
+                feature.send(player, "lottery.buy.success", Map.of(
+                        "tickets", Integer.toString(fulfilment.receipt().purchasedTickets()),
+                        "cost", format(fulfilment.receipt().charged()),
+                        "player_tickets", Integer.toString(fulfilment.receipt().playerTickets()),
+                        "pot", format(fulfilment.receipt().pot())
+                ));
+            }
+        });
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Reissues only uncertain, still-open reservations using their original workflow id.  A committed
+     * debit is discovered first, while a closed round releases an uncharged reservation instead of
+     * charging and immediately refunding it.
+     */
+    private void reconcileNativePurchases(BuiltinLotteryEconomy builtin) {
+        if (!isReady() || !reconcilingNativePurchases.compareAndSet(false, true)) {
+            return;
+        }
+        submit(() -> repository.pendingPurchases(settings.lotteryKey(), 32))
+                .whenComplete((intents, queryFailure) -> {
+                    if (queryFailure != null || intents == null) {
+                        if (queryFailure != null) {
+                            log("Could not reconcile durable Lottery purchases", queryFailure);
+                        }
+                        reconcilingNativePurchases.set(false);
+                        return;
+                    }
+                    CompletableFuture<?>[] reconciliations = intents.stream()
+                            .map(intent -> reconcileNativePurchase(builtin, intent).toCompletableFuture())
+                            .toArray(CompletableFuture[]::new);
+                    CompletableFuture.allOf(reconciliations).whenComplete((ignored, failure) -> {
+                        if (failure != null) {
+                            log("Could not reconcile a durable Lottery purchase", failure);
+                        }
+                        reconcilingNativePurchases.set(false);
+                    });
+                });
+    }
+
+    private java.util.concurrent.CompletionStage<Void> reconcileNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            LotteryRepository.PurchaseIntent intent
+    ) {
+        return builtin.purchaseWorkflow(intent.id()).thenCompose(existing -> {
+            if (existing.isPresent()) {
+                return CompletableFuture.completedFuture(null);
+            }
+            RoundSnapshot round = snapshot.get();
+            if (round == null || !round.roundId().equals(intent.roundId()) || !round.acceptsEntries(now())) {
+                return submit(() -> {
+                    repository.declinePurchase(intent.id(), now());
+                    return null;
+                });
+            }
+            return builtin.chargePurchase(
+                    intent.playerUuid(), intent.playerName(), intent.playerId(), intent.charged(), intent.id()
+            ).thenCompose(result -> {
+                if (result.charged() || result.transaction().status() == EconomyResultStatus.TEMPORARY_FAILURE) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return submit(() -> {
+                    repository.declinePurchase(intent.id(), now());
+                    return null;
+                });
+            });
+        });
     }
 
     private void withdrawAndStoreDonation(

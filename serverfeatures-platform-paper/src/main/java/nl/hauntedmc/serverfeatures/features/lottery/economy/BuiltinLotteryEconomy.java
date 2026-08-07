@@ -4,12 +4,19 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyAccountRef;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowEvent;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowHandler;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRef;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRegistration;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowResult;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import org.bukkit.OfflinePlayer;
 
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
@@ -74,6 +81,57 @@ public final class BuiltinLotteryEconomy implements LotteryEconomyGateway {
         return "Builtin:" + currencyId;
     }
 
+    /** Atomically commits a Lottery debit and its subsequent fulfilment event. */
+    public CompletionStage<EconomyWorkflowResult> chargePurchase(
+            UUID playerUuid,
+            String playerName,
+            long playerId,
+            Money amount,
+            String purchaseIntentId
+    ) {
+        EconomyWorkflowRequest request = new EconomyWorkflowRequest(
+                new EconomyWorkflowRef("lottery", purchaseIntentId),
+                account(playerUuid, playerName, playerId),
+                amount.amount(),
+                playerId,
+                playerName,
+                "Lottery ticket purchase",
+                "lottery.purchase.v1",
+                Map.of("purchase_intent_id", purchaseIntentId)
+        );
+        return economy.chargeAndDispatch(request);
+    }
+
+    /** Registers Lottery's idempotent durable-purchase fulfiller with the native Economy. */
+    public EconomyWorkflowRegistration registerPurchaseHandler(EconomyWorkflowHandler handler) {
+        return economy.registerWorkflowHandler("lottery.purchase.v1", handler);
+    }
+
+    /** Reads the durable state before safely retrying an uncertain charge. */
+    public CompletionStage<Optional<EconomyWorkflowResult>> purchaseWorkflow(String purchaseIntentId) {
+        return economy.workflow(new EconomyWorkflowRef("lottery", purchaseIntentId));
+    }
+
+    /** Compensates an unfulfillable charged purchase with a retry-safe native refund. */
+    public CompletionStage<nl.hauntedmc.serverfeatures.api.economy.EconomyResult> refundPurchase(
+            EconomyWorkflowEvent event
+    ) {
+        if (!currencyId.equals(event.account().currencyId())) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Lottery workflow uses another currency"));
+        }
+        EconomyMutationRequest request = new EconomyMutationRequest(
+                "lottery",
+                "refund:workflow:" + event.eventId(),
+                event.account(),
+                event.amount(),
+                event.account().playerId(),
+                event.account().playerName(),
+                "Lottery ticket purchase refund",
+                Map.of("workflow_event_id", event.eventId().toString())
+        );
+        return executeIdempotently(() -> economy.deposit(request), 1);
+    }
+
     private EconomyMutationRequest request(
             OfflinePlayer player,
             Money amount,
@@ -114,11 +172,15 @@ public final class BuiltinLotteryEconomy implements LotteryEconomyGateway {
     }
 
     private EconomyAccountRef account(OfflinePlayer player) {
+        return account(player.getUniqueId(), player.getName(), null);
+    }
+
+    private EconomyAccountRef account(UUID playerUuid, String playerName, Long playerId) {
         var currency = economy.currency(currencyId).orElseThrow();
         return new EconomyAccountRef(
-                null,
-                player.getUniqueId(),
-                player.getName(),
+                playerId,
+                playerUuid,
+                playerName,
                 currency.id(),
                 currency.scope().key()
         );
