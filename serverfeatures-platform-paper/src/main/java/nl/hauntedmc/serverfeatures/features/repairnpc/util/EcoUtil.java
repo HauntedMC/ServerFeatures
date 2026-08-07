@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.repairnpc.util;
 
 import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.features.repairnpc.RepairNPC;
 import org.bukkit.enchantments.Enchantment;
@@ -28,8 +29,20 @@ public class EcoUtil {
         return eco.format(getCost(p.getInventory().getItemInMainHand()));
     }
 
-    public static void withdraw(Player p, Economy eco) {
-        eco.withdrawPlayer(p, getCost(p.getInventory().getItemInMainHand()));
+    /**
+     * Charges the current repair price and reports whether Vault confirmed the debit.
+     *
+     * <p>A preceding {@link #doesPlayerHaveEnough(Player, Economy)} call is only a user-facing
+     * preview: another server or website may spend the balance before this call reaches the
+     * authoritative Economy transaction. Callers must therefore gate fulfilment on this result.</p>
+     */
+    public static boolean withdraw(Player p, Economy eco) {
+        EconomyResponse response = eco.withdrawPlayer(p, getCost(p.getInventory().getItemInMainHand()));
+        return successful(response);
+    }
+
+    static boolean successful(EconomyResponse response) {
+        return response != null && response.transactionSuccess();
     }
 
     private static double getCost(ItemStack item) {
