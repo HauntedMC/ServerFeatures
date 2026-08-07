@@ -158,7 +158,13 @@ public record LotterySettings(
                 new Pot(basePot, payoutPercentage, donationsEnabled, minimumDonation),
                 new Prizes(shares, config.get("prizes.allow_same_player_multiple_prizes", Boolean.class, false)),
                 antiSnipe,
-                new Broadcasts(config.get("broadcasts.enabled", Boolean.class, true), remainingTimes),
+                new Broadcasts(
+                        config.get("broadcasts.enabled", Boolean.class, true),
+                        remainingTimes,
+                        config.get("broadcasts.ticket_purchases.enabled", Boolean.class, false),
+                        config.get("broadcasts.donations.enabled", Boolean.class, false),
+                        nonNegativeMoney(config, "broadcasts.donations.minimum_amount", "1000.00")
+                ),
                 new Payouts(
                         config.get("payouts.automatic_on_join", Boolean.class, true),
                         config.get("payouts.claim_command_enabled", Boolean.class, true)
@@ -246,9 +252,28 @@ public record LotterySettings(
     ) {
     }
 
-    public record Broadcasts(boolean enabled, List<Duration> remainingTimes) {
+    public record Broadcasts(
+            boolean enabled,
+            List<Duration> remainingTimes,
+            boolean ticketPurchasesEnabled,
+            boolean donationsEnabled,
+            Money donationMinimumAmount
+    ) {
         public Broadcasts {
             remainingTimes = List.copyOf(remainingTimes);
+            Objects.requireNonNull(donationMinimumAmount, "donationMinimumAmount");
+            if (donationMinimumAmount.amount().signum() < 0) {
+                throw new IllegalArgumentException("donationMinimumAmount cannot be negative");
+            }
+        }
+
+        public boolean shouldAnnounceTicketPurchase() {
+            return ticketPurchasesEnabled;
+        }
+
+        public boolean shouldAnnounceDonation(Money amount) {
+            Objects.requireNonNull(amount, "amount");
+            return donationsEnabled && amount.compareTo(donationMinimumAmount) >= 0;
         }
     }
 
