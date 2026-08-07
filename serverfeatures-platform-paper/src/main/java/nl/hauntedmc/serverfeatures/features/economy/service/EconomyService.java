@@ -152,6 +152,11 @@ public final class EconomyService implements EconomyApi {
 
     public CompletionStage<Identity> resolveIdentifier(String identifier) { return identities.resolveIdentifier(identifier); }
 
+    /** Returns an online player's already-known canonical identity without starting a blocking lookup. */
+    public Optional<Identity> activeIdentity(Player player) {
+        return player == null ? Optional.empty() : identities.active(player.getUniqueId());
+    }
+
     public EconomyAccountRef account(Identity identity, String currencyId) {
         EconomySettings.Currency currency = requireCurrency(currencyId, null);
         return new EconomyAccountRef(identity.playerId(), identity.playerUuid(), identity.playerName(), currency.id(), currency.scope().key());

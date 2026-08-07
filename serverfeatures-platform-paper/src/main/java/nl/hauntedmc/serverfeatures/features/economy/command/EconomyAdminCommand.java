@@ -29,22 +29,23 @@ public final class EconomyAdminCommand implements BrigadierCommand {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
                 .requires(source -> hasAnyAdminPermission(source.getSender()))
                 .executes(context -> actions.statusIfPermitted(context.getSource().getSender()));
+        root.then(Commands.literal("help").executes(context -> actions.help(context.getSource().getSender())));
         root.then(Commands.literal("status").requires(source -> allowed(source, "status"))
                 .executes(context -> actions.status(context.getSource().getSender())));
         root.then(Commands.literal("currencies").requires(source -> allowed(source, "status"))
                 .executes(context -> actions.currencies(context.getSource().getSender())));
         root.then(Commands.literal("balance").requires(source -> allowed(source, "balance"))
                 .then(playerCurrencyArguments(actions::balance)));
+        root.then(Commands.literal("account").requires(source -> allowed(source, "balance"))
+                .then(playerCurrencyArguments(actions::account)));
         root.then(mutation("add", TransactionType.DEPOSIT));
         root.then(mutation("remove", TransactionType.WITHDRAW));
         root.then(mutation("set", TransactionType.SET));
         root.then(Commands.literal("payments").requires(source -> allowed(source, "payments"))
                 .then(Commands.argument("player", StringArgumentType.word())
                         .then(Commands.argument("currency", StringArgumentType.word())
-                                .then(Commands.literal("on").executes(context -> actions.payments(
-                                        context.getSource().getSender(), word(context, "player"), word(context, "currency"), true)))
-                                .then(Commands.literal("off").executes(context -> actions.payments(
-                                        context.getSource().getSender(), word(context, "player"), word(context, "currency"), false))))));
+                                .then(paymentState("on", true))
+                                .then(paymentState("off", false)))));
         root.then(freeze("freeze", true));
         root.then(freeze("unfreeze", false));
         root.then(Commands.literal("history").requires(source -> allowed(source, "history"))
@@ -82,6 +83,12 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                                                 word(context, "reason"), frozen)))));
     }
 
+    private LiteralArgumentBuilder<CommandSourceStack> paymentState(String literal, boolean enabled) {
+        return Commands.literal(literal).then(Commands.argument("reason", StringArgumentType.greedyString())
+                .executes(context -> actions.payments(context.getSource().getSender(), word(context, "player"),
+                        word(context, "currency"), enabled, word(context, "reason"))));
+    }
+
     private ArgumentBuilder<CommandSourceStack, ?> playerCurrencyArguments(AdminAction action) {
         return Commands.argument("player", StringArgumentType.word())
                 .then(Commands.argument("currency", StringArgumentType.word())
@@ -90,17 +97,11 @@ public final class EconomyAdminCommand implements BrigadierCommand {
     }
 
     private boolean hasAnyAdminPermission(CommandSender sender) {
-        return java.util.stream.Stream.of("status", "balance", "add", "remove", "set", "payments",
-                        "freeze", "history", "verify")
-                .anyMatch(action -> sender.hasPermission(permission(action)));
+        return EconomyCommandPermissions.hasAnyAdminPermission(sender);
     }
 
     private static boolean allowed(CommandSourceStack source, String action) {
-        return source.getSender().hasPermission(permission(action));
-    }
-
-    private static String permission(String action) {
-        return "serverfeatures.feature.economy.admin." + action;
+        return EconomyCommandPermissions.adminAction(source.getSender(), action);
     }
 
     private static String word(com.mojang.brigadier.context.CommandContext<CommandSourceStack> context, String name) {

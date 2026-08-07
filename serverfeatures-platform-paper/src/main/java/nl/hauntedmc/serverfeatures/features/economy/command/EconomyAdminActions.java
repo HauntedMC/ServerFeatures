@@ -4,6 +4,7 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryItem;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
@@ -24,11 +25,25 @@ final class EconomyAdminActions {
     }
 
     int statusIfPermitted(CommandSender sender) {
-        if (!sender.hasPermission(permission("status"))) {
-            feature.send(sender, "economy.error", Map.of("reason", "No permission"));
-            return 0;
-        }
-        return status(sender);
+        return EconomyCommandPermissions.adminAction(sender, "status") ? status(sender) : help(sender);
+    }
+
+    /** Lists the administrative operations that are available to the current sender. */
+    int help(CommandSender sender) {
+        feature.send(sender, "economy.admin.help.header");
+        sendHelp(sender, "status", "status", "Bekijk de Economy-status");
+        sendHelp(sender, "status", "currencies", "Bekijk geconfigureerde currencies");
+        sendHelp(sender, "balance", "balance <speler> <currency>", "Bekijk een saldo");
+        sendHelp(sender, "balance", "account <speler> <currency>", "Bekijk saldo en accountstatus");
+        sendHelp(sender, "add", "add <speler> <currency> <bedrag> <reden>", "Voeg saldo toe");
+        sendHelp(sender, "remove", "remove <speler> <currency> <bedrag> <reden>", "Verwijder saldo");
+        sendHelp(sender, "set", "set <speler> <currency> <bedrag> <reden>", "Stel een saldo in");
+        sendHelp(sender, "payments", "payments <speler> <currency> <on|off> <reden>", "Beheer inkomende betalingen");
+        sendHelp(sender, "freeze", "freeze <speler> <currency> <reden>", "Bevries een account");
+        sendHelp(sender, "freeze", "unfreeze <speler> <currency> <reden>", "Geef een account vrij");
+        sendHelp(sender, "history", "history <speler> <currency> [pagina]", "Bekijk transacties");
+        sendHelp(sender, "verify", "verify", "Controleer de journaalintegriteit");
+        return 1;
     }
 
     int status(CommandSender sender) {
@@ -61,27 +76,40 @@ final class EconomyAdminActions {
         return 1;
     }
 
+    /** Shows the account state that explains whether normal player payments can reach this account. */
+    int account(CommandSender sender, String target, String currencyId) {
+        resolve(target, currencyId, (identity, currency) -> feature.service().accountState(
+                feature.service().account(identity, currency.id())).whenComplete((account, failure) ->
+                feature.service().main(() -> accountResult(sender, account, failure))), sender);
+        return 1;
+    }
+
     int mutate(CommandSender sender, String target, String currencyId, String rawAmount,
                String reason, TransactionType type) {
         if (reason == null || reason.isBlank()) {
             feature.send(sender, "economy.admin.reason_required");
             return 0;
         }
+        Actor actor = actor(sender);
         resolve(target, currencyId, (identity, currency) -> {
             BigDecimal amount = parseAmount(rawAmount, currency, type == TransactionType.SET);
             EconomyMutationRequest request = new EconomyMutationRequest(
                     "admin-command", UUID.randomUUID().toString(), feature.service().account(identity, currency.id()),
-                    amount, actorId(sender), sender.getName(), reason, Map.of());
+                    amount, actor.playerId(), actor.name(), reason, Map.of("command", "economy " + type.name().toLowerCase()));
             feature.service().mutate(request, type, true).whenComplete((result, failure) ->
                     feature.service().main(() -> mutationResult(sender, identity, currency, result, failure)));
         }, sender);
         return 1;
     }
 
-    int payments(CommandSender sender, String target, String currencyId, boolean enabled) {
+    int payments(CommandSender sender, String target, String currencyId, boolean enabled, String reason) {
+        if (reason == null || reason.isBlank()) {
+            feature.send(sender, "economy.admin.reason_required");
+            return 0;
+        }
+        Actor actor = actor(sender);
         resolve(target, currencyId, (identity, currency) -> feature.service().setPaymentsEnabled(
-                feature.service().account(identity, currency.id()), enabled, actorId(sender), sender.getName(),
-                "Administrator changed payment preference", "admin-command")
+                feature.service().account(identity, currency.id()), enabled, actor.playerId(), actor.name(), reason, "admin-command")
                 .whenComplete((account, failure) -> feature.service().main(() -> {
                     if (failure != null) { fail(sender, failure); return; }
                     feature.send(sender, "economy.admin.payments", Map.of(
@@ -91,8 +119,13 @@ final class EconomyAdminActions {
     }
 
     int freeze(CommandSender sender, String target, String currencyId, String reason, boolean frozen) {
+        if (reason == null || reason.isBlank()) {
+            feature.send(sender, "economy.admin.reason_required");
+            return 0;
+        }
+        Actor actor = actor(sender);
         resolve(target, currencyId, (identity, currency) -> feature.service().setFrozen(
-                feature.service().account(identity, currency.id()), frozen, actorId(sender), sender.getName(), reason)
+                feature.service().account(identity, currency.id()), frozen, actor.playerId(), actor.name(), reason)
                 .whenComplete((account, failure) -> feature.service().main(() -> {
                     if (failure != null) { fail(sender, failure); return; }
                     feature.send(sender, frozen ? "economy.admin.frozen" : "economy.admin.unfrozen",
@@ -107,6 +140,10 @@ final class EconomyAdminActions {
                 .whenComplete((history, failure) -> feature.service().main(() -> {
                     if (failure != null) { fail(sender, failure); return; }
                     feature.send(sender, "economy.history.header", Map.of("page", Integer.toString(page)));
+                    if (history.entries().isEmpty()) {
+                        feature.send(sender, "economy.history.empty");
+                        return;
+                    }
                     for (HistoryItem item : history.entries()) {
                         feature.send(sender, "economy.history.entry", Map.of(
                                 "type", item.transactionType(),
@@ -140,9 +177,27 @@ final class EconomyAdminActions {
         return 1;
     }
 
-    private Long actorId(CommandSender sender) {
+    private Actor actor(CommandSender sender) {
         return sender instanceof Player player
-                ? feature.service().resolveSync(player).map(Identity::playerId).orElse(null) : null;
+                ? new Actor(feature.service().activeIdentity(player).map(Identity::playerId).orElse(null), sender.getName())
+                : new Actor(null, sender.getName());
+    }
+
+    private void accountResult(CommandSender sender, Account account, Throwable failure) {
+        if (failure != null) {
+            fail(sender, failure);
+            return;
+        }
+        feature.send(sender, "economy.admin.account", Map.of(
+                "player", account.identity().playerName(), "currency", account.currencyId(), "scope", account.scopeKey(),
+                "balance", feature.service().format(account.currencyId(), account.balance()),
+                "payments", account.paymentsEnabled() ? "on" : "off", "status", account.status().name().toLowerCase()));
+    }
+
+    private void sendHelp(CommandSender sender, String permission, String usage, String description) {
+        if (EconomyCommandPermissions.adminAction(sender, permission)) {
+            feature.send(sender, "economy.admin.help.entry", Map.of("usage", usage, "description", description));
+        }
     }
 
     private void resolve(String target, String currencyId, ResolvedAction action, CommandSender sender) {
@@ -170,7 +225,7 @@ final class EconomyAdminActions {
                                 EconomyResult result, Throwable failure) {
         if (failure != null) { fail(sender, failure); return; }
         if (!result.successful()) {
-            feature.send(sender, "economy.error", Map.of("reason", result.message()));
+            feature.send(sender, "economy.error", Map.of("reason", EconomyCommandSupport.resultMessage(result)));
             return;
         }
         feature.send(sender, "economy.admin.changed", Map.of(
@@ -180,6 +235,7 @@ final class EconomyAdminActions {
     }
 
     private BigDecimal parseAmount(String raw, EconomySettings.Currency currency, boolean setOperation) {
+        EconomyCommandSupport.requireSupportedAmountLength(raw, setOperation && currency.balances().allowNegative());
         String pattern = setOperation && currency.balances().allowNegative()
                 ? "-?[0-9]+(?:\\.[0-9]{1,8})?" : "[0-9]+(?:\\.[0-9]{1,8})?";
         if (raw == null || !raw.matches(pattern)) throw new IllegalArgumentException("Invalid amount");
@@ -195,12 +251,11 @@ final class EconomyAdminActions {
         feature.send(sender, "economy.error", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
     }
 
-    private static String permission(String action) {
-        return "serverfeatures.feature.economy.admin." + action;
-    }
-
     @FunctionalInterface
     private interface ResolvedAction {
         void execute(Identity identity, EconomySettings.Currency currency);
+    }
+
+    private record Actor(Long playerId, String name) {
     }
 }

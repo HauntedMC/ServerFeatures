@@ -73,10 +73,16 @@ public final class EconomyDefaults {
         messages.add("economy.history.empty", "<gray>Geen transacties gevonden.</gray>");
         messages.add("economy.history.entry", "<gray>{type}</gray> <white>{amount}</white> <dark_gray>→ {balance} · {operation}</dark_gray>");
         messages.add("economy.top.header", "<gold><bold>Ranglijst</bold></gold> <gray>pagina {page}</gray>");
+        messages.add("economy.top.empty", "<gray>Geen spelers gevonden op deze pagina.</gray>");
         messages.add("economy.top.entry", "<aqua>#{rank}</aqua> <white>{player}</white> <gray>· {balance}</gray>");
+        messages.add("economy.help.header", "<gold><bold>Economy-hulp</bold></gold> <gray>{command}</gray>");
+        messages.add("economy.help.entry", "<white>{command} {usage}</white> <gray>— {description}</gray>");
         messages.add("economy.admin.status", "<gold>Economy</gold> <gray>· server {server} · {currencies} currencies · Vault {vault} · messaging {messaging}</gray>");
         messages.add("economy.admin.currency", "<white>{currency}</white> <gray>· {scope} · {scope_key} · {command}</gray>");
         messages.add("economy.admin.balance", "<white>{player}</white> <gray>· {currency} · {scope} ·</gray> <gold>{balance}</gold>");
+        messages.add("economy.admin.account", "<white>{player}</white> <gray>· {currency} · {scope} · saldo</gray> <gold>{balance}</gold> <gray>· betalingen {payments} · status {status}</gray>");
+        messages.add("economy.admin.help.header", "<gold><bold>Economy-beheer</bold></gold>");
+        messages.add("economy.admin.help.entry", "<white>/economy {usage}</white> <gray>— {description}</gray>");
         messages.add("economy.admin.reason_required", "<red>Een reden is verplicht.</red>");
         messages.add("economy.admin.changed", "<green>Saldo van {player} ({currency}) aangepast naar {balance}.</green> <gray>Transactie {operation}</gray>");
         messages.add("economy.admin.payments", "<green>Betalingen voor {player} staan nu {state}.</green>");

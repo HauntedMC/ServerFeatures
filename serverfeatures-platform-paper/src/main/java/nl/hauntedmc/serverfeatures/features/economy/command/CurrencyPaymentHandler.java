@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.economy.command;
 
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyTransferRequest;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
@@ -11,19 +12,18 @@ import org.bukkit.entity.Player;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
-/** Owns player payment validation, confirmation state, transfer submission, and sender feedback. */
+/** Validates player payments, delegates confirmation lifetime to a tracker, and submits transfers. */
 final class CurrencyPaymentHandler {
-    private static final long CONFIRMATION_TTL_MILLIS = 30_000L;
-
     private final Economy feature;
     private final EconomySettings.Currency currency;
-    private final ConcurrentHashMap<UUID, PendingPayment> confirmations = new ConcurrentHashMap<>();
+    private final PaymentConfirmationTracker confirmations = new PaymentConfirmationTracker();
 
     CurrencyPaymentHandler(Economy feature, EconomySettings.Currency currency) {
         this.feature = feature;
         this.currency = currency;
+        feature.getLifecycleManager().getTaskManager().scheduleRepeatingTask(
+                confirmations::pruneExpired, BukkitTime.seconds(30L));
     }
 
     int pay(CommandSender sender, String target, String rawAmount) {
@@ -36,9 +36,10 @@ final class CurrencyPaymentHandler {
             feature.send(player, "economy.invalid_amount", Map.of("reason", exception.getMessage()));
             return 0;
         }
+        UUID confirmationToken = confirmations.begin(player.getUniqueId());
         if (currency.payments().confirmationThreshold().signum() > 0
                 && amount.compareTo(currency.payments().confirmationThreshold()) >= 0) {
-            prepareConfirmation(player, target, amount);
+            prepareConfirmation(player, target, amount, confirmationToken);
         } else {
             execute(player, target, amount);
         }
@@ -48,8 +49,8 @@ final class CurrencyPaymentHandler {
     int confirm(CommandSender sender) {
         Player player = requirePlayer(sender);
         if (player == null) return 0;
-        PendingPayment pending = confirmations.remove(player.getUniqueId());
-        if (pending == null || System.currentTimeMillis() - pending.createdAt() > CONFIRMATION_TTL_MILLIS) {
+        PaymentConfirmationTracker.PendingPayment pending = confirmations.consume(player.getUniqueId()).orElse(null);
+        if (pending == null) {
             feature.send(player, "economy.pay.no_confirmation");
             return 0;
         }
@@ -57,14 +58,16 @@ final class CurrencyPaymentHandler {
         return 1;
     }
 
-    private void prepareConfirmation(Player player, String target, BigDecimal amount) {
+    /** Resolves the recipient before showing a confirmation, guarded by the attempt token. */
+    private void prepareConfirmation(Player player, String target, BigDecimal amount, UUID confirmationToken) {
         feature.service().resolveIdentifier(target).whenComplete((recipient, failure) ->
                 feature.service().main(() -> {
+                    if (!player.isOnline()) return;
                     if (failure != null) {
                         feature.send(player, "economy.pay.failed", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
                         return;
                     }
-                    confirmations.put(player.getUniqueId(), new PendingPayment(recipient, amount, System.currentTimeMillis()));
+                    if (!confirmations.confirm(player.getUniqueId(), confirmationToken, recipient, amount)) return;
                     feature.send(player, "economy.pay.confirm", Map.of(
                             "player", recipient.playerName(),
                             "amount", feature.service().format(currency.id(), amount),
@@ -97,8 +100,10 @@ final class CurrencyPaymentHandler {
                         feature.send(player, "economy.pay.failed", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
                         return;
                     }
-                    if (!payment.result().successful()) {
-                        feature.send(player, "economy.pay.failed", Map.of("reason", payment.result().message()));
+                    if (payment == null || !payment.result().successful()) {
+                        feature.send(player, "economy.pay.failed", Map.of("reason", payment == null
+                                ? EconomyCommandSupport.resultMessage(null)
+                                : EconomyCommandSupport.resultMessage(payment.result())));
                         return;
                     }
                     feature.send(player, "economy.pay.sent", Map.of(
@@ -109,6 +114,7 @@ final class CurrencyPaymentHandler {
     }
 
     private BigDecimal parseAmount(String raw) {
+        EconomyCommandSupport.requireSupportedAmountLength(raw, false);
         if (raw == null || !raw.matches("[0-9]+(?:\\.[0-9]{1,8})?")) {
             throw new IllegalArgumentException("Use a positive decimal amount");
         }
@@ -122,9 +128,6 @@ final class CurrencyPaymentHandler {
         if (sender instanceof Player player) return player;
         feature.send(sender, "economy.player_only");
         return null;
-    }
-
-    private record PendingPayment(Identity recipient, BigDecimal amount, long createdAt) {
     }
 
     private record PaymentResult(Identity sender, Identity recipient, EconomyResult result) {

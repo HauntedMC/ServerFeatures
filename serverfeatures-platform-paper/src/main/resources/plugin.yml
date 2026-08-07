@@ -63,6 +63,9 @@ permissions:
   serverfeatures.feature.economy.top:
     description: View enabled economy leaderboards.
     default: true
+  serverfeatures.feature.economy.admin:
+    description: Perform every Economy administrative action.
+    default: op
   serverfeatures.feature.economy.admin.status:
     description: View Economy operational status.
     default: op

@@ -52,15 +52,17 @@ public final class CurrencyCommand implements BrigadierCommand {
         LiteralArgumentBuilder<CommandSourceStack> root = Commands.literal(name())
                 .requires(source -> canUseAnyCommand(source.getSender()));
         if (currency.commands().balance()) {
-            root.executes(context -> allowed(context.getSource().getSender(), "balance")
-                    ? balance(context.getSource().getSender(), null)
-                    : 0);
+            root.executes(context -> EconomyCommandPermissions.canViewOwnBalance(context.getSource().getSender(), currency.id())
+                    ? balance(context.getSource().getSender(), null) : help(context.getSource().getSender()));
             LiteralArgumentBuilder<CommandSourceStack> balance = Commands.literal("balance")
-                    .requires(source -> allowed(source.getSender(), "balance"))
-                    .executes(context -> balance(context.getSource().getSender(), null));
+                    .requires(source -> EconomyCommandPermissions.canViewOwnBalance(source.getSender(), currency.id())
+                            || currency.commands().balanceOthers()
+                            && EconomyCommandPermissions.canViewAnyBalance(source.getSender(), currency.id()))
+                    .executes(context -> EconomyCommandPermissions.canViewOwnBalance(context.getSource().getSender(), currency.id())
+                            ? balance(context.getSource().getSender(), null) : help(context.getSource().getSender()));
             if (currency.commands().balanceOthers()) {
                 balance.then(Commands.argument("player", StringArgumentType.word())
-                        .requires(source -> allowed(source.getSender(), "balance.others"))
+                        .requires(source -> EconomyCommandPermissions.canViewAnyBalance(source.getSender(), currency.id()))
                         .executes(context -> balance(
                                 context.getSource().getSender(),
                                 StringArgumentType.getString(context, "player")
@@ -113,6 +115,7 @@ public final class CurrencyCommand implements BrigadierCommand {
                                     IntegerArgumentType.getInteger(context, "page")
                             ))));
         }
+        root.then(Commands.literal("help").executes(context -> help(context.getSource().getSender())));
         return root.build();
     }
 
@@ -223,6 +226,10 @@ public final class CurrencyCommand implements BrigadierCommand {
                         return;
                     }
                     feature.send(sender, "economy.top.header", Map.of("page", Integer.toString(page)));
+                    if (entries.isEmpty()) {
+                        feature.send(sender, "economy.top.empty");
+                        return;
+                    }
                     int rank = (page - 1) * PAGE_SIZE;
                     for (TopEntry entry : entries) {
                         rank++;
@@ -245,21 +252,39 @@ public final class CurrencyCommand implements BrigadierCommand {
     }
 
     private boolean canUseAnyCommand(CommandSender sender) {
-        EconomySettings.Commands commands = currency.commands();
-        return commands.balance() && allowed(sender, "balance")
-                || commands.pay() && allowed(sender, "pay")
-                || commands.paytoggle() && allowed(sender, "paytoggle")
-                || commands.history() && allowed(sender, "history")
-                || commands.top() && allowed(sender, "top");
+        return EconomyCommandPermissions.canUseAnyCurrencyCommand(sender, currency);
     }
 
     private boolean allowed(CommandSender sender, String action) {
-        return sender.hasPermission(permission(action))
-                || sender.hasPermission("serverfeatures.feature.economy." + action);
+        return EconomyCommandPermissions.playerAction(sender, currency.id(), action);
     }
 
-    private String permission(String action) {
-        return "serverfeatures.feature.economy.currency." + currency.id() + "." + action;
+    /** Shows only the enabled commands that the sender can execute for this currency. */
+    private int help(CommandSender sender) {
+        feature.send(sender, "economy.help.header", Map.of("command", "/" + name()));
+        EconomySettings.Commands commands = currency.commands();
+        if (commands.balance() && EconomyCommandPermissions.canViewOwnBalance(sender, currency.id())) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "[balance]", "description", "Bekijk je saldo"));
+        }
+        if (commands.balanceOthers() && EconomyCommandPermissions.canViewAnyBalance(sender, currency.id())) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "balance <speler>", "description", "Bekijk een saldo"));
+        }
+        if (commands.pay() && allowed(sender, "pay")) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "pay <speler> <bedrag>", "description", "Betaal een speler"));
+            if (currency.payments().confirmationThreshold().signum() > 0) {
+                feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "confirm", "description", "Bevestig een betaling"));
+            }
+        }
+        if (commands.paytoggle() && allowed(sender, "paytoggle")) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "paytoggle <on|off|status>", "description", "Beheer inkomende betalingen"));
+        }
+        if (commands.history() && allowed(sender, "history")) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "history [pagina]", "description", "Bekijk je transacties"));
+        }
+        if (commands.top() && allowed(sender, "top")) {
+            feature.send(sender, "economy.help.entry", Map.of("command", "/" + name(), "usage", "top [pagina]", "description", "Bekijk de ranglijst"));
+        }
+        return 1;
     }
 
     private static String rootMessage(Throwable failure) {
