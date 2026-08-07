@@ -4,8 +4,13 @@ import com.github.retrooper.packetevents.PacketEvents;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
+import nl.hauntedmc.serverfeatures.api.RuntimeState;
+import nl.hauntedmc.serverfeatures.api.ServerFeaturesApi;
+import nl.hauntedmc.serverfeatures.api.ServerFeaturesApiVersion;
+import nl.hauntedmc.serverfeatures.api.feature.FeatureCatalog;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
+import nl.hauntedmc.serverfeatures.api.service.CapabilityRegistry;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.ActionBars;
 import nl.hauntedmc.serverfeatures.api.ui.hud.actionbar.impl.PaperActionBarAPI;
 import nl.hauntedmc.serverfeatures.api.ui.hud.scoreboard.ScoreboardManager;
@@ -18,13 +23,23 @@ import nl.hauntedmc.serverfeatures.framework.listener.PreviewUIListener;
 import nl.hauntedmc.serverfeatures.framework.listener.ScoreboardListener;
 import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
+import nl.hauntedmc.serverfeatures.framework.service.DefaultCapabilityRegistry;
+import nl.hauntedmc.serverfeatures.framework.service.DefaultFeatureCatalog;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 
-public class ServerFeatures extends JavaPlugin {
+/** Paper bootstrap and authoritative public API root for ServerFeatures 3.3. */
+public class ServerFeatures extends JavaPlugin implements ServerFeaturesApi {
+
+    private final DefaultCapabilityRegistry capabilityRegistry = new DefaultCapabilityRegistry();
+    private final DefaultFeatureCatalog featureCatalog = new DefaultFeatureCatalog();
+    private final CompletableFuture<Void> ready = new CompletableFuture<>();
+    private volatile RuntimeState runtimeState = RuntimeState.STARTING;
 
     private MainConfigHandler mainConfigHandler;
     private FeatureLoadManager featureLoadManager;
@@ -36,38 +51,53 @@ public class ServerFeatures extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        if (Bukkit.getPluginManager().getPlugin(BaseMeta.PACKET_EVENTS) != null) {
-            PacketEvents.getAPI().init();
-        }
-
-        configService = new ConfigService(this);
-        mainConfigHandler = new MainConfigHandler(this, configService);
-        localizationHandler = new LocalizationHandler(this, configService);
-
-        brigadierDispatcher = new BrigadierDispatcher(this);
-        brigadierDispatcher.resolveDispatcher();
-
-        featureLifecycleFactory = new FeatureLifecycleFactory(this);
-        featureScopeFactory = new FeatureScopeFactory(
-                this,
-                mainConfigHandler,
-                localizationHandler,
-                featureLifecycleFactory
-        );
-        featureLoadManager = FeatureLoadManager.create(this);
-
-        registerFrameworkCommand();
-        registerFrameworkListeners();
-
+        runtimeState = RuntimeState.STARTING;
         try {
-            ScoreboardManager.initializeOnlinePlayers(getLogger());
-        } catch (Throwable t) {
-            getLogger().warning("Scoreboard init error: " + t.getMessage());
+            if (Bukkit.getPluginManager().getPlugin(BaseMeta.PACKET_EVENTS) != null) {
+                PacketEvents.getAPI().init();
+            }
+
+            configService = new ConfigService(this);
+            mainConfigHandler = new MainConfigHandler(this, configService);
+            localizationHandler = new LocalizationHandler(this, configService);
+
+            brigadierDispatcher = new BrigadierDispatcher(this);
+            brigadierDispatcher.resolveDispatcher();
+
+            featureLifecycleFactory = new FeatureLifecycleFactory(this);
+            featureScopeFactory = new FeatureScopeFactory(
+                    this,
+                    mainConfigHandler,
+                    localizationHandler,
+                    featureLifecycleFactory
+            );
+            featureLoadManager = FeatureLoadManager.create(this);
+
+            registerFrameworkCommand();
+            registerFrameworkListeners();
+
+            try {
+                ScoreboardManager.initializeOnlinePlayers(getLogger());
+            } catch (Throwable throwable) {
+                getLogger().warning("Scoreboard init error: " + throwable.getMessage());
+            }
+
+            ActionBars.bootstrap(new PaperActionBarAPI(this));
+            featureLoadManager.initializeFeatures();
+
+            runtimeState = RuntimeState.READY;
+            ready.complete(null);
+        } catch (Throwable failure) {
+            runtimeState = RuntimeState.DEGRADED;
+            ready.completeExceptionally(failure);
+            if (failure instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("ServerFeatures startup failed", failure);
         }
-
-        ActionBars.bootstrap(new PaperActionBarAPI(this));
-
-        featureLoadManager.initializeFeatures();
     }
 
     private void registerFrameworkCommand() {
@@ -79,29 +109,76 @@ public class ServerFeatures extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (featureLoadManager != null) {
-            featureLoadManager.unloadAllFeatures();
-        }
-
+        runtimeState = RuntimeState.STOPPING;
+        Throwable failure = null;
         try {
-            ScoreboardManager.cleanupOnlinePlayers(getLogger());
-        } catch (Throwable t) {
-            getLogger().warning("Scoreboard cleanup error: " + t.getMessage());
+            if (featureLoadManager != null) {
+                featureLoadManager.unloadAllFeatures();
+            }
+
+            try {
+                ScoreboardManager.cleanupOnlinePlayers(getLogger());
+            } catch (Throwable throwable) {
+                getLogger().warning("Scoreboard cleanup error: " + throwable.getMessage());
+            }
+
+            if (ActionBars.service() instanceof PaperActionBarAPI paperActionBar) {
+                paperActionBar.shutdown();
+            }
+            ActionBars.shutdown();
+        } catch (Throwable throwable) {
+            failure = throwable;
+            throw throwable;
+        } finally {
+            runtimeState = RuntimeState.STOPPED;
+            if (!ready.isDone()) {
+                ready.completeExceptionally(failure == null
+                        ? new IllegalStateException("ServerFeatures stopped before becoming ready")
+                        : failure);
+            }
+            getLogger().info("ServerFeatures is shutting down...");
         }
-
-        ((PaperActionBarAPI) ActionBars.service()).shutdown();
-        ActionBars.shutdown();
-
-        getLogger().info("ServerFeatures is shutting down...");
     }
 
     private void registerFrameworkListeners() {
-        PluginManager pm = Bukkit.getPluginManager();
-        pm.registerEvents(new ScoreboardListener(this), this);
-        pm.registerEvents(new PreviewUIListener(), this);
+        PluginManager pluginManager = Bukkit.getPluginManager();
+        pluginManager.registerEvents(new ScoreboardListener(this), this);
+        pluginManager.registerEvents(new PreviewUIListener(), this);
     }
 
-    /* ============================== ACCESSORS ============================== */
+    @Override
+    public ServerFeaturesApiVersion version() {
+        return ServerFeaturesApiVersion.current(getPluginMeta().getVersion());
+    }
+
+    @Override
+    public RuntimeState state() {
+        return runtimeState;
+    }
+
+    @Override
+    public CompletionStage<Void> whenReady() {
+        return ready;
+    }
+
+    @Override
+    public CapabilityRegistry capabilities() {
+        return capabilityRegistry;
+    }
+
+    @Override
+    public FeatureCatalog features() {
+        return featureCatalog;
+    }
+
+    public DefaultCapabilityRegistry getCapabilityRegistry() {
+        return capabilityRegistry;
+    }
+
+    public DefaultFeatureCatalog getFeatureCatalog() {
+        return featureCatalog;
+    }
+
     public FeatureLoadManager getFeatureLoadManager() {
         return featureLoadManager;
     }
