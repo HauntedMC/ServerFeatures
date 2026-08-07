@@ -58,8 +58,6 @@
     <modules>
         <module>serverfeatures-testkit</module>
         <module>serverfeatures-api</module>
-        <module>serverfeatures-economy-client</module>
-        <module>serverfeatures-economy-gateway</module>
         <module>serverfeatures-platform-paper</module>
     </modules>
 
