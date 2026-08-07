@@ -2,7 +2,7 @@
 
 > Paper · Feature ID `sanctions` · disabled by default · backend enforcement for shared `MUTE` records
 
-Sanctions is the Paper-side mute enforcer for the sanction data model owned by ProxyFeatures contracts. It does not create, edit or remove sanctions through commands. Instead it resolves each online player's canonical DataRegistry numeric ID, queries the shared MySQL sanctions table, caches the newest active mute locally, periodically re-queries every tracked online player and cancels Paper chat while that cached mute remains active.
+Sanctions is the Paper-side mute enforcer for the shared `player_sanctions` database schema used by ProxyFeatures moderation. It does not create, edit or remove sanctions through commands. Instead it resolves each online player's canonical DataRegistry numeric ID, queries the shared MySQL sanctions table, caches the newest active mute locally, periodically re-queries every tracked online player and cancels Paper chat while that cached mute remains active.
 
 There is no Redis subscription or push invalidation in this feature. A mute added or removed while a player is online becomes visible on the next configured database sweep, unless another local action explicitly refreshes the registry.
 
@@ -11,17 +11,19 @@ There is no Redis subscription or push invalidation in this feature. A mute adde
 Initialization requires:
 
 - DataProvider connection access for `MYSQL` logical connection `player_data_rw`;
-- an ORM context capable of mapping ProxyFeatures' shared `SanctionEntity`;
+- an ORM context capable of mapping ServerFeatures' Paper-side `SanctionEntity` to the shared `player_sanctions` table;
 - DataRegistry identity readiness for each player.
 
 The feature calls `initDataProvider(getFeatureName())`, registers connection alias `orm` for `MYSQL/player_data_rw`, and creates an ORM context with `SanctionEntity.class`. Failure to create that context aborts feature initialization.
 
-Paper imports the entity and enum from ProxyFeatures contracts:
+ProxyFeatures 3.3 deliberately keeps persistence entities out of its shared/public artifacts. ServerFeatures therefore owns a schema-compatible Paper-side mapping:
 
-- `nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity`;
-- `SanctionType.MUTE`.
+- `nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionEntity`;
+- `nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionType`.
 
-That contract is therefore a binary/schema dependency. Paper assumes the mapped entity exposes at least ID, active flag, sanction type, target player ID, reason, created timestamp, expiry timestamp and permanence semantics.
+The mapping mirrors the shared table columns and enum values used by ProxyFeatures, while the cross-platform dependency on `proxyfeatures-contracts` remains limited to supported messaging contracts. Sanctions is therefore a shared-schema dependency rather than a binary dependency on ProxyFeatures' Velocity runtime implementation classes.
+
+The local mapping assumes the shared schema exposes at least ID, optimistic-lock version, active flag, sanction type, target player ID, target IP, reason, actor fields, created timestamp and expiry timestamp. `SanctionType.MUTE` must continue to match the database enum string written by ProxyFeatures.
 
 ## Commands, permissions and placeholders
 
@@ -271,7 +273,7 @@ Because the entire `refreshAll()` loop runs inside one async task, individual qu
 ## Source map
 
 - Feature defaults, ORM and sweep scheduling: `features/sanctions/Sanctions.java`
+- Shared-table persistence mapping: `features/sanctions/entity/SanctionEntity.java` and `SanctionType.java`
 - Join/quit/chat ordering: `features/sanctions/listener/MuteListener.java`
 - Concurrent online/cache state: `features/sanctions/state/MuteRegistry.java`
 - ORM query, expiry deactivation and formatting: `features/sanctions/service/SanctionsDataService.java`
-- Shared persistence contract: ProxyFeatures `SanctionEntity` and `SanctionType`
