@@ -2,8 +2,7 @@ package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
-import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
+import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishVisibilityPort;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -18,9 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Owns local join and quit messages while protecting persisted vanish state.
- */
+/** Owns local join and quit messages while protecting persisted vanish state. */
 public final class NotificationHandler {
     private static final long VANISH_RESOLUTION_TIMEOUT_TICKS = 100L;
 
@@ -44,9 +41,9 @@ public final class NotificationHandler {
         pendingJoins.put(playerUuid, generation);
         knownVisibility.put(playerUuid, VisibilityState.PENDING);
 
-        Optional<VanishAPI> vanishApi;
+        Optional<VanishVisibilityPort> vanishApi;
         try {
-            vanishApi = FeatureServices.find(feature, VanishAPI.class);
+            vanishApi = feature.getPlugin().getInternalServiceRegistry().find(VanishVisibilityPort.class);
         } catch (Throwable throwable) {
             completeJoin(playerUuid, generation, null, VisibilityState.UNKNOWN, throwable);
             return;
@@ -56,7 +53,7 @@ public final class NotificationHandler {
             return;
         }
 
-        VanishAPI api = vanishApi.get();
+        VanishVisibilityPort api = vanishApi.get();
         CompletionStage<Boolean> initialState;
         try {
             initialState = api.resolveInitialVanishState(playerUuid);
@@ -121,9 +118,9 @@ public final class NotificationHandler {
         boolean joinWasPending = pendingJoins.remove(playerUuid) != null;
         VisibilityState visibility = knownVisibility.remove(playerUuid);
 
-        Optional<VanishAPI> vanishApi;
+        Optional<VanishVisibilityPort> vanishApi;
         try {
-            vanishApi = FeatureServices.find(feature, VanishAPI.class);
+            vanishApi = feature.getPlugin().getInternalServiceRegistry().find(VanishVisibilityPort.class);
         } catch (Throwable throwable) {
             feature.getLogger().warning("Could not query vanish state while " + playerUuid
                     + " was leaving; suppressing the quit message: " + rootMessage(throwable));
@@ -152,12 +149,6 @@ public final class NotificationHandler {
         );
     }
 
-    /**
-     * Applies a synthetic leave or join announcement for an explicit Vanish state transition.
-     *
-     * <p>Entering vanish must call this before Bukkit visibility is removed. Leaving vanish must call
-     * this after Bukkit visibility is restored.</p>
-     */
     public void handleVanishStateChange(Player player, boolean vanished) {
         Objects.requireNonNull(player, "player");
 
@@ -226,7 +217,7 @@ public final class NotificationHandler {
     private void completeJoin(
             UUID playerUuid,
             long generation,
-            VanishAPI vanishApi,
+            VanishVisibilityPort vanishApi,
             VisibilityState visibility,
             Throwable failure
     ) {
