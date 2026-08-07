@@ -131,8 +131,11 @@ public record EconomySettings(
     }
 
     public enum VaultConflictPolicy {
+        /** Abort Economy startup when another Vault economy is already active. */
         FAIL,
+        /** Keep the existing Vault economy and do not register this provider. */
         SKIP,
+        /** Temporarily supersede the active provider without unregistering or owning it. */
         REPLACE
     }
 

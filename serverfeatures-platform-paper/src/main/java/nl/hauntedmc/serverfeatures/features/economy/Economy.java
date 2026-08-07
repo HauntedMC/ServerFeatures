@@ -160,20 +160,22 @@ public final class Economy extends BukkitBaseFeature<Meta> {
             getLogger().warning("Vault integration is enabled, but Vault is not installed.");
             return;
         }
+        EconomyVaultIntegration candidate = null;
         try {
             Class<?> implementation = Class.forName(
                     "nl.hauntedmc.serverfeatures.features.economy.vault.VaultProviderRegistration",
                     true,
                     getClass().getClassLoader()
             );
-            EconomyVaultIntegration integration = implementation
+            candidate = implementation
                     .asSubclass(EconomyVaultIntegration.class)
                     .getConstructor(Economy.class)
                     .newInstance(this);
-            integration.register();
-            vault = integration;
-            vaultStatus = integration.status();
+            candidate.register();
+            vault = candidate;
+            vaultStatus = candidate.status();
         } catch (InvocationTargetException exception) {
+            closeFailedVault(candidate, exception);
             Throwable cause = exception.getCause();
             if (cause instanceof RuntimeException runtimeException) {
                 throw runtimeException;
@@ -183,7 +185,23 @@ public final class Economy extends BukkitBaseFeature<Meta> {
             }
             throw new IllegalStateException("Could not initialize Vault economy integration", cause);
         } catch (ReflectiveOperationException | LinkageError exception) {
+            closeFailedVault(candidate, exception);
             throw new IllegalStateException("Could not initialize Vault economy integration", exception);
+        } catch (RuntimeException exception) {
+            closeFailedVault(candidate, exception);
+            throw exception;
+        }
+    }
+
+    /** Cleans up a partially registered optional hook while preserving the original failure. */
+    private void closeFailedVault(EconomyVaultIntegration candidate, Throwable failure) {
+        if (candidate == null) {
+            return;
+        }
+        try {
+            candidate.close();
+        } catch (RuntimeException | Error cleanupFailure) {
+            failure.addSuppressed(cleanupFailure);
         }
     }
 

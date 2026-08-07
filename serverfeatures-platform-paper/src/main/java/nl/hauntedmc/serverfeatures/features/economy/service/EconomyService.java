@@ -221,17 +221,16 @@ public final class EconomyService implements EconomyApi {
     public Optional<Identity> resolveSync(OfflinePlayer player) { return identities.resolveSync(player); }
     public Optional<Identity> resolveSync(String playerName) { return identities.resolveSync(playerName); }
     public Optional<Account> balanceSync(Identity identity, String currencyId) {
-        return identity == null ? Optional.empty() : Optional.of(cache.cache(repository.balance(identity, requireCurrency(currencyId, null))));
+        return identity == null || closed.get()
+                ? Optional.empty()
+                : Optional.of(cache.cache(repository.balance(identity, requireCurrency(currencyId, null))));
     }
     public Optional<Account> balanceSync(OfflinePlayer player, String currencyId) { return resolveSync(player).flatMap(identity -> balanceSync(identity, currencyId)); }
-    public boolean hasBalanceSync(Identity identity, String currencyId, BigDecimal amount) {
-        if (identity == null || amount == null || amount.signum() < 0) return false;
-        EconomySettings.Currency currency = requireCurrency(currencyId, null);
-        BigDecimal normalized = amount.setScale(currency.display().fractionalDigits(), currency.balances().rounding());
-        return !(amount.signum() > 0 && normalized.signum() == 0) && balanceSync(identity, currencyId)
-                .map(Account::balance).map(balance -> balance.subtract(normalized).compareTo(currency.balances().minimum()) >= 0).orElse(false);
-    }
     public MutationOutcome mutateSync(Identity identity, String currencyId, BigDecimal amount, TransactionType type, String source, String idempotencyKey) {
+        if (closed.get()) {
+            return new MutationOutcome(EconomyResultStatus.TEMPORARY_FAILURE, null, null, null,
+                    "Economy service is shut down", null, null);
+        }
         EconomySettings.Currency currency = requireCurrency(currencyId, null);
         if (identity == null) return new MutationOutcome(EconomyResultStatus.UNKNOWN_PLAYER, null, null, null, "Player identity is unavailable", null, null);
         MutationOutcome outcome = repository.mutate(type, identity, currency, amount, source, idempotencyKey, null, source,
@@ -243,7 +242,10 @@ public final class EconomyService implements EconomyApi {
         return mutateSync(resolveSync(player).orElse(null), currencyId, amount, type, "vault", idempotencyKey);
     }
     public boolean hasAccountSync(OfflinePlayer player, String currencyId) { return resolveSync(player).map(identity -> hasAccountSync(identity, currencyId)).orElse(false); }
-    public boolean hasAccountSync(Identity identity, String currencyId) { return identity != null && repository.accountExists(identity, requireCurrency(currencyId, null)); }
+    public boolean hasAccountSync(Identity identity, String currencyId) {
+        return identity != null && !closed.get()
+                && repository.accountExists(identity, requireCurrency(currencyId, null));
+    }
 
     /** Validates a balance invalidation before asking the cache to refresh from MySQL. */
     public void applyRemoteBalance(EconomyBalanceMessage message) {

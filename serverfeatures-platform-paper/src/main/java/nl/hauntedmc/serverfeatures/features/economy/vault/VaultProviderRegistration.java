@@ -5,21 +5,31 @@ import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings.Vault
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
+import org.bukkit.plugin.ServicesManager;
 
 import java.util.Objects;
 
-/** Registers and cleanly unregisters the optional Vault provider. */
+/**
+ * Registers and cleanly unregisters the optional Vault provider.
+ *
+ * <p>The {@code REPLACE} policy registers at Vault's highest priority and verifies that this
+ * provider became active. It deliberately leaves the previous provider registered, allowing
+ * Bukkit to expose it again automatically when this feature shuts down.</p>
+ */
 public final class VaultProviderRegistration implements EconomyVaultIntegration {
     private final Economy feature;
-    private VaultEconomyProvider provider;
-    private String status = "disabled";
+    private volatile VaultEconomyProvider provider;
+    private volatile String status = "disabled";
 
     public VaultProviderRegistration(Economy feature) {
         this.feature = Objects.requireNonNull(feature, "feature");
     }
 
     @Override
-    public void register() {
+    public synchronized void register() {
+        if (provider != null || status.startsWith("skipped:")) {
+            return;
+        }
         if (!feature.settings().vault().enabled()) {
             status = "disabled";
             return;
@@ -29,7 +39,9 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
             feature.getLogger().warning("Vault integration is enabled, but Vault is not installed.");
             return;
         }
-        RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> existing = Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+        ServicesManager services = Bukkit.getServicesManager();
+        RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> existing =
+                services.getRegistration(net.milkbowl.vault.economy.Economy.class);
         if (existing != null) {
             VaultConflictPolicy policy = feature.settings().vault().conflictPolicy();
             if (policy == VaultConflictPolicy.FAIL) {
@@ -49,20 +61,28 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
                 feature.service(),
                 feature.settings().vault().primaryCurrency()
         );
-        Bukkit.getServicesManager().register(
-                net.milkbowl.vault.economy.Economy.class,
-                candidate,
-                feature.getPlugin(),
-                ServicePriority.Highest
-        );
-        RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> active =
-                Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
-        if (active == null || active.getProvider() != candidate) {
-            candidate.disable();
-            Bukkit.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, candidate);
-            throw new IllegalStateException(
-                    "Vault did not select ServerFeatures as its active economy provider"
+        try {
+            services.register(
+                    net.milkbowl.vault.economy.Economy.class,
+                    candidate,
+                    feature.getPlugin(),
+                    ServicePriority.Highest
             );
+            RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> active =
+                    services.getRegistration(net.milkbowl.vault.economy.Economy.class);
+            if (active == null || active.getProvider() != candidate) {
+                throw new IllegalStateException(
+                        "Vault did not select ServerFeatures as its active economy provider"
+                );
+            }
+        } catch (RuntimeException | Error failure) {
+            candidate.disable();
+            try {
+                services.unregister(net.milkbowl.vault.economy.Economy.class, candidate);
+            } catch (RuntimeException | Error cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
         }
         provider = candidate;
         status = "registered:" + feature.settings().vault().primaryCurrency();
@@ -70,18 +90,33 @@ public final class VaultProviderRegistration implements EconomyVaultIntegration 
 
     @Override
     public String status() {
+        VaultEconomyProvider current = provider;
+        if (current != null) {
+            RegisteredServiceProvider<net.milkbowl.vault.economy.Economy> active =
+                    Bukkit.getServicesManager().getRegistration(net.milkbowl.vault.economy.Economy.class);
+            if (active == null) {
+                return "inactive:no-provider";
+            }
+            if (active.getProvider() != current) {
+                return "shadowed:" + active.getProvider().getName();
+            }
+        }
         return status;
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         VaultEconomyProvider current = provider;
         provider = null;
         if (current == null) {
+            status = "disabled";
             return;
         }
         current.disable();
-        Bukkit.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, current);
-        status = "disabled";
+        try {
+            Bukkit.getServicesManager().unregister(net.milkbowl.vault.economy.Economy.class, current);
+        } finally {
+            status = "disabled";
+        }
     }
 }

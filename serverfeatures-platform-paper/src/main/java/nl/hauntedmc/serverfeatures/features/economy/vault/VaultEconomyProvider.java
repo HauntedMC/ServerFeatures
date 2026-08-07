@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.economy.vault;
 
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
+import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
@@ -21,7 +22,8 @@ import java.util.UUID;
  * <p>The apparent size is largely imposed by Vault's legacy interface: every operation has name,
  * {@link OfflinePlayer}, and world overloads plus unsupported bank methods. World parameters are
  * intentionally ignored because scope is fixed by the configured currency, and authoritative
- * operations delegate to the synchronous service bridge.</p>
+ * operations delegate to the synchronous service bridge. Vault has no asynchronous economy SPI,
+ * so cache misses and mutations can block while canonical identity and database work complete.</p>
  */
 @SuppressWarnings("deprecation")
 public final class VaultEconomyProvider implements Economy {
@@ -75,6 +77,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean hasAccount(String playerName) {
+        if (!enabled) {
+            return false;
+        }
         try {
             return service.resolveSync(playerName)
                     .map(identity -> service.hasAccountSync(identity, currencyId))
@@ -86,6 +91,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean hasAccount(OfflinePlayer player) {
+        if (!enabled) {
+            return false;
+        }
         try {
             return service.hasAccountSync(player, currencyId);
         } catch (RuntimeException exception) {
@@ -105,6 +113,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public double getBalance(String playerName) {
+        if (!enabled) {
+            return 0.0D;
+        }
         try {
             return service.resolveSync(playerName)
                     .flatMap(identity -> service.balanceSync(identity, currencyId))
@@ -116,6 +127,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public double getBalance(OfflinePlayer player) {
+        if (!enabled) {
+            return 0.0D;
+        }
         try {
             return service.balanceSync(player, currencyId)
                     .map(Account::balance).map(BigDecimal::doubleValue).orElse(0.0D);
@@ -136,30 +150,12 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean has(String playerName, double amount) {
-        if (!valid(amount) || amount < 0.0D) {
-            return false;
-        }
-        try {
-            return service.resolveSync(playerName)
-                    .map(identity -> service.hasBalanceSync(identity, currencyId, decimal(amount)))
-                    .orElse(false);
-        } catch (RuntimeException exception) {
-            return false;
-        }
+        return hasResolved(() -> service.resolveSync(playerName), amount);
     }
 
     @Override
     public boolean has(OfflinePlayer player, double amount) {
-        if (!valid(amount) || amount < 0.0D) {
-            return false;
-        }
-        try {
-            return service.resolveSync(player)
-                    .map(identity -> service.hasBalanceSync(identity, currencyId, decimal(amount)))
-                    .orElse(false);
-        } catch (RuntimeException exception) {
-            return false;
-        }
+        return hasResolved(() -> service.resolveSync(player), amount);
     }
 
     @Override
@@ -274,6 +270,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean createPlayerAccount(String playerName) {
+        if (!enabled) {
+            return false;
+        }
         try {
             return service.resolveSync(playerName)
                     .flatMap(identity -> service.balanceSync(identity, currencyId))
@@ -285,6 +284,9 @@ public final class VaultEconomyProvider implements Economy {
 
     @Override
     public boolean createPlayerAccount(OfflinePlayer player) {
+        if (!enabled) {
+            return false;
+        }
         try {
             return service.balanceSync(player, currencyId).isPresent();
         } catch (RuntimeException exception) {
@@ -302,14 +304,8 @@ public final class VaultEconomyProvider implements Economy {
         return createPlayerAccount(player);
     }
 
-    private EconomyResponse mutate(Identity identity, double rawAmount, TransactionType type) {
-        if (!enabled) {
-            return failure(rawAmount, 0.0D, "Economy provider is disabled");
-        }
-        if (!valid(rawAmount) || rawAmount < 0.0D) {
-            return failure(rawAmount, safeCurrent(identity), "Amount must be finite and non-negative");
-        }
-        if (rawAmount == 0.0D) {
+    private EconomyResponse mutate(Identity identity, BigDecimal amount, TransactionType type) {
+        if (amount.signum() == 0) {
             return new EconomyResponse(
                     0.0D,
                     safeCurrent(identity),
@@ -322,20 +318,27 @@ public final class VaultEconomyProvider implements Economy {
             outcome = service.mutateSync(
                     identity,
                     currencyId,
-                    decimal(rawAmount),
+                    amount,
                     type,
                     "vault",
                     UUID.randomUUID().toString()
             );
         } catch (RuntimeException exception) {
-            return failure(rawAmount, safeCurrent(identity), rootMessage(exception));
+            return failure(safeCurrent(identity), rootMessage(exception));
+        }
+        if (outcome == null) {
+            return failure(safeCurrent(identity), "Economy mutation returned no result");
         }
         if (!outcome.successful()) {
-            return failure(rawAmount, outcome.balance() == null ? safeCurrent(identity) : outcome.balance().doubleValue(),
-                    outcome.message().isBlank() ? outcome.status().name() : outcome.message());
+            String message = outcome.message();
+            return failure(outcome.balance() == null ? safeCurrent(identity) : outcome.balance().doubleValue(),
+                    message == null || message.isBlank() ? outcome.status().name() : message);
+        }
+        if (outcome.balance() == null) {
+            return failure(safeCurrent(identity), "Economy mutation returned no resulting balance");
         }
         return new EconomyResponse(
-                rawAmount,
+                amount.doubleValue(),
                 outcome.balance().doubleValue(),
                 EconomyResponse.ResponseType.SUCCESS,
                 ""
@@ -344,15 +347,44 @@ public final class VaultEconomyProvider implements Economy {
 
     private EconomyResponse mutateResolved(
             java.util.function.Supplier<Optional<Identity>> resolver,
-            double amount,
+            double rawAmount,
             TransactionType type
     ) {
+        if (!enabled) {
+            return failure(0.0D, "Economy provider is disabled");
+        }
+        if (!valid(rawAmount) || rawAmount < 0.0D) {
+            return failure(0.0D, "Amount must be finite and non-negative");
+        }
         try {
+            BigDecimal amount = normalizedAmount(rawAmount);
+            if (rawAmount > 0.0D && amount.signum() == 0) {
+                return failure(0.0D, "Amount is smaller than the currency precision");
+            }
             return resolver.get()
                     .map(identity -> mutate(identity, amount, type))
-                    .orElseGet(() -> failure(amount, 0.0D, "Unknown player"));
+                    .orElseGet(() -> failure(0.0D, "Unknown player"));
         } catch (RuntimeException exception) {
-            return failure(amount, 0.0D, rootMessage(exception));
+            return failure(0.0D, rootMessage(exception));
+        }
+    }
+
+    private boolean hasResolved(java.util.function.Supplier<Optional<Identity>> resolver, double rawAmount) {
+        if (!enabled || !valid(rawAmount) || rawAmount < 0.0D) {
+            return false;
+        }
+        try {
+            BigDecimal amount = normalizedAmount(rawAmount);
+            if (rawAmount > 0.0D && amount.signum() == 0) {
+                return false;
+            }
+            return resolver.get()
+                    .flatMap(identity -> service.balanceSync(identity, currencyId))
+                    .map(Account::balance)
+                    .map(balance -> balance.compareTo(amount) >= 0)
+                    .orElse(false);
+        } catch (RuntimeException exception) {
+            return false;
         }
     }
 
@@ -367,8 +399,8 @@ public final class VaultEconomyProvider implements Economy {
         }
     }
 
-    private static EconomyResponse failure(double amount, double balance, String message) {
-        return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.FAILURE, message);
+    private static EconomyResponse failure(double balance, String message) {
+        return new EconomyResponse(0.0D, balance, EconomyResponse.ResponseType.FAILURE, message);
     }
 
     private static EconomyResponse notImplemented() {
@@ -381,6 +413,14 @@ public final class VaultEconomyProvider implements Economy {
             throw new IllegalArgumentException("Amount must be finite");
         }
         return BigDecimal.valueOf(amount);
+    }
+
+    private BigDecimal normalizedAmount(double amount) {
+        EconomySettings.Currency currency = service.requireCurrency(currencyId);
+        return decimal(amount).setScale(
+                currency.display().fractionalDigits(),
+                currency.balances().rounding()
+        );
     }
 
     private static boolean valid(double amount) {
