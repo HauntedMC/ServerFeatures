@@ -2,12 +2,12 @@ package nl.hauntedmc.serverfeatures.features.sanctions;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
-import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.serverfeatures.features.sanctions.listener.MuteListener;
 import nl.hauntedmc.serverfeatures.features.sanctions.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.sanctions.service.SanctionsDataService;
