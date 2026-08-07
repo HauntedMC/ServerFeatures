@@ -25,6 +25,7 @@ import nl.hauntedmc.serverfeatures.framework.loader.FeatureLoadManager;
 import nl.hauntedmc.serverfeatures.framework.localization.LocalizationHandler;
 import nl.hauntedmc.serverfeatures.framework.service.DefaultCapabilityRegistry;
 import nl.hauntedmc.serverfeatures.framework.service.DefaultFeatureCatalog;
+import nl.hauntedmc.serverfeatures.framework.service.InternalServiceRegistry;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -39,6 +40,7 @@ public class ServerFeatures extends JavaPlugin implements ServerFeaturesApi {
 
     private final DefaultCapabilityRegistry capabilityRegistry = new DefaultCapabilityRegistry();
     private final DefaultFeatureCatalog featureCatalog = new DefaultFeatureCatalog();
+    private final InternalServiceRegistry internalServiceRegistry = new InternalServiceRegistry();
     private final CompletableFuture<Void> ready = new CompletableFuture<>();
     private volatile RuntimeState runtimeState = RuntimeState.STARTING;
 
@@ -178,6 +180,10 @@ public class ServerFeatures extends JavaPlugin implements ServerFeaturesApi {
 
     public DefaultFeatureCatalog getFeatureCatalog() {
         return featureCatalog;
+    }
+
+    public InternalServiceRegistry getInternalServiceRegistry() {
+        return internalServiceRegistry;
     }
 
     public FeatureLoadManager getFeatureLoadManager() {
