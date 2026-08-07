@@ -38,6 +38,17 @@ class LotterySettingsTest {
     }
 
     @Test
+    void legacyBroadcastConstructorKeepsActivityAnnouncementsDisabled() {
+        LotterySettings.Broadcasts broadcasts = new LotterySettings.Broadcasts(
+                true,
+                List.of(Duration.ofMinutes(1))
+        );
+
+        assertFalse(broadcasts.shouldAnnounceTicketPurchase());
+        assertFalse(broadcasts.shouldAnnounceDonation(Money.parse("5000.00")));
+    }
+
+    @Test
     void activityAnnouncementsAreIndependentlyToggleable() {
         LotterySettings.Broadcasts broadcasts = new LotterySettings.Broadcasts(
                 true,
