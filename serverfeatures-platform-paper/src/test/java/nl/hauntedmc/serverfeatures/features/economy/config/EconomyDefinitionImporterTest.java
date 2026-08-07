@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -35,10 +34,10 @@ class EconomyDefinitionImporterTest {
         assertEquals(EconomyDefinitionImporter.ImportStatus.IMPORTED,
                 EconomyDefinitionImporter.apply(config, definition).status());
 
-        assertEquals("GROUP", config.get("currencies.survival_tokens.scope.type", String.class));
-        assertEquals("survival", config.get("currencies.survival_tokens.scope.group_key", String.class));
-        assertEquals("HALF_EVEN", config.get("currencies.survival_tokens.balances.rounding", String.class));
-        assertEquals("0.25", config.get("currencies.survival_tokens.payments.minimum", String.class));
+        assertEquals("GROUP", config.get("currencies.survival_tokens.definition.scope.type", String.class));
+        assertEquals("survival", config.get("currencies.survival_tokens.definition.scope.group_key", String.class));
+        assertEquals("HALF_EVEN", config.get("currencies.survival_tokens.definition.balances.rounding", String.class));
+        assertEquals("0.01", config.get("currencies.survival_tokens.payments.minimum", String.class));
         assertFalse(config.get("currencies.survival_tokens.commands.pay", Boolean.class));
         assertEquals(EconomyDefinitionImporter.ImportStatus.LOCAL_CURRENCY_EXISTS,
                 EconomyDefinitionImporter.preview(config, definition).status());
@@ -66,8 +65,7 @@ class EconomyDefinitionImporterTest {
         CurrencyDefinition policy = new CurrencyDefinition("survival_tokens",
                 new EconomyScope(EconomyScopeType.GROUP, "hauntedmc/group/survival"), 2,
                 new BigDecimal("4.00"), new BigDecimal("-5.00"), new BigDecimal("1000.00"), true,
-                RoundingMode.HALF_EVEN, false, new BigDecimal("0.25"), new BigDecimal("50.00"),
-                new BigDecimal("10.00"), new BigDecimal("100.00"), new BigDecimal("200.00"), Duration.ofSeconds(3));
+                RoundingMode.HALF_EVEN);
         return new DiscoveredCurrencyDefinition(policy.currencyId(), policy.scope(), policy, 1L, 1L);
     }
 }

@@ -394,7 +394,8 @@ public final class EconomyService implements EconomyApi {
     }
     private EconomyResult failureResult(Throwable failure) {
         Throwable root = EconomyFailure.unwrap(failure);
-        if (root instanceof EconomyRejectedException rejected) return new EconomyResult(rejected.status(), null, null, null, EconomyFailure.rootMessage(rejected));
+        EconomyRejectedException rejected = EconomyFailure.find(root, EconomyRejectedException.class);
+        if (rejected != null) return new EconomyResult(rejected.status(), null, null, null, rejected.getMessage());
         if (root instanceof UnknownPlayerException) return new EconomyResult(EconomyResultStatus.UNKNOWN_PLAYER, null, null, null, EconomyFailure.rootMessage(root));
         if (root instanceof UnknownCurrencyException) return new EconomyResult(EconomyResultStatus.UNKNOWN_CURRENCY, null, null, null, EconomyFailure.rootMessage(root));
         if (root instanceof IllegalArgumentException) return new EconomyResult(EconomyResultStatus.INVALID_AMOUNT, null, null, null, EconomyFailure.rootMessage(root));

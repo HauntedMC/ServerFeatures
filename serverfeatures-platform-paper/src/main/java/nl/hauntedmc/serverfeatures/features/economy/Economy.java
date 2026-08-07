@@ -85,7 +85,14 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         ));
 
         EconomyRepository repository = new EconomyRepository(orm);
-        repository.validateDefinitions(settings);
+        EconomyRepository.DefinitionValidation validation = repository.validateDefinitions(settings);
+        validation.rejectedCurrencies().forEach((id, reason) -> getLogger().warning(
+                "[Economy] Currency '" + id + "' was not loaded: " + reason
+        ));
+        settings = settings.withCurrencies(validation.activeCurrencies());
+        if (settings.currencies().isEmpty()) {
+            getLogger().warning("[Economy] No currencies were loaded; Economy remains available for administration only.");
+        }
         service = new EconomyService(this, settings, repository);
         getLifecycleManager().getApiManager().registerService(EconomyApi.class, service);
 

@@ -7,7 +7,7 @@ network_key: hauntedmc
 server_key: survival
 
 database:
-  connection: system_data_rw
+  connection: player_data_rw
 
 messaging:
   enabled: true

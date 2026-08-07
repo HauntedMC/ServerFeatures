@@ -130,7 +130,7 @@ public final class CurrencyCommand implements BrigadierCommand {
                 .thenCompose(identity -> feature.service().balance(feature.service().account(identity, currency.id())))
                 .whenComplete((balance, failure) -> feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(sender, "economy.error", Map.of("reason", rootMessage(failure)));
+                        feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     feature.send(sender, target == null ? "economy.balance.self" : "economy.balance.other", Map.of(
@@ -158,7 +158,7 @@ public final class CurrencyCommand implements BrigadierCommand {
                 ))
                 .whenComplete((account, failure) -> feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(player, "economy.error", Map.of("reason", rootMessage(failure)));
+                        feature.send(player, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     feature.send(player, account.paymentsEnabled()
@@ -178,7 +178,7 @@ public final class CurrencyCommand implements BrigadierCommand {
                 ))
                 .whenComplete((account, failure) -> feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(player, "economy.error", Map.of("reason", rootMessage(failure)));
+                        feature.send(player, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     feature.send(player, account.paymentsEnabled()
@@ -198,7 +198,7 @@ public final class CurrencyCommand implements BrigadierCommand {
                 ))
                 .whenComplete((history, failure) -> feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(player, "economy.error", Map.of("reason", rootMessage(failure)));
+                        feature.send(player, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     feature.send(player, "economy.history.header", Map.of("page", Integer.toString(page)));
@@ -222,7 +222,7 @@ public final class CurrencyCommand implements BrigadierCommand {
         feature.service().top(currency.id(), page, PAGE_SIZE).whenComplete((entries, failure) ->
                 feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(sender, "economy.error", Map.of("reason", rootMessage(failure)));
+                        feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     feature.send(sender, "economy.top.header", Map.of("page", Integer.toString(page)));
@@ -287,7 +287,4 @@ public final class CurrencyCommand implements BrigadierCommand {
         return 1;
     }
 
-    private static String rootMessage(Throwable failure) {
-        return EconomyCommandSupport.rootMessage(failure);
-    }
 }

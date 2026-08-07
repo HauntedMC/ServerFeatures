@@ -33,7 +33,7 @@ final class CurrencyPaymentHandler {
         try {
             amount = parseAmount(rawAmount);
         } catch (IllegalArgumentException exception) {
-            feature.send(player, "economy.invalid_amount", Map.of("reason", exception.getMessage()));
+            feature.send(player, "economy.invalid_amount");
             return 0;
         }
         UUID confirmationToken = confirmations.begin(player.getUniqueId());
@@ -64,7 +64,7 @@ final class CurrencyPaymentHandler {
                 feature.service().main(() -> {
                     if (!player.isOnline()) return;
                     if (failure != null) {
-                        feature.send(player, "economy.pay.failed", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
+                        feature.send(player, "economy.pay.failed." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     if (!confirmations.confirm(player.getUniqueId(), confirmationToken, recipient, amount)) return;
@@ -78,8 +78,8 @@ final class CurrencyPaymentHandler {
     private void execute(Player player, String target, BigDecimal amount) {
         feature.service().resolveIdentifier(target).whenComplete((recipient, failure) -> {
             if (failure != null) {
-                feature.service().main(() -> feature.send(player, "economy.pay.failed",
-                        Map.of("reason", EconomyCommandSupport.rootMessage(failure))));
+                feature.service().main(() -> feature.send(player,
+                        "economy.pay.failed." + EconomyCommandSupport.failureMessageKey(failure)));
                 return;
             }
             execute(player, recipient, amount);
@@ -97,13 +97,12 @@ final class CurrencyPaymentHandler {
                         .thenApply(result -> new PaymentResult(sender, recipient, result)))
                 .whenComplete((payment, failure) -> feature.service().main(() -> {
                     if (failure != null) {
-                        feature.send(player, "economy.pay.failed", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
+                        feature.send(player, "economy.pay.failed." + EconomyCommandSupport.failureMessageKey(failure));
                         return;
                     }
                     if (payment == null || !payment.result().successful()) {
-                        feature.send(player, "economy.pay.failed", Map.of("reason", payment == null
-                                ? EconomyCommandSupport.resultMessage(null)
-                                : EconomyCommandSupport.resultMessage(payment.result())));
+                        feature.send(player, "economy.pay.failed." + EconomyCommandSupport.resultMessageKey(
+                                payment == null ? null : payment.result()));
                         return;
                     }
                     feature.send(player, "economy.pay.sent", Map.of(

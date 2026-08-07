@@ -10,57 +10,59 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Currency
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 import org.hibernate.Session;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 /** Validates immutable cross-server currency definitions before Economy becomes available. */
 final class EconomyDefinitionStore {
-    void validate(Session session, EconomySettings settings) {
+    void validate(Session session, EconomySettings settings, EconomySettings.Currency currency) {
         long now = EconomyTransactionExecutor.databaseNow(session);
-        for (EconomySettings.Currency currency : settings.currencies().values().stream()
-                .sorted(Comparator.comparing(EconomySettings.Currency::id)).toList()) {
-            validateFamily(session, settings.networkKey(), currency, now);
-            String id = EconomyPersistenceValues.definitionId(currency.id(), currency.scope().key());
-            String hash = EconomyPersistenceValues.definitionHash(currency);
-            CurrencyDefinition canonicalDefinition = EconomyDefinitionPayload.fromCurrency(currency);
-            EconomyCurrencyDefinitionEntity entity = session.find(
-                    EconomyCurrencyDefinitionEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
-            if (entity == null) {
-                entity = new EconomyCurrencyDefinitionEntity();
-                entity.setId(id);
-                entity.setCurrencyId(currency.id());
-                entity.setScopeKey(currency.scope().key());
-                entity.setScopeType(currency.scope().type().name());
-                entity.setFractionalDigits(currency.display().fractionalDigits());
-                entity.setStartingBalance(EconomyPersistenceValues.databaseAmount(currency.balances().starting()));
-                entity.setMinimumBalance(EconomyPersistenceValues.databaseAmount(currency.balances().minimum()));
-                entity.setMaximumBalance(EconomyPersistenceValues.databaseAmount(currency.balances().maximum()));
-                entity.setAllowNegative(currency.balances().allowNegative());
-                entity.setDefinitionPayload(EconomyDefinitionPayload.encode(canonicalDefinition));
-                entity.setDefinitionHash(hash);
-                entity.setCreatedAt(now);
-                entity.setUpdatedAt(now);
-                session.persist(entity);
-            } else {
-                if (!hash.equals(entity.getDefinitionHash())) {
-                    throw new IllegalStateException("Currency definition mismatch for " + currency.id()
-                            + " in scope " + currency.scope().key());
-                }
-                if (entity.getDefinitionPayload() == null || entity.getDefinitionPayload().isBlank()) {
-                    // Legacy rows contain a one-way hash only. A matching local configuration is
-                    // the sole safe source from which to backfill the canonical import payload.
-                    entity.setDefinitionPayload(EconomyDefinitionPayload.encode(canonicalDefinition));
-                } else {
-                    CurrencyDefinition stored = EconomyDefinitionPayload.decode(entity.getDefinitionPayload());
-                    if (!hash.equals(EconomyPersistenceValues.definitionHash(stored))) {
-                        throw new IllegalStateException("Currency definition payload mismatch for " + currency.id()
-                                + " in scope " + currency.scope().key());
-                    }
-                }
-                entity.setUpdatedAt(now);
+        validateFamily(session, settings.networkKey(), currency, now);
+        String id = EconomyPersistenceValues.definitionId(currency.id(), currency.scope().key());
+        String hash = EconomyPersistenceValues.definitionHash(currency);
+        CurrencyDefinition canonicalDefinition = EconomyDefinitionPayload.fromCurrency(currency);
+        EconomyCurrencyDefinitionEntity entity = session.find(
+                EconomyCurrencyDefinitionEntity.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (entity == null) {
+            entity = new EconomyCurrencyDefinitionEntity();
+            entity.setId(id);
+            entity.setCurrencyId(currency.id());
+            entity.setScopeKey(currency.scope().key());
+            entity.setScopeType(currency.scope().type().name());
+            entity.setFractionalDigits(currency.display().fractionalDigits());
+            entity.setStartingBalance(EconomyPersistenceValues.databaseAmount(currency.balances().starting()));
+            entity.setMinimumBalance(EconomyPersistenceValues.databaseAmount(currency.balances().minimum()));
+            entity.setMaximumBalance(EconomyPersistenceValues.databaseAmount(currency.balances().maximum()));
+            entity.setAllowNegative(currency.balances().allowNegative());
+            entity.setDefinitionPayload(EconomyDefinitionPayload.encode(canonicalDefinition));
+            entity.setDefinitionHash(hash);
+            entity.setCreatedAt(now);
+            entity.setUpdatedAt(now);
+            session.persist(entity);
+            return;
+        }
+        if (!matchesStoredIdentity(entity, currency)) {
+            throw mismatch(currency, "scope, precision, starting balance or balance bounds differ");
+        }
+        if (EconomyDefinitionPayload.isCurrentSchema(entity.getDefinitionPayload())) {
+            CurrencyDefinition stored;
+            try {
+                stored = EconomyDefinitionPayload.decode(entity.getDefinitionPayload());
+            } catch (RuntimeException exception) {
+                throw new EconomyDefinitionException("Invalid stored currency definition for " + currency.id(), exception);
+            }
+            if (!hash.equals(EconomyPersistenceValues.definitionHash(stored)) || !hash.equals(entity.getDefinitionHash())) {
+                throw mismatch(currency, "the immutable definition differs");
             }
         }
+        // Version 1 fingerprints included mutable payment policy. The durable columns above
+        // establish compatibility, after which we atomically replace the old fingerprint with
+        // the narrow v2 definition. This lets payment policy evolve without a data migration.
+        entity.setDefinitionPayload(EconomyDefinitionPayload.encode(canonicalDefinition));
+        entity.setDefinitionHash(hash);
+        entity.setUpdatedAt(now);
     }
 
     /** Lists only global and group definitions belonging to the requested logical network. */
@@ -133,9 +135,27 @@ final class EconomyDefinitionStore {
             return;
         }
         if (!familyHash.equals(family.getFamilyHash())) {
-            throw new IllegalStateException("Currency family mismatch for " + currency.id() + " in network "
+            throw new EconomyDefinitionException("Currency family mismatch for " + currency.id() + " in network "
                     + networkKey + ": scope type, precision, or global scope differs between servers");
         }
         family.setUpdatedAt(now);
+    }
+
+    private static boolean matchesStoredIdentity(EconomyCurrencyDefinitionEntity entity, EconomySettings.Currency currency) {
+        return entity.getScopeType().equals(currency.scope().type().name())
+                && entity.getFractionalDigits() == currency.display().fractionalDigits()
+                && equalAmount(entity.getStartingBalance(), currency.balances().starting())
+                && equalAmount(entity.getMinimumBalance(), currency.balances().minimum())
+                && equalAmount(entity.getMaximumBalance(), currency.balances().maximum())
+                && entity.isAllowNegative() == currency.balances().allowNegative();
+    }
+
+    private static boolean equalAmount(BigDecimal stored, BigDecimal configured) {
+        return stored != null && configured != null && stored.compareTo(configured) == 0;
+    }
+
+    private static EconomyDefinitionException mismatch(EconomySettings.Currency currency, String detail) {
+        return new EconomyDefinitionException("Currency definition mismatch for " + currency.id()
+                + " in scope " + currency.scope().key() + ": " + detail);
     }
 }

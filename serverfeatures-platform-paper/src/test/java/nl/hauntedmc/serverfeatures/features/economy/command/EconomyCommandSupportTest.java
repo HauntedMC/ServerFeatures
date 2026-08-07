@@ -14,7 +14,15 @@ class EconomyCommandSupportTest {
         EconomyResult result = new EconomyResult(EconomyResultStatus.TEMPORARY_FAILURE, null, null, null,
                 "Communications link failure: database.internal:3306");
 
-        assertEquals("The economy service is temporarily unavailable", EconomyCommandSupport.resultMessage(result));
+        assertEquals("temporary_failure", EconomyCommandSupport.resultMessageKey(result));
+    }
+
+    @Test
+    void translatesStructuredRejectionsByStatusInsteadOfTheirEnglishDetail() {
+        EconomyResult result = new EconomyResult(EconomyResultStatus.INSUFFICIENT_FUNDS, null, null, null,
+                "Insufficient funds");
+
+        assertEquals("insufficient_funds", EconomyCommandSupport.resultMessageKey(result));
     }
 
     @Test

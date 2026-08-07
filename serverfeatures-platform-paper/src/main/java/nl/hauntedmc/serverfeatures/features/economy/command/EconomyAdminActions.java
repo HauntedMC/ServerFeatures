@@ -100,13 +100,7 @@ final class EconomyAdminActions {
                     Map.entry("type", policy.scope().type().name()), Map.entry("digits", Integer.toString(policy.fractionalDigits())),
                     Map.entry("starting", policy.startingBalance().toPlainString()), Map.entry("minimum", policy.minimumBalance().toPlainString()),
                     Map.entry("maximum", policy.maximumBalance().toPlainString()), Map.entry("negative", Boolean.toString(policy.allowNegative())),
-                    Map.entry("rounding", policy.rounding().name()), Map.entry("payments", Boolean.toString(policy.paymentsDefaultEnabled())),
-                    Map.entry("payment_minimum", policy.paymentMinimum().toPlainString()),
-                    Map.entry("payment_maximum", policy.paymentMaximum().toPlainString()),
-                    Map.entry("confirmation", policy.confirmationThreshold().toPlainString()),
-                    Map.entry("daily_send", policy.dailySendLimit().toPlainString()),
-                    Map.entry("daily_receive", policy.dailyReceiveLimit().toPlainString()),
-                    Map.entry("cooldown", policy.paymentCooldown().toMillis() + "ms")));
+                    Map.entry("rounding", policy.rounding().name())));
         });
         return 1;
     }
@@ -277,7 +271,7 @@ final class EconomyAdminActions {
         try {
             currency = feature.settings().requireCurrency(currencyId);
         } catch (RuntimeException exception) {
-            feature.send(sender, "economy.error", Map.of("reason", exception.getMessage()));
+            feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(exception));
             return;
         }
         feature.service().resolveIdentifier(target).whenComplete((identity, failure) -> {
@@ -317,7 +311,7 @@ final class EconomyAdminActions {
                                 EconomyResult result, Throwable failure) {
         if (failure != null) { fail(sender, failure); return; }
         if (!result.successful()) {
-            feature.send(sender, "economy.error", Map.of("reason", EconomyCommandSupport.resultMessage(result)));
+            feature.send(sender, "economy.error." + EconomyCommandSupport.resultMessageKey(result));
             return;
         }
         feature.send(sender, "economy.admin.changed", Map.of(
@@ -340,7 +334,7 @@ final class EconomyAdminActions {
     }
 
     private void fail(CommandSender sender, Throwable failure) {
-        feature.send(sender, "economy.error", Map.of("reason", EconomyCommandSupport.rootMessage(failure)));
+        feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
     }
 
     @FunctionalInterface

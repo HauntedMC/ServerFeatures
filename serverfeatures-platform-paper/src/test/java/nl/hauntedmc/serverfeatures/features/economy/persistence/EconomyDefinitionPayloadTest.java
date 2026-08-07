@@ -27,6 +27,18 @@ class EconomyDefinitionPayloadTest {
     }
 
     @Test
+    void ignoresMutablePaymentPolicyWhenHashingCurrencyIdentity() {
+        EconomySettings.Currency original = currency();
+        EconomySettings.Currency changedPayments = new EconomySettings.Currency(original.id(), original.scope(), original.display(),
+                original.balances(), original.commands(), new EconomySettings.Payments(true, new BigDecimal("1.00"),
+                new BigDecimal("10.00"), new BigDecimal("5.00"), new BigDecimal("20.00"),
+                new BigDecimal("30.00"), Duration.ofMinutes(5)));
+
+        assertEquals(EconomyPersistenceValues.definitionHash(original),
+                EconomyPersistenceValues.definitionHash(changedPayments));
+    }
+
+    @Test
     void rejectsMalformedPayloads() {
         assertThrows(IllegalStateException.class, () -> EconomyDefinitionPayload.decode("{not-json}"));
     }

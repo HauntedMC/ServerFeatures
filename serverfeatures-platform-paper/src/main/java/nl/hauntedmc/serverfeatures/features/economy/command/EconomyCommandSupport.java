@@ -2,37 +2,39 @@ package nl.hauntedmc.serverfeatures.features.economy.command;
 
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRejectedException;
 
 /** Shared presentation helpers for Economy command adapters. */
 final class EconomyCommandSupport {
-    private static final String TEMPORARY_FAILURE = "The economy service is temporarily unavailable";
     private static final int MAX_UNSIGNED_AMOUNT_LENGTH = 39;
 
     private EconomyCommandSupport() {
     }
 
-    static String rootMessage(Throwable failure) {
+    static String failureMessageKey(Throwable failure) {
         Throwable current = failure;
         while ((current instanceof java.util.concurrent.CompletionException
                 || current instanceof java.util.concurrent.ExecutionException) && current.getCause() != null) {
             current = current.getCause();
         }
-        while (current.getCause() != null && current.getCause() != current) current = current.getCause();
-        if (current instanceof IllegalArgumentException) {
-            String message = current.getMessage();
-            return message == null || message.isBlank() ? "Invalid request" : message;
+        while (current != null) {
+            if (current instanceof EconomyRejectedException rejected) return messageKey(rejected.status());
+            if ("UnknownPlayerException".equals(current.getClass().getSimpleName())) return messageKey(EconomyResultStatus.UNKNOWN_PLAYER);
+            if ("UnknownCurrencyException".equals(current.getClass().getSimpleName())) return messageKey(EconomyResultStatus.UNKNOWN_CURRENCY);
+            if (current instanceof IllegalArgumentException) return messageKey(EconomyResultStatus.INVALID_AMOUNT);
+            if (current.getCause() == current) break;
+            current = current.getCause();
         }
-        // Database, messaging, and framework exceptions can disclose implementation details.
-        return TEMPORARY_FAILURE;
+        return messageKey(EconomyResultStatus.TEMPORARY_FAILURE);
     }
 
     /** Returns an end-user-safe message for a completed Economy operation. */
-    static String resultMessage(EconomyResult result) {
-        if (result == null || result.status() == EconomyResultStatus.TEMPORARY_FAILURE) {
-            return TEMPORARY_FAILURE;
-        }
-        String message = result.message();
-        return message == null || message.isBlank() ? "The economy operation was rejected" : message;
+    static String resultMessageKey(EconomyResult result) {
+        return messageKey(result == null ? EconomyResultStatus.TEMPORARY_FAILURE : result.status());
+    }
+
+    private static String messageKey(EconomyResultStatus status) {
+        return status.name().toLowerCase(java.util.Locale.ROOT);
     }
 
     /** Rejects oversized numbers before {@link java.math.BigDecimal} parses attacker-controlled input. */

@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.CurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -68,21 +69,21 @@ public final class EconomyDefinitionImporter {
         String base = "currencies." + definition.currencyId() + ".";
         config.batch(batch -> {
             batch.put(base + "enabled", true);
-            batch.put(base + "scope.type", definition.scope().type().name());
+            batch.put(base + "definition.scope.type", definition.scope().type().name());
             if (definition.scope().type() == EconomyScopeType.GROUP) {
-                batch.put(base + "scope.group_key", groupKey(definition.scope().key()));
+                batch.put(base + "definition.scope.group_key", groupKey(definition.scope().key()));
             }
             batch.put(base + "display.singular", definition.currencyId());
             batch.put(base + "display.plural", definition.currencyId());
             batch.put(base + "display.symbol", "");
             batch.put(base + "display.format", "{symbol}{amount}");
-            batch.put(base + "display.fractional_digits", definition.fractionalDigits());
+            batch.put(base + "definition.fractional_digits", definition.fractionalDigits());
             batch.put(base + "display.grouping", true);
-            batch.put(base + "balances.starting", definition.startingBalance().toPlainString());
-            batch.put(base + "balances.minimum", definition.minimumBalance().toPlainString());
-            batch.put(base + "balances.maximum", definition.maximumBalance().toPlainString());
-            batch.put(base + "balances.allow_negative", definition.allowNegative());
-            batch.put(base + "balances.rounding", definition.rounding().name());
+            batch.put(base + "definition.balances.starting", definition.startingBalance().toPlainString());
+            batch.put(base + "definition.balances.minimum", definition.minimumBalance().toPlainString());
+            batch.put(base + "definition.balances.maximum", definition.maximumBalance().toPlainString());
+            batch.put(base + "definition.balances.allow_negative", definition.allowNegative());
+            batch.put(base + "definition.balances.rounding", definition.rounding().name());
             batch.put(base + "commands.root", definition.currencyId());
             batch.put(base + "commands.aliases", List.of());
             batch.put(base + "commands.balance", true);
@@ -91,13 +92,13 @@ public final class EconomyDefinitionImporter {
             batch.put(base + "commands.paytoggle", false);
             batch.put(base + "commands.history", true);
             batch.put(base + "commands.top", false);
-            batch.put(base + "payments.default_enabled", definition.paymentsDefaultEnabled());
-            batch.put(base + "payments.minimum", definition.paymentMinimum().toPlainString());
-            batch.put(base + "payments.maximum", definition.paymentMaximum().toPlainString());
-            batch.put(base + "payments.confirmation_threshold", definition.confirmationThreshold().toPlainString());
-            batch.put(base + "payments.daily_send_limit", definition.dailySendLimit().toPlainString());
-            batch.put(base + "payments.daily_receive_limit", definition.dailyReceiveLimit().toPlainString());
-            batch.put(base + "payments.cooldown", definition.paymentCooldown().toMillis() + "ms");
+            batch.put(base + "payments.default_enabled", false);
+            batch.put(base + "payments.minimum", BigDecimal.ONE.movePointLeft(definition.fractionalDigits()).toPlainString());
+            batch.put(base + "payments.maximum", "0");
+            batch.put(base + "payments.confirmation_threshold", "0");
+            batch.put(base + "payments.daily_send_limit", "0");
+            batch.put(base + "payments.daily_receive_limit", "0");
+            batch.put(base + "payments.cooldown", "1s");
         });
         return new ImportPreview(ImportStatus.IMPORTED,
                 "Currency configuration was saved. Review display/commands and restart or reload Economy before use.");

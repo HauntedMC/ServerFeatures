@@ -23,4 +23,18 @@ final class EconomyFailure {
         String message = current.getMessage();
         return message == null || message.isBlank() ? current.getClass().getSimpleName() : message;
     }
+
+    static <T extends Throwable> T find(Throwable failure, Class<T> type) {
+        Throwable current = unwrap(failure);
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return type.cast(current);
+            }
+            if (current.getCause() == current) {
+                break;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
 }

@@ -37,7 +37,6 @@ public record EconomySettings(
         Objects.requireNonNull(cache, "cache");
         Objects.requireNonNull(execution, "execution");
         currencies = Collections.unmodifiableMap(new LinkedHashMap<>(currencies));
-        if (currencies.isEmpty()) throw new IllegalArgumentException("At least one enabled currency is required");
         if (vault.enabled() && !currencies.containsKey(vault.primaryCurrency())) {
             throw new IllegalArgumentException("vault.primary_currency must reference an enabled currency");
         }
@@ -60,6 +59,15 @@ public record EconomySettings(
         Currency currency = currencies.get(normalizeCurrencyId(id));
         if (currency == null) throw new IllegalArgumentException("Unknown currency: " + id);
         return currency;
+    }
+
+    /** Returns the effective runtime configuration after unavailable currencies were isolated. */
+    public EconomySettings withCurrencies(Map<String, Currency> activeCurrencies) {
+        Vault effectiveVault = vault.enabled() && !activeCurrencies.containsKey(vault.primaryCurrency())
+                ? new Vault(false, vault.primaryCurrency(), vault.conflictPolicy())
+                : vault;
+        return new EconomySettings(networkKey, serverKey, databaseConnection, effectiveVault, messaging, cache,
+                execution, activeCurrencies);
     }
 
     public record Vault(boolean enabled, String primaryCurrency, VaultConflictPolicy conflictPolicy) {

@@ -5,7 +5,6 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyScope;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -143,9 +142,9 @@ public final class EconomyModels {
     /**
      * Version-independent monetary definition persisted for safe cross-server discovery.
      *
-     * <p>Display text, commands and Vault selection are intentionally absent: those are local
-     * server choices. Every remaining field affects account creation, arithmetic or payment
-     * enforcement and is therefore part of the immutable definition fingerprint.</p>
+     * <p>Display text, commands, Vault selection and payment policy are intentionally absent:
+     * those are local operational choices. Only values which identify the persisted monetary
+     * unit or make existing balances incompatible are immutable.</p>
      */
     public record CurrencyDefinition(
             String currencyId,
@@ -155,14 +154,7 @@ public final class EconomyModels {
             BigDecimal minimumBalance,
             BigDecimal maximumBalance,
             boolean allowNegative,
-            RoundingMode rounding,
-            boolean paymentsDefaultEnabled,
-            BigDecimal paymentMinimum,
-            BigDecimal paymentMaximum,
-            BigDecimal confirmationThreshold,
-            BigDecimal dailySendLimit,
-            BigDecimal dailyReceiveLimit,
-            Duration paymentCooldown
+            RoundingMode rounding
     ) {
         public CurrencyDefinition {
             currencyId = Objects.requireNonNull(currencyId, "currencyId");
@@ -174,23 +166,12 @@ public final class EconomyModels {
             minimumBalance = Objects.requireNonNull(minimumBalance, "minimumBalance");
             maximumBalance = Objects.requireNonNull(maximumBalance, "maximumBalance");
             rounding = Objects.requireNonNull(rounding, "rounding");
-            paymentMinimum = Objects.requireNonNull(paymentMinimum, "paymentMinimum");
-            paymentMaximum = Objects.requireNonNull(paymentMaximum, "paymentMaximum");
-            confirmationThreshold = Objects.requireNonNull(confirmationThreshold, "confirmationThreshold");
-            dailySendLimit = Objects.requireNonNull(dailySendLimit, "dailySendLimit");
-            dailyReceiveLimit = Objects.requireNonNull(dailyReceiveLimit, "dailyReceiveLimit");
-            paymentCooldown = Objects.requireNonNull(paymentCooldown, "paymentCooldown");
             if (currencyId.isBlank()) {
                 throw new IllegalArgumentException("currencyId must not be blank");
             }
             validateStorageAmount(startingBalance, fractionalDigits, "startingBalance");
             validateStorageAmount(minimumBalance, fractionalDigits, "minimumBalance");
             validateStorageAmount(maximumBalance, fractionalDigits, "maximumBalance");
-            validateStorageAmount(paymentMinimum, fractionalDigits, "paymentMinimum");
-            validateStorageAmount(paymentMaximum, fractionalDigits, "paymentMaximum");
-            validateStorageAmount(confirmationThreshold, fractionalDigits, "confirmationThreshold");
-            validateStorageAmount(dailySendLimit, fractionalDigits, "dailySendLimit");
-            validateStorageAmount(dailyReceiveLimit, fractionalDigits, "dailyReceiveLimit");
             if (minimumBalance.compareTo(maximumBalance) > 0
                     || startingBalance.compareTo(minimumBalance) < 0
                     || startingBalance.compareTo(maximumBalance) > 0) {
@@ -198,19 +179,6 @@ public final class EconomyModels {
             }
             if (!allowNegative && minimumBalance.signum() < 0) {
                 throw new IllegalArgumentException("Negative minimum requires allowNegative");
-            }
-            if (paymentMinimum.signum() <= 0 || paymentMaximum.signum() < 0
-                    || confirmationThreshold.signum() < 0 || dailySendLimit.signum() < 0
-                    || dailyReceiveLimit.signum() < 0) {
-                throw new IllegalArgumentException("Payment limits must be non-negative and paymentMinimum must be positive");
-            }
-            if (paymentMaximum.signum() > 0 && paymentMaximum.compareTo(paymentMinimum) < 0
-                    || dailySendLimit.signum() > 0 && dailySendLimit.compareTo(paymentMinimum) < 0
-                    || dailyReceiveLimit.signum() > 0 && dailyReceiveLimit.compareTo(paymentMinimum) < 0) {
-                throw new IllegalArgumentException("Enabled payment limits must not be below paymentMinimum");
-            }
-            if (paymentCooldown.isNegative() || paymentCooldown.compareTo(Duration.ofHours(1)) > 0) {
-                throw new IllegalArgumentException("paymentCooldown must be between zero and one hour");
             }
         }
 

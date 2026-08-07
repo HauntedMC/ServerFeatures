@@ -106,6 +106,19 @@ class EconomySettingsTest {
     }
 
     @Test
+    void retainsLegacyCurrencyValuesWhenDefaultsAddTheNewDefinitionBranch() {
+        Map<String, Object> root = configuration("survival", false);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> currencies = (Map<String, Object>) root.get("currencies");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> money = (Map<String, Object>) currencies.get("money");
+        money.put("scope", Map.of("type", "GLOBAL"));
+        money.put("definition", Map.of("scope", Map.of("type", "SERVER"), "fractional_digits", 2));
+
+        assertEquals(EconomyScopeType.GLOBAL, load(root).requireCurrency("money").scope().type());
+    }
+
+    @Test
     void rejectsDisablingPaymentsToKnownOfflineNetworkPlayers() {
         Map<String, Object> root = configuration("survival", false);
         @SuppressWarnings("unchecked")
@@ -183,6 +196,15 @@ class EconomySettingsTest {
         assertThrows(IllegalArgumentException.class, () -> new EconomySettings.Execution(
                 1, 10, Duration.ZERO, Duration.ZERO
         ));
+    }
+
+    @Test
+    void defaultsEconomyStorageToPlayerDataAndMakesDefinitionExplicit() {
+        Map<String, Object> defaults = EconomyDefaults.config().toMap();
+
+        assertEquals("player_data_rw", defaults.get("database.connection"));
+        assertEquals("SERVER", defaults.get("currencies.money.definition.scope.type"));
+        assertEquals(2, defaults.get("currencies.money.definition.fractional_digits"));
     }
 
     private static EconomySettings load(String gamemode, boolean sharedReplicaScope) {

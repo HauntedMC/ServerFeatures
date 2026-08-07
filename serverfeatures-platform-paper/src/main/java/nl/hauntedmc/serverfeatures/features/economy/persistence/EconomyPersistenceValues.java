@@ -90,11 +90,7 @@ final class EconomyPersistenceValues {
         return hash(String.join("|", definition.currencyId(), definition.scope().type().name(), definition.scope().key(),
                 Integer.toString(definition.fractionalDigits()), definition.startingBalance().toPlainString(),
                 definition.minimumBalance().toPlainString(), definition.maximumBalance().toPlainString(),
-                Boolean.toString(definition.allowNegative()), definition.rounding().name(),
-                Boolean.toString(definition.paymentsDefaultEnabled()), definition.paymentMinimum().toPlainString(),
-                definition.paymentMaximum().toPlainString(), definition.confirmationThreshold().toPlainString(),
-                definition.dailySendLimit().toPlainString(), definition.dailyReceiveLimit().toPlainString(),
-                Long.toString(definition.paymentCooldown().toMillis())));
+                Boolean.toString(definition.allowNegative()), definition.rounding().name()));
     }
 
     static String hash(String value) {

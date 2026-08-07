@@ -26,14 +26,14 @@ startup failure has occurred.
 ## Currency-definition mismatch or configuration rollout failure
 
 Economy records an immutable monetary-definition fingerprint in MySQL for each currency and scope.
-It compares that fingerprint before registering commands, API, Vault or placeholders. A message such
-as `Currency definition mismatch` or `Currency family mismatch` therefore means that Economy is
-intentionally unavailable on the affected server; no mutation service has started there.
+A message such as `Currency definition mismatch` or `Currency family mismatch` means that the
+affected currency is intentionally not loaded. Other valid currencies remain available on that
+server; no mutation service is exposed for the rejected currency.
 
 This is not controlled by whether an older server is currently online:
 
 - The first successful startup created the MySQL definition record.
-- A server with a different monetary definition cannot start against that record.
+- A server with a different monetary definition cannot load that currency against that record.
 - Stopping the old server does not remove or update the record.
 - A server that was already running before a configuration rollout continues to use its old
   in-memory policy until stopped or restarted.
@@ -42,7 +42,7 @@ Respond as follows:
 
 1. Do not delete or edit `system_economy_currency_definition` or
    `system_economy_currency_family` to make startup succeed.
-2. Keep Economy disabled on the mismatching server. Do not route mutations, Vault consumers or
+2. Keep the mismatching currency disabled on that server. Do not route its mutations, Vault consumers or
    commands to it as though it had joined the shared economy.
 3. Compare the resolved `network_key`, currency ID, scope type/key, fractional precision, balance
    policy, rounding, and payment policy with a known-good server and the intended release config.

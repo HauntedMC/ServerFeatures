@@ -97,7 +97,7 @@ network_key: hauntedmc
 server_key: survival
 
 database:
-  connection: system_data_rw
+  connection: player_data_rw
 
 messaging:
   enabled: true
@@ -329,10 +329,12 @@ running server; restart the feature/server as part of a controlled rollout.
 | `network_key` | Permanent identifier for this economy network. Changing it selects completely different scopes and must be treated as a migration. |
 | `server_key` | Logical gamemode key used by `SERVER` currencies. Use the same value for physical replicas that must share a gamemode-local balance. |
 | `currencies.<id>.enabled` | Whether this server exposes and validates that currency. Disabling it hides the currency here; it does not delete accounts or definitions. |
-| `scope.type` | `SERVER`, `GROUP`, or `GLOBAL`; determines which resolved account scope is selected. |
-| `scope.local_key` / `group_key` | Stable override for a local or group scope. These are identifiers, not cosmetic names. |
-| `display.*` | Player-facing singular/plural names, symbol and formatting. `fractional_digits` also determines the currency's valid stored precision. |
-| `balances.*` | Starting balance for first account creation, plus the permitted balance range and normalization rule. Starting balance is applied once only. |
+| `database.connection` | Economy's transactional tables. Defaults to `player_data_rw` (PlayerData). Existing installations using `system_data_rw` must move the Economy tables and change this setting together. |
+| `definition.scope.type` | `SERVER`, `GROUP`, or `GLOBAL`; immutable scope identity for the currency. |
+| `definition.scope.local_key` / `group_key` | Stable override for a local or group scope. These are identifiers, not cosmetic names. |
+| `definition.fractional_digits` | Immutable stored precision for the currency. |
+| `definition.balances.*` | Immutable starting balance and balance range. Starting balance is applied once only. |
+| `display.*` | Player-facing singular/plural names, symbol and formatting. |
 | `payments.*` | Player-payment policy. A zero maximum, confirmation threshold, or daily limit means that particular upper/confirmation/limit check is disabled. |
 | `commands.*` | The player command root, aliases and enabled subcommands for this server. Disabled commands are not registered. |
 | `cache.authoritative_refresh_interval` | How often this Paper server refreshes online-player display data from MySQL. It must be between one second and five minutes. |
@@ -342,6 +344,10 @@ running server; restart the feature/server as part of a controlled rollout.
 Amounts are parsed and normalized to the configured fractional precision and rounding mode. Invalid
 configuration—such as a starting balance outside its bounds, a payment maximum below the minimum,
 or enabling `paytoggle` while `pay` is disabled—prevents Economy from starting.
+
+Only `definition.*` is immutable and must match where a scope is shared. `display.*`,
+`payments.*` and `commands.*` are local policy and may differ per gamemode. Existing legacy
+configuration paths are read for compatibility; move them into `definition.*` when updating.
 
 Use the same currency definitions on Skyblock, KitPvP and other gamemodes, but set their top-level logical key accordingly:
 
@@ -357,9 +363,10 @@ When multiple physical instances serve one gamemode, either give each instance t
 server_key: survival-1
 currencies:
   money:
-    scope:
-      type: SERVER
-      local_key: survival
+    definition:
+      scope:
+        type: SERVER
+        local_key: survival
 ```
 
 Both replicas then use `hauntedmc/server/survival` for Money. A wrong logical key intentionally creates a different account, so these keys must be managed as stable identifiers.
@@ -367,9 +374,10 @@ Both replicas then use `hauntedmc/server/survival` for Money. A wrong logical ke
 For a grouped currency:
 
 ```yaml
-scope:
-  type: GROUP
-  group_key: survival-network
+definition:
+  scope:
+    type: GROUP
+    group_key: survival-network
 ```
 
 ### Multi-instance Survival group example
@@ -387,17 +395,17 @@ server_key: survival-1
 currencies:
   survival_tokens:
     enabled: true
-    scope:
-      type: GROUP
-      group_key: survival
+    definition:
+      scope:
+        type: GROUP
+        group_key: survival
+      fractional_digits: 0
     display:
       singular: survival token
       plural: survival tokens
       symbol: ""
       format: "{amount} {plural}"
-      fractional_digits: 0
-    # The remaining balances, commands and payments settings must be identical
-    # on every server in this group.
+    # Display, commands and payments may be chosen locally.
 ```
 
 `survival-2` uses the same currency definition and group key, but keeps its own physical/logical
@@ -410,10 +418,12 @@ server_key: survival-2
 currencies:
   survival_tokens:
     enabled: true
-    scope:
-      type: GROUP
-      group_key: survival
-    # Copy the same display, balances, commands and payments settings as survival-1.
+    definition:
+      scope:
+        type: GROUP
+        group_key: survival
+      fractional_digits: 0
+    # Copy the same definition; display, commands and payments may differ.
 ```
 
 Both resolve this account scope to `hauntedmc/group/survival`, so a player's `survival_tokens`
@@ -437,9 +447,8 @@ definition**:
 
 - scope type and resolved scope key;
 - fractional precision;
-- starting, minimum and maximum balances;
-- negative-balance policy and rounding mode; and
-- payment default, minimum, maximum, confirmation threshold, daily limits and cooldown.
+- starting, minimum and maximum balances; and
+- negative-balance policy and rounding mode.
 
 On first startup, Economy stores a fingerprint of this definition in MySQL. Every later startup
 locks and compares that stored definition before Economy becomes available. The database record is
@@ -448,19 +457,19 @@ the guard: it does not matter whether the server that originally created it is s
 | Situation | Result |
 | --- | --- |
 | A new server has the same monetary definition | It starts and shares the existing accounts. |
-| A server has an old or different monetary definition | Economy fails startup before API, commands, Vault or placeholders register on that server. |
+| A server has an old or different monetary definition | Only that currency is skipped; other valid currencies, API and administration remain available. |
 | An already-running server still has an old definition | It continues using its in-memory configuration until it is stopped or restarted. It is not changed remotely. |
-| Only display labels, number format/grouping, command labels/availability, or Vault enablement differ | Startup is permitted, but player presentation and local command availability can differ. Keep these consistent unless the difference is intentional. |
+| Only display labels, payment limits/defaults/cooldowns, commands, or Vault enablement differ | Startup is permitted; these are local operational policy. |
 
-This prevents a newly starting server from applying different payment or balance rules to the same
-global account. It does not magically reconfigure a server that was already running when a rollout
-began, so monetary changes must be coordinated.
+This prevents a newly starting server from applying incompatible precision or balance bounds to the
+same account. Payment policy can be rolled out independently per gamemode. It does not magically
+reconfigure a server that was already running when a rollout began.
 
 ### Safe rollout and configuration changes
 
 Use one config revision for every server that shares an account scope. A normal release that does
 not change a monetary definition can be rolled out according to the deployment checklist. For a
-monetary-definition change, such as precision, bounds, rounding, payment limits or scope, use this
+monetary-definition change, such as precision, bounds, rounding or scope, use this
 process:
 
 1. Schedule maintenance and stop Economy on every server that can access the shared scope.
@@ -587,6 +596,10 @@ The feature registers these ORM entities:
 - `system_economy_transaction`
 - `system_economy_transaction_entry`
 - `player_economy_daily_usage`
+
+All Economy tables are created through `database.connection`, which defaults to PlayerData. Keep
+the account, settings, usage and journal tables together: moving only `player_` tables would break
+the atomic debit-and-ledger transaction.
 
 `/economy verify` is read-only. It checks balance bounds, journal arithmetic and continuity, transaction shapes, entry/account ownership, current balances against the latest journal entries, orphaned settings/entries and transactions without entries; it never repairs or rewrites balances. This lets a generic Economy version continue to verify immutable journals created by an older integration-specific version without retaining that integration's taxonomy in Economy code.
 

@@ -58,13 +58,18 @@ final class EconomySettingsLoader {
             String id = EconomySettings.normalizeCurrencyId(entry.getKey());
             ConfigNode node = entry.getValue();
             if (!EconomyConfigValues.bool(node, "enabled", true)) continue;
-            EconomyScopeType scopeType = EconomyConfigValues.scopeType(EconomyConfigValues.text(node, "scope.type", "SERVER"),
-                    "currencies." + id + ".scope.type");
-            String scopeKey = scopeKey(node, id, networkKey, serverKey, scopeType);
-            int digits = EconomyConfigValues.integer(node, "display.fractional_digits", 2, 0, 8);
+            // Defaults are injected into existing configs. A legacy currency may therefore gain
+            // a new default definition branch beside its real legacy values; retain the latter
+            // until an administrator explicitly migrates the currency to definition.*.
+            ConfigNode definition = hasLegacyDefinition(node) ? ConfigNode.ofRaw(null, "legacy-definition")
+                    : node.getAt("definition");
+            EconomyScopeType scopeType = EconomyConfigValues.scopeType(definitionText(definition, node, "scope.type", "SERVER"),
+                    "currencies." + id + ".definition.scope.type");
+            String scopeKey = scopeKey(node, definition, id, networkKey, serverKey, scopeType);
+            int digits = definitionInteger(definition, node, "fractional_digits", "display.fractional_digits", 2, 0, 8);
             RoundingMode rounding = EconomyConfigValues.enumValue(RoundingMode.class,
-                    EconomyConfigValues.text(node, "balances.rounding", "HALF_UP"), "currencies." + id + ".balances.rounding");
-            EconomySettings.Balances balances = balances(node, id, digits, rounding);
+                    definitionText(definition, node, "balances.rounding", "HALF_UP"), "currencies." + id + ".definition.balances.rounding");
+            EconomySettings.Balances balances = balances(definition.isNull() ? node : definition, id, digits, rounding);
             EconomySettings.Commands commands = new EconomySettings.Commands(
                     EconomyConfigValues.commandLabel(EconomyConfigValues.text(node, "commands.root", id)), EconomyConfigValues.aliases(node.getAt("commands.aliases")),
                     EconomyConfigValues.bool(node, "commands.balance", true), EconomyConfigValues.bool(node, "commands.balance_others", true),
@@ -79,14 +84,35 @@ final class EconomySettingsLoader {
                             EconomyConfigValues.bool(node, "display.grouping", true)), balances, commands, payments);
             if (currencies.putIfAbsent(id, currency) != null) throw new IllegalArgumentException("Duplicate normalized currency id: " + id);
         }
-        return new EconomySettings(networkKey, serverKey, EconomyConfigValues.text(config.node(), "database.connection", "system_data_rw"),
+        return new EconomySettings(networkKey, serverKey, EconomyConfigValues.text(config.node(), "database.connection", "player_data_rw"),
                 vault, messaging, cache, execution, currencies);
     }
 
-    private static String scopeKey(ConfigNode node, String id, String networkKey, String serverKey, EconomyScopeType type) {
+    /** Reads the new durable definition section while accepting pre-definition configs once. */
+    private static String definitionText(ConfigNode definition, ConfigNode legacy, String path, String fallback) {
+        return definition.isNull() ? EconomyConfigValues.text(legacy, path, fallback)
+                : EconomyConfigValues.text(definition, path, fallback);
+    }
+
+    private static int definitionInteger(ConfigNode definition, ConfigNode legacy, String path, String legacyPath,
+                                         int fallback, int minimum, int maximum) {
+        return definition.isNull() ? EconomyConfigValues.integer(legacy, legacyPath, fallback, minimum, maximum)
+                : EconomyConfigValues.integer(definition, path, fallback, minimum, maximum);
+    }
+
+    private static boolean hasLegacyDefinition(ConfigNode currency) {
+        return !currency.getAt("scope").isNull()
+                || !currency.getAt("balances").isNull()
+                || !currency.getAt("display.fractional_digits").isNull();
+    }
+
+    private static String scopeKey(ConfigNode node, ConfigNode definition, String id, String networkKey,
+                                   String serverKey, EconomyScopeType type) {
         String key = switch (type) {
-            case SERVER -> networkKey + "/server/" + EconomyConfigValues.localScopeKey(node, id, serverKey);
-            case GROUP -> networkKey + "/group/" + EconomyConfigValues.key(EconomyConfigValues.text(node, "scope.group_key", ""), "currencies." + id + ".scope.group_key");
+            case SERVER -> networkKey + "/server/" + EconomyConfigValues.localScopeKey(
+                    definition.isNull() ? node : definition, id, serverKey);
+            case GROUP -> networkKey + "/group/" + EconomyConfigValues.key(definitionText(definition, node,
+                    "scope.group_key", ""), "currencies." + id + ".definition.scope.group_key");
             case GLOBAL -> networkKey + "/global";
         };
         if (key.length() > 128) throw new IllegalArgumentException("Resolved scope key for currency " + id + " exceeds 128 characters");

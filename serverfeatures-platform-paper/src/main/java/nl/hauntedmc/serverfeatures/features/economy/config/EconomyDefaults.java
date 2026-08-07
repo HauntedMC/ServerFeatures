@@ -15,7 +15,10 @@ public final class EconomyDefaults {
         defaults.put("enabled", false);
         defaults.put("network_key", "hauntedmc");
         defaults.put("server_key", "$server");
-        defaults.put("database.connection", "system_data_rw");
+        // Economy accounts, player settings and journals are player data. Keep the complete
+        // transactional Economy schema together in PlayerData rather than splitting a debit
+        // from its ledger or account state across databases.
+        defaults.put("database.connection", "player_data_rw");
         defaults.put("messaging.enabled", true);
         defaults.put("messaging.connection", "hauntedmc");
         defaults.put("messaging.channel", "serverfeatures.economy.balance");
@@ -28,18 +31,20 @@ public final class EconomyDefaults {
         defaults.put("vault.primary_currency", "money");
         defaults.put("vault.conflict_policy", "FAIL");
         defaults.put("currencies.money.enabled", true);
-        defaults.put("currencies.money.scope.type", "SERVER");
+        // Values in this section are the durable identity of a currency. Changing one after
+        // accounts exist requires an explicit data migration; payments and display settings do not.
+        defaults.put("currencies.money.definition.scope.type", "SERVER");
+        defaults.put("currencies.money.definition.fractional_digits", 2);
+        defaults.put("currencies.money.definition.balances.starting", "0.00");
+        defaults.put("currencies.money.definition.balances.minimum", "0.00");
+        defaults.put("currencies.money.definition.balances.maximum", "999999999999.99");
+        defaults.put("currencies.money.definition.balances.allow_negative", false);
+        defaults.put("currencies.money.definition.balances.rounding", "HALF_UP");
         defaults.put("currencies.money.display.singular", "coin");
         defaults.put("currencies.money.display.plural", "coins");
         defaults.put("currencies.money.display.symbol", "$");
         defaults.put("currencies.money.display.format", "{symbol}{amount}");
-        defaults.put("currencies.money.display.fractional_digits", 2);
         defaults.put("currencies.money.display.grouping", true);
-        defaults.put("currencies.money.balances.starting", "0.00");
-        defaults.put("currencies.money.balances.minimum", "0.00");
-        defaults.put("currencies.money.balances.maximum", "999999999999.99");
-        defaults.put("currencies.money.balances.allow_negative", false);
-        defaults.put("currencies.money.balances.rounding", "HALF_UP");
         defaults.put("currencies.money.commands.root", "money");
         defaults.put("currencies.money.commands.aliases", List.of("balance", "bal"));
         defaults.put("currencies.money.commands.balance", true);
@@ -61,14 +66,30 @@ public final class EconomyDefaults {
     public static MessageMap messages() {
         MessageMap messages = new MessageMap();
         messages.add("economy.player_only", "<red>Dit commando kan alleen door een speler worden gebruikt.</red>");
-        messages.add("economy.error", "<red>De economieactie is mislukt: {reason}</red>");
-        messages.add("economy.invalid_amount", "<red>Ongeldig bedrag: {reason}</red>");
+        messages.add("economy.error.temporary_failure", "<red>De economieactie is tijdelijk niet beschikbaar. Probeer het later opnieuw.</red>");
+        messages.add("economy.error.insufficient_funds", "<red>Je hebt onvoldoende saldo voor deze betaling.</red>");
+        messages.add("economy.error.account_frozen", "<red>Dit account is bevroren.</red>");
+        messages.add("economy.error.payments_disabled", "<red>Deze speler accepteert momenteel geen betalingen.</red>");
+        messages.add("economy.error.limit_exceeded", "<red>Deze betaling overschrijdt een ingestelde limiet.</red>");
+        messages.add("economy.error.unknown_player", "<red>Deze speler is niet bekend.</red>");
+        messages.add("economy.error.unknown_currency", "<red>Deze valuta is niet beschikbaar.</red>");
+        messages.add("economy.error.invalid_amount", "<red>Ongeldig bedrag.</red>");
+        messages.add("economy.error.idempotency_conflict", "<red>Deze economieactie is al met andere gegevens verwerkt.</red>");
+        messages.add("economy.invalid_amount", "<red>Ongeldig bedrag.</red>");
         messages.add("economy.balance.self", "<gray>Je saldo:</gray> <gold>{balance}</gold>");
         messages.add("economy.balance.other", "<gray>Saldo van {player}:</gray> <gold>{balance}</gold>");
         messages.add("economy.pay.cooldown", "<yellow>Wacht nog {seconds} seconde(n) voor een nieuwe betaling.</yellow>");
         messages.add("economy.pay.confirm", "<yellow>Bevestig de betaling van {amount} aan {player} met <white>{command}</white>.</yellow>");
         messages.add("economy.pay.no_confirmation", "<yellow>Er staat geen geldige betaling klaar om te bevestigen.</yellow>");
-        messages.add("economy.pay.failed", "<red>De betaling is mislukt: {reason}</red>");
+        messages.add("economy.pay.failed.temporary_failure", "<red>De betaling is tijdelijk niet beschikbaar. Probeer het later opnieuw.</red>");
+        messages.add("economy.pay.failed.insufficient_funds", "<red>Je hebt onvoldoende saldo voor deze betaling.</red>");
+        messages.add("economy.pay.failed.account_frozen", "<red>Je account is bevroren.</red>");
+        messages.add("economy.pay.failed.payments_disabled", "<red>Deze speler accepteert momenteel geen betalingen.</red>");
+        messages.add("economy.pay.failed.limit_exceeded", "<red>Deze betaling overschrijdt een ingestelde limiet.</red>");
+        messages.add("economy.pay.failed.unknown_player", "<red>Deze speler is niet bekend.</red>");
+        messages.add("economy.pay.failed.unknown_currency", "<red>Deze valuta is niet beschikbaar.</red>");
+        messages.add("economy.pay.failed.invalid_amount", "<red>Ongeldig bedrag.</red>");
+        messages.add("economy.pay.failed.idempotency_conflict", "<red>Deze betaling is al met andere gegevens verwerkt.</red>");
         messages.add("economy.pay.sent", "<green>Je betaalde {amount} aan {player}.</green> <gray>Nieuw saldo: {balance}</gray>");
         messages.add("economy.pay.received", "<green>Je ontving {amount} van {player}.</green> <gray>Nieuw saldo: {balance}</gray>");
         messages.add("economy.paytoggle.enabled", "<green>Je accepteert betalingen van andere spelers.</green>");
@@ -87,7 +108,7 @@ public final class EconomyDefaults {
         messages.add("economy.admin.definition.list", "<white>{currency}</white> <gray>· {type} · {scope} · {state}</gray>");
         messages.add("economy.admin.definition.missing", "<red>Geen gedeelde definitie gevonden voor {currency} in {scope}.</red>");
         messages.add("economy.admin.definition.legacy", "<yellow>{currency} in {scope} is een legacy-definitie zonder import-payload. Start eerst een server met de bekende goede config.</yellow>");
-        messages.add("economy.admin.definition.detail", "<white>{currency}</white> <gray>· {type} · {scope} · {digits} decimalen · start {starting} · grenzen {minimum}..{maximum} · negatief {negative} · {rounding} · betalingen standaard {payments} · min/max {payment_minimum}/{payment_maximum} · bevestiging {confirmation} · daglimieten uit/in {daily_send}/{daily_receive} · cooldown {cooldown}</gray>");
+        messages.add("economy.admin.definition.detail", "<white>{currency}</white> <gray>· {type} · {scope} · {digits} decimalen · start {starting} · grenzen {minimum}..{maximum} · negatief {negative} · {rounding}</gray>");
         messages.add("economy.admin.definition.import_preview", "<yellow>Import {currency} ({scope}): {message}</yellow>");
         messages.add("economy.admin.definition.imported", "<green>Import {currency} ({scope}): {message}</green>");
         messages.add("economy.admin.balance", "<white>{player}</white> <gray>· {currency} · {scope} ·</gray> <gold>{balance}</gold>");

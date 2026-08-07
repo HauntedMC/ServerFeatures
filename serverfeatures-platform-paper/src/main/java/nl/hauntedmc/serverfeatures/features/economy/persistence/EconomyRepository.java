@@ -57,12 +57,26 @@ public final class EconomyRepository {
         this.mutations = new EconomyMutationStore(orm, executor, accountStore, paymentPolicy, idempotency, workflows);
     }
 
-    /** Ensures this server's currency definitions match the network's immutable definitions. */
-    public void validateDefinitions(EconomySettings settings) {
-        executeWithRetry(() -> orm.runInTransaction(session -> {
-            definitions.validate(session, settings);
-            return null;
-        }));
+    /**
+     * Validates currencies independently so one incompatible definition cannot disable all
+     * unrelated currencies on a server.
+     */
+    public DefinitionValidation validateDefinitions(EconomySettings settings) {
+        Map<String, EconomySettings.Currency> active = new LinkedHashMap<>();
+        Map<String, String> rejected = new LinkedHashMap<>();
+        for (EconomySettings.Currency currency : settings.currencies().values().stream()
+                .sorted(Comparator.comparing(EconomySettings.Currency::id)).toList()) {
+            try {
+                executeWithRetry(() -> orm.runInTransaction(session -> {
+                    definitions.validate(session, settings, currency);
+                    return null;
+                }));
+                active.put(currency.id(), currency);
+            } catch (EconomyDefinitionException exception) {
+                rejected.put(currency.id(), exception.getMessage());
+            }
+        }
+        return new DefinitionValidation(Map.copyOf(active), Map.copyOf(rejected));
     }
 
     /** Discovers canonical global/group definitions without reading or provisioning player accounts. */
@@ -245,6 +259,12 @@ public final class EconomyRepository {
     public record WorkflowStatus(java.util.UUID eventId, java.util.UUID operationId,
                                  nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState state,
                                  int attempts, String lastError) { }
+
+    /** Result of startup definition validation, keyed by normalized currency ID. */
+    public record DefinitionValidation(
+            Map<String, EconomySettings.Currency> activeCurrencies,
+            Map<String, String> rejectedCurrencies
+    ) { }
 
     /** Reconstructs and verifies a committed transfer receipt from its journal. */
     public Optional<TransferReceipt> transferReceipt(UUID operationId) {
