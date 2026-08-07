@@ -4,11 +4,8 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
 import nl.hauntedmc.serverfeatures.api.feature.FeatureId;
 import nl.hauntedmc.serverfeatures.framework.service.CapabilityRegistration;
 import nl.hauntedmc.serverfeatures.framework.service.DefaultCapabilityRegistry;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
 import nl.hauntedmc.serverfeatures.framework.service.InternalServiceRegistry;
 import org.junit.jupiter.api.Test;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,13 +25,8 @@ class FeatureApiManagerInternalActivationTest {
                 mock(Runnable.class)
         );
 
-        FeatureApiManager manager = new FeatureApiManager(
-                "feature",
-                Optional::empty,
-                new FeatureServiceCatalog(),
-                publicRegistry,
-                internalRegistry
-        );
+        FeatureApiManager manager = new FeatureApiManager();
+        manager.bindRegistry(publicRegistry, internalRegistry, "feature");
         manager.registerService(EconomyApi.class, mock(EconomyApi.class));
         manager.registerInternalService(Runnable.class, mock(Runnable.class));
 
