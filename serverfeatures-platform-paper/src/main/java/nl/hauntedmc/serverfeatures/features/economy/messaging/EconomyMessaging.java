@@ -22,7 +22,8 @@ public final class EconomyMessaging {
     private final Economy feature;
     private final EconomyService service;
     private final MessagingDataAccess messaging;
-    private final String channel;
+    private final String balanceChannel;
+    private final String transferChannel;
     private final AtomicBoolean closed = new AtomicBoolean();
     private final List<Subscription> subscriptions = new ArrayList<>();
 
@@ -35,7 +36,12 @@ public final class EconomyMessaging {
         this.feature = Objects.requireNonNull(feature, "feature");
         this.service = Objects.requireNonNull(service, "service");
         this.messaging = Objects.requireNonNull(messaging, "messaging");
-        this.channel = Objects.requireNonNull(channel, "channel");
+        String configuredBalanceChannel = Objects.requireNonNull(channel, "channel");
+        // The DataProvider subscription registry deserializes every message on a subscribed
+        // channel with that subscription's expected type. Separate types must therefore never
+        // share one physical channel.
+        this.balanceChannel = configuredBalanceChannel;
+        this.transferChannel = configuredBalanceChannel + ".transfer";
     }
 
     public synchronized void start() {
@@ -49,7 +55,7 @@ public final class EconomyMessaging {
         try {
             created.add(Objects.requireNonNull(
                     messaging.subscribe(
-                            channel,
+                            balanceChannel,
                             EconomyBalanceMessage.TYPE,
                             EconomyBalanceMessage.class,
                             service::applyRemoteBalance
@@ -58,7 +64,7 @@ public final class EconomyMessaging {
             ));
             created.add(Objects.requireNonNull(
                     messaging.subscribe(
-                            channel,
+                            transferChannel,
                             EconomyTransferMessage.TYPE,
                             EconomyTransferMessage.class,
                             service::applyRemoteTransfer
@@ -87,7 +93,7 @@ public final class EconomyMessaging {
                 account.settingsVersion(),
                 System.currentTimeMillis()
         );
-        publishMessage(message, "balance update");
+        publishMessage(balanceChannel, message, "balance update");
     }
 
     public void publishTransfer(
@@ -108,10 +114,10 @@ public final class EconomyMessaging {
                 scopeKey,
                 System.currentTimeMillis()
         );
-        publishMessage(message, "transfer notification");
+        publishMessage(transferChannel, message, "transfer notification");
     }
 
-    private void publishMessage(AbstractEventMessage message, String description) {
+    private void publishMessage(String channel, AbstractEventMessage message, String description) {
         try {
             CompletableFuture<Void> publication = messaging.publish(channel, message);
             if (publication == null) {

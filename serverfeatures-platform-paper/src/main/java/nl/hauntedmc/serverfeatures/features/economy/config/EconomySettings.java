@@ -21,7 +21,6 @@ import java.util.Objects;
 public record EconomySettings(
         String networkKey,
         String serverKey,
-        String databaseConnection,
         Vault vault,
         Messaging messaging,
         Cache cache,
@@ -31,7 +30,6 @@ public record EconomySettings(
     public EconomySettings {
         networkKey = EconomyConfigValues.key(networkKey, "network_key");
         serverKey = EconomyConfigValues.key(serverKey, "server_key");
-        databaseConnection = EconomyConfigValues.requireText(databaseConnection, "database.connection");
         Objects.requireNonNull(vault, "vault");
         Objects.requireNonNull(messaging, "messaging");
         Objects.requireNonNull(cache, "cache");
@@ -44,9 +42,9 @@ public record EconomySettings(
     }
 
     /** Compatibility constructor for integrations/tests that use the default bounded executor settings. */
-    public EconomySettings(String networkKey, String serverKey, String databaseConnection, Vault vault,
+    public EconomySettings(String networkKey, String serverKey, Vault vault,
                            Messaging messaging, Cache cache, Map<String, Currency> currencies) {
-        this(networkKey, serverKey, databaseConnection, vault, messaging, cache, Execution.defaults(), currencies);
+        this(networkKey, serverKey, vault, messaging, cache, Execution.defaults(), currencies);
     }
 
     /** Parses and validates Economy settings from the feature configuration. */
@@ -66,7 +64,7 @@ public record EconomySettings(
         Vault effectiveVault = vault.enabled() && !activeCurrencies.containsKey(vault.primaryCurrency())
                 ? new Vault(false, vault.primaryCurrency(), vault.conflictPolicy())
                 : vault;
-        return new EconomySettings(networkKey, serverKey, databaseConnection, effectiveVault, messaging, cache,
+        return new EconomySettings(networkKey, serverKey, effectiveVault, messaging, cache,
                 execution, activeCurrencies);
     }
 

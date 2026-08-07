@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 /** Durable post-commit fulfilment event for a charged Economy workflow. */
 @Entity
 @Table(
-        name = "system_economy_workflow",
+        name = "economy_workflow",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uq_economy_workflow_source_key", columnNames = {"source", "workflow_key"}),
                 @UniqueConstraint(name = "uq_economy_workflow_operation", columnNames = "operation_id")

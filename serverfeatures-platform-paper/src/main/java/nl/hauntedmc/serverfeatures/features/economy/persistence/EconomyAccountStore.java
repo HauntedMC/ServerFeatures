@@ -3,7 +3,6 @@ package nl.hauntedmc.serverfeatures.features.economy.persistence;
 import jakarta.persistence.LockModeType;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
-import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentityEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.AccountStatus;
@@ -16,15 +15,14 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Provisions accounts, canonical player identities, and per-account settings inside a caller-owned transaction.
+ * Provisions accounts and per-account settings inside a caller-owned transaction.
  *
- * <p>The caller chooses whether rows are locked. Mutation flows lock identity, balance, and settings rows in a
+ * <p>The caller chooses whether rows are locked. Mutation flows lock balance and settings rows in a
  * deterministic order; read flows can provision missing rows without imposing mutation locks.</p>
  */
 final class EconomyAccountStore {
     EconomyBalanceEntity ensureAccount(Session session, Identity identity, EconomySettings.Currency currency,
                                        EconomyTransactionExecutor.Clock clock, boolean lock) {
-        ensurePlayerIdentity(session, identity, clock, lock);
         String id = EconomyPersistenceValues.accountId(identity.playerId(), currency.id(), currency.scope().key());
         EconomyBalanceEntity account = lock
                 ? session.find(EconomyBalanceEntity.class, id, LockModeType.PESSIMISTIC_WRITE)
@@ -84,41 +82,6 @@ final class EconomyAccountStore {
         session.flush();
         persistCreation(session, account, currency, starting, now);
         return account;
-    }
-
-    void ensurePlayerIdentity(Session session, Identity identity, EconomyTransactionExecutor.Clock clock,
-                              boolean lock) {
-        EconomyPlayerIdentityEntity canonical = lock
-                ? session.find(EconomyPlayerIdentityEntity.class, identity.playerId(), LockModeType.PESSIMISTIC_WRITE)
-                : session.find(EconomyPlayerIdentityEntity.class, identity.playerId());
-        String uuid = identity.playerUuid().toString();
-        String name = EconomyPersistenceValues.trim(identity.playerName(), 32);
-        if (canonical == null) {
-            EconomyPlayerIdentityEntity uuidOwner = session.createSelectionQuery(
-                            "from EconomyPlayerIdentityEntity where playerUuid = :uuid", EconomyPlayerIdentityEntity.class)
-                    .setParameter("uuid", uuid).setMaxResults(1).getResultStream().findFirst().orElse(null);
-            if (uuidOwner != null && uuidOwner.getPlayerId() != identity.playerId()) {
-                throw new IllegalStateException("Economy UUID " + uuid + " is already owned by player ID " + uuidOwner.getPlayerId());
-            }
-            canonical = new EconomyPlayerIdentityEntity();
-            long now = clock.now();
-            canonical.setPlayerId(identity.playerId());
-            canonical.setPlayerUuid(uuid);
-            canonical.setPlayerName(name);
-            canonical.setCreatedAt(now);
-            canonical.setUpdatedAt(now);
-            session.persist(canonical);
-            session.flush();
-            return;
-        }
-        if (!Objects.equals(canonical.getPlayerUuid(), uuid)) {
-            throw new IllegalStateException("Economy player ID " + identity.playerId()
-                    + " is already owned by UUID " + canonical.getPlayerUuid());
-        }
-        if (lock && !Objects.equals(canonical.getPlayerName(), name)) {
-            canonical.setPlayerName(name);
-            canonical.setUpdatedAt(clock.now());
-        }
     }
 
     private static void persistCreation(Session session, EconomyBalanceEntity account,

@@ -6,9 +6,6 @@ enabled: true
 network_key: hauntedmc
 server_key: survival
 
-database:
-  connection: player_data_rw
-
 messaging:
   enabled: true
   connection: hauntedmc
@@ -22,21 +19,22 @@ vault:
 currencies:
   crowns:
     enabled: true
-    scope:
-      type: GLOBAL
+    definition:
+      scope:
+        type: GLOBAL
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
     display:
       singular: Crown
       plural: Crowns
       symbol: "♛"
       format: "{amount} {plural}"
-      fractional_digits: 0
       grouping: true
-    balances:
-      starting: "0"
-      minimum: "0"
-      maximum: "999999999999999999999999999999"
-      allow_negative: false
-      rounding: UNNECESSARY
     commands:
       root: crowns
       aliases: [crown]
@@ -58,21 +56,22 @@ currencies:
 
   credits:
     enabled: true
-    scope:
-      type: GLOBAL
+    definition:
+      scope:
+        type: GLOBAL
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
     display:
       singular: Credit
       plural: Credits
       symbol: "✦"
       format: "{amount} {plural}"
-      fractional_digits: 0
       grouping: true
-    balances:
-      starting: "0"
-      minimum: "0"
-      maximum: "999999999999999999999999999999"
-      allow_negative: false
-      rounding: UNNECESSARY
     commands:
       root: credits
       aliases: [credit]
@@ -94,21 +93,22 @@ currencies:
 
   essence:
     enabled: true
-    scope:
-      type: SERVER
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
     display:
       singular: Essence
       plural: Essence
       symbol: "✧"
       format: "{amount} {plural}"
-      fractional_digits: 0
       grouping: true
-    balances:
-      starting: "0"
-      minimum: "0"
-      maximum: "999999999999999999999999999999"
-      allow_negative: false
-      rounding: UNNECESSARY
     commands:
       root: essence
       aliases: []
@@ -130,21 +130,22 @@ currencies:
 
   relics:
     enabled: true
-    scope:
-      type: SERVER
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
     display:
       singular: Relic
       plural: Relics
       symbol: "◆"
       format: "{amount} {plural}"
-      fractional_digits: 0
       grouping: true
-    balances:
-      starting: "0"
-      minimum: "0"
-      maximum: "999999999999999999999999999999"
-      allow_negative: false
-      rounding: UNNECESSARY
     commands:
       root: relics
       aliases: [relic]
@@ -166,21 +167,22 @@ currencies:
 
   soulstones:
     enabled: true
-    scope:
-      type: SERVER
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
     display:
       singular: Soulstone
       plural: Soulstones
       symbol: "◈"
       format: "{amount} {plural}"
-      fractional_digits: 0
       grouping: true
-    balances:
-      starting: "0"
-      minimum: "0"
-      maximum: "999999999999999999999999999999"
-      allow_negative: false
-      rounding: UNNECESSARY
     commands:
       root: soulstones
       aliases: [soulstone]
@@ -202,21 +204,22 @@ currencies:
 
   money:
     enabled: true
-    scope:
-      type: SERVER
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 2
+      balances:
+        starting: "0.00"
+        minimum: "0.00"
+        maximum: "999999999999999999999999999999.99999999"
+        allow_negative: false
+        rounding: HALF_UP
     display:
       singular: Coin
       plural: Coins
       symbol: "$"
       format: "{symbol}{amount}"
-      fractional_digits: 2
       grouping: true
-    balances:
-      starting: "0.00"
-      minimum: "0.00"
-      maximum: "999999999999999999999999999999.99999999"
-      allow_negative: false
-      rounding: HALF_UP
     commands:
       root: money
       aliases: [balance, bal]

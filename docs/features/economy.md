@@ -67,7 +67,7 @@ DataRegistry player ID + currency ID + resolved scope key
 
 A player can therefore have one global `crowns` account and separate `money` accounts for Survival, Skyblock and KitPvP at the same time.
 
-A dedicated `player_economy_identity` table permanently binds every economy player ID to exactly one UUID, and every UUID to exactly one player ID, before any account is created. Player names remain display metadata only. Any identity conflict fails closed across all currencies and scopes instead of reassigning value.
+Economy uses DataRegistry's canonical `player_entity` identity. Economy accounts are keyed by its stable `player_id`; it does not maintain a second identity table.
 
 An account is created lazily when a strong read or mutation first needs it. Its configured starting
 balance is applied once in the same transaction as its first immutable journal entry. A player
@@ -95,9 +95,6 @@ The same model supports future currencies in `SERVER`, `GROUP` or `GLOBAL` scope
 network_key: hauntedmc
 # This is the logical gamemode key, not necessarily the physical instance name.
 server_key: survival
-
-database:
-  connection: player_data_rw
 
 messaging:
   enabled: true
@@ -329,7 +326,6 @@ running server; restart the feature/server as part of a controlled rollout.
 | `network_key` | Permanent identifier for this economy network. Changing it selects completely different scopes and must be treated as a migration. |
 | `server_key` | Logical gamemode key used by `SERVER` currencies. Use the same value for physical replicas that must share a gamemode-local balance. |
 | `currencies.<id>.enabled` | Whether this server exposes and validates that currency. Disabling it hides the currency here; it does not delete accounts or definitions. |
-| `database.connection` | Economy's transactional tables. Defaults to `player_data_rw` (PlayerData). Existing installations using `system_data_rw` must move the Economy tables and change this setting together. |
 | `definition.scope.type` | `SERVER`, `GROUP`, or `GLOBAL`; immutable scope identity for the currency. |
 | `definition.scope.local_key` / `group_key` | Stable override for a local or group scope. These are identifiers, not cosmetic names. |
 | `definition.fractional_digits` | Immutable stored precision for the currency. |
@@ -530,11 +526,11 @@ hand.
 #### Database schema upgrade
 
 Economy needs the nullable `definition_payload` column on
-`system_economy_currency_definition`. Networks using the normal ORM `validate` schema mode must
+`economy_currency_definition`. Networks using the normal ORM `validate` schema mode must
 apply this migration before deploying this feature version:
 
 ```sql
-ALTER TABLE system_economy_currency_definition
+ALTER TABLE economy_currency_definition
     ADD COLUMN definition_payload VARCHAR(2048) NULL;
 ```
 
@@ -570,11 +566,14 @@ Known offline players remain valid payment recipients. This cannot be disabled p
 - Concurrent withdrawals cannot spend the same balance twice.
 - Account creation is protected by deterministic IDs and database uniqueness, so starting balances are applied once.
 - Account creation, including a zero or non-zero starting balance, receives its own immutable journal entry.
-- Player ID and UUID ownership is immutable; an identity mismatch fails closed instead of reassigning an account.
+- Accounts are keyed only by DataRegistry's immutable `player_id`; Economy does not maintain a
+  second player-identity table.
 - Payment cooldowns and daily send/receive limits are stored and checked transactionally, so switching gamemodes cannot bypass them for a shared currency.
 - All persisted Economy timestamps, payment cooldowns and UTC daily-limit buckets use the authoritative MySQL clock, so Paper-server clock skew cannot corrupt journal ordering or open a second spending window.
 - Account freezes and payment preferences are scoped with the account and are themselves audited transactions.
-- Monetary configuration for a shared scope is fingerprinted in MySQL. Servers with conflicting precision, bounds, starting balance, negative policy, rounding or payment policies fail startup instead of running a split-brain currency.
+- Each currency's `definition` section is fingerprinted in MySQL. A conflicting scope, precision,
+  balance policy or rounding policy rejects only that currency; payment limits, command settings
+  and display settings are operational settings and may be changed normally.
 
 ## Idempotency
 
@@ -588,18 +587,17 @@ Integration sources should be globally stable names such as `shop`, `quest-rewar
 
 The feature registers these ORM entities:
 
-- `system_economy_currency_family`
-- `system_economy_currency_definition`
-- `player_economy_identity`
+- `economy_currency_family`
+- `economy_currency_definition`
 - `player_economy_balance`
 - `player_economy_settings`
-- `system_economy_transaction`
-- `system_economy_transaction_entry`
+- `economy_transaction`
+- `economy_transaction_entry`
+- `economy_workflow`
 - `player_economy_daily_usage`
 
-All Economy tables are created through `database.connection`, which defaults to PlayerData. Keep
-the account, settings, usage and journal tables together: moving only `player_` tables would break
-the atomic debit-and-ledger transaction.
+Economy's database placement is fixed and does not need a feature-level database setting. System
+tables use the `economy_` prefix; player-state tables use the `player_economy_` prefix.
 
 `/economy verify` is read-only. It checks balance bounds, journal arithmetic and continuity, transaction shapes, entry/account ownership, current balances against the latest journal entries, orphaned settings/entries and transactions without entries; it never repairs or rewrites balances. This lets a generic Economy version continue to verify immutable journals created by an older integration-specific version without retaining that integration's taxonomy in Economy code.
 

@@ -113,7 +113,6 @@ public final class EconomyRepository {
         Objects.requireNonNull(currencies, "currencies");
         return executeWithRetry(() -> orm.runInTransaction(session -> {
             EconomyTransactionExecutor.Clock clock = new EconomyTransactionExecutor.Clock(session);
-            accountStore.ensurePlayerIdentity(session, identity, clock, false);
             List<EconomySettings.Currency> orderedCurrencies = currencies.stream()
                     .sorted(Comparator.comparing(EconomySettings.Currency::id))
                     .toList();

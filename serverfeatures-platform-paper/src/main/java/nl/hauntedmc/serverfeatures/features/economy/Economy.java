@@ -17,7 +17,6 @@ import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyDefinitionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyFamilyEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyDailyUsageEntity;
-import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentityEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
@@ -38,6 +37,7 @@ import java.util.Map;
 /** Durable multi-currency economy with server, group and network-global scopes. */
 public final class Economy extends BukkitBaseFeature<Meta> {
     private static final String ORM_CONNECTION = "economyOrmConnection";
+    private static final String DATABASE_CONNECTION = "system_data_rw";
     private static final String MESSAGING_CONNECTION = "economyMessagingConnection";
 
     private EconomySettings settings;
@@ -68,12 +68,11 @@ public final class Economy extends BukkitBaseFeature<Meta> {
 
         var dataManager = getLifecycleManager().getDataManager();
         dataManager.initDataProvider(getFeatureName());
-        dataManager.registerConnection(ORM_CONNECTION, DatabaseType.MYSQL, settings.databaseConnection());
+        dataManager.registerConnection(ORM_CONNECTION, DatabaseType.MYSQL, DATABASE_CONNECTION);
         ORMContext orm = dataManager.createORMContext(
                 ORM_CONNECTION,
                 EconomyCurrencyFamilyEntity.class,
                 EconomyCurrencyDefinitionEntity.class,
-                EconomyPlayerIdentityEntity.class,
                 EconomyBalanceEntity.class,
                 EconomyPlayerSettingsEntity.class,
                 EconomyTransactionEntity.class,
@@ -81,7 +80,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
                 EconomyWorkflowEntity.class,
                 EconomyDailyUsageEntity.class
         ).orElseThrow(() -> new IllegalStateException(
-                "Economy requires MYSQL/" + settings.databaseConnection() + " and could not create its ORM context."
+                "Economy requires MYSQL/" + DATABASE_CONNECTION + " and could not create its ORM context."
         ));
 
         EconomyRepository repository = new EconomyRepository(orm);

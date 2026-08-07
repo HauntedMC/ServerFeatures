@@ -733,7 +733,9 @@ public final class LotteryRepository {
             entry.setId(entryId);
             entry.setLotteryKey(settings.lotteryKey());
             entry.setRoundId(round.getId());
+            entry.setPlayerId(playerId);
             entry.setPlayerUuid(playerUuid.toString());
+            entry.setPlayerName(trim(playerName, 32));
             entry.setTicketCount(0);
             entry.setPaidAmount(BigDecimal.ZERO.setScale(Money.SCALE));
             session.persist(entry);

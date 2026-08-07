@@ -84,8 +84,7 @@ final class EconomySettingsLoader {
                             EconomyConfigValues.bool(node, "display.grouping", true)), balances, commands, payments);
             if (currencies.putIfAbsent(id, currency) != null) throw new IllegalArgumentException("Duplicate normalized currency id: " + id);
         }
-        return new EconomySettings(networkKey, serverKey, EconomyConfigValues.text(config.node(), "database.connection", "player_data_rw"),
-                vault, messaging, cache, execution, currencies);
+        return new EconomySettings(networkKey, serverKey, vault, messaging, cache, execution, currencies);
     }
 
     /** Reads the new durable definition section while accepting pre-definition configs once. */

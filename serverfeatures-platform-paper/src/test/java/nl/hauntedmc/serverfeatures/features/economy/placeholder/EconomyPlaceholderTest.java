@@ -106,7 +106,7 @@ class EconomyPlaceholderTest {
                 new EconomySettings.Commands("tokens", List.of("events"), true, true, true, true, true, true),
                 new EconomySettings.Payments(true, BigDecimal.ONE, new BigDecimal("1000"), new BigDecimal("100"),
                         BigDecimal.ZERO, BigDecimal.ZERO, Duration.ofSeconds(1)));
-        return new EconomySettings("hauntedmc", "survival", "system_data_rw",
+        return new EconomySettings("hauntedmc", "survival",
                 new EconomySettings.Vault(true, "money", EconomySettings.VaultConflictPolicy.FAIL),
                 new EconomySettings.Messaging(false, "hauntedmc", "economy"),
                 new EconomySettings.Cache(Duration.ofSeconds(10)), Map.of("money", money, "event_tokens", eventTokens));

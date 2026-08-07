@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(
-        name = "system_lottery_player_stats",
+        name = "lottery_player_stats",
         indexes = {
                 @Index(name = "idx_lottery_stats_won", columnList = "lottery_key,total_won"),
                 @Index(name = "idx_lottery_stats_donated", columnList = "lottery_key,total_donated")

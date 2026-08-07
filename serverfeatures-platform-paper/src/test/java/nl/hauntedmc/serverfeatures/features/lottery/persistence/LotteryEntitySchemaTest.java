@@ -30,7 +30,9 @@ class LotteryEntitySchemaTest {
         assertEquals(5, entities.size());
         for (Class<?> entity : entities) {
             assertNotNull(entity.getAnnotation(Entity.class));
-            assertNotNull(entity.getAnnotation(Table.class));
+            Table table = entity.getAnnotation(Table.class);
+            assertNotNull(table);
+            assertTrue(table.name().startsWith("lottery_"));
         }
 
         Table roundTable = LotteryRoundEntity.class.getAnnotation(Table.class);

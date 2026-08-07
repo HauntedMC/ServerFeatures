@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -199,10 +200,10 @@ class EconomySettingsTest {
     }
 
     @Test
-    void defaultsEconomyStorageToPlayerDataAndMakesDefinitionExplicit() {
+    void omitsAnEconomyDatabaseSettingAndMakesDefinitionExplicit() {
         Map<String, Object> defaults = EconomyDefaults.config().toMap();
 
-        assertEquals("player_data_rw", defaults.get("database.connection"));
+        assertNull(defaults.get("database.connection"));
         assertEquals("SERVER", defaults.get("currencies.money.definition.scope.type"));
         assertEquals(2, defaults.get("currencies.money.definition.fractional_digits"));
     }
@@ -272,7 +273,6 @@ class EconomySettingsTest {
         return new EconomySettings(
                 "hauntedmc",
                 gamemode,
-                "system_data_rw",
                 new EconomySettings.Vault(
                         vaultEnabled,
                         "money",

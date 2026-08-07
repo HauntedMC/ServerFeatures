@@ -13,7 +13,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(
-        name = "system_economy_transaction_entry",
+        name = "economy_transaction_entry",
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uq_economy_entry_role",

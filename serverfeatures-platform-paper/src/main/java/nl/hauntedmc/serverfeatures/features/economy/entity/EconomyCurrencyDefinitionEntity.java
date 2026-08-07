@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(
-        name = "system_economy_currency_definition",
+        name = "economy_currency_definition",
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_economy_currency_definition",
                 columnNames = {"currency_id", "scope_key"}

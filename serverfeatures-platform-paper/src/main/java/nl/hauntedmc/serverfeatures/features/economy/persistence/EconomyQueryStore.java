@@ -122,8 +122,9 @@ final class EconomyQueryStore {
         long orphanEntries = count(session, "select count(*) from EconomyTransactionEntryEntity e where not exists "
                 + "(select 1 from EconomyTransactionEntity t where t.id = e.transactionId) or (e.accountKind = :player and not exists "
                 + "(select 1 from EconomyBalanceEntity b where b.id = e.accountId))", "player", "PLAYER");
-        long identityMismatches = count(session, "select count(*) from EconomyBalanceEntity b where not exists "
-                + "(select 1 from EconomyPlayerIdentityEntity i where i.playerId = b.playerId and i.playerUuid = b.playerUuid)");
+        // Player identity is authoritative in DataRegistry's player_entity; Economy only stores
+        // the stable player_id as its account owner and has no duplicate identity table to audit.
+        long identityMismatches = 0L;
         long entryAccountMismatches = count(session, "select count(*) from EconomyTransactionEntryEntity e, "
                 + "EconomyTransactionEntity t, EconomyBalanceEntity b where e.accountKind = :player and t.id = e.transactionId and b.id = e.accountId "
                 + "and (e.playerId <> b.playerId or t.currencyId <> b.currencyId or t.scopeKey <> b.scopeKey)", "player", "PLAYER");

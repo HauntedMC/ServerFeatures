@@ -9,7 +9,7 @@ import jakarta.persistence.UniqueConstraint;
 /** Network-level guard preventing one currency ID from resolving to incompatible scope families. */
 @Entity
 @Table(
-        name = "system_economy_currency_family",
+        name = "economy_currency_family",
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_economy_currency_family",
                 columnNames = {"network_key", "currency_id"}

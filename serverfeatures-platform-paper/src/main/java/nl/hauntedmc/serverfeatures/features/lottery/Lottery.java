@@ -140,7 +140,6 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         messages.add("lottery.broadcast.remaining", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is over {remaining}.</yellow>");
         messages.add("lottery.broadcast.draw_header", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is voltooid met {tickets} loten van {participants} spelers.</yellow>");
         messages.add("lottery.broadcast.winner", "<gold>[Loterij]</gold> <yellow>#{position} {player} wint {amount}!</yellow>");
-        messages.add("lottery.broadcast.proof", "<dark_gray>Trekking {round}: commitment {commitment}, seed {seed}, entries {entry_digest}</dark_gray>");
         messages.add("lottery.broadcast.no_tickets", "<gold>[Loterij]</gold> <yellow>Er waren geen loten verkocht. {carry} gaat door naar de volgende trekking.</yellow>");
         messages.add("lottery.broadcast.no_payout", "<gold>[Loterij]</gold> <yellow>Er kon geen prijs worden uitgekeerd. {carry} gaat door.</yellow>");
         messages.add("lottery.broadcast.draw_failed", "<gold>[Loterij]</gold> <red>De trekking is mislukt en wordt later opnieuw geprobeerd.</red>");

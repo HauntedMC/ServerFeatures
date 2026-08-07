@@ -16,7 +16,7 @@ import java.math.BigDecimal;
  */
 @Entity
 @Table(
-        name = "system_lottery_purchase_intents",
+        name = "lottery_purchase_intents",
         indexes = {
                 @Index(name = "idx_lottery_purchase_intent_round", columnList = "lottery_key,round_id,state"),
                 @Index(name = "idx_lottery_purchase_intent_player", columnList = "lottery_key,player_uuid,state")

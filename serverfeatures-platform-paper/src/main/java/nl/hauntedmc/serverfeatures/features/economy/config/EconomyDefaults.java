@@ -15,10 +15,6 @@ public final class EconomyDefaults {
         defaults.put("enabled", false);
         defaults.put("network_key", "hauntedmc");
         defaults.put("server_key", "$server");
-        // Economy accounts, player settings and journals are player data. Keep the complete
-        // transactional Economy schema together in PlayerData rather than splitting a debit
-        // from its ledger or account state across databases.
-        defaults.put("database.connection", "player_data_rw");
         defaults.put("messaging.enabled", true);
         defaults.put("messaging.connection", "hauntedmc");
         defaults.put("messaging.channel", "serverfeatures.economy.balance");

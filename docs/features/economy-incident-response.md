@@ -40,12 +40,13 @@ This is not controlled by whether an older server is currently online:
 
 Respond as follows:
 
-1. Do not delete or edit `system_economy_currency_definition` or
-   `system_economy_currency_family` to make startup succeed.
+1. Do not delete or edit `economy_currency_definition` or
+   `economy_currency_family` to make startup succeed.
 2. Keep the mismatching currency disabled on that server. Do not route its mutations, Vault consumers or
    commands to it as though it had joined the shared economy.
-3. Compare the resolved `network_key`, currency ID, scope type/key, fractional precision, balance
-   policy, rounding, and payment policy with a known-good server and the intended release config.
+3. Compare the resolved `network_key`, currency ID, `definition.scope`, fractional precision,
+   balance policy and rounding with a known-good server and the intended release config. Payment
+   limits are deliberately not part of the immutable definition and can be changed normally.
 4. If the server is simply stale, deploy the known-good config and restart it. The same fingerprint
    will then validate.
 5. If the monetary policy is intentionally changing, stop Economy on every server sharing that

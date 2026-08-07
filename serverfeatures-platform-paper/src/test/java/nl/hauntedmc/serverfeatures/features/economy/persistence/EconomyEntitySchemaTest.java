@@ -7,7 +7,6 @@ import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyDefinitionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyCurrencyFamilyEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyDailyUsageEntity;
-import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentityEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
@@ -26,7 +25,6 @@ class EconomyEntitySchemaTest {
         List<Class<?>> entities = List.of(
                 EconomyCurrencyFamilyEntity.class,
                 EconomyCurrencyDefinitionEntity.class,
-                EconomyPlayerIdentityEntity.class,
                 EconomyBalanceEntity.class,
                 EconomyPlayerSettingsEntity.class,
                 EconomyTransactionEntity.class,
@@ -41,10 +39,6 @@ class EconomyEntitySchemaTest {
         Table family = EconomyCurrencyFamilyEntity.class.getAnnotation(Table.class);
         assertTrue(List.of(family.uniqueConstraints()).stream().anyMatch(constraint ->
                 List.of(constraint.columnNames()).containsAll(List.of("network_key", "currency_id"))
-        ));
-        Table identity = EconomyPlayerIdentityEntity.class.getAnnotation(Table.class);
-        assertTrue(List.of(identity.uniqueConstraints()).stream().anyMatch(constraint ->
-                List.of(constraint.columnNames()).contains("player_uuid")
         ));
         Table balance = EconomyBalanceEntity.class.getAnnotation(Table.class);
         assertTrue(List.of(balance.uniqueConstraints()).stream().anyMatch(constraint ->
@@ -68,7 +62,6 @@ class EconomyEntitySchemaTest {
         assertTrue(List.of(entry.uniqueConstraints()).stream().anyMatch(constraint ->
                 List.of(constraint.columnNames()).containsAll(List.of("transaction_id", "account_id"))
         ));
-        assertNotNull(EconomyPlayerIdentityEntity.class.getDeclaredField("version").getAnnotation(Version.class));
         assertNotNull(EconomyBalanceEntity.class.getDeclaredField("version").getAnnotation(Version.class));
         assertNotNull(EconomyPlayerSettingsEntity.class.getDeclaredField("version").getAnnotation(Version.class));
         assertNotNull(EconomyPlayerSettingsEntity.class.getDeclaredField("lastPaymentAt"));

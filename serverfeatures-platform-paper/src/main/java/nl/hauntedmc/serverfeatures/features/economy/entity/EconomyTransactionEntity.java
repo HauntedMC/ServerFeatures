@@ -11,7 +11,7 @@ import jakarta.persistence.UniqueConstraint;
 
 @Entity
 @Table(
-        name = "system_economy_transaction",
+        name = "economy_transaction",
         uniqueConstraints = @UniqueConstraint(
                 name = "uq_economy_transaction_idempotency",
                 columnNames = {"source", "idempotency_key_hash"}

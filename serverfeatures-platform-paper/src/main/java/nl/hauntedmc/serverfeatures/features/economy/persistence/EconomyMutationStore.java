@@ -238,25 +238,29 @@ final class EconomyMutationStore {
                                     java.util.function.Consumer<EconomyPlayerSettingsEntity> change) {
         String fingerprint = EconomyRequestFingerprint.accountSetting(type, identity, currency, actorPlayerId,
                 actorName, reason, metadata);
-        return executor.execute(() -> orm.runInTransaction(session -> {
-            MutationOutcome replay = idempotency.replay(session, source, idempotencyKey, fingerprint);
-            if (replay != null) return replay;
-            EconomyTransactionExecutor.Clock clock = new EconomyTransactionExecutor.Clock(session);
-            EconomyBalanceEntity balance = accounts.ensureAccount(session, identity, currency, clock, true);
-            EconomyPlayerSettingsEntity settings = accounts.ensureSettings(session, balance.getId(), currency, clock, true);
-            long now = EconomyTransactionExecutor.databaseNow(session);
-            change.accept(settings);
-            settings.setUpdatedAt(now);
-            EconomyTransactionEntity transaction = EconomyLedgerWriter.transaction(type, currency, source,
-                    idempotencyKey, fingerprint, actorPlayerId, actorName, reason, metadata, now);
-            session.persist(transaction);
-            session.flush();
-            EconomyLedgerWriter.persistEntry(session, transaction.getId(), balance, "TARGET", BigDecimal.ZERO,
-                    balance.getBalance(), balance.getBalance());
-            session.flush();
-            return EconomyPersistenceValues.outcome(EconomyResultStatus.SUCCESS, transaction.getOperationId(),
-                    balance.getBalance(), null, "", EconomyPersistenceValues.snapshot(balance, settings), null);
-        }));
+        try {
+            return executor.execute(() -> orm.runInTransaction(session -> {
+                MutationOutcome replay = idempotency.replay(session, source, idempotencyKey, fingerprint);
+                if (replay != null) return replay;
+                EconomyTransactionExecutor.Clock clock = new EconomyTransactionExecutor.Clock(session);
+                EconomyBalanceEntity balance = accounts.ensureAccount(session, identity, currency, clock, true);
+                EconomyPlayerSettingsEntity settings = accounts.ensureSettings(session, balance.getId(), currency, clock, true);
+                long now = EconomyTransactionExecutor.databaseNow(session);
+                change.accept(settings);
+                settings.setUpdatedAt(now);
+                EconomyTransactionEntity transaction = EconomyLedgerWriter.transaction(type, currency, source,
+                        idempotencyKey, fingerprint, actorPlayerId, actorName, reason, metadata, now);
+                session.persist(transaction);
+                session.flush();
+                EconomyLedgerWriter.persistEntry(session, transaction.getId(), balance, "TARGET", BigDecimal.ZERO,
+                        balance.getBalance(), balance.getBalance());
+                session.flush();
+                return EconomyPersistenceValues.outcome(EconomyResultStatus.SUCCESS, transaction.getOperationId(),
+                        balance.getBalance(), null, "", EconomyPersistenceValues.snapshot(balance, settings), null);
+            }));
+        } catch (EconomyRejectedException rejected) {
+            return rejected(rejected);
+        }
     }
 
     private static void updateBalance(EconomyBalanceEntity account, Identity identity, BigDecimal balance, long now) {
