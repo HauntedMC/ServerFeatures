@@ -113,14 +113,7 @@ final class CurrencyPaymentHandler {
     }
 
     private BigDecimal parseAmount(String raw) {
-        EconomyCommandSupport.requireSupportedAmountLength(raw, false);
-        if (raw == null || !raw.matches("[0-9]+(?:\\.[0-9]{1,8})?")) {
-            throw new IllegalArgumentException("Use a positive decimal amount");
-        }
-        BigDecimal amount = new BigDecimal(raw).setScale(
-                currency.display().fractionalDigits(), currency.balances().rounding());
-        if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
-        return amount;
+        return EconomyCommandSupport.parseExactAmount(raw, currency.display().fractionalDigits(), false, true);
     }
 
     private Player requirePlayer(CommandSender sender) {

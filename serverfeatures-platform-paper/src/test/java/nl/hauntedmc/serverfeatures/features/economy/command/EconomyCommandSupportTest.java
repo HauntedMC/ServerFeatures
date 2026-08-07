@@ -4,6 +4,8 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -31,5 +33,17 @@ class EconomyCommandSupportTest {
                 () -> EconomyCommandSupport.requireSupportedAmountLength("9".repeat(40), false));
         assertThrows(IllegalArgumentException.class,
                 () -> EconomyCommandSupport.requireSupportedAmountLength("-" + "9".repeat(40), true));
+    }
+
+    @Test
+    void rejectsCommandAmountsThatWouldOtherwiseRoundIntoADifferentPayment() {
+        assertThrows(IllegalArgumentException.class,
+                () -> EconomyCommandSupport.parseExactAmount("1.005", 2, false, true));
+    }
+
+    @Test
+    void acceptsTrailingZeroPrecisionWithoutChangingTheAuthorizedAmount() {
+        assertEquals(new BigDecimal("1.00"),
+                EconomyCommandSupport.parseExactAmount("1.000", 2, false, true));
     }
 }

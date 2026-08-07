@@ -27,7 +27,17 @@ class EconomyCommandPermissionsTest {
         assertTrue(EconomyCommandPermissions.adminAction(sender, "verify"));
         assertTrue(EconomyCommandPermissions.adminAction(sender, "freeze"));
         assertTrue(EconomyCommandPermissions.adminAction(sender, "definitions"));
+        assertTrue(EconomyCommandPermissions.adminAction(sender, "maintenance"));
         assertTrue(EconomyCommandPermissions.canImportDefinitions(sender));
+    }
+
+    @Test
+    void maintenancePermissionKeepsTheAdministrativeRootReachable() {
+        CommandSender sender = senderWith("serverfeatures.feature.economy.admin.maintenance");
+
+        assertTrue(EconomyCommandPermissions.hasAnyAdminPermission(sender));
+        assertTrue(EconomyCommandPermissions.adminAction(sender, "maintenance"));
+        assertFalse(EconomyCommandPermissions.adminAction(sender, "set"));
     }
 
     @Test

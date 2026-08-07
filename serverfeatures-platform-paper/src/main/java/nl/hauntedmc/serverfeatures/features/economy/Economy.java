@@ -153,6 +153,46 @@ public final class Economy extends BukkitBaseFeature<Meta> {
         return service;
     }
 
+    /**
+     * Destructive Economy administration is opt-in and requires an empty local server. A network
+     * operator must still put every server sharing the MySQL data into maintenance first.
+     */
+    public boolean maintenanceReady() {
+        return getConfigHandler().get("administration.maintenance_mode", Boolean.class, false)
+                && Bukkit.getOnlinePlayers().isEmpty();
+    }
+
+    /** Parses the on-disk configuration without applying it to the running Economy instance. */
+    public EconomySettings.Currency configuredCurrencyForMaintenance(String currencyId) {
+        EconomySettings configured = EconomySettings.load(getConfigHandler(), settings.serverKey());
+        if (!configured.networkKey().equals(settings.networkKey())) {
+            throw new IllegalArgumentException("network_key cannot change during Economy maintenance");
+        }
+        return configured.requireCurrency(currencyId);
+    }
+
+    /**
+     * Removes a local currency configuration after MySQL cleanup. The bundled money default
+     * leaves a disabled tombstone so default injection cannot silently restore it on restart.
+     */
+    public void removeCurrencyConfiguration(String currencyId) {
+        String normalized = EconomySettings.normalizeCurrencyId(currencyId);
+        String configuredKey = getConfigHandler().node("currencies").children().keySet().stream()
+                .filter(key -> EconomySettings.normalizeCurrencyId(key).equals(normalized))
+                .findFirst().orElse(normalized);
+        if (configuredKey.contains(".")) {
+            throw new IllegalArgumentException("Currency IDs containing '.' cannot be removed safely from YAML");
+        }
+        if (normalized.equals("money")) {
+            getConfigHandler().batch(batch -> {
+                batch.remove("currencies.money");
+                batch.put("currencies.money.enabled", false);
+            });
+        } else {
+            getConfigHandler().remove("currencies." + configuredKey);
+        }
+    }
+
     public String vaultStatus() {
         EconomyVaultIntegration current = vault;
         return current == null ? vaultStatus : current.status();

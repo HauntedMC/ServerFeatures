@@ -70,7 +70,7 @@ final class EconomyCommandPermissions {
 
     static boolean hasAnyAdminPermission(CommandSender sender) {
         return sender.hasPermission(ADMIN_PERMISSION) || sender.hasPermission(ADMIN_PERMISSION + ".*")
-                || java.util.stream.Stream.of("status", "balance", "add", "remove", "set", "payments", "freeze", "history", "verify", "definitions", "definitions.import")
+                || java.util.stream.Stream.of("status", "balance", "add", "remove", "set", "payments", "freeze", "history", "verify", "definitions", "definitions.import", "maintenance")
                 .anyMatch(action -> adminAction(sender, action));
     }
 

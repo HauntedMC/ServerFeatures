@@ -23,6 +23,9 @@ public final class EconomyDefaults {
         defaults.put("execution.queue_capacity", 256);
         defaults.put("execution.synchronous_timeout", "2s");
         defaults.put("execution.shutdown_drain", "5s");
+        // Destructive admin operations are unavailable unless this is deliberately enabled while
+        // the complete Economy network is in maintenance and this Paper server has no players.
+        defaults.put("administration.maintenance_mode", false);
         defaults.put("vault.enabled", true);
         defaults.put("vault.primary_currency", "money");
         defaults.put("vault.conflict_policy", "FAIL");
@@ -117,6 +120,10 @@ public final class EconomyDefaults {
         messages.add("economy.admin.frozen", "<yellow>Account {player}/{currency} is bevroren.</yellow>");
         messages.add("economy.admin.unfrozen", "<green>Account {player}/{currency} is vrijgegeven.</green>");
         messages.add("economy.admin.verify", "<gray>Status {health} · accounts {accounts} · transacties {transactions} · ongeldige saldi {invalid} · ongeldige regels {invalid_entries} · ongeldige transacties {invalid_transactions} · losse instellingen {orphan_settings} · losse regels {orphan_entries} · identiteitsfouten {identity_mismatches} · verkeerde accountregels {entry_account_mismatches} · accounts zonder journaal {accounts_without_entries} · lege transacties {empty_transactions} · saldo/journaalfouten {balance_journal_mismatches} · ketenfouten {continuity_errors}</gray>");
+        messages.add("economy.admin.maintenance.unavailable", "<red>Economy-onderhoud is alleen beschikbaar met administration.maintenance_mode: true en zonder online spelers.</red>");
+        messages.add("economy.admin.maintenance.completed", "<green>{action} voor {currency} voltooid.</green> <gray>{rows} MySQL-rijen verwijderd. Herstart of reload Economy voordat je onderhoudsmodus uitschakelt.</gray>");
+        messages.add("economy.admin.maintenance.failed", "<red>Economy-onderhoud is mislukt. De configuratie is niet gewijzigd; controleer de serverlog.</red>");
+        messages.add("economy.admin.maintenance.partial", "<red>MySQL-data voor {currency} is verwijderd, maar de lokale configuratie kon niet worden opgeschoond. Laat onderhoudsmodus aan en herstel de config handmatig.</red>");
         return messages;
     }
 }

@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomyDefinitionImporter;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
+import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyMaintenanceResult;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryItem;
@@ -49,6 +50,9 @@ final class EconomyAdminActions {
         sendHelp(sender, "definitions", "definitions list", "Bekijk gedeelde currency-definities");
         sendHelp(sender, "definitions", "definitions show <currency> <scope>", "Bekijk een definitie");
         sendHelp(sender, "definitions.import", "definitions import <currency> <scope> [confirm]", "Importeer een config-scaffold");
+        sendHelp(sender, "maintenance", "maintenance redefine <currency> confirm", "Overschrijf de database-definitie vanuit config (wist currency-data)");
+        sendHelp(sender, "maintenance", "maintenance clear <currency> confirm", "Wis currency-balansen, journaal en workflows uit MySQL");
+        sendHelp(sender, "maintenance", "maintenance remove <currency> confirm", "Verwijder currency-configuratie en MySQL-data");
         return 1;
     }
 
@@ -243,6 +247,57 @@ final class EconomyAdminActions {
         return 1;
     }
 
+    int redefineCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            EconomySettings.Currency currency = feature.configuredCurrencyForMaintenance(currencyId);
+            feature.service().redefineCurrency(feature.settings(), currency).whenComplete((result, failure) ->
+                    feature.service().main(() -> maintenanceResult(sender, "Database-definitie overschreven", currency.id(), result, failure)));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
+    int clearCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            String normalized = EconomySettings.normalizeCurrencyId(currencyId);
+            feature.service().clearCurrencyData(normalized).whenComplete((result, failure) ->
+                    feature.service().main(() -> maintenanceResult(sender, "Currency-data gewist", normalized, result, failure)));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
+    int removeCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            String normalized = EconomySettings.normalizeCurrencyId(currencyId);
+            if (normalized.contains(".")) {
+                throw new IllegalArgumentException("Currency IDs containing '.' cannot be removed safely from YAML");
+            }
+            feature.service().removeCurrency(normalized).whenComplete((result, failure) -> feature.service().main(() -> {
+                if (failure != null) {
+                    maintenanceFailure(sender, failure);
+                    return;
+                }
+                try {
+                    feature.removeCurrencyConfiguration(normalized);
+                    maintenanceResult(sender, "Currency verwijderd", normalized, result, null);
+                } catch (RuntimeException configFailure) {
+                    feature.getLogger().severe("Economy removed MySQL data for " + normalized
+                            + " but could not remove its local configuration: " + configFailure.getMessage());
+                    feature.send(sender, "economy.admin.maintenance.partial", Map.of("currency", normalized));
+                }
+            }));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
     private Actor actor(CommandSender sender) {
         return sender instanceof Player player
                 ? new Actor(feature.service().activeIdentity(player).map(Identity::playerId).orElse(null), sender.getName())
@@ -321,20 +376,36 @@ final class EconomyAdminActions {
     }
 
     private BigDecimal parseAmount(String raw, EconomySettings.Currency currency, boolean setOperation) {
-        EconomyCommandSupport.requireSupportedAmountLength(raw, setOperation && currency.balances().allowNegative());
-        String pattern = setOperation && currency.balances().allowNegative()
-                ? "-?[0-9]+(?:\\.[0-9]{1,8})?" : "[0-9]+(?:\\.[0-9]{1,8})?";
-        if (raw == null || !raw.matches(pattern)) throw new IllegalArgumentException("Invalid amount");
-        BigDecimal amount = new BigDecimal(raw).setScale(
-                currency.display().fractionalDigits(), currency.balances().rounding());
-        boolean invalid = setOperation ? !currency.balances().allowNegative() && amount.signum() < 0 : amount.signum() <= 0;
-        if (invalid) throw new IllegalArgumentException(
-                setOperation ? "Amount is outside the currency bounds" : "Amount must be positive");
-        return amount;
+        return EconomyCommandSupport.parseExactAmount(raw, currency.display().fractionalDigits(),
+                setOperation && currency.balances().allowNegative(), !setOperation);
     }
 
     private void fail(CommandSender sender, Throwable failure) {
         feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
+    }
+
+    private boolean maintenanceReady(CommandSender sender) {
+        if (feature.maintenanceReady()) return true;
+        feature.send(sender, "economy.admin.maintenance.unavailable");
+        return false;
+    }
+
+    private void maintenanceResult(CommandSender sender, String action, String currency,
+                                   EconomyMaintenanceResult result, Throwable failure) {
+        if (failure != null) {
+            maintenanceFailure(sender, failure);
+            return;
+        }
+        feature.getLogger().warning("Economy maintenance by " + sender.getName() + ": " + action + " for "
+                + currency + " removed " + result.removedRows() + " MySQL rows.");
+        feature.send(sender, "economy.admin.maintenance.completed", Map.of(
+                "action", action, "currency", currency, "rows", Integer.toString(result.removedRows())));
+    }
+
+    private void maintenanceFailure(CommandSender sender, Throwable failure) {
+        feature.getLogger().warning("Economy maintenance failed for " + sender.getName() + ": "
+                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+        feature.send(sender, "economy.admin.maintenance.failed");
     }
 
     @FunctionalInterface

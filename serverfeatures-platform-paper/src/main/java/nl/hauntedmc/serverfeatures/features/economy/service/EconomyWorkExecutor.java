@@ -12,6 +12,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 
 /** Bounded Economy-only execution lane for database work and workflow acknowledgements. */
@@ -20,6 +21,7 @@ final class EconomyWorkExecutor implements AutoCloseable {
     private final Duration synchronousTimeout;
     private final Duration shutdownDrain;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final ReentrantReadWriteLock admission = new ReentrantReadWriteLock(true);
 
     EconomyWorkExecutor(EconomySettings.Execution settings) {
         Objects.requireNonNull(settings, "settings");
@@ -36,6 +38,15 @@ final class EconomyWorkExecutor implements AutoCloseable {
     }
 
     <T> CompletableFuture<T> submit(Supplier<T> work) {
+        return submit(work, false);
+    }
+
+    /** Runs after all already-admitted Economy work, blocking new work until it completes. */
+    <T> CompletableFuture<T> submitExclusive(Supplier<T> work) {
+        return submit(work, true);
+    }
+
+    private <T> CompletableFuture<T> submit(Supplier<T> work, boolean exclusive) {
         Objects.requireNonNull(work, "work");
         if (closed.get()) {
             return CompletableFuture.failedFuture(new EconomyOverloadedException("Economy is shutting down"));
@@ -43,10 +54,14 @@ final class EconomyWorkExecutor implements AutoCloseable {
         CompletableFuture<T> result = new CompletableFuture<>();
         try {
             executor.execute(() -> {
+                var lock = exclusive ? admission.writeLock() : admission.readLock();
+                lock.lock();
                 try {
                     result.complete(work.get());
                 } catch (Throwable failure) {
                     result.completeExceptionally(failure);
+                } finally {
+                    lock.unlock();
                 }
             });
         } catch (RejectedExecutionException rejected) {

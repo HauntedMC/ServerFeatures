@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -72,11 +73,31 @@ public final class EconomyRepository {
                     return null;
                 }));
                 active.put(currency.id(), currency);
-            } catch (EconomyDefinitionException exception) {
-                rejected.put(currency.id(), exception.getMessage());
+            } catch (RuntimeException exception) {
+                EconomyDefinitionException definitionFailure = definitionFailure(exception);
+                if (definitionFailure == null) {
+                    throw exception;
+                }
+                rejected.put(currency.id(), definitionFailure.getMessage());
             }
         }
         return new DefinitionValidation(Map.copyOf(active), Map.copyOf(rejected));
+    }
+
+    /**
+     * ORM transaction implementations may wrap an application exception when rolling back.
+     * Preserve per-currency startup isolation in that case, without treating unrelated database
+     * failures as a bad currency definition.
+     */
+    private static EconomyDefinitionException definitionFailure(Throwable failure) {
+        Map<Throwable, Boolean> visited = new IdentityHashMap<>();
+        for (Throwable current = failure; current != null && visited.put(current, Boolean.TRUE) == null;
+             current = current.getCause()) {
+            if (current instanceof EconomyDefinitionException definitionException) {
+                return definitionException;
+            }
+        }
+        return null;
     }
 
     /** Discovers canonical global/group definitions without reading or provisioning player accounts. */
@@ -333,6 +354,117 @@ public final class EconomyRepository {
     /** Runs read-only ledger, identity, account, and definition integrity checks. */
     public VerificationReport verify() {
         return executeWithRetry(() -> orm.runInTransaction(queries::verify));
+    }
+
+    /**
+     * Deletes every account projection and journal row for a currency in one logical network,
+     * while retaining its canonical definition.
+     *
+     * <p>This is intentionally not exposed through {@code EconomyApi}. Callers must provide the
+     * maintenance gate and an explicit command confirmation before invoking it.</p>
+     */
+    public EconomyMaintenanceResult clearCurrencyData(String networkKey, String currencyId) {
+        return purgeCurrency(networkKey, currencyId, false);
+    }
+
+    /** Removes a currency's durable data, definitions, and family marker in one transaction. */
+    public EconomyMaintenanceResult removeCurrency(String networkKey, String currencyId) {
+        return purgeCurrency(networkKey, currencyId, true);
+    }
+
+    /** Replaces the stored definition with the supplied current configuration after a full purge. */
+    public EconomyMaintenanceResult redefineCurrency(EconomySettings configuredSettings,
+                                                      EconomySettings.Currency currency) {
+        Objects.requireNonNull(configuredSettings, "configuredSettings");
+        Objects.requireNonNull(currency, "currency");
+        return executeWithRetry(() -> orm.runInTransaction(session -> {
+            EconomyMaintenanceResult result = purgeCurrency(session, configuredSettings.networkKey(), currency.id(), true);
+            definitions.validate(session, configuredSettings, currency);
+            return result;
+        }));
+    }
+
+    private EconomyMaintenanceResult purgeCurrency(String networkKey, String currencyId, boolean removeDefinitions) {
+        Objects.requireNonNull(networkKey, "networkKey");
+        Objects.requireNonNull(currencyId, "currencyId");
+        return executeWithRetry(() -> orm.runInTransaction(session ->
+                purgeCurrency(session, networkKey, currencyId, removeDefinitions)));
+    }
+
+    /**
+     * Deletes children first because Economy intentionally has no database foreign keys: the
+     * journal must remain independently verifiable during normal operation. Scope keys are
+     * discovered before deletion and filtered in Java, avoiding SQL LIKE wildcard mistakes in
+     * valid network keys such as {@code build_1}.
+     */
+    private EconomyMaintenanceResult purgeCurrency(org.hibernate.Session session, String networkKey,
+                                                   String currencyId, boolean removeDefinitions) {
+        List<String> scopeKeys = currencyScopeKeys(session, networkKey, currencyId);
+        if (scopeKeys.isEmpty()) {
+            if (removeDefinitions) {
+                session.createMutationQuery("delete EconomyCurrencyFamilyEntity where id = :id")
+                        .setParameter("id", networkKey + ":" + currencyId).executeUpdate();
+            }
+            return new EconomyMaintenanceResult(0, 0, 0, 0, 0, 0, 0);
+        }
+        int settings = accountMutation(session, "delete EconomyPlayerSettingsEntity where accountId like :accountPattern",
+                currencyId, scopeKeys);
+        int dailyUsage = accountMutation(session, "delete EconomyDailyUsageEntity where accountId like :accountPattern",
+                currencyId, scopeKeys);
+        int transactionEntries = mutation(session, "delete EconomyTransactionEntryEntity where transactionId in "
+                + "(select id from EconomyTransactionEntity where currencyId = :currencyId and scopeKey in :scopeKeys)",
+                currencyId, scopeKeys);
+        transactionEntries += accountMutation(session, "delete EconomyTransactionEntryEntity where accountId like :accountPattern",
+                currencyId, scopeKeys);
+        int workflows = mutation(session, "delete EconomyWorkflowEntity where currencyId = :currencyId and scopeKey in :scopeKeys",
+                currencyId, scopeKeys);
+        int transactions = mutation(session, "delete EconomyTransactionEntity where currencyId = :currencyId and scopeKey in :scopeKeys",
+                currencyId, scopeKeys);
+        int balances = mutation(session, "delete EconomyBalanceEntity where currencyId = :currencyId and scopeKey in :scopeKeys",
+                currencyId, scopeKeys);
+        int definitionsRemoved = 0;
+        if (removeDefinitions) {
+            definitionsRemoved = mutation(session, "delete EconomyCurrencyDefinitionEntity where currencyId = :currencyId and scopeKey in :scopeKeys",
+                    currencyId, scopeKeys);
+            session.createMutationQuery("delete EconomyCurrencyFamilyEntity where id = :id")
+                    .setParameter("id", networkKey + ":" + currencyId).executeUpdate();
+        }
+        return new EconomyMaintenanceResult(balances, settings, transactions, transactionEntries, dailyUsage,
+                workflows, definitionsRemoved);
+    }
+
+    private static int mutation(org.hibernate.Session session, String hql, String currencyId, List<String> scopeKeys) {
+        return session.createMutationQuery(hql).setParameter("currencyId", currencyId)
+                .setParameter("scopeKeys", scopeKeys).executeUpdate();
+    }
+
+    /** Also removes orphaned account-linked rows without touching a same-named foreign network. */
+    private static int accountMutation(org.hibernate.Session session, String hql, String currencyId, List<String> scopeKeys) {
+        int removed = 0;
+        for (String scopeKey : scopeKeys) {
+            String accountSuffix = ":" + currencyId + ":" + EconomyPersistenceValues.hash(scopeKey);
+            removed += session.createMutationQuery(hql).setParameter("accountPattern", "%" + accountSuffix).executeUpdate();
+        }
+        return removed;
+    }
+
+    private static List<String> currencyScopeKeys(org.hibernate.Session session, String networkKey, String currencyId) {
+        Set<String> candidates = new java.util.LinkedHashSet<>();
+        candidates.addAll(scopeKeys(session, "EconomyBalanceEntity", currencyId));
+        candidates.addAll(scopeKeys(session, "EconomyTransactionEntity", currencyId));
+        candidates.addAll(scopeKeys(session, "EconomyWorkflowEntity", currencyId));
+        candidates.addAll(scopeKeys(session, "EconomyCurrencyDefinitionEntity", currencyId));
+        String global = networkKey + "/global";
+        String serverPrefix = networkKey + "/server/";
+        String groupPrefix = networkKey + "/group/";
+        return candidates.stream().filter(scope -> scope.equals(global) || scope.startsWith(serverPrefix)
+                || scope.startsWith(groupPrefix)).sorted().toList();
+    }
+
+    private static List<String> scopeKeys(org.hibernate.Session session, String entity, String currencyId) {
+        return session.createSelectionQuery("select distinct scopeKey from " + entity + " where currencyId = :currencyId",
+                        String.class)
+                .setParameter("currencyId", currencyId).getResultList();
     }
 
     private <T> T executeWithRetry(Supplier<T> work) {

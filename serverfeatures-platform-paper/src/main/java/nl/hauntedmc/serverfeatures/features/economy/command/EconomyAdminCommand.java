@@ -35,6 +35,7 @@ public final class EconomyAdminCommand implements BrigadierCommand {
         root.then(Commands.literal("currencies").requires(source -> allowed(source, "status"))
                 .executes(context -> actions.currencies(context.getSource().getSender())));
         root.then(definitions());
+        root.then(maintenance());
         root.then(Commands.literal("balance").requires(source -> allowed(source, "balance"))
                 .then(playerCurrencyArguments(actions::balance)));
         root.then(Commands.literal("account").requires(source -> allowed(source, "balance"))
@@ -76,6 +77,19 @@ public final class EconomyAdminCommand implements BrigadierCommand {
                         .canImportDefinitions(source.getSender()))
                         .then(definitionArguments((sender, currency, scope) -> actions.importPreview(sender, currency, scope),
                                 (sender, currency, scope) -> actions.importDefinition(sender, currency, scope))));
+    }
+
+    private LiteralArgumentBuilder<CommandSourceStack> maintenance() {
+        return Commands.literal("maintenance").requires(source -> allowed(source, "maintenance"))
+                .then(maintenanceAction("redefine", actions::redefineCurrency))
+                .then(maintenanceAction("clear", actions::clearCurrency))
+                .then(maintenanceAction("remove", actions::removeCurrency));
+    }
+
+    private ArgumentBuilder<CommandSourceStack, ?> maintenanceAction(String literal, MaintenanceAction action) {
+        return Commands.literal(literal).then(Commands.argument("currency", StringArgumentType.word())
+                .then(Commands.literal("confirm").executes(context -> action.execute(context.getSource().getSender(),
+                        word(context, "currency")))));
     }
 
     private ArgumentBuilder<CommandSourceStack, ?> definitionArguments(DefinitionAction action) {
@@ -146,5 +160,10 @@ public final class EconomyAdminCommand implements BrigadierCommand {
     @FunctionalInterface
     private interface DefinitionAction {
         int execute(CommandSender sender, String currency, String scope);
+    }
+
+    @FunctionalInterface
+    private interface MaintenanceAction {
+        int execute(CommandSender sender, String currency);
     }
 }

@@ -469,6 +469,40 @@ definition mismatch is a release-blocking safety stop, not an error to bypass. K
 that server, compare its resolved configuration with the stored/network configuration, and follow
 the incident runbook.
 
+### Destructive currency maintenance
+
+Economy has three intentionally awkward recovery commands for a definition migration, reset or
+currency retirement:
+
+```text
+/economy maintenance redefine <currency> confirm
+/economy maintenance clear <currency> confirm
+/economy maintenance remove <currency> confirm
+```
+
+They require `serverfeatures.feature.economy.admin.maintenance`, an exact `confirm` argument,
+`administration.maintenance_mode: true` in Economy's config, and no online players on the local
+Paper server. The database operation is locally exclusive: already admitted Economy operations
+finish first and new local operations wait until it has committed. The mode defaults to `false`.
+
+Before using any of them, take a verified MySQL backup and put **every Paper server sharing the
+Economy MySQL data** into maintenance/stopped state. The local command cannot prove that another
+server or external integration will not write to the shared database, so it deliberately does not
+claim to provide a distributed maintenance lock.
+
+- `redefine` deletes the currency's balances, settings, journal, daily usage, workflows, existing
+  definition and family marker for this `network_key`, then writes the named enabled currency's
+  current on-disk config definition back to MySQL. It does not change the config file.
+- `clear` deletes balances, account settings, transaction headers/entries, daily usage and workflow
+  rows for the currency in this logical network, but retains the stored definition.
+- `remove` performs the full MySQL cleanup and then removes the local currency configuration. The
+  shipped `money` default is left as a disabled tombstone so default injection cannot restore it on
+  the next restart; it is operationally removed and not loaded.
+
+All three invalidate this server's Economy cache. Restart or reload Economy on every backend before
+turning maintenance mode off; only then can commands, Vault and placeholders reflect the new set of
+currencies safely.
+
 ### Discovering and importing shared currencies
 
 When the first server starts a new enabled currency, Economy stores both its immutable fingerprint
@@ -558,15 +592,31 @@ The feature registers these ORM entities:
 
 - `economy_currency_family`
 - `economy_currency_definition`
-- `player_economy_balance`
-- `player_economy_settings`
+- `economy_balance`
+- `economy_settings`
 - `economy_transaction`
 - `economy_transaction_entry`
 - `economy_workflow`
-- `player_economy_daily_usage`
+- `economy_daily_usage`
 
-Economy's database placement is fixed and does not need a feature-level database setting. System
-tables use the `economy_` prefix; player-state tables use the `player_economy_` prefix.
+Economy's database placement is fixed and does not need a feature-level database setting. All
+Economy tables use the `economy_` prefix, including the player-scoped balance, settings, and daily
+usage tables.
+
+### Table-name upgrade
+
+Before deploying this table-name change to an existing installation, stop every Paper server and
+back up the Economy database. Rename the existing tables in the same MySQL schema, then deploy the
+new build:
+
+```sql
+RENAME TABLE player_economy_balance TO economy_balance,
+             player_economy_settings TO economy_settings,
+             player_economy_daily_usage TO economy_daily_usage;
+```
+
+Do not allow the ORM to create replacement empty tables first: that would hide existing balances
+and their payment settings from the new names.
 
 `/economy verify` is read-only. It checks balance bounds, journal arithmetic and continuity, transaction shapes, entry/account ownership, current balances against the latest journal entries, orphaned settings/entries and transactions without entries; it never repairs or rewrites balances. This lets a generic Economy version continue to verify immutable journals created by an older integration-specific version without retaining that integration's taxonomy in Economy code.
 
@@ -619,6 +669,9 @@ grant their relevant currency actions. Valid player actions are `balance`, `bala
 /economy definitions list
 /economy definitions show <currency> <resolved-scope-key>
 /economy definitions import <currency> <resolved-scope-key> [confirm]
+/economy maintenance redefine <currency> confirm
+/economy maintenance clear <currency> confirm
+/economy maintenance remove <currency> confirm
 /economy balance <player> <currency>
 /economy account <player> <currency>
 /economy add <player> <currency> <amount> <reason...>

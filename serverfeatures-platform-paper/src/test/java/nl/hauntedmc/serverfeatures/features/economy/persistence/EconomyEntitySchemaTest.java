@@ -41,6 +41,7 @@ class EconomyEntitySchemaTest {
                 List.of(constraint.columnNames()).containsAll(List.of("network_key", "currency_id"))
         ));
         Table balance = EconomyBalanceEntity.class.getAnnotation(Table.class);
+        assertTrue("economy_balance".equals(balance.name()));
         assertTrue(List.of(balance.uniqueConstraints()).stream().anyMatch(constraint ->
                 List.of(constraint.columnNames()).containsAll(List.of("player_id", "currency_id", "scope_key"))
         ));
@@ -64,6 +65,8 @@ class EconomyEntitySchemaTest {
         ));
         assertNotNull(EconomyBalanceEntity.class.getDeclaredField("version").getAnnotation(Version.class));
         assertNotNull(EconomyPlayerSettingsEntity.class.getDeclaredField("version").getAnnotation(Version.class));
+        assertTrue("economy_settings".equals(EconomyPlayerSettingsEntity.class.getAnnotation(Table.class).name()));
+        assertTrue("economy_daily_usage".equals(EconomyDailyUsageEntity.class.getAnnotation(Table.class).name()));
         assertNotNull(EconomyPlayerSettingsEntity.class.getDeclaredField("lastPaymentAt"));
         assertNotNull(EconomyTransactionEntity.class.getDeclaredField("idempotencyKeyHash"));
         assertNotNull(EconomyTransactionEntity.class.getDeclaredField("requestFingerprint"));

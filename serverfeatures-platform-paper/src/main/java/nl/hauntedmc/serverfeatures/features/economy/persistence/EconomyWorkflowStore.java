@@ -92,13 +92,29 @@ final class EconomyWorkflowStore {
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .getResultList();
         for (EconomyWorkflowEntity entity : candidates) {
+            // A server may die while a handler is still running, leaving its lease to expire.
+            // Unlike an explicit handler failure, that path never calls release(), so enforce
+            // the same attempt ceiling before leasing the event again.
+            if (entity.getAttempts() >= MAX_ATTEMPTS) {
+                entity.setState(State.DEAD_LETTER.name());
+                entity.setLeaseOwner(null);
+                entity.setLeaseExpiresAt(null);
+                if (entity.getLastError() == null || entity.getLastError().isBlank()) {
+                    entity.setLastError("Workflow lease expired after maximum delivery attempts");
+                }
+                entity.setAvailableAt(Long.MAX_VALUE);
+                entity.setUpdatedAt(now);
+                continue;
+            }
             entity.setState(State.DISPATCHING.name());
             entity.setLeaseOwner(owner);
             entity.setLeaseExpiresAt(Math.addExact(now, LEASE_MILLIS));
             entity.setAttempts(Math.addExact(entity.getAttempts(), 1));
             entity.setUpdatedAt(now);
         }
-        return candidates.stream().map(entity -> new Claim(entity.getEventId(), owner, event(entity))).toList();
+        return candidates.stream()
+                .filter(entity -> State.DISPATCHING.name().equals(entity.getState()) && owner.equals(entity.getLeaseOwner()))
+                .map(entity -> new Claim(entity.getEventId(), owner, event(entity))).toList();
     }
 
     void acknowledge(Session session, String eventId, String owner, long now) {

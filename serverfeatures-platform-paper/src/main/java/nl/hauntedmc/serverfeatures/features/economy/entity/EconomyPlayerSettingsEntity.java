@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
 @Entity
-@Table(name = "player_economy_settings")
+@Table(name = "economy_settings")
 public class EconomyPlayerSettingsEntity {
     @Id
     @Column(name = "account_id", length = 192, nullable = false)

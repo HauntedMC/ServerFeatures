@@ -9,7 +9,7 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "player_economy_daily_usage")
+@Table(name = "economy_daily_usage")
 public class EconomyDailyUsageEntity {
     @Id
     @Column(name = "id", length = 224, nullable = false)

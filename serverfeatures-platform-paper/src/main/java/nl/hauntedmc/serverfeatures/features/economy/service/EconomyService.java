@@ -30,6 +30,7 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Verifica
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.WorkflowOutcome;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRejectedException;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRepository;
+import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyMaintenanceResult;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
@@ -261,6 +262,22 @@ public final class EconomyService implements EconomyApi {
     }
     public CompletionStage<VerificationReport> verify() { return submit(repository::verify); }
 
+    /** Executes a locally exclusive destructive maintenance action and drops stale cache state. */
+    public CompletionStage<EconomyMaintenanceResult> clearCurrencyData(String currencyId) {
+        return maintenance(() -> repository.clearCurrencyData(settings.networkKey(), EconomySettings.normalizeCurrencyId(currencyId)));
+    }
+
+    /** Executes a locally exclusive full currency removal and drops stale cache state. */
+    public CompletionStage<EconomyMaintenanceResult> removeCurrency(String currencyId) {
+        return maintenance(() -> repository.removeCurrency(settings.networkKey(), EconomySettings.normalizeCurrencyId(currencyId)));
+    }
+
+    /** Replaces a cleared database definition with a freshly parsed configuration definition. */
+    public CompletionStage<EconomyMaintenanceResult> redefineCurrency(EconomySettings configuredSettings,
+                                                                       EconomySettings.Currency currency) {
+        return maintenance(() -> repository.redefineCurrency(configuredSettings, currency));
+    }
+
     @Override public Optional<EconomyCurrency> currency(String currencyId) {
         if (currencyId == null) return Optional.empty();
         return Optional.ofNullable(settings.currencies().get(currencyId.trim().toLowerCase(Locale.ROOT))).map(this::apiCurrency);
@@ -363,6 +380,15 @@ public final class EconomyService implements EconomyApi {
     private <T> CompletableFuture<T> submit(java.util.function.Supplier<T> work) {
         if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Economy is closed"));
         return workExecutor.submit(work);
+    }
+    private CompletionStage<EconomyMaintenanceResult> maintenance(java.util.function.Supplier<EconomyMaintenanceResult> work) {
+        if (closed.get()) return CompletableFuture.failedFuture(new IllegalStateException("Economy is closed"));
+        return workExecutor.submitExclusive(() -> {
+            EconomyMaintenanceResult result = work.get();
+            cache.clear();
+            transferNotifier.clear();
+            return result;
+        });
     }
     private Account publishAccountMutation(MutationOutcome outcome) {
         if (outcome == null || !outcome.successful() || outcome.account() == null)
