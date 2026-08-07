@@ -373,6 +373,7 @@ Each currency registers only its enabled command tree:
 /<currency> paytoggle [on|off|status]
 /<currency> history [page]
 /<currency> top [page]
+/<currency> help
 ```
 
 Disabled subcommands are absent from Brigadier suggestions.
@@ -381,12 +382,14 @@ Disabled subcommands are absent from Brigadier suggestions.
 
 ```text
 /economy status
+/economy help
 /economy currencies
 /economy balance <player> <currency>
+/economy account <player> <currency>
 /economy add <player> <currency> <amount> <reason...>
 /economy remove <player> <currency> <amount> <reason...>
 /economy set <player> <currency> <amount> <reason...>
-/economy payments <player> <currency> <on|off>
+/economy payments <player> <currency> <on|off> <reason...>
 /economy freeze <player> <currency> <reason...>
 /economy unfreeze <player> <currency> <reason...>
 /economy history <player> <currency> [page]
@@ -427,15 +430,19 @@ The gateway must persist a stable idempotency key before sending a logical opera
 
 ## PlaceholderAPI
 
-Cache-only placeholders include:
+Every enabled currency exposes the following cache-only placeholders, replacing `<currency>` with its ID:
 
-```text
-%economy_money_balance%
-%economy_money_raw%
-%economy_money_scope%
-%economy_money_payments%
-%economy_primary_balance%
-%economy_primary_raw%
-```
+| Placeholder | Value when account is cached | Value when unavailable/no player context |
+|---|---|---|
+| `%economy_<currency>_balance%` | Formatted balance | `0` |
+| `%economy_<currency>_raw%` | Plain decimal balance | `0` |
+| `%economy_<currency>_available%` | `true` | `false` |
+| `%economy_<currency>_payments%` | Current incoming-payment setting | Configured `payments.default_enabled` |
+| `%economy_<currency>_frozen%` | Whether the account is frozen | `false` |
+| `%economy_<currency>_status%` | `active` or `frozen` | `unavailable` |
 
-Placeholder evaluation never blocks the Paper thread. Online-player cache entries are refreshed from authoritative MySQL periodically and after network invalidations.
+Currency metadata does not require a player/cache entry: `%economy_<currency>_scope%`, `_scope_type`, `_currency`, `_symbol`, `_singular`, `_plural`, and `_fractional_digits`.
+
+The configured Vault primary currency supports the same suffixes through `%economy_primary_<suffix>%`; for example `%economy_primary_balance%` and `%economy_primary_available%`.
+
+Placeholder evaluation never blocks the Paper thread, resolves no identities, and issues no MySQL or Redis calls. Online-player cache entries are refreshed from authoritative MySQL periodically and after network invalidations. Use `available` to distinguish an unavailable cache entry from a genuine zero balance. Unknown/malformed placeholders return `null` to PlaceholderAPI.
