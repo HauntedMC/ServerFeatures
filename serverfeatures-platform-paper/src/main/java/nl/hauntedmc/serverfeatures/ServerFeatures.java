@@ -32,6 +32,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.logging.Level;
 
 /** Paper bootstrap and authoritative public API root for ServerFeatures 3.3. */
 public class ServerFeatures extends JavaPlugin implements ServerFeaturesApi {
@@ -128,7 +129,7 @@ public class ServerFeatures extends JavaPlugin implements ServerFeaturesApi {
             ActionBars.shutdown();
         } catch (Throwable throwable) {
             failure = throwable;
-            throw throwable;
+            getLogger().log(Level.SEVERE, "ServerFeatures shutdown completed with failures.", throwable);
         } finally {
             runtimeState = RuntimeState.STOPPED;
             if (!ready.isDone()) {

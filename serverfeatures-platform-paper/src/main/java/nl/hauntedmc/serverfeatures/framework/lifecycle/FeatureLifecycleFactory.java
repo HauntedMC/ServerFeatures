@@ -9,11 +9,8 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * Constructs independent lifecycle resource sets for feature instances.
- */
+/** Constructs independent lifecycle resource sets for feature instances. */
 public final class FeatureLifecycleFactory {
-
     private final Supplier<FeatureTaskManager> taskManagerFactory;
     private final Supplier<FeatureCommandManager> commandManagerFactory;
     private final Supplier<FeatureListenerManager> listenerManagerFactory;
@@ -31,11 +28,11 @@ public final class FeatureLifecycleFactory {
         this.commandManagerFactory = () -> new FeatureCommandManager(plugin, ownership);
         this.listenerManagerFactory = () -> new FeatureListenerManager(plugin);
         this.dataManagerFactory = () -> plugin.getServer().getPluginManager().isPluginEnabled(BaseMeta.DATA_PROVIDER)
-                ? new FeatureDataManager(plugin)
-                : null;
+                ? new FeatureDataManager(plugin) : null;
         this.cacheManagerFactory = () -> new FeatureCacheManager(plugin);
         this.guiManagerFactory = tasks -> new FeatureGUIManager(plugin, tasks);
-        this.apiManagerFactory = name -> new FeatureApiManager(name, plugin::getDataRegistry, serviceCatalog);
+        this.apiManagerFactory = name -> new FeatureApiManager(
+                name, plugin::getDataRegistry, serviceCatalog, plugin.getCapabilityRegistry());
     }
 
     FeatureLifecycleFactory(

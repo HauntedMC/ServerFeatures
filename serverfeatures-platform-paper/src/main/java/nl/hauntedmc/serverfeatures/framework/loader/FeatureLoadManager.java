@@ -285,7 +285,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public void initializeFeatures() {
+    public synchronized void initializeFeatures() {
         FeatureLoadOrderResolver.Result result = FeatureLoadOrderResolver.resolveLoadOrder(
                 featureRegistry.getAvailableFeatures().keySet(),
                 featureRegistry::getAvailableFeature,
@@ -335,7 +335,7 @@ public final class FeatureLoadManager {
         return featureRegistry.getAvailableFeature(featureKey);
     }
 
-    public FeatureEnableResponse enableFeature(String featureName) {
+    public synchronized FeatureEnableResponse enableFeature(String featureName) {
         FeatureDescriptor descriptor = requireAvailableDescriptor(featureName);
         if (descriptor == null) {
             plugin.getLogger().warning("Feature not found: " + featureName);
@@ -393,7 +393,7 @@ public final class FeatureLoadManager {
         return new FeatureEnableResponse(FeatureEnableResult.SUCCESS, Set.of(), Set.of());
     }
 
-    public FeatureDisableResponse disableFeature(String featureName) {
+    public synchronized FeatureDisableResponse disableFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -442,7 +442,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public FeatureSoftReloadResponse softReloadFeature(String featureName) {
+    public synchronized FeatureSoftReloadResponse softReloadFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null || !featureRegistry.isFeatureLoaded(featureKey)) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -460,7 +460,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public FeatureReloadResponse reloadFeature(String featureName) {
+    public synchronized FeatureReloadResponse reloadFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null || !featureRegistry.isFeatureLoaded(featureKey)) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -554,7 +554,7 @@ public final class FeatureLoadManager {
         return featureRegistry;
     }
 
-    public void unloadAllFeatures() {
+    public synchronized void unloadAllFeatures() {
         plugin.getLogger().info("Unloading all loaded features...");
         List<String> loadedFeatureNames = new ArrayList<>(featureRegistry.getLoadedFeatureNames());
         ListIterator<String> iterator = loadedFeatureNames.listIterator(loadedFeatureNames.size());
@@ -590,7 +590,7 @@ public final class FeatureLoadManager {
         return missingPlugins;
     }
 
-    public boolean loadFeature(String featureName) {
+    public synchronized boolean loadFeature(String featureName) {
         return loadFeature(featureName, null);
     }
 
@@ -651,6 +651,10 @@ public final class FeatureLoadManager {
             if (reloadState != null) {
                 restoreReloadState(featureKey, feature, reloadState);
             }
+
+            // Services and ingress hooks are deliberately invisible until initialization and
+            // reload-state restoration have both succeeded.
+            feature.getLifecycleManager().getApiManager().activateServices();
 
             featureRegistry.registerLoadedFeature(featureKey, feature);
             plugin.getLogger().info("Feature loaded: " + featureKey);
