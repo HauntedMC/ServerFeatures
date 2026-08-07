@@ -2,28 +2,26 @@ package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
 import nl.hauntedmc.serverfeatures.ServerFeatures;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
 
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** Constructs independent lifecycle resource sets for feature instances. */
 public final class FeatureLifecycleFactory {
+    private final ServerFeatures plugin;
     private final Supplier<FeatureTaskManager> taskManagerFactory;
     private final Supplier<FeatureCommandManager> commandManagerFactory;
     private final Supplier<FeatureListenerManager> listenerManagerFactory;
     private final Supplier<FeatureDataManager> dataManagerFactory;
     private final Supplier<FeatureCacheManager> cacheManagerFactory;
     private final Function<FeatureTaskManager, FeatureGUIManager> guiManagerFactory;
-    private final Function<String, FeatureApiManager> apiManagerFactory;
-    private final FeatureServiceCatalog serviceCatalog;
+    private final Supplier<FeatureApiManager> apiManagerFactory;
 
     public FeatureLifecycleFactory(ServerFeatures plugin) {
         Objects.requireNonNull(plugin, "plugin");
         FeatureCommandOwnership ownership = new FeatureCommandOwnership();
-        this.serviceCatalog = new FeatureServiceCatalog();
+        this.plugin = plugin;
         this.taskManagerFactory = () -> new FeatureTaskManager(plugin);
         this.commandManagerFactory = () -> new FeatureCommandManager(plugin, ownership);
         this.listenerManagerFactory = () -> new FeatureListenerManager(plugin);
@@ -31,13 +29,7 @@ public final class FeatureLifecycleFactory {
                 ? new FeatureDataManager(plugin) : null;
         this.cacheManagerFactory = () -> new FeatureCacheManager(plugin);
         this.guiManagerFactory = tasks -> new FeatureGUIManager(plugin, tasks);
-        this.apiManagerFactory = name -> new FeatureApiManager(
-                name,
-                plugin::getDataRegistry,
-                serviceCatalog,
-                plugin.getCapabilityRegistry(),
-                plugin.getInternalServiceRegistry()
-        );
+        this.apiManagerFactory = FeatureApiManager::new;
     }
 
     FeatureLifecycleFactory(
@@ -47,9 +39,9 @@ public final class FeatureLifecycleFactory {
             Supplier<FeatureDataManager> dataManagerFactory,
             Supplier<FeatureCacheManager> cacheManagerFactory,
             Function<FeatureTaskManager, FeatureGUIManager> guiManagerFactory,
-            Function<String, FeatureApiManager> apiManagerFactory
+            Supplier<FeatureApiManager> apiManagerFactory
     ) {
-        this.serviceCatalog = new FeatureServiceCatalog();
+        this.plugin = null;
         this.taskManagerFactory = Objects.requireNonNull(taskManagerFactory, "taskManagerFactory");
         this.commandManagerFactory = Objects.requireNonNull(commandManagerFactory, "commandManagerFactory");
         this.listenerManagerFactory = Objects.requireNonNull(listenerManagerFactory, "listenerManagerFactory");
@@ -61,6 +53,14 @@ public final class FeatureLifecycleFactory {
 
     public FeatureLifecycleManager createLifecycleManager(String featureName) {
         FeatureTaskManager taskManager = taskManagerFactory.get();
+        FeatureApiManager apiManager = apiManagerFactory.get();
+        if (plugin != null) {
+            apiManager.bindRegistry(
+                    plugin.getCapabilityRegistry(),
+                    plugin.getInternalServiceRegistry(),
+                    featureName
+            );
+        }
         return new FeatureLifecycleManager(
                 taskManager,
                 commandManagerFactory.get(),
@@ -68,12 +68,7 @@ public final class FeatureLifecycleFactory {
                 dataManagerFactory.get(),
                 cacheManagerFactory.get(),
                 guiManagerFactory.apply(taskManager),
-                apiManagerFactory.apply(featureName)
+                apiManager
         );
-    }
-
-    public <T> Optional<T> findService(Class<T> type) {
-        Optional<T> internal = serviceCatalog.find(type);
-        return internal;
     }
 }
