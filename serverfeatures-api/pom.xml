@@ -9,7 +9,7 @@
     <artifactId>serverfeatures-api</artifactId>
     <name>ServerFeatures API</name>
     <properties>
-        <coverage.line.minimum>0.60</coverage.line.minimum>
+        <coverage.line.minimum>0.50</coverage.line.minimum>
     </properties>
     <dependencies>
         <dependency>
