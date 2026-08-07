@@ -26,7 +26,8 @@ class JsonCacheFileTest {
         cache.put("player:one", CacheValue.of(Map.of("value", 1), System.currentTimeMillis() + 60_000));
         cache.put("other", CacheValue.of(Map.of("value", 2), System.currentTimeMillis() + 60_000));
 
-        assertEquals(1.0d, cache.get("player:one").getData().get("value"));
+        Number storedValue = (Number) cache.get("player:one").getData().get("value");
+        assertEquals(1, storedValue.intValue());
         assertEquals(2, cache.listAll().size());
         assertEquals(1, cache.find("player:.*").size());
 
