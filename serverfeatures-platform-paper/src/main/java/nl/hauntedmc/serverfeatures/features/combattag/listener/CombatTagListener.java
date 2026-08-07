@@ -16,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.ExplosionPrimeEvent;
@@ -66,11 +67,6 @@ public final class CombatTagListener implements Listener {
         }
         ResolvedCombatSource resolved = source.get();
         if (explodingCreepers.contains(resolved.damageSourceId())) {
-            return;
-        }
-        if (!resolved.playerSource()
-                && resolved.spawnReason() != null
-                && settings.attribution().mobSpawnExclusions().contains(resolved.spawnReason())) {
             return;
         }
         applyCombat(resolved, target);
@@ -179,6 +175,10 @@ public final class CombatTagListener implements Listener {
     }
 
     private void applyCombat(ResolvedCombatSource source, LivingEntity target) {
+        if (isMobSpawnExcluded(source.sourceEntity()) || isMobSpawnExcluded(target)) {
+            return;
+        }
+
         if (target instanceof Player targetPlayer) {
             boolean enabled = source.playerSource()
                     ? settings.tagging().pvpEnabled()
@@ -220,6 +220,14 @@ public final class CombatTagListener implements Listener {
                     source.reason()
             );
         }
+    }
+
+    private boolean isMobSpawnExcluded(Entity entity) {
+        if (entity instanceof Player) {
+            return false;
+        }
+        CreatureSpawnEvent.SpawnReason spawnReason = entity.getEntitySpawnReason();
+        return spawnReason != null && settings.attribution().mobSpawnExclusions().contains(spawnReason);
     }
 
     private static boolean isPortalCause(PlayerTeleportEvent.TeleportCause cause) {
