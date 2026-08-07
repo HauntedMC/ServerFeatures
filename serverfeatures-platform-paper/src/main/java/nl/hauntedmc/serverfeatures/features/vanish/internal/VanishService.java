@@ -3,10 +3,9 @@ package nl.hauntedmc.serverfeatures.features.vanish.internal;
 import net.kyori.adventure.text.Component;
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
-import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotifyLoginAPI;
+import nl.hauntedmc.serverfeatures.features.notifylogin.internal.ConnectionVisibilityPort;
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
@@ -393,7 +392,7 @@ public class VanishService {
 
     private void notifyConnectionVisibilityChange(Player target, boolean vanishedState) {
         try {
-            FeatureServices.find(feature, NotifyLoginAPI.class)
+            feature.getPlugin().getInternalServiceRegistry().find(ConnectionVisibilityPort.class)
                     .ifPresent(api -> api.handleVanishStateChange(target, vanishedState));
         } catch (Throwable throwable) {
             feature.getLogger().warning("Kon NotifyLogin niet bijwerken voor vanish wijziging van "
