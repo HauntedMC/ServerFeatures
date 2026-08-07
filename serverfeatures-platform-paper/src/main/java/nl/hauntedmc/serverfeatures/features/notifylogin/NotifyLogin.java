@@ -5,6 +5,7 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.ConnectionMessageSettings;
+import nl.hauntedmc.serverfeatures.features.notifylogin.internal.ConnectionVisibilityPort;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHandler;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotifyLoginAPI;
 import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
@@ -74,8 +75,8 @@ public final class NotifyLogin extends BukkitBaseFeature<Meta> {
                 message -> getLogger().warning(message)
         );
         this.notificationHandler = new NotificationHandler(this, settings);
-        getLifecycleManager().getApiManager().registerService(
-                NotifyLoginAPI.class,
+        getLifecycleManager().getApiManager().registerInternalService(
+                ConnectionVisibilityPort.class,
                 new NotifyLoginAPI(notificationHandler)
         );
         getLifecycleManager().getListenerManager().registerListener(new PlayerListener(this));
