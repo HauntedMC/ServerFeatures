@@ -1,11 +1,8 @@
 package nl.hauntedmc.serverfeatures.framework.lifecycle;
 
-import nl.hauntedmc.dataregistry.api.DataRegistryApi;
-import nl.hauntedmc.dataregistry.api.service.FeatureServiceHandle;
 import nl.hauntedmc.serverfeatures.api.feature.FeatureId;
 import nl.hauntedmc.serverfeatures.framework.service.CapabilityRegistration;
 import nl.hauntedmc.serverfeatures.framework.service.DefaultCapabilityRegistry;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServiceCatalog;
 import nl.hauntedmc.serverfeatures.framework.service.InternalServiceRegistry;
 
 import java.util.ArrayList;
@@ -13,160 +10,55 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Supplier;
 
-/**
- * Stages feature-owned public capabilities, runtime-only services and ingress hooks until the
- * owning feature has initialized and restored reload state.
- *
- * <p>The local/DataRegistry directory remains only for public-service migration during the 3.3
- * refactor. New implementation-only collaboration must use {@link #registerInternalService}.</p>
- */
+/** Stages feature capabilities and ingress hooks until post-restoration activation. */
 public class FeatureApiManager {
 
-    private final Map<Class<?>, Object> serviceDefinitions = new LinkedHashMap<>();
-    private final Map<Class<?>, ActiveService> activeServices = new LinkedHashMap<>();
-    private final Map<Class<?>, Object> internalDefinitions = new LinkedHashMap<>();
-    private final Map<Class<?>, CapabilityRegistration> activeInternalServices = new LinkedHashMap<>();
+    private enum RegistryKind { PUBLIC, INTERNAL }
+
+    private final Map<Class<?>, ServiceDefinition> serviceDefinitions = new LinkedHashMap<>();
+    private final Map<Class<?>, CapabilityRegistration> activeRegistrations = new LinkedHashMap<>();
     private final List<Runnable> activationHooks = new ArrayList<>();
-    private final String ownerFeature;
-    private final FeatureId ownerId;
-    private final Supplier<Optional<DataRegistryApi>> dataRegistrySupplier;
-    private final FeatureServiceCatalog localCatalog;
-    private final DefaultCapabilityRegistry capabilityRegistry;
-    private final InternalServiceRegistry internalRegistry;
-    private FeatureResourceState state = FeatureResourceState.OPEN;
+    private DefaultCapabilityRegistry registry;
+    private InternalServiceRegistry internalRegistry;
+    private FeatureId owner;
     private boolean active;
+    private FeatureResourceState state = FeatureResourceState.OPEN;
 
-    public FeatureApiManager(String ownerFeature, Supplier<Optional<DataRegistryApi>> dataRegistrySupplier) {
-        this(
-                ownerFeature,
-                dataRegistrySupplier,
-                new FeatureServiceCatalog(),
-                new DefaultCapabilityRegistry(),
-                new InternalServiceRegistry()
-        );
-    }
-
-    FeatureApiManager(
-            String ownerFeature,
-            Supplier<Optional<DataRegistryApi>> dataRegistrySupplier,
-            FeatureServiceCatalog localCatalog
+    public synchronized void bindRegistry(
+            DefaultCapabilityRegistry registry,
+            InternalServiceRegistry internalRegistry,
+            String ownerFeature
     ) {
-        this(
-                ownerFeature,
-                dataRegistrySupplier,
-                localCatalog,
-                new DefaultCapabilityRegistry(),
-                new InternalServiceRegistry()
-        );
-    }
-
-    FeatureApiManager(
-            String ownerFeature,
-            Supplier<Optional<DataRegistryApi>> dataRegistrySupplier,
-            FeatureServiceCatalog localCatalog,
-            DefaultCapabilityRegistry capabilityRegistry
-    ) {
-        this(
-                ownerFeature,
-                dataRegistrySupplier,
-                localCatalog,
-                capabilityRegistry,
-                new InternalServiceRegistry()
-        );
-    }
-
-    FeatureApiManager(
-            String ownerFeature,
-            Supplier<Optional<DataRegistryApi>> dataRegistrySupplier,
-            FeatureServiceCatalog localCatalog,
-            DefaultCapabilityRegistry capabilityRegistry,
-            InternalServiceRegistry internalRegistry
-    ) {
-        this.ownerFeature = requireText(ownerFeature, "ownerFeature");
-        this.ownerId = FeatureId.of(this.ownerFeature);
-        this.dataRegistrySupplier = Objects.requireNonNull(dataRegistrySupplier, "dataRegistrySupplier");
-        this.localCatalog = Objects.requireNonNull(localCatalog, "localCatalog");
-        this.capabilityRegistry = Objects.requireNonNull(capabilityRegistry, "capabilityRegistry");
+        requireOpen();
+        if (!serviceDefinitions.isEmpty() || !activeRegistrations.isEmpty() || !activationHooks.isEmpty()) {
+            throw new IllegalStateException("Feature API manager cannot be rebound after resources were registered");
+        }
+        this.registry = Objects.requireNonNull(registry, "registry");
         this.internalRegistry = Objects.requireNonNull(internalRegistry, "internalRegistry");
+        this.owner = FeatureId.of(requireText(ownerFeature, "ownerFeature"));
     }
 
-    /** Stages or replaces a public service owned by this feature. */
-    public synchronized <T> void registerService(Class<T> type, T instance) {
-        requireOpen();
-        Objects.requireNonNull(type, "type");
-        Objects.requireNonNull(instance, "instance");
-        Object previous = serviceDefinitions.get(type);
-        if (previous == instance) {
-            return;
-        }
-
-        if (!active) {
-            serviceDefinitions.put(type, instance);
-            return;
-        }
-
-        Map<Class<?>, Object> previousDefinitions = new LinkedHashMap<>(serviceDefinitions);
-        deactivateServices();
-        serviceDefinitions.put(type, instance);
-        try {
-            activateServices();
-        } catch (Throwable failure) {
-            serviceDefinitions.clear();
-            serviceDefinitions.putAll(previousDefinitions);
-            try {
-                activateServices();
-            } catch (Throwable rollbackFailure) {
-                failure.addSuppressed(rollbackFailure);
-            }
-            throwUnchecked(failure);
-        }
-    }
-
-    /** Stages or replaces a runtime-only collaboration port owned by this feature. */
     public synchronized <T> void registerInternalService(Class<T> type, T instance) {
-        requireOpen();
-        Objects.requireNonNull(type, "type");
-        Objects.requireNonNull(instance, "instance");
-        if (!type.isInterface()) {
-            throw new IllegalArgumentException("Internal service contract must be an interface: " + type.getName());
-        }
-        if (!type.isInstance(instance)) {
-            throw new IllegalArgumentException("Service implementation does not implement " + type.getName());
-        }
-
-        Object previous = internalDefinitions.get(type);
-        if (previous == instance) {
-            return;
-        }
-        internalDefinitions.put(type, instance);
-        if (!active) {
-            return;
-        }
-
-        CapabilityRegistration replacement = previous == null
-                ? internalRegistry.register(ownerId, type, instance)
-                : internalRegistry.replace(ownerId, type, instance);
-        CapabilityRegistration oldRegistration = activeInternalServices.put(type, replacement);
-        if (oldRegistration != null) {
-            oldRegistration.close();
-        }
+        register(type, instance, RegistryKind.INTERNAL);
     }
 
-    /** Registers work that may only begin after reload-state restoration. */
+    public synchronized <T> void registerService(Class<T> type, T instance) {
+        register(type, instance, RegistryKind.PUBLIC);
+    }
+
+    /** Registers ingress work that may only start after reload state restoration. */
     public synchronized void registerActivationHook(Runnable activationHook) {
         requireOpen();
         if (active) {
-            throw new IllegalStateException("Activation hooks cannot be added after activation");
+            throw new IllegalStateException("Activation hooks cannot be added after feature activation");
         }
         activationHooks.add(Objects.requireNonNull(activationHook, "activationHook"));
     }
 
-    /** Publishes every staged service atomically from the feature lifecycle's perspective. */
     public synchronized void activateServices() {
         requireOpen();
+        requireBound();
         if (active) {
             return;
         }
@@ -175,35 +67,23 @@ public class FeatureApiManager {
             activationHook.run();
         }
 
-        Map<Class<?>, ActiveService> published = new LinkedHashMap<>();
-        Map<Class<?>, CapabilityRegistration> publishedInternal = new LinkedHashMap<>();
+        Map<Class<?>, CapabilityRegistration> published = new LinkedHashMap<>();
         try {
-            for (Map.Entry<Class<?>, Object> entry : serviceDefinitions.entrySet()) {
+            for (Map.Entry<Class<?>, ServiceDefinition> entry : serviceDefinitions.entrySet()) {
                 published.put(entry.getKey(), publish(entry.getKey(), entry.getValue()));
             }
-            for (Map.Entry<Class<?>, Object> entry : internalDefinitions.entrySet()) {
-                publishedInternal.put(
-                        entry.getKey(),
-                        publishInternal(entry.getKey(), entry.getValue())
-                );
-            }
-        } catch (Throwable failure) {
-            closeRegistrations(publishedInternal, failure);
-            closeServices(published, failure);
-            throwUnchecked(failure);
+        } catch (Throwable activationFailure) {
+            closeRegistrations(published, activationFailure);
+            throwUnchecked(activationFailure);
         }
-        activeServices.putAll(published);
-        activeInternalServices.putAll(publishedInternal);
+        activeRegistrations.putAll(published);
         active = true;
     }
 
-    /** Withdraws active registrations while retaining definitions for possible re-activation. */
     public synchronized void deactivateServices() {
         active = false;
-        Throwable failure = closeRegistrations(activeInternalServices, null);
-        activeInternalServices.clear();
-        failure = closeServices(activeServices, failure);
-        activeServices.clear();
+        Throwable failure = closeRegistrations(activeRegistrations, null);
+        activeRegistrations.clear();
         if (failure != null) {
             throwUnchecked(failure);
         }
@@ -218,14 +98,9 @@ public class FeatureApiManager {
     public synchronized void unregisterService(Class<?> type) {
         Objects.requireNonNull(type, "type");
         serviceDefinitions.remove(type);
-        internalDefinitions.remove(type);
-        ActiveService service = activeServices.remove(type);
-        if (service != null) {
-            service.close();
-        }
-        CapabilityRegistration internal = activeInternalServices.remove(type);
-        if (internal != null) {
-            internal.close();
+        CapabilityRegistration registration = activeRegistrations.remove(type);
+        if (registration != null) {
+            registration.close();
         }
     }
 
@@ -238,7 +113,6 @@ public class FeatureApiManager {
             failure = deactivationFailure;
         } finally {
             serviceDefinitions.clear();
-            internalDefinitions.clear();
             activationHooks.clear();
             state = FeatureResourceState.CLOSED;
         }
@@ -248,7 +122,7 @@ public class FeatureApiManager {
     }
 
     public synchronized int getRegisteredServiceCount() {
-        return serviceDefinitions.size() + internalDefinitions.size();
+        return serviceDefinitions.size();
     }
 
     public synchronized int getActivationHookCount() {
@@ -263,73 +137,72 @@ public class FeatureApiManager {
         return state;
     }
 
-    /** Transitional lookup used only while 3.3 consumers move to explicit registries. */
-    public synchronized <T> Optional<T> findService(Class<T> type) {
-        Optional<T> activeService = localCatalog.find(type);
-        if (activeService.isPresent()) {
-            return activeService;
-        }
-        Optional<T> internal = internalRegistry.find(type);
-        if (internal.isPresent()) {
-            return internal;
-        }
-        Object staged = serviceDefinitions.get(type);
-        if (staged == null) {
-            staged = internalDefinitions.get(type);
-        }
-        return staged == null ? Optional.empty() : Optional.of(type.cast(staged));
-    }
+    private <T> void register(Class<T> type, T instance, RegistryKind kind) {
+        requireOpen();
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(instance, "instance");
+        requireBound();
 
-    private <T> ActiveService publish(Class<T> type, Object rawInstance) {
-        T instance = type.cast(rawInstance);
-        FeatureServiceHandle dataRegistryHandle = null;
-        CapabilityRegistration capabilityHandle = null;
-        boolean localRegistered = false;
-        try {
-            dataRegistryHandle = registerWithDataRegistry(type, instance);
-            localCatalog.register(ownerFeature, type, instance);
-            localRegistered = true;
-            if (isPublicCapability(type)) {
-                capabilityHandle = capabilityRegistry.register(ownerId, type, instance);
-            }
-            return new ActiveService(type, instance, dataRegistryHandle, capabilityHandle);
-        } catch (Throwable failure) {
-            if (capabilityHandle != null) {
-                safelyClose(capabilityHandle, failure);
-            }
-            if (localRegistered) {
-                localCatalog.unregister(ownerFeature, type, instance);
-            }
-            if (dataRegistryHandle != null) {
-                safelyClose(dataRegistryHandle, failure);
-            }
-            throwUnchecked(failure);
-            throw new AssertionError("unreachable");
+        ServiceDefinition previous = serviceDefinitions.get(type);
+        if (previous != null && previous.instance() == instance && previous.kind() == kind) {
+            return;
+        }
+
+        ServiceDefinition replacement = new ServiceDefinition(kind, instance);
+        if (!active) {
+            serviceDefinitions.put(type, replacement);
+            return;
+        }
+        if (previous != null && previous.kind() != kind) {
+            throw new IllegalStateException(
+                    "Active service cannot change registry kind without deactivation: " + type.getName()
+            );
+        }
+
+        CapabilityRegistration replacementRegistration = previous == null
+                ? publish(type, replacement)
+                : replace(type, replacement);
+        CapabilityRegistration previousRegistration = activeRegistrations.put(type, replacementRegistration);
+        serviceDefinitions.put(type, replacement);
+        if (previousRegistration != null) {
+            previousRegistration.close();
         }
     }
 
-    private <T> CapabilityRegistration publishInternal(Class<T> type, Object rawInstance) {
-        return internalRegistry.register(ownerId, type, type.cast(rawInstance));
+    private CapabilityRegistration publish(Class<?> type, ServiceDefinition definition) {
+        return switch (definition.kind()) {
+            case PUBLIC -> publishPublic(type, definition.instance());
+            case INTERNAL -> publishInternal(type, definition.instance());
+        };
     }
 
-    private <T> FeatureServiceHandle registerWithDataRegistry(Class<T> type, T instance) {
-        return currentDataRegistry()
-                .map(dataRegistry -> dataRegistry.featureServices().register(
-                        "ServerFeatures",
-                        ownerFeature,
-                        type,
-                        instance
-                ))
-                .orElse(null);
+    private CapabilityRegistration replace(Class<?> type, ServiceDefinition definition) {
+        return switch (definition.kind()) {
+            case PUBLIC -> replacePublic(type, definition.instance());
+            case INTERNAL -> replaceInternal(type, definition.instance());
+        };
     }
 
-    private Optional<DataRegistryApi> currentDataRegistry() {
-        Optional<DataRegistryApi> current = dataRegistrySupplier.get();
-        return current == null ? Optional.empty() : current;
+    private <T> CapabilityRegistration publishPublic(Class<T> type, Object instance) {
+        return registry.register(owner, type, type.cast(instance));
     }
 
-    private static boolean isPublicCapability(Class<?> type) {
-        return type.isInterface() && type.getPackageName().startsWith("nl.hauntedmc.serverfeatures.api.");
+    private <T> CapabilityRegistration publishInternal(Class<T> type, Object instance) {
+        return internalRegistry.register(owner, type, type.cast(instance));
+    }
+
+    private <T> CapabilityRegistration replacePublic(Class<T> type, Object instance) {
+        return registry.replace(owner, type, type.cast(instance));
+    }
+
+    private <T> CapabilityRegistration replaceInternal(Class<T> type, Object instance) {
+        return internalRegistry.replace(owner, type, type.cast(instance));
+    }
+
+    private void requireBound() {
+        if (registry == null || internalRegistry == null || owner == null) {
+            throw new IllegalStateException("Feature API manager is not bound to capability registries");
+        }
     }
 
     private void requireOpen() {
@@ -357,30 +230,6 @@ public class FeatureApiManager {
         return failure;
     }
 
-    private static Throwable closeServices(Map<Class<?>, ActiveService> services, Throwable failure) {
-        List<ActiveService> values = new ArrayList<>(services.values());
-        for (int index = values.size() - 1; index >= 0; index--) {
-            try {
-                values.get(index).close();
-            } catch (Throwable closeFailure) {
-                if (failure == null) {
-                    failure = closeFailure;
-                } else {
-                    failure.addSuppressed(closeFailure);
-                }
-            }
-        }
-        return failure;
-    }
-
-    private static void safelyClose(AutoCloseable closeable, Throwable failure) {
-        try {
-            closeable.close();
-        } catch (Throwable closeFailure) {
-            failure.addSuppressed(closeFailure);
-        }
-    }
-
     private static String requireText(String value, String fieldName) {
         String normalized = Objects.requireNonNull(value, fieldName).trim();
         if (normalized.isEmpty()) {
@@ -394,62 +243,6 @@ public class FeatureApiManager {
         throw (E) throwable;
     }
 
-    private final class ActiveService implements AutoCloseable {
-        private final Class<?> type;
-        private final Object instance;
-        private final FeatureServiceHandle dataRegistryHandle;
-        private final CapabilityRegistration capabilityHandle;
-        private boolean closed;
-
-        private ActiveService(
-                Class<?> type,
-                Object instance,
-                FeatureServiceHandle dataRegistryHandle,
-                CapabilityRegistration capabilityHandle
-        ) {
-            this.type = type;
-            this.instance = instance;
-            this.dataRegistryHandle = dataRegistryHandle;
-            this.capabilityHandle = capabilityHandle;
-        }
-
-        @Override
-        public synchronized void close() {
-            if (closed) {
-                return;
-            }
-            closed = true;
-            Throwable failure = null;
-            if (capabilityHandle != null) {
-                try {
-                    capabilityHandle.close();
-                } catch (Throwable throwable) {
-                    failure = throwable;
-                }
-            }
-            try {
-                localCatalog.unregister(ownerFeature, type, instance);
-            } catch (Throwable throwable) {
-                if (failure == null) {
-                    failure = throwable;
-                } else {
-                    failure.addSuppressed(throwable);
-                }
-            }
-            if (dataRegistryHandle != null) {
-                try {
-                    dataRegistryHandle.close();
-                } catch (Throwable throwable) {
-                    if (failure == null) {
-                        failure = throwable;
-                    } else {
-                        failure.addSuppressed(throwable);
-                    }
-                }
-            }
-            if (failure != null) {
-                throwUnchecked(failure);
-            }
-        }
+    private record ServiceDefinition(RegistryKind kind, Object instance) {
     }
 }
