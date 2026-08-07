@@ -87,6 +87,11 @@ anti_snipe:
 broadcasts:
   enabled: true
   remaining_times: [1h, 30m, 10m, 5m, 1m, 30s, 10s]
+  ticket_purchases:
+    enabled: false
+  donations:
+    enabled: false
+    minimum_amount: "1000.00"
 
 payouts:
   automatic_on_join: true
@@ -98,6 +103,8 @@ history:
 ```
 
 `maximum_per_player: 0` and `maximum_per_round: 0` mean unlimited. Prize shares must be positive and total exactly `100`. Money accepts at most two decimal places.
+
+Ticket-purchase and donation announcements are independent and disabled by default. A ticket purchase is announced once the purchase has been successfully persisted. Donation announcements are emitted only for successfully persisted player donations whose individual amount is at least `broadcasts.donations.minimum_amount`; failed or refunded transactions are never announced. The announcement messages can use `{player}`, `{tickets}`, `{cost}`, `{amount}` and `{pot}` as applicable. `broadcasts.enabled` continues to control the configured remaining-time reminders.
 
 ## Draw fairness
 

@@ -11,9 +11,11 @@ import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway.EconomyResult;
 import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
+import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.DonationReceipt;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PendingPayout;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PayoutStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PlayerSummary;
+import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PurchaseReceipt;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.RoundSnapshot;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository;
@@ -409,6 +411,33 @@ public final class LotteryService {
         return LotteryViewService.formatDuration(millis);
     }
 
+    private void announceTicketPurchase(String playerName, PurchaseReceipt receipt) {
+        if (!settings.broadcasts().shouldAnnounceTicketPurchase()
+                || playerName == null
+                || playerName.isBlank()) {
+            return;
+        }
+        feature.broadcast("lottery.broadcast.ticket_purchase", Map.of(
+                "player", playerName,
+                "tickets", Integer.toString(receipt.purchasedTickets()),
+                "cost", format(receipt.charged()),
+                "pot", format(receipt.pot())
+        ));
+    }
+
+    private void announceDonation(String playerName, DonationReceipt receipt) {
+        if (!settings.broadcasts().shouldAnnounceDonation(receipt.amount())
+                || playerName == null
+                || playerName.isBlank()) {
+            return;
+        }
+        feature.broadcast("lottery.broadcast.donation", Map.of(
+                "player", playerName,
+                "amount", format(receipt.amount()),
+                "pot", format(receipt.pot())
+        ));
+    }
+
     private void withdrawAndStorePurchase(
             UUID playerUuid,
             String playerName,
@@ -468,6 +497,7 @@ public final class LotteryService {
                                 "player_tickets", Integer.toString(receipt.playerTickets()),
                                 "pot", format(receipt.pot())
                         ));
+                        announceTicketPurchase(playerName, receipt);
                     }));
                 }));
     }
@@ -582,15 +612,20 @@ public final class LotteryService {
             endPlayerOperation(playerUuid);
             rounds.refreshRound();
             refreshPlayerSummary(playerUuid);
+            PurchaseReceipt receipt = fulfilment.receipt();
+            if (receipt == null) {
+                return;
+            }
             Player player = Bukkit.getPlayer(playerUuid);
-            if (player != null && player.isOnline() && fulfilment.receipt() != null) {
+            if (player != null && player.isOnline()) {
                 feature.send(player, "lottery.buy.success", Map.of(
-                        "tickets", Integer.toString(fulfilment.receipt().purchasedTickets()),
-                        "cost", format(fulfilment.receipt().charged()),
-                        "player_tickets", Integer.toString(fulfilment.receipt().playerTickets()),
-                        "pot", format(fulfilment.receipt().pot())
+                        "tickets", Integer.toString(receipt.purchasedTickets()),
+                        "cost", format(receipt.charged()),
+                        "player_tickets", Integer.toString(receipt.playerTickets()),
+                        "pot", format(receipt.pot())
                 ));
             }
+            announceTicketPurchase(event.account().playerName(), receipt);
         });
         return CompletableFuture.completedFuture(null);
     }
@@ -706,6 +741,7 @@ public final class LotteryService {
                                 "amount", format(receipt.amount()),
                                 "pot", format(receipt.pot())
                         ));
+                        announceDonation(playerName, receipt);
                     }));
                 }));
     }

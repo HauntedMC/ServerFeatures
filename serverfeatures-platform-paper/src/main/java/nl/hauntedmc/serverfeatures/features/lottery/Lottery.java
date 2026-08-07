@@ -83,6 +83,9 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         defaults.put("anti_snipe.maximum_total_extension", "5m");
         defaults.put("broadcasts.enabled", true);
         defaults.put("broadcasts.remaining_times", List.of("1h", "30m", "10m", "5m", "1m", "30s", "10s"));
+        defaults.put("broadcasts.ticket_purchases.enabled", false);
+        defaults.put("broadcasts.donations.enabled", false);
+        defaults.put("broadcasts.donations.minimum_amount", "1000.00");
         defaults.put("payouts.automatic_on_join", true);
         defaults.put("payouts.claim_command_enabled", true);
         defaults.put("history.page_size", 10);
@@ -138,6 +141,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         messages.add("lottery.leaderboard.entry", "<aqua>#{rank}</aqua> <yellow>{player}</yellow> <gray>· {amount} · {count} keer</gray>");
 
         messages.add("lottery.broadcast.remaining", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is over {remaining}.</yellow>");
+        messages.add("lottery.broadcast.ticket_purchase", "<gold>[Loterij]</gold> <yellow>{player} kocht {tickets} lot(en) voor {cost}.</yellow> <gray>De jackpot is nu {pot}.</gray>");
+        messages.add("lottery.broadcast.donation", "<gold>[Loterij]</gold> <yellow>{player} doneerde {amount} aan de jackpot!</yellow> <gray>De jackpot is nu {pot}.</gray>");
         messages.add("lottery.broadcast.draw_header", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is voltooid met {tickets} loten van {participants} spelers.</yellow>");
         messages.add("lottery.broadcast.winner", "<gold>[Loterij]</gold> <yellow>#{position} {player} wint {amount}!</yellow>");
         messages.add("lottery.broadcast.no_tickets", "<gold>[Loterij]</gold> <yellow>Er waren geen loten verkocht. {carry} gaat door naar de volgende trekking.</yellow>");
