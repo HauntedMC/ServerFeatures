@@ -54,12 +54,13 @@ This directory documents all **64** feature modules currently present in ServerF
 - [VillagerOptimizer](villageroptimizer.md) — Reduces villager processing cost by applying configurable optimization rules without changing intended gameplay more than necessary.
 - [WorldEditVisualizer](worldeditvisualizer.md) — Visualizes WorldEdit selections for authorized builders with temporary particles or display markers.
 - [Graveyard](graveyard.md) — Stores death contents durably and renders claimable packet-only graves with active-server-time expiry and crash recovery.
+- [Economy](economy.md) — Provides a MySQL-authoritative, multi-currency network economy with scoped balances, audited idempotent transactions, cross-server synchronization, player payments, administration, Vault compatibility, and operational verification.
 - [Lottery](lottery.md) — Runs scheduled ticket-based draws with donations, offline payouts, history, leaderboards, and a small staff command set.
 
 ## Moderation and administration
 
 - [Vanish](vanish.md) — Provides staff invisibility with persisted state, visibility filtering, interaction protections, tab-list handling, and cross-feature availability through `VanishAPI`.
-- [InvTools](invtools.md) — Provides safe online and offline inventory and ender-chest inspection, editing, clearing, migration, conflict detection, and audit logging.
+- [InvTools](invtools.md) — Provides safe online and offline inventory and ender-chest inspection, editing, clearing, conflict detection, and audit logging.
 - [ChatFilter](chatfilter.md) — Filters local chat against configured rules while preserving the server's broader chat pipeline.
 - [ChatLayout](chatlayout.md) — Formats Paper chat messages with ranks, names, hover/click content, and signed-chat compatibility.
 - [ChatTools](chattools.md) — Provides staff chat-management utilities such as clearing or controlling the local server chat.

@@ -52,7 +52,7 @@ Keys use the ServerFeatures plugin namespace.
 
 Fields are not removed when false or expired. `hasDisabledByBlock` checks key presence; `getDisabledByBlock` parses its value. A villager toggled back on therefore retains the key with value false.
 
-No schema version or migration exists.
+No schema marker or conversion process exists.
 
 ## Event ordering
 

@@ -19,7 +19,7 @@ Every command is player-only. Console has no branch because Brigadier `.requires
 
 Player suggestions contain online names only, filtered by prefix, sorted case-insensitively and limited to 20. Offline names must be typed manually.
 
-Before an offline open/clear, the command registers a migration request with the actor and typed target name. Exact online targets skip that request and use live Bukkit state.
+Before an offline open/clear, the command registers a transfer request with the actor and typed target name. Exact online targets skip that request and use live Bukkit state.
 
 ## Permissions
 
@@ -46,7 +46,7 @@ Self-open is rejected.
 | `max_offline_sessions` | `4` | Concurrent offline opens and clears. Excess work fails fast rather than entering Paper's shared async queue. |
 | `audit_edits` | `true` | Emits structured edit/clear and offline terminal-outcome logs. |
 
-There are no configurable GUI sizes, backup names, file-size limits, retry count, migration policy, slot numbering or database connection. Those are implementation contracts.
+There are no configurable GUI sizes, backup names, file-size limits, retry count, transfer policy, slot numbering or database connection. Those are implementation contracts.
 
 ## Initialization order
 
@@ -63,7 +63,7 @@ Feature initialization is intentionally fail-fast:
    - main InvTools/login listener;
 6. schedule live-view refresh after one interval and repeat at the configured interval.
 
-If service creation fails, the migration coordinator is shut down before the exception escapes.
+If service creation fails, the transfer coordinator is shut down before the exception escapes.
 
 ## Event ordering
 
@@ -74,8 +74,8 @@ If service creation fails, the migration coordinator is shut down before the exc
 | `InventoryClickEvent` | `HIGHEST` | Main session permission, slot, online-revision and GUI handling. Processes cancelled events. |
 | `InventoryDragEvent` | `HIGHEST` | Cancels target-GUI/isolated-cursor drags. Processes cancelled events. |
 | `InventoryCloseEvent` | `MONITOR` | Starts close/save/discard lifecycle. |
-| `AsyncPlayerPreLoginEvent` | `HIGHEST` | Rejects active migration or waits for admitted offline I/O. Only acts when login is still allowed. |
-| `PlayerConnectionInitialConfigureEvent` | `LOWEST` | Rechecks migration fence before Paper constructs/loads player state and marks playerdata loading. |
+| `AsyncPlayerPreLoginEvent` | `HIGHEST` | Rejects active transfer or waits for admitted offline I/O. Only acts when login is still allowed. |
+| `PlayerConnectionInitialConfigureEvent` | `LOWEST` | Rechecks the transfer fence before Paper constructs/loads player state and marks playerdata loading. |
 | `PlayerJoinEvent` | `LOWEST` | Completes login transition and closes/discards conflicting offline state. |
 | `PlayerQuitEvent` | `MONITOR` | Closes target live views and viewer sessions. |
 
@@ -141,7 +141,7 @@ A player can be known network-wide but have no file on this backend; that reques
 
 Paper can fire quit before its final save is visible. A UUID confirmed through a real connection/DataRegistry is allowed into a bounded file-appearance retry. Identity resolution must not reject the request before this retry becomes reachable.
 
-### Conservative legacy fallback
+### Conservative fallback
 
 For playerdata predating canonical DataRegistry authority, InvTools can use:
 
@@ -149,7 +149,7 @@ For playerdata predating canonical DataRegistry authority, InvTools can use:
 - `bukkit.lastKnownName` inside playerdata;
 - matching local Paper `usercache.json` entry.
 
-An existing local legacy UUID file can take precedence over a canonical UUID whose file has not appeared, preserving access during UUID-mode migrations. DataRegistry query failure is reported as load failure, not “never played.”
+An existing local UUID file can take precedence over a canonical UUID whose file has not appeared, preserving access during UUID-mode transfers. DataRegistry query failure is reported as load failure, not “never played.”
 
 No blocking Mojang profile lookup or fake OfflinePlayer entity is used.
 
@@ -163,7 +163,7 @@ Offline reads/writes run away from the main thread. Admission is bounded by:
 - per-target operation lock;
 - operation gate that rejects not-yet-started work during shutdown while allowing admitted work to reach a terminal state.
 
-Offline clear uses the same admission, lock, conflict, backup, login and migration safeguards as editing.
+Offline clear uses the same admission, lock, conflict, backup, login and transfer safeguards as editing.
 
 ## Offline cursor and cross-inventory transfers
 
@@ -217,13 +217,13 @@ The ordinary `.invtools-backup` is intentionally retained for administrative rec
 
 - success permits login;
 - failed/timed-out completion rejects once with `invtools.login_retry`;
-- active migration rejects with `invtools.login_migration`;
+- active transfer rejects with the dedicated InvTools login message;
 - initial-configuration event checks again before player construction;
 - join is the final race guard and discards uncommitted GUI state rather than writing over already-loaded playerdata.
 
-The migration fence covers queue wait, conversion, recovery and final save. The ordinary reservation/login fences protect the earlier identity handoff.
+The transfer fence covers queue wait, conversion, recovery and final save. The ordinary reservation/login fences protect the earlier identity handoff.
 
-## Playerdata version and migration
+## Playerdata format handling
 
 InvTools uses one current-schema reader/writer. Older positive `DataVersion` values are upgraded using Paper's own `DataFixTypes.PLAYER` public `CompoundTag` conversion path.
 
@@ -243,22 +243,22 @@ Rejected without mutation:
 - UUID mismatch;
 - invalid converted inventories/equipment/items/slot uniqueness/stack sizes.
 
-### Migration transaction
+### Transfer transaction
 
 1. read, bound, parse, identity-check and hash source;
-2. copy exact compressed bytes to same-directory temporary migration backup;
-3. fsync, atomically install and hash-verify `<uuid>.dat.invtools-migration-backup`;
+2. copy exact compressed bytes to a same-directory temporary backup;
+3. fsync, atomically install and hash-verify the replacement file;
 4. convert detached NBT with Paper;
 5. validate converted root;
 6. write/fsync/reread/validate converted temporary file;
 7. recheck source hash;
 8. atomically install converted source;
 9. reread and compare committed bytes;
-10. delete temporary migration backup only after verified success.
+10. delete the temporary backup only after verified success.
 
 A failure before replacement leaves source unchanged. A failure after replacement restores exact backup through another verified atomic replacement. When another process changed a parseable file, InvTools does not guess or overwrite it.
 
-### Leftover migration-backup reconciliation
+### Leftover temporary-backup reconciliation
 
 On the next access:
 
@@ -267,7 +267,7 @@ On the next access:
 - two different parseable files: retain both as ambiguous and fail closed;
 - backup-only state remains discoverable even when primary source is absent.
 
-Migration backup is temporary and distinct from the retained edit recovery backup.
+The temporary backup is distinct from the retained edit recovery backup.
 
 ## Audit logging
 
@@ -283,7 +283,7 @@ With `audit_edits=true`, logs include:
 - canonical backing slot;
 - before/after material and amount.
 
-Offline pending edits receive exactly one terminal save/conflict/failure/discard outcome with the same session ID. Clear operations and migration progress/failures are also logged.
+Offline pending edits receive exactly one terminal save/conflict/failure/discard outcome with the same session ID. Clear operations and transfer progress/failures are also logged.
 
 Disable auditing only when another system records equivalent action **and terminal persistence outcome**.
 
@@ -307,11 +307,11 @@ The feature defines complete user feedback groups:
 - `offline_saved`, `save_failed`, `save_conflict`;
 - `clearing`, `cleared`, `clear_failed`, `clear_conflict`, `clear_cancelled`, `clear_editing`.
 
-### Login/migration
+### Login/transfer
 
-- retry/migration login rejection;
+- retry/transfer login rejection;
 - detected/backup/converting/restoring/completed/backup-retained/failure variants;
-- migration messages supply `{player}`, `{from}` and `{to}` as applicable.
+- transfer messages supply `{player}`, `{from}` and `{to}` as applicable.
 
 ### GUI
 
@@ -319,11 +319,11 @@ Localized inventory/ender chest titles, online/offline status, section descripti
 
 ## Shutdown sequence
 
-`disable()` first calls `service.shutdown()` and then always shuts down the migration coordinator.
+`disable()` first calls `service.shutdown()` and then always shuts down the transfer coordinator.
 
 Service shutdown closes visible sessions, settles/rolls back transfer state, closes the operation gate, rejects queued work that never started, and allows operations already admitted through the gate to finish before login protection is removed.
 
-This ordering prevents a queued legacy load from starting after listeners/fences disappear.
+This ordering prevents a queued fallback load from starting after listeners/fences disappear.
 
 ## Persistence and non-integrations
 
@@ -350,7 +350,7 @@ Only one backend can safely mutate a given local playerdata file. Shared/mounted
 - Online and offline paths have different authority and concurrency models.
 - A player known elsewhere on the network may have no local data.
 - Offline save and reward-like staff transfer settlement are transactional only within this process/filesystem design.
-- Atomic move support is required for mutation/migration.
+- Atomic move support is required for mutation/transfer.
 - Login can be temporarily rejected to preserve playerdata ordering.
 - Newer playerdata cannot be down-converted.
 - Recovery backups may intentionally remain after ambiguous/failing recovery.
@@ -364,11 +364,11 @@ Only one backend can safely mutate a given local playerdata file. Shared/mounted
 3. Open multiple inspectors and a single editor; attempt clear during edit.
 4. Exercise every click, shift-click, number key, offhand, drag, drop and cursor-close path.
 5. Fill staff inventory before offline rollback and confirm leftovers drop rather than disappear.
-6. Test canonical UUID, renamed player, legacy UUID, unknown network player and no-local-file cases.
-7. Trigger logout file-appearance retry and login during open/save/clear/migration.
+6. Test canonical UUID, renamed player, local UUID, unknown network player and no-local-file cases.
+7. Trigger logout file-appearance retry and login during open/save/clear/transfer.
 8. Modify playerdata externally between read, backup and commit to validate both revision fences.
 9. Test malformed, oversized, symlink, wrong-UUID and newer-DataVersion files.
-10. Migrate representative old versions and interrupt before/after replacement to verify restoration/reconciliation.
+10. Transfer representative playerdata and interrupt before/after replacement to verify restoration/reconciliation.
 11. Disable/reload/server-stop with queued and admitted operations.
 12. Inspect structured audit entries and exact terminal outcome correlation by session ID.
 
@@ -382,5 +382,5 @@ Only one backend can safely mutate a given local playerdata file. Shared/mounted
 - Disconnect/death rollback: `features/invtools/listener/InvToolsTransferAbortListener.java`
 - Session/orchestration: `features/invtools/service/InvToolsService.java`
 - Playerdata persistence: `features/invtools/persistence/`
-- Migration/fences: `features/invtools/migration/`
+- Transfer/fences: `features/invtools/`
 - GUI/snapshots/slot mapping: `features/invtools/gui/`, `features/invtools/model/`

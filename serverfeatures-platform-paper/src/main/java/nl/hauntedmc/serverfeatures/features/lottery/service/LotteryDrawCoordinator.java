@@ -225,12 +225,10 @@ final class LotteryDrawCoordinator {
                 }
             }
         }
-        feature.broadcast("lottery.broadcast.proof", Map.of(
-                "round", result.roundId(),
-                "commitment", result.seedCommitment(),
-                "seed", result.seedReveal(),
-                "entry_digest", result.entryDigest()
-        ));
+        // The proof is audit information, not player-facing lottery chat. Broadcasting the seed
+        // and hashes to every player was both noisy and unintentionally exposed implementation detail.
+        feature.getLogger().info("Lottery draw " + result.roundId() + ": commitment " + result.seedCommitment()
+                + ", seed " + result.seedReveal() + ", entries " + result.entryDigest());
     }
 
     private void announceRemaining(RoundSnapshot round, long currentTime) {

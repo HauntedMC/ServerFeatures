@@ -15,6 +15,10 @@ public interface BaseMeta {
         return List.of();
     }
 
+    default List<String> getOptionalDependencies() {
+        return List.of();
+    }
+
     default List<String> getPluginDependencies() {
         return List.of();
     }

@@ -1,12 +1,12 @@
 # Portals
 
-> Paper · Feature ID `portals` · disabled by default · local cuboid actions and legacy proxy transfer
+> Paper · Feature ID `portals` · disabled by default · local cuboid actions and proxy transfer
 
 Portals stores named cuboid regions in `local/portals.yml`. When a player enters a matching block coordinate, the first matching definition performs one of three actions:
 
 - teleport inside the same Paper process;
 - execute a command as player or console;
-- send a legacy `BungeeCord` plugin message requesting a proxy server connection.
+- send a `BungeeCord` plugin message requesting a proxy server connection.
 
 Optional delayed sound and particle feedback can follow the action. Editing uses one admin command and a PDC-marked Blaze Rod selection wand.
 
@@ -70,11 +70,11 @@ portals:
 | `teleport.world/x/y/z` | TELEPORT action | World name and exact doubles; yaw/pitch default zero. Missing/unloaded world makes runtime action fail. |
 | `command.value` | COMMAND action | Command without leading slash. Blank means no command but effects can still run. |
 | `command.executor` | COMMAND action | `PLAYER` or `CONSOLE`; invalid/missing falls back to console through `CommandExecutor.fromString`. |
-| `server.name` | SERVER action | Legacy proxy destination name. |
+| `server.name` | SERVER action | Proxy destination name. |
 | `exclusive_block` | no | Trigger requires the player's destination block type to equal this Material. Invalid/non-block/air value is ignored on reload. |
-| `sound.name` | no | Namespaced/legacy-resolved Paper sound. Invalid value is ignored. |
+| `sound.name` | no | Namespaced or compatibility-resolved Paper sound. Invalid value is ignored. |
 | `sound.delay` | no | Delay ticks, clamped to zero or greater. |
-| `particle.name` | no | Namespaced/legacy-resolved particle. Invalid value is ignored. |
+| `particle.name` | no | Namespaced or compatibility-resolved particle. Invalid value is ignored. |
 | `particle.delay` | no | Delay ticks, clamped to zero or greater. |
 
 Portal IDs are stored under lower-case YAML keys and registry lookup is case-insensitive. A mixed-case ID can display with its original case during the current process, but after reload it is reconstructed from the lower-case key.
@@ -224,7 +224,7 @@ The feature does not escape names or command content and does not enforce a comm
 
 When target is missing/blank, the player receives `portals.server.missing`, a warning is logged and no effects are scheduled.
 
-Otherwise the handler writes legacy plugin message:
+Otherwise the handler writes this plugin message:
 
 ```text
 channel: BungeeCord

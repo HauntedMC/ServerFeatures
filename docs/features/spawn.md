@@ -73,7 +73,7 @@ Before this can be treated as a supported feature, its design needs explicit dec
 7. **Cross-server behavior:** whether `/spawn` teleports locally or asks ProxyFeatures to connect to a designated backend.
 8. **Failure behavior:** missing/unloaded world, unsafe location, database outage, player disconnect and feature reload during warm-up.
 9. **Integration:** Vanish, AFK, Teleportation, Restart/autoreconnect, homes/warps, combat tagging and protection plugins.
-10. **Observability/tests:** state migration, event priority, cancellation, concurrency and in-game verification.
+10. **Observability/tests:** state handling, event priority, cancellation, concurrency and in-game verification.
 
 A future implementation should extend the correct Paper feature base, use `FeatureContext<Meta>`, register every command/listener/task/service through the lifecycle manager, define deterministic disable/reload cleanup and replace this page with its real contract.
 

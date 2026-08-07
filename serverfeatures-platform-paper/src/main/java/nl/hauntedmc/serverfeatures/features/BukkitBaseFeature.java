@@ -32,6 +32,10 @@ public abstract class BukkitBaseFeature<T extends BaseMeta> implements Feature {
         return context.meta().getDependencies();
     }
 
+    public List<String> getOptionalDependencies() {
+        return context.meta().getOptionalDependencies();
+    }
+
     public List<String> getPluginDependencies() {
         return context.meta().getPluginDependencies();
     }

@@ -14,6 +14,7 @@ public record FeatureDescriptor(
         String featureName,
         String featureVersion,
         Set<String> featureDependencies,
+        Set<String> optionalFeatureDependencies,
         Set<String> pluginDependencies
 ) {
     public FeatureDescriptor(
@@ -24,8 +25,21 @@ public record FeatureDescriptor(
             Set<String> featureDependencies,
             Set<String> pluginDependencies
     ) {
-        this(registryName, featureClassName, (Class<? extends BaseMeta>) null, featureName,
-                featureVersion, featureDependencies, pluginDependencies);
+        this(registryName, featureClassName, null, featureName, featureVersion,
+                featureDependencies, Set.of(), pluginDependencies);
+    }
+
+    public FeatureDescriptor(
+            String registryName,
+            String featureClassName,
+            String featureName,
+            String featureVersion,
+            Set<String> featureDependencies,
+            Set<String> optionalFeatureDependencies,
+            Set<String> pluginDependencies
+    ) {
+        this(registryName, featureClassName, null, featureName, featureVersion,
+                featureDependencies, optionalFeatureDependencies, pluginDependencies);
     }
 
     public FeatureDescriptor(
@@ -39,25 +53,25 @@ public record FeatureDescriptor(
     ) {
         this(registryName, featureClassName,
                 meta == null ? null : meta.getClass().asSubclass(BaseMeta.class),
-                featureName, featureVersion, featureDependencies, pluginDependencies);
+                featureName, featureVersion, featureDependencies,
+                meta == null ? Set.of() : new LinkedHashSet<>(meta.getOptionalDependencies()),
+                pluginDependencies);
     }
 
-    public FeatureDescriptor(
-            String registryName,
-            String featureClassName,
-            Class<? extends BaseMeta> metaClass,
-            String featureName,
-            String featureVersion,
-            Set<String> featureDependencies,
-            Set<String> pluginDependencies
-    ) {
-        this.registryName = registryName;
-        this.featureClassName = featureClassName;
-        this.metaClass = metaClass;
-        this.featureName = featureName == null ? "" : featureName;
-        this.featureVersion = featureVersion == null ? "" : featureVersion;
-        this.featureDependencies = normalizeDependencies(featureDependencies, registryName);
-        this.pluginDependencies = normalizeDependencies(pluginDependencies, null);
+    public FeatureDescriptor {
+        featureName = featureName == null ? "" : featureName;
+        featureVersion = featureVersion == null ? "" : featureVersion;
+        featureDependencies = normalizeDependencies(featureDependencies, registryName);
+        optionalFeatureDependencies = normalizeDependencies(optionalFeatureDependencies, registryName);
+        if (!featureDependencies.isEmpty() && !optionalFeatureDependencies.isEmpty()) {
+            Set<String> requiredDependencies = featureDependencies;
+            LinkedHashSet<String> optional = new LinkedHashSet<>(optionalFeatureDependencies);
+            optional.removeIf(candidate -> requiredDependencies.stream().anyMatch(candidate::equalsIgnoreCase));
+            optionalFeatureDependencies = optional.isEmpty()
+                    ? Set.of()
+                    : Collections.unmodifiableSet(optional);
+        }
+        pluginDependencies = normalizeDependencies(pluginDependencies, null);
     }
 
     public BaseMeta createMeta() {
@@ -72,6 +86,7 @@ public record FeatureDescriptor(
                 featureName,
                 featureVersion,
                 List.copyOf(featureDependencies),
+                List.copyOf(optionalFeatureDependencies),
                 List.copyOf(pluginDependencies)
         );
     }
@@ -98,6 +113,7 @@ public record FeatureDescriptor(
             String featureName,
             String featureVersion,
             List<String> dependencies,
+            List<String> optionalDependencies,
             List<String> pluginDependencies
     ) implements BaseMeta {
         @Override
@@ -113,6 +129,11 @@ public record FeatureDescriptor(
         @Override
         public List<String> getDependencies() {
             return dependencies;
+        }
+
+        @Override
+        public List<String> getOptionalDependencies() {
+            return optionalDependencies;
         }
 
         @Override

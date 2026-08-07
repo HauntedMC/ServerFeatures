@@ -89,7 +89,7 @@ The receiver copies incoming server entries into a new ordered immutable snapsho
 A message is `INVALID` when any of these conditions applies:
 
 - null message;
-- schema version differs from exactly `1`;
+- schema marker differs from exactly `1`;
 - publisher ID null/blank or not exactly equal to configured expected ID after trimming;
 - publisher epoch null/blank;
 - sequence `<=0`;

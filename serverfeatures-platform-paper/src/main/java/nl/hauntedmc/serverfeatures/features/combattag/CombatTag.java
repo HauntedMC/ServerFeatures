@@ -50,7 +50,7 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     @Override
     public ConfigMap getDefaultConfig() {
         ConfigMap config = new ConfigMap();
-        config.put("enabled", true);
+        config.put("enabled", false);
 
         config.put("tagging.mode", "BOTH");
         config.put("tagging.duration-seconds", 15);

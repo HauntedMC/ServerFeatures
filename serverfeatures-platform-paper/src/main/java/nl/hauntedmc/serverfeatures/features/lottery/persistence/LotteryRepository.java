@@ -6,6 +6,7 @@ import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
+import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPurchaseIntentEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.DonationReceipt;
@@ -104,66 +105,169 @@ public final class LotteryRepository {
         }
         return orm.runInTransaction(session -> {
             LotteryRoundEntity round = requiredRound(session, expectedRoundId, settings.lotteryKey(), true);
+            return purchase(session, settings, round, playerUuid, playerId, playerName, ticketCount, charged, now);
+        });
+    }
+
+    /**
+     * Reserves ticket capacity before a native Economy charge.  The resulting id is the stable
+     * Economy workflow key, so a restart cannot separate a debit from its intended purchase.
+     */
+    public PurchaseIntent reservePurchase(
+            LotterySettings settings,
+            String expectedRoundId,
+            UUID playerUuid,
+            long playerId,
+            String playerName,
+            int ticketCount,
+            Money charged,
+            long now
+    ) {
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(expectedRoundId, "expectedRoundId");
+        Objects.requireNonNull(playerUuid, "playerUuid");
+        Objects.requireNonNull(charged, "charged");
+        if (ticketCount <= 0) {
+            throw new IllegalArgumentException("ticketCount must be positive");
+        }
+        return orm.runInTransaction(session -> {
+            LotteryRoundEntity round = requiredRound(session, expectedRoundId, settings.lotteryKey(), true);
             requireOpen(round, now);
             Money expectedCharge = Money.of(round.getTicketPrice()).multiply(ticketCount);
             if (!expectedCharge.equals(charged)) {
                 throw new LotteryStateException("charged amount does not match the round ticket price");
             }
-            String entryId = entryId(round.getId(), playerUuid);
-            LotteryEntryEntity entry = session.find(LotteryEntryEntity.class, entryId, LockModeType.PESSIMISTIC_WRITE);
+            LotteryEntryEntity entry = session.find(
+                    LotteryEntryEntity.class, entryId(round.getId(), playerUuid), LockModeType.PESSIMISTIC_WRITE
+            );
             int existingTickets = entry == null ? 0 : entry.getTicketCount();
+            int reservedForPlayer = reservedTickets(session, settings.lotteryKey(), round.getId(), playerUuid);
+            int reservedForRound = reservedTickets(session, settings.lotteryKey(), round.getId(), null);
             if (settings.tickets().maximumPerPlayer() > 0
-                    && existingTickets + ticketCount > settings.tickets().maximumPerPlayer()) {
+                    && existingTickets + reservedForPlayer + ticketCount > settings.tickets().maximumPerPlayer()) {
                 throw new LotteryStateException("player ticket limit reached");
             }
             if (settings.tickets().maximumPerRound() > 0
-                    && round.getTotalTickets() + ticketCount > settings.tickets().maximumPerRound()) {
+                    && round.getTotalTickets() + reservedForRound + ticketCount > settings.tickets().maximumPerRound()) {
                 throw new LotteryStateException("round ticket limit reached");
             }
-            if (entry == null) {
-                entry = new LotteryEntryEntity();
-                entry.setId(entryId);
-                entry.setLotteryKey(settings.lotteryKey());
-                entry.setRoundId(round.getId());
-                entry.setPlayerUuid(playerUuid.toString());
-                entry.setTicketCount(0);
-                entry.setPaidAmount(BigDecimal.ZERO.setScale(Money.SCALE));
-                session.persist(entry);
-                round.setParticipants(Math.addExact(round.getParticipants(), 1));
-            }
-            entry.setPlayerId(playerId);
-            entry.setPlayerName(trim(playerName, 32));
-            entry.setTicketCount(Math.addExact(entry.getTicketCount(), ticketCount));
-            entry.setPaidAmount(entry.getPaidAmount().add(charged.amount()));
-            entry.setUpdatedAt(now);
-
-            round.setTotalTickets(Math.addExact(round.getTotalTickets(), ticketCount));
-            round.setTicketRevenue(round.getTicketRevenue().add(charged.amount()));
-            long extension = extension(settings, round, now);
-            if (extension > 0L) {
-                round.setClosesAt(Math.addExact(round.getClosesAt(), extension));
-                round.setExtensionCount(Math.addExact(round.getExtensionCount(), 1));
-                round.setTotalExtensionMillis(Math.addExact(round.getTotalExtensionMillis(), extension));
-            }
-            round.setUpdatedAt(now);
-
-            LotteryPlayerStatsEntity stats = stats(session, settings.lotteryKey(), playerUuid, true);
-            updateIdentity(stats, playerId, playerUuid, playerName);
-            stats.setTotalSpent(stats.getTotalSpent().add(charged.amount()));
-            stats.setTicketsBought(Math.addExact(stats.getTicketsBought(), ticketCount));
-            stats.setUpdatedAt(now);
-
-            return new PurchaseReceipt(
-                    ticketCount,
-                    entry.getTicketCount(),
-                    round.getTotalTickets(),
-                    round.getParticipants(),
-                    charged,
-                    snapshot(round).grossPot(),
-                    round.getClosesAt(),
-                    extension
-            );
+            LotteryPurchaseIntentEntity intent = new LotteryPurchaseIntentEntity();
+            intent.setId(UUID.randomUUID().toString());
+            intent.setLotteryKey(settings.lotteryKey());
+            intent.setRoundId(round.getId());
+            intent.setPlayerId(playerId);
+            intent.setPlayerUuid(playerUuid.toString());
+            intent.setPlayerName(trim(playerName, 32));
+            intent.setTicketCount(ticketCount);
+            intent.setChargedAmount(charged.amount());
+            intent.setState(PurchaseIntentState.PAYMENT_PENDING.name());
+            intent.setCreatedAt(now);
+            intent.setUpdatedAt(now);
+            session.persist(intent);
+            return purchaseIntent(intent);
         });
+    }
+
+    /** Applies a charged purchase exactly once, or records that it must be refunded. */
+    public PurchaseFulfilment fulfilPurchase(LotterySettings settings, String purchaseIntentId, Money charged, long now) {
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(purchaseIntentId, "purchaseIntentId");
+        Objects.requireNonNull(charged, "charged");
+        return orm.runInTransaction(session -> {
+            LotteryPurchaseIntentEntity intent = session.find(
+                    LotteryPurchaseIntentEntity.class, purchaseIntentId, LockModeType.PESSIMISTIC_WRITE
+            );
+            if (intent == null) {
+                throw new LotteryStateException("Lottery purchase intent is missing");
+            }
+            if (!settings.lotteryKey().equals(intent.getLotteryKey())) {
+                throw new LotteryStateException("Lottery purchase intent belongs to another Lottery");
+            }
+            if (!Money.of(intent.getChargedAmount()).equals(charged)) {
+                throw new LotteryStateException("Lottery purchase workflow amount differs from its intent");
+            }
+            PurchaseIntentState state = PurchaseIntentState.valueOf(intent.getState());
+            if (state == PurchaseIntentState.FULFILLED) {
+                return PurchaseFulfilment.fulfilled(receiptForExistingPurchase(session, intent, charged));
+            }
+            if (state == PurchaseIntentState.REFUND_PENDING || state == PurchaseIntentState.REFUNDED) {
+                return PurchaseFulfilment.refundRequired(purchaseIntent(intent));
+            }
+            if (state != PurchaseIntentState.PAYMENT_PENDING) {
+                throw new LotteryStateException("Lottery purchase intent is not awaiting payment");
+            }
+            LotteryRoundEntity round = requiredRound(session, intent.getRoundId(), intent.getLotteryKey(), true);
+            if (!RoundStatus.OPEN.name().equals(round.getStatus()) || round.isPaused() || round.getClosesAt() <= now) {
+                intent.setState(PurchaseIntentState.REFUND_PENDING.name());
+                intent.setUpdatedAt(now);
+                return PurchaseFulfilment.refundRequired(purchaseIntent(intent));
+            }
+            PurchaseReceipt receipt = purchase(
+                    session,
+                    settings,
+                    round,
+                    UUID.fromString(intent.getPlayerUuid()),
+                    intent.getPlayerId(),
+                    intent.getPlayerName(),
+                    intent.getTicketCount(),
+                    charged,
+                    now
+            );
+            intent.setState(PurchaseIntentState.FULFILLED.name());
+            intent.setUpdatedAt(now);
+            return PurchaseFulfilment.fulfilled(receipt);
+        });
+    }
+
+    /** Records the completion of the idempotent refund that compensates an unfulfillable purchase. */
+    public PurchaseIntent markPurchaseRefunded(String purchaseIntentId, long now) {
+        return orm.runInTransaction(session -> {
+            LotteryPurchaseIntentEntity intent = session.find(
+                    LotteryPurchaseIntentEntity.class, purchaseIntentId, LockModeType.PESSIMISTIC_WRITE
+            );
+            if (intent == null) {
+                throw new LotteryStateException("Lottery purchase intent is missing");
+            }
+            PurchaseIntentState state = PurchaseIntentState.valueOf(intent.getState());
+            if (state == PurchaseIntentState.FULFILLED) {
+                throw new LotteryStateException("A fulfilled Lottery purchase cannot be refunded");
+            }
+            if (state != PurchaseIntentState.REFUNDED) {
+                intent.setState(PurchaseIntentState.REFUNDED.name());
+                intent.setUpdatedAt(now);
+            }
+            return purchaseIntent(intent);
+        });
+    }
+
+    /** Stops a definitely declined native payment from retaining ticket capacity. */
+    public void declinePurchase(String purchaseIntentId, long now) {
+        orm.runInTransaction(session -> {
+            LotteryPurchaseIntentEntity intent = session.find(
+                    LotteryPurchaseIntentEntity.class, purchaseIntentId, LockModeType.PESSIMISTIC_WRITE
+            );
+            if (intent != null && PurchaseIntentState.PAYMENT_PENDING.name().equals(intent.getState())) {
+                intent.setState(PurchaseIntentState.PAYMENT_DECLINED.name());
+                intent.setUpdatedAt(now);
+            }
+            return null;
+        });
+    }
+
+    /** Returns a bounded batch of uncertain native payments that require safe reconciliation. */
+    public List<PurchaseIntent> pendingPurchases(String lotteryKey, int limit) {
+        if (limit < 1 || limit > 100) {
+            throw new IllegalArgumentException("limit must be between 1 and 100");
+        }
+        return orm.runInTransaction(session -> session.createSelectionQuery(
+                        "from LotteryPurchaseIntentEntity intent where intent.lotteryKey = :lotteryKey "
+                                + "and intent.state = :state order by intent.createdAt asc",
+                        LotteryPurchaseIntentEntity.class
+                )
+                .setParameter("lotteryKey", lotteryKey)
+                .setParameter("state", PurchaseIntentState.PAYMENT_PENDING.name())
+                .setMaxResults(limit)
+                .getResultList().stream().map(LotteryRepository::purchaseIntent).toList());
     }
 
     public DonationReceipt donate(
@@ -597,6 +701,122 @@ public final class LotteryRepository {
         });
     }
 
+    private PurchaseReceipt purchase(
+            Session session,
+            LotterySettings settings,
+            LotteryRoundEntity round,
+            UUID playerUuid,
+            Long playerId,
+            String playerName,
+            int ticketCount,
+            Money charged,
+            long now
+    ) {
+        requireOpen(round, now);
+        Money expectedCharge = Money.of(round.getTicketPrice()).multiply(ticketCount);
+        if (!expectedCharge.equals(charged)) {
+            throw new LotteryStateException("charged amount does not match the round ticket price");
+        }
+        String entryId = entryId(round.getId(), playerUuid);
+        LotteryEntryEntity entry = session.find(LotteryEntryEntity.class, entryId, LockModeType.PESSIMISTIC_WRITE);
+        int existingTickets = entry == null ? 0 : entry.getTicketCount();
+        if (settings.tickets().maximumPerPlayer() > 0
+                && existingTickets + ticketCount > settings.tickets().maximumPerPlayer()) {
+            throw new LotteryStateException("player ticket limit reached");
+        }
+        if (settings.tickets().maximumPerRound() > 0
+                && round.getTotalTickets() + ticketCount > settings.tickets().maximumPerRound()) {
+            throw new LotteryStateException("round ticket limit reached");
+        }
+        if (entry == null) {
+            entry = new LotteryEntryEntity();
+            entry.setId(entryId);
+            entry.setLotteryKey(settings.lotteryKey());
+            entry.setRoundId(round.getId());
+            entry.setPlayerId(playerId);
+            entry.setPlayerUuid(playerUuid.toString());
+            entry.setPlayerName(trim(playerName, 32));
+            entry.setTicketCount(0);
+            entry.setPaidAmount(BigDecimal.ZERO.setScale(Money.SCALE));
+            session.persist(entry);
+            round.setParticipants(Math.addExact(round.getParticipants(), 1));
+        }
+        entry.setPlayerId(playerId);
+        entry.setPlayerName(trim(playerName, 32));
+        entry.setTicketCount(Math.addExact(entry.getTicketCount(), ticketCount));
+        entry.setPaidAmount(entry.getPaidAmount().add(charged.amount()));
+        entry.setUpdatedAt(now);
+
+        round.setTotalTickets(Math.addExact(round.getTotalTickets(), ticketCount));
+        round.setTicketRevenue(round.getTicketRevenue().add(charged.amount()));
+        long extension = extension(settings, round, now);
+        if (extension > 0L) {
+            round.setClosesAt(Math.addExact(round.getClosesAt(), extension));
+            round.setExtensionCount(Math.addExact(round.getExtensionCount(), 1));
+            round.setTotalExtensionMillis(Math.addExact(round.getTotalExtensionMillis(), extension));
+        }
+        round.setUpdatedAt(now);
+
+        LotteryPlayerStatsEntity stats = stats(session, settings.lotteryKey(), playerUuid, true);
+        updateIdentity(stats, playerId, playerUuid, playerName);
+        stats.setTotalSpent(stats.getTotalSpent().add(charged.amount()));
+        stats.setTicketsBought(Math.addExact(stats.getTicketsBought(), ticketCount));
+        stats.setUpdatedAt(now);
+
+        return new PurchaseReceipt(
+                ticketCount,
+                entry.getTicketCount(),
+                round.getTotalTickets(),
+                round.getParticipants(),
+                charged,
+                snapshot(round).grossPot(),
+                round.getClosesAt(),
+                extension
+        );
+    }
+
+    private int reservedTickets(Session session, String lotteryKey, String roundId, UUID playerUuid) {
+        String playerClause = playerUuid == null ? "" : " and intent.playerUuid = :playerUuid";
+        var query = session.createSelectionQuery(
+                        "select coalesce(sum(intent.ticketCount), 0) from LotteryPurchaseIntentEntity intent "
+                                + "where intent.lotteryKey = :lotteryKey and intent.roundId = :roundId "
+                                + "and intent.state = :state" + playerClause,
+                        Long.class
+                )
+                .setParameter("lotteryKey", lotteryKey)
+                .setParameter("roundId", roundId)
+                .setParameter("state", PurchaseIntentState.PAYMENT_PENDING.name());
+        if (playerUuid != null) {
+            query.setParameter("playerUuid", playerUuid.toString());
+        }
+        Long total = query.getSingleResult();
+        return Math.toIntExact(total == null ? 0L : total);
+    }
+
+    private PurchaseReceipt receiptForExistingPurchase(
+            Session session,
+            LotteryPurchaseIntentEntity intent,
+            Money charged
+    ) {
+        LotteryRoundEntity round = requiredRound(session, intent.getRoundId(), intent.getLotteryKey(), false);
+        LotteryEntryEntity entry = session.find(
+                LotteryEntryEntity.class, entryId(round.getId(), UUID.fromString(intent.getPlayerUuid()))
+        );
+        if (entry == null) {
+            throw new LotteryStateException("A fulfilled Lottery purchase has no entry");
+        }
+        return new PurchaseReceipt(intent.getTicketCount(), entry.getTicketCount(), round.getTotalTickets(),
+                round.getParticipants(), charged, snapshot(round).grossPot(), round.getClosesAt(), 0L);
+    }
+
+    private static PurchaseIntent purchaseIntent(LotteryPurchaseIntentEntity entity) {
+        return new PurchaseIntent(
+                entity.getId(), entity.getLotteryKey(), entity.getRoundId(), UUID.fromString(entity.getPlayerUuid()),
+                entity.getPlayerId(), entity.getPlayerName(), entity.getTicketCount(), Money.of(entity.getChargedAmount()),
+                PurchaseIntentState.valueOf(entity.getState())
+        );
+    }
+
     private Optional<LotteryRoundEntity> findCurrentRound(
             Session session,
             String lotteryKey,
@@ -812,6 +1032,37 @@ public final class LotteryRepository {
     }
 
     public record CancelledRound(RoundSnapshot nextRound, Money refunds) {
+    }
+
+    public record PurchaseIntent(
+            String id,
+            String lotteryKey,
+            String roundId,
+            UUID playerUuid,
+            long playerId,
+            String playerName,
+            int ticketCount,
+            Money charged,
+            PurchaseIntentState state
+    ) {
+    }
+
+    public record PurchaseFulfilment(PurchaseIntent intent, PurchaseReceipt receipt, boolean refundRequired) {
+        static PurchaseFulfilment fulfilled(PurchaseReceipt receipt) {
+            return new PurchaseFulfilment(null, receipt, false);
+        }
+
+        static PurchaseFulfilment refundRequired(PurchaseIntent intent) {
+            return new PurchaseFulfilment(intent, null, true);
+        }
+    }
+
+    public enum PurchaseIntentState {
+        PAYMENT_PENDING,
+        PAYMENT_DECLINED,
+        FULFILLED,
+        REFUND_PENDING,
+        REFUNDED
     }
 
     public static final class LotteryStateException extends RuntimeException {

@@ -188,7 +188,7 @@ Changed-render work is bounded by:
 
 The metadata for the six display styles is generated once from unspawned templates and reused for all viewers until feature reload.
 
-## Removed legacy API
+## Removed API surface
 
 The unused package below has been removed from `serverfeatures-api`:
 

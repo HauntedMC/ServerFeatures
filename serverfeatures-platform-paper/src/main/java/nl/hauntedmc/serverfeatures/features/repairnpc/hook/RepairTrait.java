@@ -159,11 +159,17 @@ public class RepairTrait extends Trait {
     }
 
     private void startReforge(Player p) {
+        if (!EcoUtil.withdraw(p, economy)) {
+            session = null;
+            p.sendMessage(feature.getLocalizationHandler()
+                    .getMessage("repairnpc.insufficient-funds")
+                    .forAudience(p).build());
+            return;
+        }
+
         p.sendMessage(feature.getLocalizationHandler()
                 .getMessage("repairnpc.start-reforge")
                 .forAudience(p).build());
-
-        EcoUtil.withdraw(p, economy);
         session.beginRepair();
 
         var ent = npc.getEntity();
