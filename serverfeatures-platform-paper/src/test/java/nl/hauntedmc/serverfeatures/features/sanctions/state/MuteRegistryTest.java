@@ -1,6 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.sanctions.state;
 
-import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
+import nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionEntity;
 import nl.hauntedmc.serverfeatures.features.sanctions.service.SanctionsDataService;
 import org.junit.jupiter.api.Test;
 

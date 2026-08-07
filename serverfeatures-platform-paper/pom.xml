@@ -363,8 +363,10 @@
                                            property="distribution.has.bootstrap"/>
                                 <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/api/ui/inventory/menu/MenuNavigator.class"
                                            property="distribution.has.api"/>
-                                <available file="${distribution.audit}/nl/hauntedmc/proxyfeatures/features/sanctions/entity/SanctionEntity.class"
+                                <available file="${distribution.audit}/nl/hauntedmc/proxyfeatures/contracts/messaging/CommandRelayMessage.class"
                                            property="distribution.has.contracts"/>
+                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/features/sanctions/entity/SanctionEntity.class"
+                                           property="distribution.has.sanctions.entity"/>
                                 <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/commons_text/similarity/LevenshteinDistance.class"
                                            property="distribution.has.commons.text"/>
                                 <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/commons_lang3/StringUtils.class"
@@ -382,7 +384,9 @@
                                 <fail unless="distribution.has.api"
                                       message="ServerFeatures.jar is missing its public API."/>
                                 <fail unless="distribution.has.contracts"
-                                      message="ServerFeatures.jar is missing shared contracts."/>
+                                      message="ServerFeatures.jar is missing shared ProxyFeatures messaging contracts."/>
+                                <fail unless="distribution.has.sanctions.entity"
+                                      message="ServerFeatures.jar is missing its sanctions persistence mapping."/>
                                 <fail unless="distribution.has.commons.text"
                                       message="ServerFeatures.jar is missing relocated Commons Text classes."/>
                                 <fail unless="distribution.has.commons.lang"

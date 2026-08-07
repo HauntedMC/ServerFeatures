@@ -1,8 +1,8 @@
 package nl.hauntedmc.serverfeatures.features.sanctions.service;
 
-import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionEntity;
-import nl.hauntedmc.proxyfeatures.features.sanctions.entity.SanctionType;
 import nl.hauntedmc.serverfeatures.features.sanctions.Sanctions;
+import nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionEntity;
+import nl.hauntedmc.serverfeatures.features.sanctions.entity.SanctionType;
 
 import java.time.Instant;
 import java.util.Optional;
