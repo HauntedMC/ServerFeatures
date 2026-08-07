@@ -144,8 +144,15 @@ final class EconomyPersistenceValues {
         if (amount.scale() > DATABASE_SCALE || amount.signum() != 0 && integerDigits > 30L) {
             throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT, "Amount exceeds DECIMAL(38,8) storage precision");
         }
+        if (amount.scale() > currency.display().fractionalDigits()) {
+            throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT,
+                    "Amount exceeds the configured currency precision");
+        }
         try {
-            return amount.setScale(currency.display().fractionalDigits(), currency.balances().rounding());
+            // Monetary callers must send the exact amount they intend to authorize. Rounding an
+            // incoming request can turn a requested debit of 1.005 into a committed debit of
+            // 1.01, which is unacceptable for native and gateway real-value operations.
+            return amount.setScale(currency.display().fractionalDigits(), RoundingMode.UNNECESSARY);
         } catch (ArithmeticException exception) {
             throw new EconomyRejectedException(EconomyResultStatus.INVALID_AMOUNT, "Amount has invalid precision");
         }
