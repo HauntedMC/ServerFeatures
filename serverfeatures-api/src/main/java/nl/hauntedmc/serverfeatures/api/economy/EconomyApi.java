@@ -31,6 +31,23 @@ public interface EconomyApi {
 
     CompletionStage<EconomyResult> transfer(EconomyTransferRequest request);
 
+    /**
+     * Atomically debits an account and appends an at-least-once fulfilment event to Economy's
+     * durable outbox. Use this for purchases instead of manually withdrawing and then writing a
+     * separate domain record.
+     */
+    CompletionStage<EconomyWorkflowResult> chargeAndDispatch(EconomyWorkflowRequest request);
+
+    /** Returns the durable fulfilment status for a previously submitted workflow. */
+    CompletionStage<Optional<EconomyWorkflowResult>> workflow(EconomyWorkflowRef workflow);
+
+    /**
+     * Registers one idempotent in-process fulfilment handler for an Economy workflow event type.
+     * The handler can run more than once after a process failure and must use the event ID or
+     * workflow reference as its domain-side idempotency key.
+     */
+    EconomyWorkflowRegistration registerWorkflowHandler(String eventType, EconomyWorkflowHandler handler);
+
     Optional<EconomyCurrency> currency(String currencyId);
 
     Collection<EconomyCurrency> currencies();

@@ -70,6 +70,16 @@ public final class EconomyModels {
         }
     }
 
+    /** Internal combined result of a committed debit and its atomically persisted outbox event. */
+    public record WorkflowOutcome(
+            MutationOutcome mutation,
+            java.util.UUID eventId,
+            nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState state,
+            int attempts,
+            String lastError
+    ) {
+    }
+
     public record HistoryItem(
             long transactionId,
             UUID operationId,

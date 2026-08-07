@@ -21,6 +21,7 @@ import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentity
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyWorkflowEntity;
 import nl.hauntedmc.serverfeatures.features.economy.listener.EconomyPlayerListener;
 import nl.hauntedmc.serverfeatures.features.economy.messaging.EconomyMessaging;
 import nl.hauntedmc.serverfeatures.features.economy.meta.Meta;
@@ -77,6 +78,7 @@ public final class Economy extends BukkitBaseFeature<Meta> {
                 EconomyPlayerSettingsEntity.class,
                 EconomyTransactionEntity.class,
                 EconomyTransactionEntryEntity.class,
+                EconomyWorkflowEntity.class,
                 EconomyDailyUsageEntity.class
         ).orElseThrow(() -> new IllegalStateException(
                 "Economy requires MYSQL/" + settings.databaseConnection() + " and could not create its ORM context."

@@ -13,6 +13,9 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TopEntry
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransferReceipt;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.VerificationReport;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.WorkflowOutcome;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRef;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -23,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -44,12 +48,13 @@ public final class EconomyRepository {
     private final EconomyPaymentPolicy paymentPolicy = new EconomyPaymentPolicy();
     private final EconomyDefinitionStore definitions = new EconomyDefinitionStore();
     private final EconomyIdempotencyStore idempotency = new EconomyIdempotencyStore();
+    private final EconomyWorkflowStore workflows = new EconomyWorkflowStore();
     private final EconomyMutationStore mutations;
 
     /** Creates a repository backed by the supplied ORM context. */
     public EconomyRepository(ORMContext orm) {
         this.orm = Objects.requireNonNull(orm, "orm");
-        this.mutations = new EconomyMutationStore(orm, executor, accountStore, paymentPolicy, idempotency);
+        this.mutations = new EconomyMutationStore(orm, executor, accountStore, paymentPolicy, idempotency, workflows);
     }
 
     /** Ensures this server's currency definitions match the network's immutable definitions. */
@@ -190,6 +195,56 @@ public final class EconomyRepository {
         return mutations.transfer(senderIdentity, recipientIdentity, currency, rawAmount, source,
                 idempotencyKey, actorPlayerId, actorName, reason, metadata, bypassPaymentsToggle, bypassFreeze);
     }
+
+    /** Charges an account and makes a fulfilment event durable with the resulting journal transaction. */
+    public WorkflowOutcome chargeAndDispatch(EconomyWorkflowRequest request, Identity identity,
+                                             EconomySettings.Currency currency) {
+        Objects.requireNonNull(request, "request");
+        return mutations.chargeAndDispatch(request, identity, currency);
+    }
+
+    /** Finds the durable state for one business workflow identity. */
+    public Optional<WorkflowStatus> workflow(EconomyWorkflowRef reference) {
+        Objects.requireNonNull(reference, "reference");
+        return executeWithRetry(() -> orm.runInTransaction(session -> workflows.find(session, reference)
+                .map(snapshot -> new WorkflowStatus(snapshot.eventId(), snapshot.operationId(), snapshot.state(),
+                        snapshot.attempts(), snapshot.lastError()))));
+    }
+
+    /** Leases ready workflow events without holding locks while their external handlers run. */
+    public List<WorkflowClaim> claimWorkflows(Set<String> eventTypes, String owner, int limit) {
+        if (limit < 1 || limit > 100) {
+            throw new IllegalArgumentException("Workflow claim limit must be between 1 and 100");
+        }
+        return executeWithRetry(() -> orm.runInTransaction(session -> {
+            long now = EconomyTransactionExecutor.databaseNow(session);
+            return workflows.claim(session, eventTypes, owner, now, limit).stream()
+                    .map(claim -> new WorkflowClaim(claim.eventId(), claim.owner(), claim.event())).toList();
+        }));
+    }
+
+    public void acknowledgeWorkflow(String eventId, String owner) {
+        executeWithRetry(() -> orm.runInTransaction(session -> {
+            workflows.acknowledge(session, eventId, owner, EconomyTransactionExecutor.databaseNow(session));
+            return null;
+        }));
+    }
+
+    public void releaseWorkflow(String eventId, String owner, String failure) {
+        executeWithRetry(() -> orm.runInTransaction(session -> {
+            workflows.release(session, eventId, owner, failure, EconomyTransactionExecutor.databaseNow(session));
+            return null;
+        }));
+    }
+
+    /** One leased outbox delivery; locks are released before its handler is invoked. */
+    public record WorkflowClaim(String eventId, String owner,
+                                nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowEvent event) { }
+
+    /** Durable workflow status exposed without leaking the mutable outbox entity. */
+    public record WorkflowStatus(java.util.UUID eventId, java.util.UUID operationId,
+                                 nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState state,
+                                 int attempts, String lastError) { }
 
     /** Reconstructs and verifies a committed transfer receipt from its journal. */
     public Optional<TransferReceipt> transferReceipt(UUID operationId) {

@@ -5,6 +5,8 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyScope;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyScopeType;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyTransferRequest;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRef;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
@@ -147,6 +149,19 @@ class EconomyApiValidationTest {
                 "system",
                 "test",
                 Map.of("transaction_type", "WITHDRAW")
+        ));
+    }
+
+    @Test
+    void validatesStableWorkflowIdentityAndEventType() {
+        assertDoesNotThrow(() -> new EconomyWorkflowRequest(
+                new EconomyWorkflowRef("web-store", "order-123"), ACCOUNT, new BigDecimal("1.00"), null,
+                "Store", "Store purchase", "store.purchase", Map.of("order", "123")
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyWorkflowRef("web store", "order-123"));
+        assertThrows(IllegalArgumentException.class, () -> new EconomyWorkflowRequest(
+                new EconomyWorkflowRef("web-store", "order-123"), ACCOUNT, new BigDecimal("1.00"), null,
+                "Store", "Store purchase", "store purchase", Map.of()
         ));
     }
 

@@ -11,6 +11,7 @@ import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerIdentity
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyTransactionEntryEntity;
+import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyWorkflowEntity;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -30,6 +31,7 @@ class EconomyEntitySchemaTest {
                 EconomyPlayerSettingsEntity.class,
                 EconomyTransactionEntity.class,
                 EconomyTransactionEntryEntity.class,
+                EconomyWorkflowEntity.class,
                 EconomyDailyUsageEntity.class
         );
         for (Class<?> entity : entities) {
@@ -74,5 +76,9 @@ class EconomyEntitySchemaTest {
         assertNotNull(EconomyTransactionEntity.class.getDeclaredField("requestFingerprint"));
         assertNotNull(EconomyCurrencyDefinitionEntity.class.getDeclaredField("definitionPayload"));
         assertNotNull(EconomyTransactionEntryEntity.class.getDeclaredField("accountKind"));
+        Table workflow = EconomyWorkflowEntity.class.getAnnotation(Table.class);
+        assertTrue(List.of(workflow.uniqueConstraints()).stream().anyMatch(constraint ->
+                List.of(constraint.columnNames()).containsAll(List.of("source", "workflow_key"))
+        ));
     }
 }

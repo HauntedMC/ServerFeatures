@@ -8,6 +8,12 @@ import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyTransferRequest;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowHandler;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRef;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRegistration;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowResult;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState;
 import nl.hauntedmc.serverfeatures.features.economy.Economy;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.messaging.EconomyBalanceMessage;
@@ -21,6 +27,7 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Mutation
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TopEntry;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.VerificationReport;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.WorkflowOutcome;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRejectedException;
 import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyRepository;
 import org.bukkit.OfflinePlayer;
@@ -56,6 +63,7 @@ public final class EconomyService implements EconomyApi {
     private final EconomyIdentityResolver identities;
     private final EconomyAccountCache cache;
     private final EconomyTransferNotifier transferNotifier;
+    private final EconomyWorkflowDispatcher workflows;
     private volatile EconomyMessaging messaging;
 
     public EconomyService(Economy feature, EconomySettings settings, EconomyRepository repository) {
@@ -66,11 +74,13 @@ public final class EconomyService implements EconomyApi {
         this.identities = new EconomyIdentityResolver(feature, closed::get);
         this.cache = new EconomyAccountCache(feature, settings, repository, identities, mainThread, closed::get);
         this.transferNotifier = new EconomyTransferNotifier(feature, repository, cache, mainThread, this::format);
+        this.workflows = new EconomyWorkflowDispatcher(feature, repository, closed::get);
     }
 
     /** Starts online-player cache maintenance. */
     public void start() {
         cache.start();
+        workflows.start();
     }
 
     public void setMessaging(EconomyMessaging messaging) {
@@ -150,6 +160,33 @@ public final class EconomyService implements EconomyApi {
                     request.metadata(), request.bypassPaymentsToggle(), false))
                     .thenApply(outcome -> publishTransferAndConvert(outcome, resolved.sender(), resolved.recipient(), currency, request.amount()));
         }).exceptionally(this::failureResult);
+    }
+
+    @Override
+    public CompletionStage<EconomyWorkflowResult> chargeAndDispatch(EconomyWorkflowRequest request) {
+        Objects.requireNonNull(request, "request");
+        return identities.resolve(request.account()).thenCompose(identity -> {
+            EconomySettings.Currency currency = requireCurrency(request.account().currencyId(), request.account().scopeKey());
+            return submit(() -> repository.chargeAndDispatch(request, identity, currency))
+                    .thenApply(this::publishAndConvertWorkflow);
+        }).exceptionally(this::workflowFailureResult);
+    }
+
+    @Override
+    public CompletionStage<Optional<EconomyWorkflowResult>> workflow(EconomyWorkflowRef workflow) {
+        Objects.requireNonNull(workflow, "workflow");
+        return submit(() -> repository.workflow(workflow).map(snapshot -> new EconomyWorkflowResult(
+                new EconomyResult(EconomyResultStatus.SUCCESS, snapshot.operationId(), null, null, ""),
+                snapshot.state(), snapshot.eventId(), snapshot.attempts(), snapshot.lastError()
+        )));
+    }
+
+    @Override
+    public EconomyWorkflowRegistration registerWorkflowHandler(String eventType, EconomyWorkflowHandler handler) {
+        if (closed.get()) {
+            throw new IllegalStateException("Economy is closed");
+        }
+        return workflows.register(eventType, handler);
     }
 
     public CompletionStage<Identity> resolveIdentifier(String identifier) { return identities.resolveIdentifier(identifier); }
@@ -303,7 +340,12 @@ public final class EconomyService implements EconomyApi {
      * Vault receive a borrowed reference and must never close it with try-with-resources.</p>
      */
     public void shutdown() {
-        if (closed.compareAndSet(false, true)) { cache.clear(); transferNotifier.clear(); messaging = null; }
+        if (closed.compareAndSet(false, true)) {
+            workflows.close();
+            cache.clear();
+            transferNotifier.clear();
+            messaging = null;
+        }
     }
 
     private EconomySettings.Currency requireCurrency(String currencyId, String requestedScope) {
@@ -354,6 +396,16 @@ public final class EconomyService implements EconomyApi {
         if (root instanceof IllegalArgumentException) return new EconomyResult(EconomyResultStatus.INVALID_AMOUNT, null, null, null, EconomyFailure.rootMessage(root));
         feature.getLogger().warning("Economy operation failed: " + EconomyFailure.rootMessage(root));
         return new EconomyResult(EconomyResultStatus.TEMPORARY_FAILURE, null, null, null, EconomyFailure.rootMessage(root));
+    }
+    private EconomyWorkflowResult workflowFailureResult(Throwable failure) {
+        EconomyResult transaction = failureResult(failure);
+        return new EconomyWorkflowResult(transaction, EconomyWorkflowState.PENDING_FULFILMENT, null, 0,
+                transaction.message());
+    }
+    private EconomyWorkflowResult publishAndConvertWorkflow(WorkflowOutcome outcome) {
+        publish(outcome.mutation());
+        return new EconomyWorkflowResult(result(outcome.mutation()), outcome.state(), outcome.eventId(), outcome.attempts(),
+                outcome.lastError());
     }
     private static EconomyResult result(MutationOutcome outcome) { return new EconomyResult(outcome.status(), outcome.operationId(), outcome.balance(), outcome.counterpartBalance(), outcome.message()); }
     private EconomyBalance apiBalance(Account account) { return new EconomyBalance(new EconomyAccountRef(account.identity().playerId(), account.identity().playerUuid(), account.identity().playerName(), account.currencyId(), account.scopeKey()), account.balance(), account.version()); }

@@ -23,6 +23,14 @@ final class EconomyRequestValidation {
         return normalized;
     }
 
+    static String eventType(String value) {
+        String normalized = text(value, "eventType", 64, true).toLowerCase(Locale.ROOT);
+        if (!normalized.matches("[a-z0-9][a-z0-9_.:-]{0,63}")) {
+            throw new IllegalArgumentException("eventType contains unsupported characters");
+        }
+        return normalized;
+    }
+
     static String text(String value, String name, int maximumLength, boolean required) {
         String normalized = value == null ? "" : value.trim();
         if (required && normalized.isBlank()) {

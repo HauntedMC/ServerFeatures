@@ -2,6 +2,7 @@ package nl.hauntedmc.serverfeatures.features.economy.persistence;
 
 import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRequest;
 import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyBalanceEntity;
 import nl.hauntedmc.serverfeatures.features.economy.entity.EconomyPlayerSettingsEntity;
@@ -10,6 +11,7 @@ import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.AccountS
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.MutationOutcome;
 import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.WorkflowOutcome;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -31,14 +33,17 @@ final class EconomyMutationStore {
     private final EconomyAccountStore accounts;
     private final EconomyPaymentPolicy payments;
     private final EconomyIdempotencyStore idempotency;
+    private final EconomyWorkflowStore workflows;
 
     EconomyMutationStore(ORMContext orm, EconomyTransactionExecutor executor, EconomyAccountStore accounts,
-                         EconomyPaymentPolicy payments, EconomyIdempotencyStore idempotency) {
+                         EconomyPaymentPolicy payments, EconomyIdempotencyStore idempotency,
+                         EconomyWorkflowStore workflows) {
         this.orm = orm;
         this.executor = executor;
         this.accounts = accounts;
         this.payments = payments;
         this.idempotency = idempotency;
+        this.workflows = workflows;
     }
 
     MutationOutcome mutate(TransactionType type, Identity identity, EconomySettings.Currency currency,
@@ -158,6 +163,55 @@ final class EconomyMutationStore {
         }
     }
 
+    /** Charges an account and writes a durable fulfilment event in the same database transaction. */
+    WorkflowOutcome chargeAndDispatch(EconomyWorkflowRequest request, Identity identity,
+                                      EconomySettings.Currency currency) {
+        BigDecimal amount = EconomyPersistenceValues.normalizePositive(request.amount(), currency);
+        String mutationFingerprint = EconomyRequestFingerprint.mutation(TransactionType.WITHDRAW,
+                TransactionType.WITHDRAW, identity, currency, amount, request.actorPlayerId(), request.actorName(),
+                request.reason(), request.metadata(), false);
+        String fingerprint = EconomyRequestFingerprint.fingerprint("economy-workflow-charge-v1", mutationFingerprint,
+                request.eventType());
+        try {
+            return executor.execute(() -> orm.runInTransaction(session -> {
+                MutationOutcome replay = idempotency.replay(session, request.workflow().source(),
+                        request.workflow().workflowId(), fingerprint);
+                if (replay != null) {
+                    EconomyWorkflowStore.WorkflowSnapshot workflow = workflows.require(session, request.workflow(), fingerprint);
+                    return workflowOutcome(replay, workflow);
+                }
+                EconomyTransactionExecutor.Clock clock = new EconomyTransactionExecutor.Clock(session);
+                EconomyBalanceEntity balance = accounts.ensureAccount(session, identity, currency, clock, true);
+                EconomyPlayerSettingsEntity settings = accounts.ensureSettings(session, balance.getId(), currency, clock, true);
+                long now = EconomyTransactionExecutor.databaseNow(session);
+                payments.requireActive(settings, false);
+                BigDecimal before = balance.getBalance();
+                BigDecimal after = before.subtract(amount);
+                EconomyPersistenceValues.validateBalance(after, currency);
+                updateBalance(balance, identity, after, now);
+                EconomyTransactionEntity transaction = EconomyLedgerWriter.transaction(TransactionType.WITHDRAW,
+                        currency, request.workflow().source(), request.workflow().workflowId(), fingerprint,
+                        request.actorPlayerId(), request.actorName(), request.reason(), request.metadata(), now);
+                session.persist(transaction);
+                session.flush();
+                BigDecimal delta = after.subtract(before);
+                EconomyLedgerWriter.persistEntry(session, transaction.getId(), balance, "TARGET", delta, before, after);
+                EconomyLedgerWriter.persistSystemEntry(session, transaction.getId(), currency, delta.negate());
+                EconomyWorkflowStore.WorkflowSnapshot workflow = workflows.enqueue(session, transaction, request, identity,
+                        currency, amount, fingerprint, now);
+                session.flush();
+                MutationOutcome outcome = EconomyPersistenceValues.outcome(EconomyResultStatus.SUCCESS,
+                        transaction.getOperationId(), after, null, "", EconomyPersistenceValues.snapshot(balance, settings), null);
+                return workflowOutcome(outcome, workflow);
+            }));
+        } catch (EconomyRejectedException rejected) {
+            MutationOutcome outcome = rejected(rejected);
+            return new WorkflowOutcome(outcome, null,
+                    nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowState.PENDING_FULFILMENT, 0,
+                    outcome.message());
+        }
+    }
+
     MutationOutcome setPaymentsEnabled(Identity identity, EconomySettings.Currency currency, boolean enabled,
                                        String source, String idempotencyKey, Long actorPlayerId, String actorName,
                                        String reason, Map<String, String> metadata) {
@@ -213,6 +267,12 @@ final class EconomyMutationStore {
 
     private static MutationOutcome rejected(EconomyRejectedException rejected) {
         return failure(rejected.status(), rejected.getMessage());
+    }
+
+    private static WorkflowOutcome workflowOutcome(MutationOutcome mutation,
+                                                    EconomyWorkflowStore.WorkflowSnapshot workflow) {
+        return new WorkflowOutcome(mutation, workflow.eventId(), workflow.state(), workflow.attempts(),
+                workflow.lastError());
     }
 
     private static MutationOutcome failure(EconomyResultStatus status, String message) {
