@@ -11,10 +11,13 @@ import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.lottery.command.LotteryCommand;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyApi;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryEntryEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPayoutEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPlayerStatsEntity;
+import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryPurchaseIntentEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.entity.LotteryRoundEntity;
 import nl.hauntedmc.serverfeatures.features.lottery.listener.LotteryPlayerListener;
 import nl.hauntedmc.serverfeatures.features.lottery.meta.Meta;
@@ -24,6 +27,8 @@ import nl.hauntedmc.serverfeatures.features.lottery.service.LotteryService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +61,8 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         ConfigMap defaults = new ConfigMap();
         defaults.put("enabled", false);
         defaults.put("lottery_key", "$server");
+        defaults.put("economy.backend", "VAULT");
+        defaults.put("economy.builtin.currency", "money");
         defaults.put("schedule.mode", "INTERVAL");
         defaults.put("schedule.interval", "12h");
         defaults.put("schedule.timezone", "Europe/Amsterdam");
@@ -133,7 +140,6 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
         messages.add("lottery.broadcast.remaining", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is over {remaining}.</yellow>");
         messages.add("lottery.broadcast.draw_header", "<gold>[Loterij]</gold> <yellow>De trekking van {pot} is voltooid met {tickets} loten van {participants} spelers.</yellow>");
         messages.add("lottery.broadcast.winner", "<gold>[Loterij]</gold> <yellow>#{position} {player} wint {amount}!</yellow>");
-        messages.add("lottery.broadcast.proof", "<dark_gray>Trekking {round}: commitment {commitment}, seed {seed}, entries {entry_digest}</dark_gray>");
         messages.add("lottery.broadcast.no_tickets", "<gold>[Loterij]</gold> <yellow>Er waren geen loten verkocht. {carry} gaat door naar de volgende trekking.</yellow>");
         messages.add("lottery.broadcast.no_payout", "<gold>[Loterij]</gold> <yellow>Er kon geen prijs worden uitgekeerd. {carry} gaat door.</yellow>");
         messages.add("lottery.broadcast.draw_failed", "<gold>[Loterij]</gold> <red>De trekking is mislukt en wordt later opnieuw geprobeerd.</red>");
@@ -165,12 +171,14 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
                 LotteryRoundEntity.class,
                 LotteryEntryEntity.class,
                 LotteryPayoutEntity.class,
-                LotteryPlayerStatsEntity.class
+                LotteryPlayerStatsEntity.class,
+                LotteryPurchaseIntentEntity.class
         ).orElseThrow(() -> new IllegalStateException(
                 "Lottery requires MYSQL/system_data_rw and could not create its ORM context."
         ));
 
-        LotteryEconomy economy = LotteryEconomy.discover();
+        LotteryEconomyGateway economy = createEconomyGateway();
+        getLogger().info("Lottery economy backend: " + economy.backendName());
         service = new LotteryService(
                 this,
                 settings,
@@ -187,6 +195,45 @@ public final class Lottery extends BukkitBaseFeature<Meta> {
             }
         }
         service.start();
+    }
+
+    private LotteryEconomyGateway createEconomyGateway() {
+        return switch (settings.economy().backend()) {
+            case VAULT -> createVaultEconomyGateway();
+            case BUILTIN -> {
+                EconomyApi api = getLifecycleManager().getApiManager().findService(EconomyApi.class)
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Lottery BUILTIN backend requires the Economy feature to be enabled"
+                        ));
+                yield new BuiltinLotteryEconomy(api, settings.economy().builtinCurrency());
+            }
+        };
+    }
+
+    private LotteryEconomyGateway createVaultEconomyGateway() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Vault")) {
+            throw new IllegalStateException("Lottery VAULT backend requires Vault to be installed and enabled");
+        }
+        try {
+            Class<?> implementation = Class.forName(
+                    "nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy",
+                    true,
+                    getClass().getClassLoader()
+            );
+            Method discover = implementation.getMethod("discover");
+            return (LotteryEconomyGateway) discover.invoke(null);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("Could not initialize Lottery Vault backend", cause);
+        } catch (ReflectiveOperationException | LinkageError exception) {
+            throw new IllegalStateException("Could not initialize Lottery Vault backend", exception);
+        }
     }
 
     @Override

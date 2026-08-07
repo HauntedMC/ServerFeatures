@@ -128,7 +128,7 @@ For a public join indicator, combine state and ordinary availability through:
 
 The backend accepts a snapshot only when:
 
-- schema version is exactly supported;
+- schema marker is exactly supported;
 - publisher ID matches configuration;
 - publisher epoch and sequence are valid;
 - sequence increases within one publisher epoch;

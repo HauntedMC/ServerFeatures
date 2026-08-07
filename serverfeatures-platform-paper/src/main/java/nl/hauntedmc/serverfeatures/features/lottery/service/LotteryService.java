@@ -1,17 +1,23 @@
 package nl.hauntedmc.serverfeatures.features.lottery.service;
 
 import nl.hauntedmc.dataregistry.api.player.PlayerIdentity;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyResultStatus;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowEvent;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyWorkflowRegistration;
+import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.lottery.Lottery;
 import nl.hauntedmc.serverfeatures.features.lottery.config.LotterySettings;
 import nl.hauntedmc.serverfeatures.features.lottery.draw.LotteryDrawEngine;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy;
-import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomy.EconomyResult;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.LotteryEconomyGateway.EconomyResult;
+import nl.hauntedmc.serverfeatures.features.lottery.economy.BuiltinLotteryEconomy;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PendingPayout;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PayoutStatus;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.PlayerSummary;
 import nl.hauntedmc.serverfeatures.features.lottery.model.LotteryModels.RoundSnapshot;
 import nl.hauntedmc.serverfeatures.features.lottery.model.Money;
 import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository;
+import nl.hauntedmc.serverfeatures.features.lottery.persistence.LotteryRepository.PurchaseFulfilment;
 import nl.hauntedmc.serverfeatures.framework.persistence.PlayerIdentityResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -35,7 +41,7 @@ public final class LotteryService {
     private final Lottery feature;
     private final LotterySettings settings;
     private final LotteryRepository repository;
-    private final LotteryEconomy economy;
+    private final LotteryEconomyGateway economy;
     private final LotteryDrawEngine drawEngine;
     private final PlayerIdentityResolver identityResolver;
     private final AtomicReference<RoundSnapshot> snapshot = new AtomicReference<>();
@@ -45,12 +51,14 @@ public final class LotteryService {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final LotteryViewService views;
     private final LotteryDrawCoordinator rounds;
+    private EconomyWorkflowRegistration purchaseWorkflowRegistration;
+    private final AtomicBoolean reconcilingNativePurchases = new AtomicBoolean();
 
     public LotteryService(
             Lottery feature,
             LotterySettings settings,
             LotteryRepository repository,
-            LotteryEconomy economy,
+            LotteryEconomyGateway economy,
             LotteryDrawEngine drawEngine
     ) {
         this.feature = feature;
@@ -65,6 +73,12 @@ public final class LotteryService {
     }
 
     public void start() {
+        if (economy instanceof BuiltinLotteryEconomy builtin) {
+            purchaseWorkflowRegistration = builtin.registerPurchaseHandler(this::fulfilNativePurchase);
+            feature.getLifecycleManager().getTaskManager().scheduleAsyncRepeatingTask(
+                    () -> reconcileNativePurchases(builtin), BukkitTime.seconds(5), BukkitTime.seconds(30)
+            );
+        }
         String seed = drawEngine.newSeed();
         submit(() -> repository.ensureOpenRound(settings, seed, drawEngine.commitment(seed), now()))
                 .whenComplete((round, failure) -> main(() -> {
@@ -87,6 +101,10 @@ public final class LotteryService {
         snapshot.set(null);
         playerSummaries.clear();
         activePlayerOperations.clear();
+        if (purchaseWorkflowRegistration != null) {
+            purchaseWorkflowRegistration.close();
+            purchaseWorkflowRegistration = null;
+        }
         rounds.close();
     }
 
@@ -107,7 +125,7 @@ public final class LotteryService {
     }
 
     public Money balance(OfflinePlayer player) {
-        return economy.balance(player);
+        return economy.cachedBalance(player).orElse(Money.ZERO);
     }
 
     public int maximumAffordable(Player player) {
@@ -115,10 +133,12 @@ public final class LotteryService {
         if (!isReady() || round == null || !round.acceptsEntries(now())) {
             return 0;
         }
-        int affordable = balance(player).amount()
-                .divide(round.ticketPrice().amount(), 0, RoundingMode.DOWN)
-                .min(BigDecimal.valueOf(settings.tickets().maximumPerCommand()))
-                .intValue();
+        int affordable = economy.cachedBalance(player)
+                .map(balance -> balance.amount()
+                        .divide(round.ticketPrice().amount(), 0, RoundingMode.DOWN)
+                        .min(BigDecimal.valueOf(settings.tickets().maximumPerCommand()))
+                        .intValue())
+                .orElse(0);
         PlayerSummary summary = cachedSummary(player.getUniqueId());
         if (settings.tickets().maximumPerPlayer() > 0) {
             affordable = Math.min(
@@ -208,12 +228,12 @@ public final class LotteryService {
         UUID playerUuid = player.getUniqueId();
         String playerName = player.getName();
         Money cost = round.ticketPrice().multiply(ticketCount);
-        Money currentBalance = balance(player);
-        if (currentBalance.compareTo(cost) < 0) {
+        Optional<Money> currentBalance = economy.cachedBalance(player);
+        if (currentBalance.isPresent() && currentBalance.get().compareTo(cost) < 0) {
             endPlayerOperation(playerUuid);
             feature.send(player, "lottery.buy.insufficient", Map.of(
                     "cost", format(cost),
-                    "balance", format(currentBalance)
+                    "balance", format(currentBalance.get())
             ));
             return;
         }
@@ -248,11 +268,11 @@ public final class LotteryService {
             feature.send(player, round.paused() ? "lottery.paused" : "lottery.closed");
             return;
         }
-        Money currentBalance = balance(player);
-        if (currentBalance.compareTo(amount) < 0) {
+        Optional<Money> currentBalance = economy.cachedBalance(player);
+        if (currentBalance.isPresent() && currentBalance.get().compareTo(amount) < 0) {
             feature.send(player, "lottery.donate.insufficient", Map.of(
                     "amount", format(amount),
-                    "balance", format(currentBalance)
+                    "balance", format(currentBalance.get())
             ));
             return;
         }
@@ -411,39 +431,227 @@ public final class LotteryService {
             }
             return;
         }
-        EconomyResult withdrawal = economy.withdraw(player, cost);
-        if (!withdrawal.successful()) {
-            endPlayerOperation(playerUuid);
-            feature.send(player, withdrawal.uncertain() ? "lottery.transaction.uncertain" : "lottery.buy.withdraw_failed", Map.of(
-                    "reason", withdrawal.message()
-            ));
+        if (economy instanceof BuiltinLotteryEconomy builtin) {
+            reserveAndChargeNativePurchase(builtin, playerUuid, playerName, playerId, roundId, ticketCount, cost);
             return;
         }
-        submit(() -> repository.purchase(
-                        settings,
-                        roundId,
-                        playerUuid,
-                        playerId,
-                        playerName,
-                        ticketCount,
-                        cost,
-                        now()
+        String economyKey = "purchase:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
+        economy.withdraw(player, cost, LotteryEconomyGateway.Operation.PURCHASE, economyKey)
+                .whenComplete((withdrawal, economyFailure) -> main(() -> {
+            if (economyFailure != null) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, "lottery.transaction.uncertain");
+                log("Lottery purchase withdrawal failed", economyFailure);
+                return;
+            }
+            if (!withdrawal.successful()) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, withdrawal.uncertain()
+                        ? "lottery.transaction.uncertain"
+                        : "lottery.buy.withdraw_failed", Map.of("reason", withdrawal.message()));
+                return;
+            }
+            submit(() -> repository.purchase(
+                            settings, roundId, playerUuid, playerId, playerName, ticketCount, cost, now()
+                    ))
+                    .whenComplete((receipt, failure) -> main(() -> {
+                        endPlayerOperation(playerUuid);
+                        if (failure != null) {
+                            refund(player, cost, "purchase", economyKey, failure);
+                            return;
+                        }
+                        rounds.refreshRound();
+                        refreshPlayerSummary(playerUuid);
+                        feature.send(player, "lottery.buy.success", Map.of(
+                                "tickets", Integer.toString(receipt.purchasedTickets()),
+                                "cost", format(receipt.charged()),
+                                "player_tickets", Integer.toString(receipt.playerTickets()),
+                                "pot", format(receipt.pot())
+                        ));
+                    }));
+                }));
+    }
+
+    private void reserveAndChargeNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            UUID playerUuid,
+            String playerName,
+            Long playerId,
+            String roundId,
+            int ticketCount,
+            Money cost
+    ) {
+        if (playerId == null || playerId <= 0L) {
+            endPlayerOperation(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, "lottery.identity_unavailable");
+            }
+            return;
+        }
+        submit(() -> repository.reservePurchase(
+                        settings, roundId, playerUuid, playerId, playerName, ticketCount, cost, now()
                 ))
-                .whenComplete((receipt, failure) -> main(() -> {
-                    endPlayerOperation(playerUuid);
-                    if (failure != null) {
-                        refund(player, cost, "purchase", failure);
+                .whenComplete((intent, reservationFailure) -> main(() -> {
+                    Player player = Bukkit.getPlayer(playerUuid);
+                    if (reservationFailure != null) {
+                        endPlayerOperation(playerUuid);
+                        if (player != null && player.isOnline()) {
+                            feature.send(player, "lottery.buy.withdraw_failed", Map.of(
+                                    "reason", rootMessage(reservationFailure)
+                            ));
+                        }
                         return;
                     }
-                    rounds.refreshRound();
-                    refreshPlayerSummary(playerUuid);
-                    feature.send(player, "lottery.buy.success", Map.of(
-                            "tickets", Integer.toString(receipt.purchasedTickets()),
-                            "cost", format(receipt.charged()),
-                            "player_tickets", Integer.toString(receipt.playerTickets()),
-                            "pot", format(receipt.pot())
-                    ));
+                    builtin.chargePurchase(playerUuid, playerName, playerId, cost, intent.id())
+                            .whenComplete((workflow, chargeFailure) -> main(() -> {
+                                if (chargeFailure != null || workflow == null) {
+                                    endPlayerOperation(playerUuid);
+                                    if (player != null && player.isOnline()) {
+                                        feature.send(player, "lottery.transaction.uncertain");
+                                    }
+                                    if (chargeFailure != null) {
+                                        log("Could not start durable Lottery purchase " + intent.id(), chargeFailure);
+                                    }
+                                    return;
+                                }
+                                if (workflow.charged()) {
+                                    // The registered handler sends the success message only after the entry is durable.
+                                    return;
+                                }
+                                endPlayerOperation(playerUuid);
+                                if (workflow.transaction().status() != EconomyResultStatus.TEMPORARY_FAILURE) {
+                                    submit(() -> {
+                                        repository.declinePurchase(intent.id(), now());
+                                        return null;
+                                    });
+                                }
+                                if (player != null && player.isOnline()) {
+                                    feature.send(player, workflow.transaction().status() == EconomyResultStatus.TEMPORARY_FAILURE
+                                            ? "lottery.transaction.uncertain"
+                                            : "lottery.buy.withdraw_failed", Map.of(
+                                                    "reason", workflow.transaction().message()
+                                            ));
+                                }
+                            }));
                 }));
+    }
+
+    /** Completes or compensates one committed native-Economy ticket charge. */
+    private CompletableFuture<Void> fulfilNativePurchase(EconomyWorkflowEvent event) {
+        if (!(economy instanceof BuiltinLotteryEconomy builtin)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("Native Lottery workflow has no native backend"));
+        }
+        String intentId = event.metadata().get("purchase_intent_id");
+        if (intentId == null || !intentId.equals(event.workflow().workflowId())) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Lottery workflow does not identify its purchase intent"));
+        }
+        return submit(() -> repository.fulfilPurchase(settings, intentId, Money.of(event.amount()), now()))
+                .thenCompose(fulfilment -> fulfilment.refundRequired()
+                        ? refundNativePurchase(builtin, event)
+                        : notifyNativePurchaseFulfilled(event, fulfilment));
+    }
+
+    private CompletableFuture<Void> refundNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            EconomyWorkflowEvent event
+    ) {
+        return builtin.refundPurchase(event).thenCompose(refund -> {
+            if (!refund.successful()) {
+                return CompletableFuture.failedFuture(new IllegalStateException(
+                        "Lottery purchase refund was not accepted: " + refund.message()
+                ));
+            }
+            return submit(() -> repository.markPurchaseRefunded(event.workflow().workflowId(), now()));
+        }).thenAccept(intent -> main(() -> {
+            UUID playerUuid = intent.playerUuid();
+            endPlayerOperation(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline()) {
+                feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(intent.charged())));
+            }
+        })).toCompletableFuture();
+    }
+
+    private CompletableFuture<Void> notifyNativePurchaseFulfilled(
+            EconomyWorkflowEvent event,
+            PurchaseFulfilment fulfilment
+    ) {
+        main(() -> {
+            UUID playerUuid = event.account().playerUuid();
+            endPlayerOperation(playerUuid);
+            rounds.refreshRound();
+            refreshPlayerSummary(playerUuid);
+            Player player = Bukkit.getPlayer(playerUuid);
+            if (player != null && player.isOnline() && fulfilment.receipt() != null) {
+                feature.send(player, "lottery.buy.success", Map.of(
+                        "tickets", Integer.toString(fulfilment.receipt().purchasedTickets()),
+                        "cost", format(fulfilment.receipt().charged()),
+                        "player_tickets", Integer.toString(fulfilment.receipt().playerTickets()),
+                        "pot", format(fulfilment.receipt().pot())
+                ));
+            }
+        });
+        return CompletableFuture.completedFuture(null);
+    }
+
+    /**
+     * Reissues only uncertain, still-open reservations using their original workflow id.  A committed
+     * debit is discovered first, while a closed round releases an uncharged reservation instead of
+     * charging and immediately refunding it.
+     */
+    private void reconcileNativePurchases(BuiltinLotteryEconomy builtin) {
+        if (!isReady() || !reconcilingNativePurchases.compareAndSet(false, true)) {
+            return;
+        }
+        submit(() -> repository.pendingPurchases(settings.lotteryKey(), 32))
+                .whenComplete((intents, queryFailure) -> {
+                    if (queryFailure != null || intents == null) {
+                        if (queryFailure != null) {
+                            log("Could not reconcile durable Lottery purchases", queryFailure);
+                        }
+                        reconcilingNativePurchases.set(false);
+                        return;
+                    }
+                    CompletableFuture<?>[] reconciliations = intents.stream()
+                            .map(intent -> reconcileNativePurchase(builtin, intent).toCompletableFuture())
+                            .toArray(CompletableFuture[]::new);
+                    CompletableFuture.allOf(reconciliations).whenComplete((ignored, failure) -> {
+                        if (failure != null) {
+                            log("Could not reconcile a durable Lottery purchase", failure);
+                        }
+                        reconcilingNativePurchases.set(false);
+                    });
+                });
+    }
+
+    private java.util.concurrent.CompletionStage<Void> reconcileNativePurchase(
+            BuiltinLotteryEconomy builtin,
+            LotteryRepository.PurchaseIntent intent
+    ) {
+        return builtin.purchaseWorkflow(intent.id()).thenCompose(existing -> {
+            if (existing.isPresent()) {
+                return CompletableFuture.completedFuture(null);
+            }
+            RoundSnapshot round = snapshot.get();
+            if (round == null || !round.roundId().equals(intent.roundId()) || !round.acceptsEntries(now())) {
+                return submit(() -> {
+                    repository.declinePurchase(intent.id(), now());
+                    return null;
+                });
+            }
+            return builtin.chargePurchase(
+                    intent.playerUuid(), intent.playerName(), intent.playerId(), intent.charged(), intent.id()
+            ).thenCompose(result -> {
+                if (result.charged() || result.transaction().status() == EconomyResultStatus.TEMPORARY_FAILURE) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                return submit(() -> {
+                    repository.declinePurchase(intent.id(), now());
+                    return null;
+                });
+            });
+        });
     }
 
     private void withdrawAndStoreDonation(
@@ -467,46 +675,59 @@ public final class LotteryService {
             }
             return;
         }
-        EconomyResult withdrawal = economy.withdraw(player, amount);
-        if (!withdrawal.successful()) {
-            endPlayerOperation(playerUuid);
-            feature.send(player, withdrawal.uncertain()
-                    ? "lottery.transaction.uncertain"
-                    : "lottery.donate.withdraw_failed", Map.of("reason", withdrawal.message()));
-            return;
-        }
-        submit(() -> repository.donate(
-                        settings,
-                        roundId,
-                        playerUuid,
-                        playerId,
-                        playerName,
-                        amount,
-                        now()
-                ))
-                .whenComplete((receipt, failure) -> main(() -> {
-                    endPlayerOperation(playerUuid);
-                    if (failure != null) {
-                        refund(player, amount, "donation", failure);
-                        return;
-                    }
-                    rounds.refreshRound();
-                    refreshPlayerSummary(playerUuid);
-                    feature.send(player, "lottery.donate.success", Map.of(
-                            "amount", format(receipt.amount()),
-                            "pot", format(receipt.pot())
-                    ));
+        String economyKey = "donation:" + roundId + ":" + playerUuid + ":" + UUID.randomUUID();
+        economy.withdraw(player, amount, LotteryEconomyGateway.Operation.DONATION, economyKey)
+                .whenComplete((withdrawal, economyFailure) -> main(() -> {
+            if (economyFailure != null) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, "lottery.transaction.uncertain");
+                log("Lottery donation withdrawal failed", economyFailure);
+                return;
+            }
+            if (!withdrawal.successful()) {
+                endPlayerOperation(playerUuid);
+                feature.send(player, withdrawal.uncertain()
+                        ? "lottery.transaction.uncertain"
+                        : "lottery.donate.withdraw_failed", Map.of("reason", withdrawal.message()));
+                return;
+            }
+            submit(() -> repository.donate(
+                            settings, roundId, playerUuid, playerId, playerName, amount, now()
+                    ))
+                    .whenComplete((receipt, failure) -> main(() -> {
+                        endPlayerOperation(playerUuid);
+                        if (failure != null) {
+                            refund(player, amount, "donation", economyKey, failure);
+                            return;
+                        }
+                        rounds.refreshRound();
+                        refreshPlayerSummary(playerUuid);
+                        feature.send(player, "lottery.donate.success", Map.of(
+                                "amount", format(receipt.amount()),
+                                "pot", format(receipt.pot())
+                        ));
+                    }));
                 }));
     }
 
-    private void refund(Player player, Money amount, String transaction, Throwable failure) {
-        EconomyResult refund = economy.deposit(player, amount);
-        if (refund.successful()) {
-            feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
-        } else {
-            feature.send(player, "lottery.transaction.uncertain");
-        }
-        log("Lottery " + transaction + " could not be stored; refund result: " + refund.message(), failure);
+    private void refund(
+            Player player,
+            Money amount,
+            String transaction,
+            String originalEconomyKey,
+            Throwable failure
+    ) {
+        economy.deposit(player, amount, LotteryEconomyGateway.Operation.REFUND, "refund:" + originalEconomyKey)
+                .whenComplete((refund, refundFailure) -> main(() -> {
+            if (refundFailure == null && refund != null && refund.successful()) {
+                feature.send(player, "lottery.transaction.refunded", Map.of("amount", format(amount)));
+            } else {
+                feature.send(player, "lottery.transaction.uncertain");
+            }
+            String result = refundFailure != null ? rootMessage(refundFailure)
+                    : refund == null ? "no result" : refund.message();
+            log("Lottery " + transaction + " could not be stored; refund result: " + result, failure);
+                }));
     }
 
     private void claimNext(UUID playerUuid, boolean automatic, Money paid) {
@@ -545,41 +766,44 @@ public final class LotteryService {
     }
 
     private void deliverPayout(Player player, PendingPayout payout, boolean automatic, Money paid) {
-        EconomyResult result = economy.deposit(player, payout.amount());
-        PayoutStatus status = result.successful()
-                ? PayoutStatus.PAID
-                : result.uncertain() ? PayoutStatus.FAILED : PayoutStatus.PENDING;
-        submit(() -> {
-            boolean updated = repository.finishPayout(
-                    settings.lotteryKey(),
-                    payout.payoutId(),
-                    status,
-                    result.successful() ? null : result.message(),
-                    now()
-            );
-            if (!updated) {
-                throw new IllegalStateException("Payout is no longer reserved for delivery");
-            }
-            return null;
-        }).whenComplete((ignored, failure) -> main(() -> {
-            if (failure != null) {
-                endPlayerOperation(player.getUniqueId());
-                feature.send(player, "lottery.transaction.uncertain");
-                log("Could not save Lottery payout state " + payout.payoutId(), failure);
-                return;
-            }
-            if (!result.successful()) {
-                endPlayerOperation(player.getUniqueId());
-                if (!automatic) {
-                    feature.send(player, result.uncertain()
-                            ? "lottery.transaction.uncertain"
-                            : "lottery.claim.payout_failed", Map.of("reason", result.message()));
-                }
-                refreshPlayerSummary(player.getUniqueId());
-                return;
-            }
-            claimNext(player.getUniqueId(), automatic, paid.add(payout.amount()));
-        }));
+        economy.deposit(player, payout.amount(), LotteryEconomyGateway.Operation.PAYOUT, "payout:" + payout.payoutId())
+                .whenComplete((result, economyFailure) -> main(() -> {
+                    EconomyResult effective = economyFailure == null && result != null
+                            ? result
+                            : EconomyResult.uncertain(economyFailure == null
+                                    ? "No economy result" : rootMessage(economyFailure));
+                    PayoutStatus status = effective.successful()
+                            ? PayoutStatus.PAID
+                            : effective.uncertain() ? PayoutStatus.FAILED : PayoutStatus.PENDING;
+                    submit(() -> {
+                        boolean updated = repository.finishPayout(
+                                settings.lotteryKey(), payout.payoutId(), status,
+                                effective.successful() ? null : effective.message(), now()
+                        );
+                        if (!updated) {
+                            throw new IllegalStateException("Payout is no longer reserved for delivery");
+                        }
+                        return null;
+                    }).whenComplete((ignored, failure) -> main(() -> {
+                        if (failure != null) {
+                            endPlayerOperation(player.getUniqueId());
+                            feature.send(player, "lottery.transaction.uncertain");
+                            log("Could not save Lottery payout state " + payout.payoutId(), failure);
+                            return;
+                        }
+                        if (!effective.successful()) {
+                            endPlayerOperation(player.getUniqueId());
+                            if (!automatic) {
+                                feature.send(player, effective.uncertain()
+                                        ? "lottery.transaction.uncertain"
+                                        : "lottery.claim.payout_failed", Map.of("reason", effective.message()));
+                            }
+                            refreshPlayerSummary(player.getUniqueId());
+                            return;
+                        }
+                        claimNext(player.getUniqueId(), automatic, paid.add(payout.amount()));
+                    }));
+                }));
     }
 
     private void releasePayout(PendingPayout payout, UUID playerUuid) {

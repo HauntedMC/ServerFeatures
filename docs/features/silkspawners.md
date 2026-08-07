@@ -64,7 +64,7 @@ The list affects:
 
 - successful Silk Touch pickup;
 - placement of modern typed items;
-- placement of recognized legacy items.
+- placement of recognized compatibility items.
 
 It does **not** affect `/silkspawners give` item creation. A staff member can create a type that players cannot subsequently place or mine under the current whitelist.
 
@@ -75,7 +75,7 @@ There are no settings for:
 - XP amount beyond the fixed zero on successful pickup;
 - creative-mode behavior;
 - item name/lore;
-- legacy tags;
+- compatibility tags;
 - world/region filters;
 - amount limits;
 - claim integration.
@@ -141,13 +141,13 @@ Processing order:
 4. Require `BlockStateMeta`; otherwise return without cancellation.
 5. Require the embedded block state to be `CreatureSpawner`; otherwise return.
 6. Read the embedded spawned type.
-7. If type is absent, attempt narrow legacy extraction.
+7. If type is absent, attempt narrow compatibility extraction.
 8. Enforce `allowed_spawner_types`.
 9. Set the newly placed block state's spawned type and call `update()`.
 
 A plain/untyped `SPAWNER` item with no compatible block-state metadata is not rejected after the permission check; the handler returns and leaves Paper's default placed state intact.
 
-### Legacy compatibility
+### Compatibility metadata
 
 When modern `CreatureSpawner#getSpawnedType()` returns null, the feature serializes item meta through `ItemMeta#getAsString()` and searches this regular expression:
 
@@ -157,9 +157,9 @@ ms_mob\s*:\s*"([^"]+)"
 
 The captured value is passed directly to `EntityType.valueOf`. It must therefore be an exact enum name such as `ZOMBIE`.
 
-When recognized, the handler creates a modern item for the type and copies only the generated spawner block data to the placed state before later calling `setSpawnedType(type)`. It does not replace the player's remaining legacy stack or migrate inventory metadata.
+When recognized, the handler creates a modern item for the type and copies only the generated spawner block data to the placed state before later calling `setSpawnedType(type)`. It does not replace the player's remaining compatibility stack or rewrite inventory metadata.
 
-When the tag is absent, placement is cancelled and only `Unknown legacy spawner detected` is logged; the player gets no specific message. An invalid captured enum value can throw from `EntityType.valueOf` because that call is not caught.
+When the tag is absent, placement is cancelled and only `Unknown compatibility spawner detected` is logged; the player gets no specific message. An invalid captured enum value can throw from `EntityType.valueOf` because that call is not caught.
 
 ### Placement update semantics
 
@@ -225,11 +225,11 @@ There is no explicit API shared with SpawnerToggle; compatibility is through the
 - Mining requires an empty slot rather than stack capacity.
 - Successful mining sets XP to zero.
 - Plain/untyped spawners can be placed by permitted players without type validation.
-- Legacy support recognizes only a quoted `ms_mob` field in serialized metadata.
-- Legacy enum conversion is not exception-guarded.
+- Compatibility support recognizes only a quoted `ms_mob` field in serialized metadata.
+- Compatibility enum conversion is not exception-guarded.
 - Item text is hard-coded English and not localized.
 - `/silkspawners give` has no maximum and no database audit.
-- The feature does not clean up or migrate items on disable.
+- The feature does not clean up or rewrite items on disable.
 
 ## Verification checklist
 
@@ -240,7 +240,7 @@ There is no explicit API shared with SpawnerToggle; compatibility is through the
 5. Combine with each protection plugin, especially one cancelling at `HIGHEST` or later, and test for duplication.
 6. Place a modern generated item and inspect the resulting `CreatureSpawner#getSpawnedType()`.
 7. Place an untyped vanilla spawner item and document the server's default type.
-8. Test recognized, missing and invalid `ms_mob` legacy metadata.
+8. Test recognized, missing and invalid `ms_mob` compatibility metadata.
 9. Use `/silkspawners give` for an allowed type, a disallowed-but-valid type, a nonliving enum and a very large amount.
 10. Fill the target inventory and verify leftover drop position/amount.
 11. Test explosions, pistons, WorldEdit and other spawner plugins separately; they are outside feature ownership.
@@ -253,4 +253,4 @@ There is no explicit API shared with SpawnerToggle; compatibility is through the
 - Event priorities: `features/silkspawners/listener/SilkSpawnersListener.java`
 - Give command: `features/silkspawners/command/SilkSpawnerCommand.java`
 - Modern item format: `features/silkspawners/util/ItemUtils.java`
-- Legacy parser: `features/silkspawners/util/LegacyUtils.java`
+- Metadata parser: `features/silkspawners/util/LegacyUtils.java`

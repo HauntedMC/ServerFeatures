@@ -1,0 +1,240 @@
+# Example Economy feature configuration for one HauntedMC gamemode.
+# Change server_key per logical gamemode (survival, skyblock, kitpvp, ...).
+# Physical replicas of the same gamemode must use the same server_key.
+
+enabled: true
+network_key: hauntedmc
+server_key: survival
+
+messaging:
+  enabled: true
+  connection: hauntedmc
+  channel: serverfeatures.economy.balance
+
+vault:
+  enabled: true
+  primary_currency: money
+  conflict_policy: FAIL
+
+currencies:
+  crowns:
+    enabled: true
+    definition:
+      scope:
+        type: GLOBAL
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
+    display:
+      singular: Crown
+      plural: Crowns
+      symbol: "♛"
+      format: "{amount} {plural}"
+      grouping: true
+    commands:
+      root: crowns
+      aliases: [crown]
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "1"
+      maximum: "1000000"
+      confirmation_threshold: "10000"
+      daily_send_limit: "0"
+      daily_receive_limit: "0"
+      cooldown: 1s
+
+  credits:
+    enabled: true
+    definition:
+      scope:
+        type: GLOBAL
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
+    display:
+      singular: Credit
+      plural: Credits
+      symbol: "✦"
+      format: "{amount} {plural}"
+      grouping: true
+    commands:
+      root: credits
+      aliases: [credit]
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "1"
+      maximum: "1000000"
+      confirmation_threshold: "10000"
+      daily_send_limit: "0"
+      daily_receive_limit: "0"
+      cooldown: 1s
+
+  essence:
+    enabled: true
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
+    display:
+      singular: Essence
+      plural: Essence
+      symbol: "✧"
+      format: "{amount} {plural}"
+      grouping: true
+    commands:
+      root: essence
+      aliases: []
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "1"
+      maximum: "0"
+      confirmation_threshold: "0"
+      daily_send_limit: "0"
+      daily_receive_limit: "0"
+      cooldown: 1s
+
+  relics:
+    enabled: true
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
+    display:
+      singular: Relic
+      plural: Relics
+      symbol: "◆"
+      format: "{amount} {plural}"
+      grouping: true
+    commands:
+      root: relics
+      aliases: [relic]
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "1"
+      maximum: "0"
+      confirmation_threshold: "0"
+      daily_send_limit: "0"
+      daily_receive_limit: "0"
+      cooldown: 1s
+
+  soulstones:
+    enabled: true
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 0
+      balances:
+        starting: "0"
+        minimum: "0"
+        maximum: "999999999999999999999999999999"
+        allow_negative: false
+        rounding: UNNECESSARY
+    display:
+      singular: Soulstone
+      plural: Soulstones
+      symbol: "◈"
+      format: "{amount} {plural}"
+      grouping: true
+    commands:
+      root: soulstones
+      aliases: [soulstone]
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "1"
+      maximum: "0"
+      confirmation_threshold: "0"
+      daily_send_limit: "0"
+      daily_receive_limit: "0"
+      cooldown: 1s
+
+  money:
+    enabled: true
+    definition:
+      scope:
+        type: SERVER
+      fractional_digits: 2
+      balances:
+        starting: "0.00"
+        minimum: "0.00"
+        maximum: "999999999999999999999999999999.99999999"
+        allow_negative: false
+        rounding: HALF_UP
+    display:
+      singular: Coin
+      plural: Coins
+      symbol: "$"
+      format: "{symbol}{amount}"
+      grouping: true
+    commands:
+      root: money
+      aliases: [balance, bal]
+      balance: true
+      balance_others: true
+      pay: true
+      paytoggle: true
+      history: true
+      top: true
+    payments:
+      default_enabled: true
+      allow_offline_recipient: true
+      minimum: "0.01"
+      maximum: "0.00"
+      confirmation_threshold: "100000.00"
+      daily_send_limit: "0.00"
+      daily_receive_limit: "0.00"
+      cooldown: 1s

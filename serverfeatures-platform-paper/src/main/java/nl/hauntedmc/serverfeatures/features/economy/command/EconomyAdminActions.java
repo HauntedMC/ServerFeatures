@@ -1,0 +1,418 @@
+package nl.hauntedmc.serverfeatures.features.economy.command;
+
+import nl.hauntedmc.serverfeatures.api.economy.EconomyMutationRequest;
+import nl.hauntedmc.serverfeatures.api.economy.EconomyResult;
+import nl.hauntedmc.serverfeatures.features.economy.Economy;
+import nl.hauntedmc.serverfeatures.features.economy.config.EconomyDefinitionImporter;
+import nl.hauntedmc.serverfeatures.features.economy.config.EconomySettings;
+import nl.hauntedmc.serverfeatures.features.economy.persistence.EconomyMaintenanceResult;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Account;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.DiscoveredCurrencyDefinition;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.HistoryItem;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.Identity;
+import nl.hauntedmc.serverfeatures.features.economy.model.EconomyModels.TransactionType;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+
+/** Executes audited administrator use cases and renders their localized command feedback. */
+final class EconomyAdminActions {
+    private static final int PAGE_SIZE = 10;
+    private final Economy feature;
+
+    EconomyAdminActions(Economy feature) {
+        this.feature = feature;
+    }
+
+    int statusIfPermitted(CommandSender sender) {
+        return EconomyCommandPermissions.adminAction(sender, "status") ? status(sender) : help(sender);
+    }
+
+    /** Lists the administrative operations that are available to the current sender. */
+    int help(CommandSender sender) {
+        feature.send(sender, "economy.admin.help.header");
+        sendHelp(sender, "status", "status", "Bekijk de Economy-status");
+        sendHelp(sender, "status", "currencies", "Bekijk geconfigureerde currencies");
+        sendHelp(sender, "balance", "balance <speler> <currency>", "Bekijk een saldo");
+        sendHelp(sender, "balance", "account <speler> <currency>", "Bekijk saldo en accountstatus");
+        sendHelp(sender, "add", "add <speler> <currency> <bedrag> <reden>", "Voeg saldo toe");
+        sendHelp(sender, "remove", "remove <speler> <currency> <bedrag> <reden>", "Verwijder saldo");
+        sendHelp(sender, "set", "set <speler> <currency> <bedrag> <reden>", "Stel een saldo in");
+        sendHelp(sender, "payments", "payments <speler> <currency> <on|off> <reden>", "Beheer inkomende betalingen");
+        sendHelp(sender, "freeze", "freeze <speler> <currency> <reden>", "Bevries een account");
+        sendHelp(sender, "freeze", "unfreeze <speler> <currency> <reden>", "Geef een account vrij");
+        sendHelp(sender, "history", "history <speler> <currency> [pagina]", "Bekijk transacties");
+        sendHelp(sender, "verify", "verify", "Controleer de journaalintegriteit");
+        sendHelp(sender, "definitions", "definitions list", "Bekijk gedeelde currency-definities");
+        sendHelp(sender, "definitions", "definitions show <currency> <scope>", "Bekijk een definitie");
+        sendHelp(sender, "definitions.import", "definitions import <currency> <scope> [confirm]", "Importeer een config-scaffold");
+        sendHelp(sender, "maintenance", "maintenance redefine <currency> confirm", "Overschrijf de database-definitie vanuit config (wist currency-data)");
+        sendHelp(sender, "maintenance", "maintenance clear <currency> confirm", "Wis currency-balansen, journaal en workflows uit MySQL");
+        sendHelp(sender, "maintenance", "maintenance remove <currency> confirm", "Verwijder currency-configuratie en MySQL-data");
+        return 1;
+    }
+
+    int status(CommandSender sender) {
+        feature.send(sender, "economy.admin.status", Map.of(
+                "server", feature.settings().serverKey(),
+                "currencies", Integer.toString(feature.settings().currencies().size()),
+                "vault", feature.vaultStatus(), "messaging", feature.messagingStatus()));
+        return 1;
+    }
+
+    int currencies(CommandSender sender) {
+        for (EconomySettings.Currency currency : feature.settings().currencies().values()) {
+            feature.send(sender, "economy.admin.currency", Map.of(
+                    "currency", currency.id(), "scope", currency.scope().type().name(),
+                    "scope_key", currency.scope().key(), "command", "/" + currency.commands().root()));
+        }
+        return 1;
+    }
+
+    /** Lists shared definitions only; this command never reads or exposes player accounts. */
+    int definitions(CommandSender sender) {
+        feature.service().sharedDefinitions().whenComplete((definitions, failure) -> feature.service().main(() -> {
+            if (failure != null) { fail(sender, failure); return; }
+            if (definitions.isEmpty()) {
+                feature.send(sender, "economy.admin.definition.empty");
+                return;
+            }
+            for (DiscoveredCurrencyDefinition definition : definitions) {
+                feature.send(sender, "economy.admin.definition.list", Map.of(
+                        "currency", definition.currencyId(), "scope", definition.scope().key(),
+                        "type", definition.scope().type().name(),
+                        "state", definition.importable() ? "importable" : "legacy"));
+            }
+        }));
+        return 1;
+    }
+
+    int definition(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            if (!definition.importable()) {
+                feature.send(sender, "economy.admin.definition.legacy", Map.of(
+                        "currency", definition.currencyId(), "scope", definition.scope().key()));
+                return;
+            }
+            var policy = definition.definition();
+            feature.send(sender, "economy.admin.definition.detail", Map.ofEntries(
+                    Map.entry("currency", policy.currencyId()), Map.entry("scope", policy.scope().key()),
+                    Map.entry("type", policy.scope().type().name()), Map.entry("digits", Integer.toString(policy.fractionalDigits())),
+                    Map.entry("starting", policy.startingBalance().toPlainString()), Map.entry("minimum", policy.minimumBalance().toPlainString()),
+                    Map.entry("maximum", policy.maximumBalance().toPlainString()), Map.entry("negative", Boolean.toString(policy.allowNegative())),
+                    Map.entry("rounding", policy.rounding().name())));
+        });
+        return 1;
+    }
+
+    /** Provides a non-mutating import preview; confirm is required before configuration is written. */
+    int importPreview(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            EconomyDefinitionImporter.ImportPreview preview = EconomyDefinitionImporter.preview(feature.getConfigHandler(), definition);
+            feature.send(sender, "economy.admin.definition.import_preview", Map.of(
+                    "currency", definition.currencyId(), "scope", definition.scope().key(), "message", preview.message()));
+        });
+        return 1;
+    }
+
+    int importDefinition(CommandSender sender, String currencyId, String scopeKey) {
+        sharedDefinition(sender, currencyId, scopeKey, definition -> {
+            EconomyDefinitionImporter.ImportPreview result = EconomyDefinitionImporter.apply(feature.getConfigHandler(), definition);
+            if (result.status() == EconomyDefinitionImporter.ImportStatus.IMPORTED) {
+                feature.getLogger().info("Imported Economy definition " + definition.currencyId() + " ("
+                        + definition.scope().key() + ") into local configuration at the request of " + sender.getName() + ".");
+            }
+            feature.send(sender, result.status() == EconomyDefinitionImporter.ImportStatus.IMPORTED
+                    ? "economy.admin.definition.imported" : "economy.admin.definition.import_preview", Map.of(
+                    "currency", definition.currencyId(), "scope", definition.scope().key(), "message", result.message()));
+        });
+        return 1;
+    }
+
+    int balance(CommandSender sender, String target, String currencyId) {
+        resolve(target, currencyId, (identity, currency) -> feature.service().balance(
+                feature.service().account(identity, currency.id())).whenComplete((balance, failure) ->
+                feature.service().main(() -> {
+                    if (failure != null) { fail(sender, failure); return; }
+                    feature.send(sender, "economy.admin.balance", Map.of(
+                            "player", identity.playerName(), "currency", currency.id(),
+                            "scope", currency.scope().key(),
+                            "balance", feature.service().format(currency.id(), balance.balance())));
+                })), sender);
+        return 1;
+    }
+
+    /** Shows the account state that explains whether normal player payments can reach this account. */
+    int account(CommandSender sender, String target, String currencyId) {
+        resolve(target, currencyId, (identity, currency) -> feature.service().accountState(
+                feature.service().account(identity, currency.id())).whenComplete((account, failure) ->
+                feature.service().main(() -> accountResult(sender, account, failure))), sender);
+        return 1;
+    }
+
+    int mutate(CommandSender sender, String target, String currencyId, String rawAmount,
+               String reason, TransactionType type) {
+        if (reason == null || reason.isBlank()) {
+            feature.send(sender, "economy.admin.reason_required");
+            return 0;
+        }
+        Actor actor = actor(sender);
+        resolve(target, currencyId, (identity, currency) -> {
+            BigDecimal amount = parseAmount(rawAmount, currency, type == TransactionType.SET);
+            EconomyMutationRequest request = new EconomyMutationRequest(
+                    "admin-command", UUID.randomUUID().toString(), feature.service().account(identity, currency.id()),
+                    amount, actor.playerId(), actor.name(), reason, Map.of("command", "economy " + type.name().toLowerCase()));
+            feature.service().mutate(request, type, true).whenComplete((result, failure) ->
+                    feature.service().main(() -> mutationResult(sender, identity, currency, result, failure)));
+        }, sender);
+        return 1;
+    }
+
+    int payments(CommandSender sender, String target, String currencyId, boolean enabled, String reason) {
+        if (reason == null || reason.isBlank()) {
+            feature.send(sender, "economy.admin.reason_required");
+            return 0;
+        }
+        Actor actor = actor(sender);
+        resolve(target, currencyId, (identity, currency) -> feature.service().setPaymentsEnabled(
+                feature.service().account(identity, currency.id()), enabled, actor.playerId(), actor.name(), reason, "admin-command")
+                .whenComplete((account, failure) -> feature.service().main(() -> {
+                    if (failure != null) { fail(sender, failure); return; }
+                    feature.send(sender, "economy.admin.payments", Map.of(
+                            "player", identity.playerName(), "state", enabled ? "on" : "off"));
+                })), sender);
+        return 1;
+    }
+
+    int freeze(CommandSender sender, String target, String currencyId, String reason, boolean frozen) {
+        if (reason == null || reason.isBlank()) {
+            feature.send(sender, "economy.admin.reason_required");
+            return 0;
+        }
+        Actor actor = actor(sender);
+        resolve(target, currencyId, (identity, currency) -> feature.service().setFrozen(
+                feature.service().account(identity, currency.id()), frozen, actor.playerId(), actor.name(), reason)
+                .whenComplete((account, failure) -> feature.service().main(() -> {
+                    if (failure != null) { fail(sender, failure); return; }
+                    feature.send(sender, frozen ? "economy.admin.frozen" : "economy.admin.unfrozen",
+                            Map.of("player", identity.playerName(), "currency", currency.id()));
+                })), sender);
+        return 1;
+    }
+
+    int history(CommandSender sender, String target, String currencyId, int page) {
+        resolve(target, currencyId, (identity, currency) -> feature.service().history(
+                feature.service().account(identity, currency.id()), page, PAGE_SIZE)
+                .whenComplete((history, failure) -> feature.service().main(() -> {
+                    if (failure != null) { fail(sender, failure); return; }
+                    feature.send(sender, "economy.history.header", Map.of("page", Integer.toString(page)));
+                    if (history.entries().isEmpty()) {
+                        feature.send(sender, "economy.history.empty");
+                        return;
+                    }
+                    for (HistoryItem item : history.entries()) {
+                        feature.send(sender, "economy.history.entry", Map.of(
+                                "type", item.transactionType(),
+                                "amount", feature.service().format(currency.id(), item.delta()),
+                                "balance", feature.service().format(currency.id(), item.balanceAfter()),
+                                "operation", item.operationId().toString()));
+                    }
+                })), sender);
+        return 1;
+    }
+
+    int verify(CommandSender sender) {
+        feature.service().verify().whenComplete((report, failure) -> feature.service().main(() -> {
+            if (failure != null) { fail(sender, failure); return; }
+            feature.send(sender, "economy.admin.verify", Map.ofEntries(
+                    Map.entry("health", report.healthy() ? "healthy" : "issues"),
+                    Map.entry("accounts", Long.toString(report.accountCount())),
+                    Map.entry("transactions", Long.toString(report.transactionCount())),
+                    Map.entry("invalid", Long.toString(report.invalidBalanceCount())),
+                    Map.entry("invalid_entries", Long.toString(report.invalidEntryCount())),
+                    Map.entry("invalid_transactions", Long.toString(report.invalidTransactionCount())),
+                    Map.entry("orphan_settings", Long.toString(report.orphanSettingsCount())),
+                    Map.entry("orphan_entries", Long.toString(report.orphanEntryCount())),
+                    Map.entry("identity_mismatches", Long.toString(report.identityMismatchCount())),
+                    Map.entry("entry_account_mismatches", Long.toString(report.entryAccountMismatchCount())),
+                    Map.entry("accounts_without_entries", Long.toString(report.accountWithoutEntriesCount())),
+                    Map.entry("empty_transactions", Long.toString(report.transactionWithoutEntriesCount())),
+                    Map.entry("balance_journal_mismatches", Long.toString(report.balanceJournalMismatchCount())),
+                    Map.entry("continuity_errors", Long.toString(report.journalContinuityErrorCount()))));
+        }));
+        return 1;
+    }
+
+    int redefineCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            EconomySettings.Currency currency = feature.configuredCurrencyForMaintenance(currencyId);
+            feature.service().redefineCurrency(feature.settings(), currency).whenComplete((result, failure) ->
+                    feature.service().main(() -> maintenanceResult(sender, "Database-definitie overschreven", currency.id(), result, failure)));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
+    int clearCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            String normalized = EconomySettings.normalizeCurrencyId(currencyId);
+            feature.service().clearCurrencyData(normalized).whenComplete((result, failure) ->
+                    feature.service().main(() -> maintenanceResult(sender, "Currency-data gewist", normalized, result, failure)));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
+    int removeCurrency(CommandSender sender, String currencyId) {
+        if (!maintenanceReady(sender)) return 0;
+        try {
+            String normalized = EconomySettings.normalizeCurrencyId(currencyId);
+            if (normalized.contains(".")) {
+                throw new IllegalArgumentException("Currency IDs containing '.' cannot be removed safely from YAML");
+            }
+            feature.service().removeCurrency(normalized).whenComplete((result, failure) -> feature.service().main(() -> {
+                if (failure != null) {
+                    maintenanceFailure(sender, failure);
+                    return;
+                }
+                try {
+                    feature.removeCurrencyConfiguration(normalized);
+                    maintenanceResult(sender, "Currency verwijderd", normalized, result, null);
+                } catch (RuntimeException configFailure) {
+                    feature.getLogger().severe("Economy removed MySQL data for " + normalized
+                            + " but could not remove its local configuration: " + configFailure.getMessage());
+                    feature.send(sender, "economy.admin.maintenance.partial", Map.of("currency", normalized));
+                }
+            }));
+        } catch (RuntimeException failure) {
+            maintenanceFailure(sender, failure);
+        }
+        return 1;
+    }
+
+    private Actor actor(CommandSender sender) {
+        return sender instanceof Player player
+                ? new Actor(feature.service().activeIdentity(player).map(Identity::playerId).orElse(null), sender.getName())
+                : new Actor(null, sender.getName());
+    }
+
+    private void accountResult(CommandSender sender, Account account, Throwable failure) {
+        if (failure != null) {
+            fail(sender, failure);
+            return;
+        }
+        feature.send(sender, "economy.admin.account", Map.of(
+                "player", account.identity().playerName(), "currency", account.currencyId(), "scope", account.scopeKey(),
+                "balance", feature.service().format(account.currencyId(), account.balance()),
+                "payments", account.paymentsEnabled() ? "on" : "off", "status", account.status().name().toLowerCase()));
+    }
+
+    private void sendHelp(CommandSender sender, String permission, String usage, String description) {
+        if (EconomyCommandPermissions.adminAction(sender, permission)) {
+            feature.send(sender, "economy.admin.help.entry", Map.of("usage", usage, "description", description));
+        }
+    }
+
+    private void resolve(String target, String currencyId, ResolvedAction action, CommandSender sender) {
+        EconomySettings.Currency currency;
+        try {
+            currency = feature.settings().requireCurrency(currencyId);
+        } catch (RuntimeException exception) {
+            feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(exception));
+            return;
+        }
+        feature.service().resolveIdentifier(target).whenComplete((identity, failure) -> {
+            if (failure != null) {
+                feature.service().main(() -> fail(sender, failure));
+                return;
+            }
+            try {
+                action.execute(identity, currency);
+            } catch (RuntimeException exception) {
+                feature.service().main(() -> fail(sender, exception));
+            }
+        });
+    }
+
+    private void sharedDefinition(
+            CommandSender sender, String currencyId, String scopeKey, Consumer<DiscoveredCurrencyDefinition> action
+    ) {
+        feature.service().sharedDefinition(currencyId, scopeKey).whenComplete((result, failure) ->
+                feature.service().main(() -> {
+                    if (failure != null) {
+                        fail(sender, failure);
+                    } else if (result.isEmpty()) {
+                        feature.send(sender, "economy.admin.definition.missing", Map.of(
+                                "currency", currencyId, "scope", scopeKey));
+                    } else {
+                        try {
+                            action.accept(result.get());
+                        } catch (RuntimeException exception) {
+                            fail(sender, exception);
+                        }
+                    }
+                }));
+    }
+
+    private void mutationResult(CommandSender sender, Identity identity, EconomySettings.Currency currency,
+                                EconomyResult result, Throwable failure) {
+        if (failure != null) { fail(sender, failure); return; }
+        if (!result.successful()) {
+            feature.send(sender, "economy.error." + EconomyCommandSupport.resultMessageKey(result));
+            return;
+        }
+        feature.send(sender, "economy.admin.changed", Map.of(
+                "player", identity.playerName(), "currency", currency.id(),
+                "balance", feature.service().format(currency.id(), result.balance()),
+                "operation", result.operationId() == null ? "-" : result.operationId().toString()));
+    }
+
+    private BigDecimal parseAmount(String raw, EconomySettings.Currency currency, boolean setOperation) {
+        return EconomyCommandSupport.parseExactAmount(raw, currency.display().fractionalDigits(),
+                setOperation && currency.balances().allowNegative(), !setOperation);
+    }
+
+    private void fail(CommandSender sender, Throwable failure) {
+        feature.send(sender, "economy.error." + EconomyCommandSupport.failureMessageKey(failure));
+    }
+
+    private boolean maintenanceReady(CommandSender sender) {
+        if (feature.maintenanceReady()) return true;
+        feature.send(sender, "economy.admin.maintenance.unavailable");
+        return false;
+    }
+
+    private void maintenanceResult(CommandSender sender, String action, String currency,
+                                   EconomyMaintenanceResult result, Throwable failure) {
+        if (failure != null) {
+            maintenanceFailure(sender, failure);
+            return;
+        }
+        feature.getLogger().warning("Economy maintenance by " + sender.getName() + ": " + action + " for "
+                + currency + " removed " + result.removedRows() + " MySQL rows.");
+        feature.send(sender, "economy.admin.maintenance.completed", Map.of(
+                "action", action, "currency", currency, "rows", Integer.toString(result.removedRows())));
+    }
+
+    private void maintenanceFailure(CommandSender sender, Throwable failure) {
+        feature.getLogger().warning("Economy maintenance failed for " + sender.getName() + ": "
+                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+        feature.send(sender, "economy.admin.maintenance.failed");
+    }
+
+    @FunctionalInterface
+    private interface ResolvedAction {
+        void execute(Identity identity, EconomySettings.Currency currency);
+    }
+
+    private record Actor(Long playerId, String name) {
+    }
+}

@@ -31,7 +31,7 @@ During initialization, the feature considers the server Paper when either:
 
 When the check fails, it logs a warning and returns from `initialize()` without registering the listener. The feature loader may still consider the feature enabled even though no behaviour was installed. Paper forks whose name/version does not contain `Paper` can be false negatives; compatible non-Paper-branded implementations are not detected by API presence.
 
-The listener imports legacy Paper package `com.destroystokyo.paper.event.block.BeaconEffectEvent`, so binary/API compatibility with the target Paper version is required.
+The listener imports `com.destroystokyo.paper.event.block.BeaconEffectEvent`, so binary/API compatibility with the target Paper release is required.
 
 ## `BeaconEffectEvent` contract
 

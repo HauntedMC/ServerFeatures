@@ -17,7 +17,12 @@ public final class Meta implements BaseMeta {
     }
 
     @Override
+    public List<String> getOptionalDependencies() {
+        return List.of("Economy");
+    }
+
+    @Override
     public List<String> getPluginDependencies() {
-        return List.of(DATA_PROVIDER, DATA_REGISTRY, "Vault");
+        return List.of(DATA_PROVIDER, DATA_REGISTRY);
     }
 }

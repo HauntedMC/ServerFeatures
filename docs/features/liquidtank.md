@@ -256,7 +256,7 @@ Every `PlayerMoveEvent` loops over every loaded tank and checks that one player,
 
 ## Tank action bar and cooldown
 
-`playTitle` actually sends an action-bar progress string through `MessageUtils`, built from legacy colour codes, quantity and a calculated bar width. It is not a title packet.
+`playTitle` actually sends an action-bar progress string through `MessageUtils`, built from colour codes, quantity and a calculated bar width. It is not a title packet.
 
 Tank-to-tank transfer uses per-tank boolean cooldown for 50 ticks. `setOnCooldown()` schedules delayed reset. Repeated calls create multiple reset tasks; an earlier task can clear a newer cooldown early because no generation timestamp is tracked.
 

@@ -38,7 +38,7 @@ git push origin vX.Y.Z
 
 1. Rejects malformed tags and any tag that differs from the Maven project version.
 2. Runs one `deploy` reactor with the `release` and `platform-acceptance` profiles.
-3. Enforces Java/Maven versions, pinned plugins, dependency convergence and upper bounds, banned legacy Adventure
+3. Enforces Java/Maven releases, pinned plugins, dependency convergence and upper bounds, banned deprecated Adventure
    modules, direct dependency declarations, duplicate classes, Checkstyle, tests, coverage, javadocs, distribution
    contents, and the real Paper boot gate.
 4. Uses Maven `deployAtEnd`, so deployment does not begin until every reactor build and verification gate succeeds.

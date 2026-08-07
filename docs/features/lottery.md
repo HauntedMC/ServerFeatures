@@ -9,20 +9,23 @@ Lottery provides scheduled ticket-based draws, optional donations, multiple priz
 The feature deliberately uses the same persistence style as other ServerFeatures modules:
 
 - one feature-owned `ORMContext` on `system_data_rw`;
-- four normal JPA entities registered directly with `createORMContext`;
+- five normal JPA entities registered directly with `createORMContext`;
 - short transactions through `ORMContext.runInTransaction`;
-- no migration importer, state-binding layer, operation journal, maintenance service, review queue or reconciliation commands.
+- no state-binding layer, operation journal, maintenance service, review queue or reconciliation commands.
 
-The four tables are:
+The tables are:
 
-- `system_lottery_rounds` — current and completed draws;
-- `system_lottery_entries` — one row per player and round;
-- `system_lottery_payouts` — pending, paying, paid or failed wins/refunds;
-- `system_lottery_player_stats` — totals used by leaderboards.
+- `lottery_rounds` — current and completed draws;
+- `lottery_entries` — one row per player and round;
+- `lottery_payouts` — pending, paying, paid or failed wins/refunds;
+- `lottery_player_stats` — totals used by leaderboards.
+- `lottery_purchase_intents` — native-Economy ticket reservations and their durable outcome.
 
 `lottery_key` defaults to `$server`, so each backend receives an independent lottery. A nullable unique `active_key` permits exactly one active round per lottery. That active round is pessimistically locked while tickets, donations, drawing, pausing, cancellation or pot additions are changed. Player totals use ordinary optimistic entity versioning to reject conflicting concurrent updates rather than silently losing data. The normal 30-second round refresh also reopens a stale interrupted draw, so no separate maintenance task is needed.
 
-Vault calls remain on the Paper main thread. A purchase or donation is withdrawn first and stored immediately afterwards. If the database write fails, the amount is refunded. Payout rows use `PENDING -> PAYING -> PAID`; a definite Vault failure returns the row to `PENDING`, while an uncertain result becomes `FAILED` and is logged instead of being repeated automatically.
+Vault calls remain on the Paper main thread. A Vault purchase or donation is withdrawn first and stored immediately afterwards. If the database write fails, the amount is refunded. Payout rows use `PENDING -> PAYING -> PAID`; a definite Vault failure returns the row to `PENDING`, while an uncertain result becomes `FAILED` and is logged instead of being repeated automatically.
+
+Native Economy purchases do not use that cross-system compensation path. Lottery first reserves the player and round capacity in `lottery_purchase_intents`, then calls Economy's atomic `chargeAndDispatch` workflow using that intent ID. Its idempotent handler either creates the ticket entry exactly once or makes an idempotent refund and records it. Pending intents are reconciled every 30 seconds, so a restart or an unknown charge response cannot silently lose a paid purchase. Apply [`001-durable-purchase-intents.sql`](lottery-migrations/001-durable-purchase-intents.sql) before enabling this version against an existing production schema.
 
 ## Player commands
 
@@ -122,3 +125,21 @@ Entries are sorted by UUID and assigned ticket ranges. The feature uses a random
 ```
 
 Placeholder reads use cached snapshots only and perform no database access.
+
+## Economy backend
+
+Lottery supports an explicit monetary backend:
+
+```yaml
+economy:
+  backend: VAULT
+  builtin:
+    currency: money
+```
+
+- `VAULT` preserves compatibility with external Vault providers.
+- `BUILTIN` uses the native ServerFeatures Economy API and the selected currency. The currency may be server-local, group-shared or global.
+
+There is no automatic fallback. A missing configured backend causes Lottery to fail with a clear startup error rather than silently using another balance system. Built-in withdrawals, refunds and payouts use deterministic idempotency identifiers. A missing or warming display cache never becomes an authoritative zero-balance rejection: the built-in withdrawal performs the real MySQL balance check. Vault mode retains the existing compensation behavior because external Vault providers do not expose an idempotency API.
+
+For the HauntedMC topology, Lottery can use global Crowns/Credits or a gamemode-local currency by selecting its currency ID in `economy.builtin.currency`. The resolved scope comes from Economy configuration; Lottery does not construct or override account scopes itself.

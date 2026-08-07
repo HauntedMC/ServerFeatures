@@ -142,6 +142,36 @@ class FeatureLoadOrderResolverTest {
     }
 
     @Test
+    void optionalDependencyLoadsFirstWhenAvailable() {
+        Map<String, FeatureDescriptor> descriptors = new LinkedHashMap<>();
+        descriptors.put("Lottery", new FeatureDescriptor(
+                "Lottery", "x.Lottery", "Lottery", "1", Set.of(), Set.of("Economy"), Set.of()
+        ));
+        descriptors.put("Economy", descriptor("Economy"));
+
+        FeatureLoadOrderResolver.Result result = resolve(
+                descriptors, List.of("Lottery", "Economy"), new ArrayList<>()
+        );
+
+        assertBefore(result.loadOrder(), "Economy", "Lottery");
+        assertTrue(result.skippedFeatures().isEmpty());
+    }
+
+    @Test
+    void missingOptionalDependencyDoesNotSkipFeature() {
+        Map<String, FeatureDescriptor> descriptors = Map.of(
+                "Lottery", new FeatureDescriptor(
+                        "Lottery", "x.Lottery", "Lottery", "1", Set.of(), Set.of("Economy"), Set.of()
+                )
+        );
+
+        FeatureLoadOrderResolver.Result result = resolve(descriptors, List.of("Lottery"), new ArrayList<>());
+
+        assertEquals(List.of("Lottery"), result.loadOrder());
+        assertTrue(result.skippedFeatures().isEmpty());
+    }
+
+    @Test
     void duplicateRequestedFeatureNamesDoNotDuplicateLoadEntries() {
         Map<String, FeatureDescriptor> descriptors = Map.of("A", descriptor("A"));
 
