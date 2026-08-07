@@ -292,8 +292,13 @@ public final class LotteryRepository {
             }
             round.setDonations(round.getDonations().add(amount.amount()));
             round.setUpdatedAt(now);
-            LotteryPlayerStatsEntity stats = stats(session, settings.lotteryKey(), playerUuid, true);
-            updateIdentity(stats, playerId, playerUuid, playerName);
+            LotteryPlayerStatsEntity stats = statsForUpdate(
+                    session,
+                    settings.lotteryKey(),
+                    playerUuid,
+                    playerId,
+                    playerName
+            );
             stats.setTotalDonated(stats.getTotalDonated().add(amount.amount()));
             stats.setDonationCount(Math.addExact(stats.getDonationCount(), 1L));
             stats.setUpdatedAt(now);
@@ -392,13 +397,13 @@ public final class LotteryRepository {
                 payout.setPaidAt(0L);
                 session.persist(payout);
 
-                LotteryPlayerStatsEntity stats = stats(
+                LotteryPlayerStatsEntity stats = statsForUpdate(
                         session,
                         settings.lotteryKey(),
                         winner.playerUuid(),
-                        true
+                        winner.playerId(),
+                        winner.playerName()
                 );
-                updateIdentity(stats, winner.playerId(), winner.playerUuid(), winner.playerName());
                 stats.setTotalWon(stats.getTotalWon().add(winner.amount().amount()));
                 if (roundWinners.add(winner.playerUuid())) {
                     stats.setRoundsWon(Math.addExact(stats.getRoundsWon(), 1L));
@@ -506,7 +511,13 @@ public final class LotteryRepository {
                 session.persist(payout);
 
                 UUID playerUuid = UUID.fromString(entry.getPlayerUuid());
-                LotteryPlayerStatsEntity stats = stats(session, settings.lotteryKey(), playerUuid, true);
+                LotteryPlayerStatsEntity stats = statsForUpdate(
+                        session,
+                        settings.lotteryKey(),
+                        playerUuid,
+                        entry.getPlayerId(),
+                        entry.getPlayerName()
+                );
                 stats.setTotalSpent(stats.getTotalSpent().subtract(entry.getPaidAmount()).max(BigDecimal.ZERO));
                 stats.setTicketsBought(Math.max(0L, stats.getTicketsBought() - entry.getTicketCount()));
                 stats.setUpdatedAt(now);
@@ -604,7 +615,7 @@ public final class LotteryRepository {
                     .setParameter("pending", PayoutStatus.PENDING.name())
                     .setParameter("paying", PayoutStatus.PAYING.name())
                     .getSingleResult();
-            LotteryPlayerStatsEntity stats = stats(session, lotteryKey, playerUuid, false);
+            LotteryPlayerStatsEntity stats = stats(session, lotteryKey, playerUuid);
             BigDecimal odds = totalTickets == 0
                     ? BigDecimal.ZERO
                     : BigDecimal.valueOf(tickets)
@@ -757,8 +768,13 @@ public final class LotteryRepository {
         }
         round.setUpdatedAt(now);
 
-        LotteryPlayerStatsEntity stats = stats(session, settings.lotteryKey(), playerUuid, true);
-        updateIdentity(stats, playerId, playerUuid, playerName);
+        LotteryPlayerStatsEntity stats = statsForUpdate(
+                session,
+                settings.lotteryKey(),
+                playerUuid,
+                playerId,
+                playerName
+        );
         stats.setTotalSpent(stats.getTotalSpent().add(charged.amount()));
         stats.setTicketsBought(Math.addExact(stats.getTicketsBought(), ticketCount));
         stats.setUpdatedAt(now);
@@ -895,24 +911,47 @@ public final class LotteryRepository {
         return Math.max(0L, Math.min(antiSnipe.extension().toMillis(), remainingCapacity));
     }
 
-    private LotteryPlayerStatsEntity stats(Session session, String lotteryKey, UUID playerUuid, boolean create) {
+    private LotteryPlayerStatsEntity stats(Session session, String lotteryKey, UUID playerUuid) {
+        return session.find(LotteryPlayerStatsEntity.class, statsId(lotteryKey, playerUuid));
+    }
+
+    private LotteryPlayerStatsEntity statsForUpdate(
+            Session session,
+            String lotteryKey,
+            UUID playerUuid,
+            Long playerId,
+            String playerName
+    ) {
         String id = statsId(lotteryKey, playerUuid);
         LotteryPlayerStatsEntity stats = session.find(LotteryPlayerStatsEntity.class, id);
-        if (stats == null && create) {
-            stats = new LotteryPlayerStatsEntity();
-            stats.setId(id);
-            stats.setLotteryKey(lotteryKey);
-            stats.setPlayerUuid(playerUuid.toString());
-            stats.setPlayerName(playerUuid.toString());
-            stats.setTotalSpent(BigDecimal.ZERO.setScale(Money.SCALE));
-            stats.setTotalDonated(BigDecimal.ZERO.setScale(Money.SCALE));
-            stats.setTotalWon(BigDecimal.ZERO.setScale(Money.SCALE));
-            stats.setTicketsBought(0L);
-            stats.setDonationCount(0L);
-            stats.setRoundsWon(0L);
-            stats.setUpdatedAt(0L);
+        if (stats == null) {
+            stats = newPlayerStats(lotteryKey, playerUuid, playerId, playerName);
+            // Hibernate snapshots assigned-id inserts when persist() is called. Populate the complete
+            // identity first so the queued INSERT never contains a UUID in the player_name column.
             session.persist(stats);
+        } else {
+            updateIdentity(stats, playerId, playerUuid, playerName);
         }
+        return stats;
+    }
+
+    static LotteryPlayerStatsEntity newPlayerStats(
+            String lotteryKey,
+            UUID playerUuid,
+            Long playerId,
+            String playerName
+    ) {
+        LotteryPlayerStatsEntity stats = new LotteryPlayerStatsEntity();
+        stats.setId(statsId(lotteryKey, playerUuid));
+        stats.setLotteryKey(lotteryKey);
+        updateIdentity(stats, playerId, playerUuid, playerName);
+        stats.setTotalSpent(BigDecimal.ZERO.setScale(Money.SCALE));
+        stats.setTotalDonated(BigDecimal.ZERO.setScale(Money.SCALE));
+        stats.setTotalWon(BigDecimal.ZERO.setScale(Money.SCALE));
+        stats.setTicketsBought(0L);
+        stats.setDonationCount(0L);
+        stats.setRoundsWon(0L);
+        stats.setUpdatedAt(0L);
         return stats;
     }
 
