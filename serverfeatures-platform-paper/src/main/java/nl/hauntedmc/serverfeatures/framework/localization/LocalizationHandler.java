@@ -15,7 +15,6 @@ import nl.hauntedmc.serverfeatures.api.util.text.placeholder.MessagePlaceholders
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import nl.hauntedmc.serverfeatures.framework.config.ConfigDefaultsMerger;
 import nl.hauntedmc.serverfeatures.framework.config.FeatureStoragePaths;
-import nl.hauntedmc.serverfeatures.framework.service.FeatureServices;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 
@@ -30,9 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Logger;
 
-/**
- * Localization store for either framework messages or one feature's messages.
- */
+/** Localization store for either framework messages or one feature's messages. */
 public final class LocalizationHandler {
     public static final String LANG_DIR = "lang";
 
@@ -112,10 +109,6 @@ public final class LocalizationHandler {
         return new MessageBuilder(key);
     }
 
-    /**
-     * Resolves the player's language once and provides repeated message rendering in that context.
-     * Messages without PlaceholderAPI tokens are cached per language and key.
-     */
     public PlayerMessages messagesFor(Player player) {
         Objects.requireNonNull(player, "player");
         return new PlayerMessages(player, resolvePlayerLanguage(player));
@@ -130,7 +123,6 @@ public final class LocalizationHandler {
             this.language = language;
         }
 
-        /** Renders one message while reusing this player's resolved language and static-message cache. */
         public Component build(String key) {
             Objects.requireNonNull(key, "key");
             String raw = readPlayerMessage(key, language);
@@ -166,9 +158,6 @@ public final class LocalizationHandler {
             return this;
         }
 
-        /**
-         * Uses another player for PlaceholderAPI while retaining the audience for language selection.
-         */
         public MessageBuilder withPlaceholderPlayer(Player player) {
             this.placeholderPlayer = player;
             return this;
@@ -219,7 +208,7 @@ public final class LocalizationHandler {
     }
 
     private Language resolvePlayerLanguage(Player player) {
-        return FeatureServices.find(plugin, LanguageAPI.class)
+        return plugin.getInternalServiceRegistry().find(LanguageAPI.class)
                 .map(api -> api.get(player.getUniqueId()))
                 .orElse(Language.NL);
     }
