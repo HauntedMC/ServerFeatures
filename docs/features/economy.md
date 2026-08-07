@@ -1,6 +1,55 @@
 # Economy
 
-Economy is the authoritative ServerFeatures multi-currency balance service. MySQL owns every balance and every committed mutation. Redis is used only for invalidation and notification hints; it is never trusted as a source of money.
+Economy is ServerFeatures' authoritative multi-currency balance service. It is designed for one
+network with multiple Paper servers and gamemodes. MySQL owns every balance and every committed
+mutation. Redis is used only for cache invalidation and player-notification hints; it is never
+trusted as a source of money.
+
+This guide describes the normal operating model. Read [the deployment checklist](economy-deployment-checklist.md)
+before enabling it on a network and [the incident runbook](economy-incident-response.md) when
+something is already wrong.
+
+## Mental model
+
+Economy separates three concerns:
+
+| Concern | Source of truth | Why it exists |
+| --- | --- | --- |
+| Accounts, settings and journal | MySQL | Correct balances, durable history and atomic changes across every server. |
+| Online-player cache | Memory on each Paper server | Fast display and PlaceholderAPI reads. It is disposable and never writes money back. |
+| Redis messages | Shared message channel | Prompt other servers to refresh an affected online player's cache and show a verified payment notification. |
+
+The most important rule is: a displayed value can be cached, but a balance change is never cached.
+Every successful change has committed to MySQL and has an immutable journal record first.
+
+### Lifecycle on each Paper server
+
+1. Economy loads and validates its local configuration.
+2. It connects to MySQL and verifies that every currency definition is compatible with the
+   definition already recorded for the network.
+3. Only after that succeeds, it registers the native API, commands, join/quit listener,
+   PlaceholderAPI expansion and optional Vault provider.
+4. A player's join triggers an asynchronous preload of all configured accounts for that player.
+   Their cached accounts are removed when they leave this Paper server.
+5. The cache refreshes online players from MySQL periodically. Redis invalidations can trigger an
+   earlier refresh, but a missed or duplicated Redis message cannot change a balance incorrectly.
+6. On disable, Economy unregisters optional integrations and clears the local cache. Nothing is
+   written from cache during shutdown.
+
+The join/quit listener only maintains this local display cache. It does not create a second balance
+store, validate configuration, or decide which account a player owns.
+
+### How a balance change works
+
+For a command, native API call or Vault call, Economy resolves the player identity, selects the
+configured currency and its scope, then runs an indexed MySQL transaction. For a transfer, it locks
+both account rows in deterministic player-ID order; it then checks account state and payment policy,
+updates both balances, writes the journal, and commits as one unit. A success response is sent only
+after that commit.
+
+After commit, the initiating server updates its local view and may publish a Redis hint. A receiving
+server reloads the account from MySQL before using that hint for a notification. This is why Redis
+outages can delay display updates but cannot duplicate, lose, or manufacture money.
 
 ## Currency scopes
 
@@ -19,6 +68,11 @@ DataRegistry player ID + currency ID + resolved scope key
 A player can therefore have one global `crowns` account and separate `money` accounts for Survival, Skyblock and KitPvP at the same time.
 
 A dedicated `player_economy_identity` table permanently binds every economy player ID to exactly one UUID, and every UUID to exactly one player ID, before any account is created. Player names remain display metadata only. Any identity conflict fails closed across all currencies and scopes instead of reassigning value.
+
+An account is created lazily when a strong read or mutation first needs it. Its configured starting
+balance is applied once in the same transaction as its first immutable journal entry. A player
+therefore does not receive a second starting balance by joining another server, refreshing a cache,
+or retrying an operation.
 
 ## HauntedMC topology
 
@@ -265,6 +319,30 @@ currencies:
       cooldown: 1s
 ```
 
+### Configuration reference
+
+Economy reads the configuration once when the feature starts. Changing a file does not change a
+running server; restart the feature/server as part of a controlled rollout.
+
+| Setting | Meaning |
+| --- | --- |
+| `network_key` | Permanent identifier for this economy network. Changing it selects completely different scopes and must be treated as a migration. |
+| `server_key` | Logical gamemode key used by `SERVER` currencies. Use the same value for physical replicas that must share a gamemode-local balance. |
+| `currencies.<id>.enabled` | Whether this server exposes and validates that currency. Disabling it hides the currency here; it does not delete accounts or definitions. |
+| `scope.type` | `SERVER`, `GROUP`, or `GLOBAL`; determines which resolved account scope is selected. |
+| `scope.local_key` / `group_key` | Stable override for a local or group scope. These are identifiers, not cosmetic names. |
+| `display.*` | Player-facing singular/plural names, symbol and formatting. `fractional_digits` also determines the currency's valid stored precision. |
+| `balances.*` | Starting balance for first account creation, plus the permitted balance range and normalization rule. Starting balance is applied once only. |
+| `payments.*` | Player-payment policy. A zero maximum, confirmation threshold, or daily limit means that particular upper/confirmation/limit check is disabled. |
+| `commands.*` | The player command root, aliases and enabled subcommands for this server. Disabled commands are not registered. |
+| `cache.authoritative_refresh_interval` | How often this Paper server refreshes online-player display data from MySQL. It must be between one second and five minutes. |
+| `messaging.*` | Optional Redis invalidation/notification transport. It improves freshness but does not affect transaction correctness. |
+| `vault.*` | Whether this Paper server registers one configured currency with Vault and how it handles another active provider. |
+
+Amounts are parsed and normalized to the configured fractional precision and rounding mode. Invalid
+configuration—such as a starting balance outside its bounds, a payment maximum below the minimum,
+or enabling `paytoggle` while `pay` is disabled—prevents Economy from starting.
+
 Use the same currency definitions on Skyblock, KitPvP and other gamemodes, but set their top-level logical key accordingly:
 
 ```yaml
@@ -293,6 +371,112 @@ scope:
   type: GROUP
   group_key: survival-network
 ```
+
+### Multi-instance Survival group example
+
+Use `GROUP` when a currency should be shared by a defined set of servers, without making it
+network-global. For example, Survival can run two independently named Paper instances while
+sharing `survival_tokens`; Skyblock remains outside that group.
+
+`survival-1`:
+
+```yaml
+network_key: hauntedmc
+server_key: survival-1
+
+currencies:
+  survival_tokens:
+    enabled: true
+    scope:
+      type: GROUP
+      group_key: survival
+    display:
+      singular: survival token
+      plural: survival tokens
+      symbol: ""
+      format: "{amount} {plural}"
+      fractional_digits: 0
+    # The remaining balances, commands and payments settings must be identical
+    # on every server in this group.
+```
+
+`survival-2` uses the same currency definition and group key, but keeps its own physical/logical
+server key:
+
+```yaml
+network_key: hauntedmc
+server_key: survival-2
+
+currencies:
+  survival_tokens:
+    enabled: true
+    scope:
+      type: GROUP
+      group_key: survival
+    # Copy the same display, balances, commands and payments settings as survival-1.
+```
+
+Both resolve this account scope to `hauntedmc/group/survival`, so a player's `survival_tokens`
+balance is shared between them. A Skyblock server either omits this currency or configures a
+different group key, so it does not access that balance. A `GLOBAL` currency still resolves to
+`hauntedmc/global` everywhere.
+
+If the two servers are simply identical physical replicas and **all** gamemode-local currencies
+should be shared, it is usually simpler to give both `server_key: survival` and keep those
+currencies as `SERVER`. Use `GROUP` when the membership should be explicit or only selected
+currencies should be shared.
+
+## Currency configuration and network consistency
+
+### What must match
+
+A currency is identified by its currency ID and resolved scope key. For example, a global
+`crowns` currency on the `hauntedmc` network always resolves to `hauntedmc/global`, regardless of
+which Paper server serves the request. Servers that use that account must agree on its **monetary
+definition**:
+
+- scope type and resolved scope key;
+- fractional precision;
+- starting, minimum and maximum balances;
+- negative-balance policy and rounding mode; and
+- payment default, minimum, maximum, confirmation threshold, daily limits and cooldown.
+
+On first startup, Economy stores a fingerprint of this definition in MySQL. Every later startup
+locks and compares that stored definition before Economy becomes available. The database record is
+the guard: it does not matter whether the server that originally created it is still online.
+
+| Situation | Result |
+| --- | --- |
+| A new server has the same monetary definition | It starts and shares the existing accounts. |
+| A server has an old or different monetary definition | Economy fails startup before API, commands, Vault or placeholders register on that server. |
+| An already-running server still has an old definition | It continues using its in-memory configuration until it is stopped or restarted. It is not changed remotely. |
+| Only display labels, number format/grouping, command labels/availability, or Vault enablement differ | Startup is permitted, but player presentation and local command availability can differ. Keep these consistent unless the difference is intentional. |
+
+This prevents a newly starting server from applying different payment or balance rules to the same
+global account. It does not magically reconfigure a server that was already running when a rollout
+began, so monetary changes must be coordinated.
+
+### Safe rollout and configuration changes
+
+Use one config revision for every server that shares an account scope. A normal release that does
+not change a monetary definition can be rolled out according to the deployment checklist. For a
+monetary-definition change, such as precision, bounds, rounding, payment limits or scope, use this
+process:
+
+1. Schedule maintenance and stop Economy on every server that can access the shared scope.
+2. Back up MySQL and retain the relevant transaction history and configuration revision.
+3. Have the change reviewed as a data migration. Some changes—especially reducing precision,
+   lowering a maximum, changing scope, or changing whether negative balances are allowed—can make
+   existing rows invalid and require an explicit reconciliation plan.
+4. Deploy the reviewed migration and the identical new configuration together. Do not edit the
+   fingerprint tables by hand and do not delete them to force a startup.
+5. Start one controlled server, run `/economy verify`, and test the changed policy.
+6. Start the remaining servers with that same configuration and complete the deployment checklist.
+
+There is no automatic live migration of a persisted currency definition. A definition mismatch is
+a release-blocking safety stop, not an error to bypass. If a server reports one, keep Economy off on
+that server, compare its resolved configuration with the stored/network configuration, and follow
+the incident runbook.
 
 ## Network-wide transfer behavior
 
@@ -378,6 +562,19 @@ Each currency registers only its enabled command tree:
 
 Disabled subcommands are absent from Brigadier suggestions.
 
+`pay` accepts positive decimal values only and normalizes them to the currency's configured
+precision. Economy rechecks the payment minimum/maximum, sender balance, account freeze,
+recipient payment preference, cooldown and daily limits inside the final MySQL transaction; command
+validation is never the only protection. When `confirmation_threshold` is positive, a payment at or
+above that amount requires `confirm`. The pending confirmation belongs to one player, replaces any
+older pending payment, and expires after 30 seconds.
+
+Player command permissions can be granted per currency with
+`serverfeatures.feature.economy.currency.<currency>.<action>` or across currencies with
+`serverfeatures.feature.economy.<action>`. The currency-wide and base Economy permissions also
+grant their relevant currency actions. Valid player actions are `balance`, `balance.others`, `pay`,
+`paytoggle`, `history`, and `top`.
+
 ## Administration
 
 ```text
@@ -397,6 +594,10 @@ Disabled subcommands are absent from Brigadier suggestions.
 ```
 
 Administrative balance changes require a reason, are journaled, and return an operation ID.
+Administrative permissions use `serverfeatures.feature.economy.admin.<action>`;
+`serverfeatures.feature.economy.admin` grants all administration actions. Treat balance changes,
+freeze changes and payment-preference changes as audited operational actions, not routine player
+support shortcuts.
 
 ## Vault
 

@@ -25,21 +25,24 @@ Use this checklist before enabling Economy on a production HauntedMC network.
 - Keep precision, starting balance, bounds, negative-balance policy, rounding, payment limits, cooldown, and payment-default settings identical for every server sharing a currency account scope.
 - Keep each currency ID in one scope family across the network. For example, `crowns` must not be global on one gamemode and local on another.
 - Startup must remain blocked when the persisted currency-family or scope definition conflicts with configuration. Do not bypass these guards.
+- The MySQL definition is persistent: stopping an old server does not make a new monetary definition acceptable. A changed monetary definition needs a coordinated, reviewed data migration; see [Currency configuration and network consistency](economy.md#currency-configuration-and-network-consistency).
+- Display formatting and local command/Vault settings are not part of the monetary definition guard. Keep them aligned as well unless a per-server difference is intentional.
 
 ## Rollout
 
-1. Back up the economy database.
-2. Deploy the same plugin build to every participating Paper instance.
-3. Enable and validate one non-production gamemode first.
-4. Run `/economy status`, `/economy currencies`, and `/economy verify`.
-5. Test one local Money transfer between physical replicas of the same gamemode.
-6. Test one local currency transaction while the recipient is online on another gamemode; only the originating gamemode account should change.
-7. Test one global Crowns or Credits payment while the recipient is online on another gamemode; both servers should converge on the same committed MySQL balance.
-8. Repeat the global test with Redis temporarily unavailable. The transaction must still commit safely and the remote display must heal through authoritative refresh after messaging returns or the refresh interval elapses.
-9. Retry one native mutation with the same source and idempotency key. It must replay the original operation without changing the balance twice.
-10. Retry the same key with a different amount or recipient. It must return an idempotency conflict and apply nothing.
-11. Confirm Vault reports the correct gamemode-local Money balance and cannot expose Crowns, Credits, or other named currencies.
-12. Enable the remaining gamemodes only after all checks pass.
+1. Back up the economy database and retain the exact configuration revision.
+2. Deploy the same plugin build and the same configuration revision to every participating Paper instance.
+3. If the release changes monetary policy, follow the coordinated migration procedure in the Economy guide instead of a rolling deployment.
+4. Enable and validate one non-production gamemode first.
+5. Run `/economy status`, `/economy currencies`, and `/economy verify`.
+6. Test one local Money transfer between physical replicas of the same gamemode.
+7. Test one local currency transaction while the recipient is online on another gamemode; only the originating gamemode account should change.
+8. Test one global Crowns or Credits payment while the recipient is online on another gamemode; both servers should converge on the same committed MySQL balance.
+9. Repeat the global test with Redis temporarily unavailable. The transaction must still commit safely and the remote display must heal through authoritative refresh after messaging returns or the refresh interval elapses.
+10. Retry one native mutation with the same source and idempotency key. It must replay the original operation without changing the balance twice.
+11. Retry the same key with a different amount or recipient. It must return an idempotency conflict and apply nothing.
+12. Confirm Vault reports the correct gamemode-local Money balance and cannot expose Crowns, Credits, or other named currencies.
+13. Enable the remaining gamemodes only after all checks pass.
 
 ## Operational rules
 
