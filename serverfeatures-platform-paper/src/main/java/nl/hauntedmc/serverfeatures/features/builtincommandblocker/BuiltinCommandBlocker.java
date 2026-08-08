@@ -52,6 +52,10 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
                 this,
                 getPlugin().getServer().getCommandMap()
         );
+        BuiltinCommandBlockerService initializedService = service;
+        getConfigHandler().registerReloadListener(() ->
+                getLifecycleManager().getTaskManager().scheduleOneTimeTask(initializedService::refreshAndUpdatePlayers)
+        );
         listener = new BuiltinCommandBlockerListener(this, service);
         getLifecycleManager().getListenerManager().registerListener(listener);
         service.refreshAndUpdatePlayers();
