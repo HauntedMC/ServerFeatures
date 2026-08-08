@@ -3,6 +3,7 @@ package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 import io.papermc.paper.testing.PluginOwnedPaperWrapperCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.FormattedCommandAlias;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -28,11 +29,16 @@ class BuiltinCommandMapRemovalTest {
         live.put("minecraft:give", give);
         Map<String, Command> removed = new LinkedHashMap<>();
 
-        assertTrue(BuiltinCommandMapRemoval.reconcile(live, removed, Set.of("give", "minecraft:give")));
+        assertTrue(BuiltinCommandMapRemoval.reconcile(
+                live,
+                removed,
+                Set.of("give", "minecraft:give"),
+                Set.of()
+        ));
         assertTrue(live.isEmpty());
         assertEquals(Set.of("give", "minecraft:give"), removed.keySet());
 
-        assertTrue(BuiltinCommandMapRemoval.restoreAll(live, removed));
+        assertTrue(BuiltinCommandMapRemoval.restoreAll(live, removed, Set.of()));
         assertSame(give, live.get("give"));
         assertSame(give, live.get("minecraft:give"));
         assertTrue(removed.isEmpty());
@@ -45,7 +51,7 @@ class BuiltinCommandMapRemovalTest {
         Map<String, Command> removed = new LinkedHashMap<>();
         removed.put("bukkit:help", help);
 
-        Map<String, Command> effective = BuiltinCommandMapRemoval.effectiveCommands(live, removed);
+        Map<String, Command> effective = BuiltinCommandMapRemoval.effectiveCommands(live, removed, Set.of());
 
         assertSame(help, effective.get("bukkit:help"));
         assertFalse(live.containsKey("bukkit:help"));
@@ -60,7 +66,7 @@ class BuiltinCommandMapRemovalTest {
         Map<String, Command> removed = new LinkedHashMap<>();
         removed.put("help", oldBuiltin);
 
-        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed));
+        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed, Set.of()));
 
         assertSame(replacement, live.get("help"));
         assertTrue(removed.isEmpty());
@@ -75,7 +81,7 @@ class BuiltinCommandMapRemovalTest {
         Map<String, Command> removed = new LinkedHashMap<>();
         removed.put("paper", oldBuiltin);
 
-        assertFalse(BuiltinCommandMapRemoval.reconcile(live, removed, Set.of()));
+        assertFalse(BuiltinCommandMapRemoval.reconcile(live, removed, Set.of(), Set.of()));
 
         assertSame(replacement, live.get("paper"));
         assertTrue(removed.isEmpty());
@@ -90,10 +96,35 @@ class BuiltinCommandMapRemovalTest {
         Map<String, Command> removed = new LinkedHashMap<>();
         removed.put("paper:paperthing", stale);
 
-        assertTrue(BuiltinCommandMapRemoval.pruneDisabledPluginCommands(removed));
+        assertTrue(BuiltinCommandMapRemoval.pruneInvalidRemovedCommands(removed, Set.of()));
         assertTrue(removed.isEmpty());
-        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed));
+        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed, Set.of()));
         assertTrue(live.isEmpty());
+    }
+
+    @Test
+    void deletedCommandsYmlAliasesAreNeverRestored() {
+        Command staleAlias = mock(FormattedCommandAlias.class);
+        Map<String, Command> live = new LinkedHashMap<>();
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("old-alias", staleAlias);
+
+        assertTrue(BuiltinCommandMapRemoval.pruneInvalidRemovedCommands(removed, Set.of()));
+        assertTrue(removed.isEmpty());
+        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed, Set.of()));
+        assertTrue(live.isEmpty());
+    }
+
+    @Test
+    void configuredCommandsYmlAliasesRemainRestorable() {
+        Command alias = mock(FormattedCommandAlias.class);
+        Map<String, Command> live = new LinkedHashMap<>();
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("kept-alias", alias);
+
+        assertFalse(BuiltinCommandMapRemoval.pruneInvalidRemovedCommands(removed, Set.of("kept-alias")));
+        assertTrue(BuiltinCommandMapRemoval.restoreAll(live, removed, Set.of("kept-alias")));
+        assertSame(alias, live.get("kept-alias"));
     }
 
     private static final class FakeCommand extends Command {
