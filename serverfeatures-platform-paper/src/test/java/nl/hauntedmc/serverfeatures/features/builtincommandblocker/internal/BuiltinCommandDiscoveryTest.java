@@ -57,6 +57,51 @@ class BuiltinCommandDiscoveryTest {
     }
 
     @Test
+    void commandsYmlAliasesTargetingBlockedCommandsAreBlockedTransitively() {
+        FakeCommand give = new FakeCommand("give");
+        FakeCommand directAlias = new FakeCommand("gimme");
+        FakeCommand chainedAlias = new FakeCommand("moregimme");
+        Map<String, Command> commands = registrations(
+                "minecraft:give", give,
+                "gimme", directAlias,
+                "moregimme", chainedAlias
+        );
+        Map<String, String[]> aliases = new LinkedHashMap<>();
+        aliases.put("gimme", new String[]{"minecraft:give $1 stone"});
+        aliases.put("moregimme", new String[]{"gimme $1"});
+
+        BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(
+                commands,
+                aliases,
+                allBlocked(true, Set.of())
+        );
+
+        assertTrue(snapshot.isBlocked("minecraft:give"));
+        assertTrue(snapshot.isBlocked("gimme"));
+        assertTrue(snapshot.isBlocked("moregimme"));
+        assertEquals(2, snapshot.detectedSources().get("legacy_aliases"));
+    }
+
+    @Test
+    void commandsYmlAliasesRemainWhenLegacyAliasesAreDisabled() {
+        FakeCommand give = new FakeCommand("give");
+        FakeCommand alias = new FakeCommand("gimme");
+        Map<String, Command> commands = registrations(
+                "minecraft:give", give,
+                "gimme", alias
+        );
+
+        BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(
+                commands,
+                Map.of("gimme", new String[]{"minecraft:give $1 stone"}),
+                allBlocked(false, Set.of())
+        );
+
+        assertTrue(snapshot.isBlocked("minecraft:give"));
+        assertFalse(snapshot.isBlocked("gimme"));
+    }
+
+    @Test
     void repeatedFallbackNamespacesRemainBlockedWhenAliasesAreDisabled() {
         FakeCommand help = new FakeCommand("help", "?");
         Map<String, Command> commands = registrations(
