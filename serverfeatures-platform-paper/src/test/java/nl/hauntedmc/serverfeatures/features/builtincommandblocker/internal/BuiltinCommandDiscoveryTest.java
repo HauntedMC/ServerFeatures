@@ -88,6 +88,15 @@ class BuiltinCommandDiscoveryTest {
     }
 
     @Test
+    void namespacedAllowlistAlsoMatchesUnnamespacedRootWithinSameSource() {
+        BuiltinCommandBlockerSettings settings = allBlocked(true, Set.of("minecraft:gamemode"));
+
+        assertTrue(settings.allows(BuiltinCommandSource.MINECRAFT, "gamemode"));
+        assertTrue(settings.allows(BuiltinCommandSource.MINECRAFT, "minecraft:gamemode"));
+        assertFalse(settings.allows(BuiltinCommandSource.BUKKIT, "gamemode"));
+    }
+
+    @Test
     void thirdPartyNamespacesAreNotBlocked() {
         FakeCommand custom = new FakeCommand("custom");
         Map<String, Command> commands = registrations(
