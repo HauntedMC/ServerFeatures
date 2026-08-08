@@ -30,6 +30,7 @@ trap cleanup EXIT
 fail() { echo "ServerFeatures acceptance failure: $*" >&2; exit 1; }
 require() { command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"; }
 property() { sed -n "s|.*<$1>\\(.*\\)</$1>.*|\\1|p" "$root_directory/pom.xml" | head -n 1; }
+log_count() { grep -Ec -- "$2" "$1" 2>/dev/null || true; }
 wait_for_log() {
     local file=$1 expected=$2 deadline=$((SECONDS + 180))
     while (( SECONDS < deadline )); do
@@ -38,6 +39,15 @@ wait_for_log() {
         sleep 1
     done
     fail "Timed out waiting for $expected"
+}
+wait_for_new_log() {
+    local file=$1 expected=$2 previous_count=$3 deadline=$((SECONDS + 45))
+    while (( SECONDS < deadline )); do
+        (( $(log_count "$file" "$expected") > previous_count )) && return
+        grep -Eq 'SERVERFEATURES_ACCEPTANCE_FAIL|Exception in thread|Could not load|Error occurred while enabling' "$file" && fail "Paper reported a runtime failure."
+        sleep 1
+    done
+    fail "Timed out waiting for a new $expected log entry"
 }
 
 for command in curl docker java jq jar sha256sum; do require "$command"; done
@@ -89,15 +99,38 @@ mkfifo "$work_directory/paper/console.in"
 (cd "$work_directory/paper" && exec java -Xms512M -Xmx1G -jar "$work_directory/paper.jar" --nogui <console.in >paper.log 2>&1) &
 paper_pid=$!
 exec {paper_input_fd}>"$work_directory/paper/console.in"
-wait_for_log "$work_directory/paper/paper.log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
-grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$work_directory/paper/paper.log" \
+paper_log="$work_directory/paper/paper.log"
+wait_for_log "$paper_log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
+grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$paper_log" \
     || fail "AutoPickup did not load during Paper acceptance."
-grep -Eq "Feature loaded: BuiltinCommandBlocker|Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$work_directory/paper/paper.log" \
+grep -Eq "Feature loaded: BuiltinCommandBlocker|Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$paper_log" \
     || fail "BuiltinCommandBlocker did not load during Paper acceptance."
+if grep -Eq 'Could not register alias version-alias|Could not register alias version-alias-chain' "$paper_log"; then
+    fail "BuiltinCommandBlocker removed alias targets before commands.yml aliases were registered."
+fi
+
+# Hard mode has been verified by the acceptance consumer. Disable it and prove that the exact commands.yml alias
+# chain is restored and executable, then re-enable it so the final /stop also runs while hard removal is active.
+printf 'serverfeatures disable BuiltinCommandBlocker\n' >&"$paper_input_fd"
+wait_for_log "$paper_log" 'Feature disabled: BuiltinCommandBlocker'
+version_count="$(log_count "$paper_log" 'This server is running Paper version')"
+printf 'version-alias-chain\n' >&"$paper_input_fd"
+wait_for_new_log "$paper_log" 'This server is running Paper version' "$version_count"
+
+loaded_count="$(log_count "$paper_log" 'Feature loaded: BuiltinCommandBlocker')"
+printf 'serverfeatures enable BuiltinCommandBlocker\n' >&"$paper_input_fd"
+wait_for_new_log "$paper_log" 'Feature loaded: BuiltinCommandBlocker' "$loaded_count"
+sleep 2
+version_count="$(log_count "$paper_log" 'This server is running Paper version')"
+printf 'version-alias-chain\n' >&"$paper_input_fd"
+sleep 2
+[[ "$(log_count "$paper_log" 'This server is running Paper version')" == "$version_count" ]] \
+    || fail "Hard-removal mode did not remove the restored commands.yml alias chain after re-enable."
+
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
 while kill -0 "$paper_pid" 2>/dev/null && (( SECONDS < deadline )); do sleep 1; done
 kill -0 "$paper_pid" 2>/dev/null && fail "Paper did not stop cleanly."
 wait "$paper_pid" || true
-grep -Eq 'ServerFeatures is shutting down' "$work_directory/paper/paper.log" || fail "ServerFeatures did not shut down cleanly."
+grep -Eq 'ServerFeatures is shutting down' "$paper_log" || fail "ServerFeatures did not shut down cleanly."
 echo "ServerFeatures platform acceptance passed."
