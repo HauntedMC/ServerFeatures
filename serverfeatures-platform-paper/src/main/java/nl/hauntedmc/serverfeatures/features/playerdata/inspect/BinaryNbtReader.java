@@ -5,7 +5,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +45,7 @@ final class BinaryNbtReader {
     }
 
     private static byte[] decompress(byte[] compressed, int maxBytes) throws IOException {
-        int initialCapacity = Math.min(Math.max(compressed.length * 2, BUFFER_SIZE), maxBytes);
+        int initialCapacity = Math.min(Math.max(compressed.length, BUFFER_SIZE), maxBytes);
         try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(compressed));
              ByteArrayOutputStream output = new ByteArrayOutputStream(initialCapacity)) {
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -212,12 +211,7 @@ final class BinaryNbtReader {
     }
 
     private static String readString(DataInputStream input) throws IOException {
-        int length = input.readUnsignedShort();
-        byte[] bytes = input.readNBytes(length);
-        if (bytes.length != length) {
-            throw new EOFException("Unexpected end of NBT string");
-        }
-        return new String(bytes, StandardCharsets.UTF_8);
+        return input.readUTF();
     }
 
     private static void skipString(DataInputStream input) throws IOException {
