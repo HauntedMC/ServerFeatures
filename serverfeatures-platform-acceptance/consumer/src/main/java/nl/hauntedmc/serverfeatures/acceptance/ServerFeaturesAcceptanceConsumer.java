@@ -6,6 +6,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.concurrent.TimeUnit;
+
 /** Verifies the bundled ServerFeatures artifact against the current shared platform APIs. */
 public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
     @Override
@@ -23,11 +25,26 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
                 if (MenuNavigator.class.getName().isBlank()) {
                     throw new IllegalStateException("ServerFeatures public API is unavailable.");
                 }
+                verifyBuiltinCommandBlocker();
                 getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
             } catch (Exception exception) {
                 getLogger().severe("SERVERFEATURES_ACCEPTANCE_FAIL platform=paper cause=" + exception);
             }
         });
+    }
+
+    private void verifyBuiltinCommandBlocker() throws Exception {
+        boolean valid = Bukkit.getScheduler().callSyncMethod(this, () ->
+                Bukkit.getCommandMap().getCommand("version") == null
+                        && Bukkit.getCommandMap().getCommand("stop") != null
+                        && Bukkit.getCommandMap().getCommand("serverfeatures") != null
+        ).get(10L, TimeUnit.SECONDS);
+        if (!valid) {
+            throw new IllegalStateException(
+                    "BuiltinCommandBlocker hard-removal acceptance failed: expected /version removed, "
+                            + "/stop allowlisted and /serverfeatures preserved."
+            );
+        }
     }
 
     private static void awaitReady(DataRegistryApiProvider provider) throws InterruptedException {
