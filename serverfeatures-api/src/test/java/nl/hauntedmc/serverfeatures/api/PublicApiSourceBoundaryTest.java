@@ -45,9 +45,9 @@ class PublicApiSourceBoundaryTest {
         if (path.startsWith("feature/")) {
             return path.startsWith("feature/meta/") || path.equals("feature/Feature.java");
         }
-        if (path.startsWith("service/")) {
+        if (path.startsWith("service/") || path.startsWith("capability/")) {
             return false;
         }
-        return !path.startsWith("capability/");
+        return !path.startsWith("economy/") && !path.startsWith("graveyard/");
     }
 }
