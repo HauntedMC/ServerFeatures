@@ -1,57 +1,25 @@
 package nl.hauntedmc.serverfeatures.api.combat;
 
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
+import nl.hauntedmc.serverfeatures.api.ServerFeaturesApi;
+import nl.hauntedmc.serverfeatures.api.capability.combat.CombatTagApi;
+import nl.hauntedmc.serverfeatures.api.service.CapabilityRef;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.Plugin;
 
 /**
- * Global access point for the currently active CombatTag API.
+ * Paper-runtime bridge for legacy internal callers while they are migrated to injected capability
+ * references. This class is not part of the published API artifact and owns no service instance.
  */
 public final class CombatTags {
-
-    private static final AtomicReference<CombatTagApi> SERVICE = new AtomicReference<>();
 
     private CombatTags() {
     }
 
-    public static void bootstrap(@NotNull CombatTagApi service) {
-        SERVICE.set(service);
-    }
-
-    public static void shutdown(@NotNull CombatTagApi service) {
-        SERVICE.compareAndSet(service, null);
-    }
-
-    public static @NotNull CombatTagApi service() {
-        CombatTagApi service = SERVICE.get();
-        return service == null ? NoopCombatTagApi.INSTANCE : service;
-    }
-
-    private enum NoopCombatTagApi implements CombatTagApi {
-        INSTANCE;
-
-        @Override
-        public boolean isTagged(UUID playerId) {
-            return false;
+    public static CapabilityRef<CombatTagApi> service() {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("ServerFeatures");
+        if (!(plugin instanceof ServerFeaturesApi api)) {
+            throw new IllegalStateException("ServerFeatures public API is not available");
         }
-
-        @Override
-        public Optional<CombatTagSnapshot> getTag(UUID playerId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public CombatTagResult tag(Player player, Entity opponent, CombatTagReason reason) {
-            return CombatTagResult.INVALID;
-        }
-
-        @Override
-        public boolean untag(Player player, CombatUntagReason reason) {
-            return false;
-        }
+        return api.capabilities().reference(CombatTagApi.class);
     }
 }
