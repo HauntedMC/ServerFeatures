@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
 import org.bukkit.command.Command;
+import org.bukkit.command.FormattedCommandAlias;
 import org.bukkit.command.PluginIdentifiableCommand;
 
 import java.util.Iterator;
@@ -13,17 +14,23 @@ final class BuiltinCommandMapRemoval {
     private BuiltinCommandMapRemoval() {
     }
 
-    static boolean pruneDisabledPluginCommands(Map<String, Command> removedCommands) {
-        return removedCommands.entrySet().removeIf(entry -> !isRestorable(entry.getValue()));
+    static boolean pruneInvalidRemovedCommands(
+            Map<String, Command> removedCommands,
+            Set<String> configuredServerAliases
+    ) {
+        return removedCommands.entrySet().removeIf(entry ->
+                !isRestorable(entry.getKey(), entry.getValue(), configuredServerAliases)
+        );
     }
 
     static Map<String, Command> effectiveCommands(
             Map<String, Command> liveCommands,
-            Map<String, Command> removedCommands
+            Map<String, Command> removedCommands,
+            Set<String> configuredServerAliases
     ) {
         LinkedHashMap<String, Command> effective = new LinkedHashMap<>(liveCommands);
         removedCommands.forEach((label, command) -> {
-            if (isRestorable(command) && !effective.containsKey(label)) {
+            if (isRestorable(label, command, configuredServerAliases) && !effective.containsKey(label)) {
                 effective.put(label, command);
             }
         });
@@ -33,14 +40,15 @@ final class BuiltinCommandMapRemoval {
     static boolean reconcile(
             Map<String, Command> liveCommands,
             Map<String, Command> removedCommands,
-            Set<String> blockedCommands
+            Set<String> blockedCommands,
+            Set<String> configuredServerAliases
     ) {
         boolean changed = false;
         Iterator<Map.Entry<String, Command>> iterator = removedCommands.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, Command> entry = iterator.next();
             String label = entry.getKey();
-            if (!isRestorable(entry.getValue())) {
+            if (!isRestorable(label, entry.getValue(), configuredServerAliases)) {
                 iterator.remove();
                 changed = true;
                 continue;
@@ -69,10 +77,15 @@ final class BuiltinCommandMapRemoval {
         return changed;
     }
 
-    static boolean restoreAll(Map<String, Command> liveCommands, Map<String, Command> removedCommands) {
+    static boolean restoreAll(
+            Map<String, Command> liveCommands,
+            Map<String, Command> removedCommands,
+            Set<String> configuredServerAliases
+    ) {
         boolean changed = false;
         for (Map.Entry<String, Command> entry : removedCommands.entrySet()) {
-            if (isRestorable(entry.getValue()) && !liveCommands.containsKey(entry.getKey())) {
+            if (isRestorable(entry.getKey(), entry.getValue(), configuredServerAliases)
+                    && !liveCommands.containsKey(entry.getKey())) {
                 liveCommands.put(entry.getKey(), entry.getValue());
                 changed = true;
             }
@@ -81,7 +94,14 @@ final class BuiltinCommandMapRemoval {
         return changed;
     }
 
-    private static boolean isRestorable(Command command) {
+    private static boolean isRestorable(
+            String label,
+            Command command,
+            Set<String> configuredServerAliases
+    ) {
+        if (command instanceof FormattedCommandAlias) {
+            return configuredServerAliases.contains(BuiltinCommandBlockerSettings.normalizeCommand(label));
+        }
         return !(command instanceof PluginIdentifiableCommand identifiable)
                 || identifiable.getPlugin().isEnabled();
     }
