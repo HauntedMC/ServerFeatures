@@ -10,8 +10,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-
 public final class PhantomToggleCommand implements BrigadierCommand {
 
     private final PhantomToggle feature;
@@ -23,11 +21,6 @@ public final class PhantomToggleCommand implements BrigadierCommand {
     @Override
     public @NotNull String name() {
         return "phantomtoggle";
-    }
-
-    @Override
-    public List<String> aliases() {
-        return List.of("phantoms");
     }
 
     @Override
