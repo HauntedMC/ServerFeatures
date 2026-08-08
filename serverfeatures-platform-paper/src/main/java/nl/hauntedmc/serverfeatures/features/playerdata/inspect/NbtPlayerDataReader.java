@@ -359,11 +359,14 @@ public final class NbtPlayerDataReader {
         } else if (type == NBTType.NBTTagString) {
             value = compound.getString(key);
         } else if (type == NBTType.NBTTagByteArray) {
-            value = Arrays.toString(compound.getByteArray(key));
+            byte[] values = compound.getByteArray(key);
+            value = arrayLength(values == null ? 0 : values.length);
         } else if (type == NBTType.NBTTagIntArray) {
-            value = Arrays.toString(compound.getIntArray(key));
+            int[] values = compound.getIntArray(key);
+            value = arrayLength(values == null ? 0 : values.length);
         } else if (type == NBTType.NBTTagLongArray) {
-            value = Arrays.toString(compound.getLongArray(key));
+            long[] values = compound.getLongArray(key);
+            value = arrayLength(values == null ? 0 : values.length);
         } else if (type == NBTType.NBTTagCompound) {
             ReadableNBT nested = compound.getCompound(key);
             value = "{" + (nested == null ? 0 : nested.getKeys().size()) + " keys}";
@@ -373,6 +376,10 @@ public final class NbtPlayerDataReader {
             value = "<not decoded>";
         }
         return entry(key, typeName, value, maxValueLength);
+    }
+
+    private static String arrayLength(int length) {
+        return length + (length == 1 ? " entry" : " entries");
     }
 
     private static PlayerDataEntry entry(String key, String type, Object value, int maxValueLength) {
