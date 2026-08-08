@@ -5,11 +5,11 @@ import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
 import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.ConnectionMessageSettings;
-import nl.hauntedmc.serverfeatures.features.notifylogin.internal.ConnectionVisibilityPort;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHandler;
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotifyLoginAPI;
 import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.port.ConnectionVisibilityPort;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
