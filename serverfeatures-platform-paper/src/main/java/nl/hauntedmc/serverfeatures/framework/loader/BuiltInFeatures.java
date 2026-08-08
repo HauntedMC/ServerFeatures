@@ -71,6 +71,7 @@ import nl.hauntedmc.serverfeatures.features.worldeditvisualizer.WorldEditVisuali
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,71 +80,79 @@ import java.util.function.Supplier;
 
 /** Explicit inventory of every built-in ServerFeatures implementation. */
 public final class BuiltInFeatures {
+    private static final String FEATURE_PACKAGE = "nl.hauntedmc.serverfeatures.features.";
+
+    /*
+     * Keep discovery metadata inert. In particular, do not put implementation class literals or
+     * constructor method handles in this list. Some built-ins link optional plugin APIs (for
+     * example PacketEvents); eagerly resolving those classes would crash ServerFeatures before
+     * the dependency manager can prune the unavailable feature.
+     */
     private static final List<Definition> DEFINITIONS = List.of(
-            def(AFK.class, nl.hauntedmc.serverfeatures.features.afk.meta.Meta::new, AFK::new),
-            def(Skins.class, nl.hauntedmc.serverfeatures.features.skins.meta.Meta::new, Skins::new),
-            def(Backup.class, nl.hauntedmc.serverfeatures.features.backup.meta.Meta::new, Backup::new),
-            def(Titles.class, nl.hauntedmc.serverfeatures.features.titles.meta.Meta::new, Titles::new),
-            def(Tablist.class, nl.hauntedmc.serverfeatures.features.tablist.meta.Meta::new, Tablist::new),
-            def(ChatLog.class, nl.hauntedmc.serverfeatures.features.chatlog.meta.Meta::new, ChatLog::new),
-            def(Bossbars.class, nl.hauntedmc.serverfeatures.features.bossbar.meta.Meta::new, Bossbars::new),
-            def(Glow.class, nl.hauntedmc.serverfeatures.features.glow.meta.Meta::new, Glow::new),
-            def(Sanitize.class, nl.hauntedmc.serverfeatures.features.sanitize.meta.Meta::new, Sanitize::new),
-            def(Balloons.class, nl.hauntedmc.serverfeatures.features.balloons.meta.Meta::new, Balloons::new),
-            def(ItemEdit.class, nl.hauntedmc.serverfeatures.features.itemedit.meta.Meta::new, ItemEdit::new),
-            def(Whitelist.class, nl.hauntedmc.serverfeatures.features.whitelist.meta.Meta::new, Whitelist::new),
-            def(ChatTools.class, nl.hauntedmc.serverfeatures.features.chattools.meta.Meta::new, ChatTools::new),
-            def(StaffChat.class, nl.hauntedmc.serverfeatures.features.staffchat.meta.Meta::new, StaffChat::new),
-            def(AutoLapis.class, nl.hauntedmc.serverfeatures.features.autolapis.meta.Meta::new, AutoLapis::new),
-            def(DeepHaste.class, nl.hauntedmc.serverfeatures.features.deephaste.meta.Meta::new, DeepHaste::new),
-            def(JoinItems.class, nl.hauntedmc.serverfeatures.features.joinitems.meta.Meta::new, JoinItems::new),
-            def(Sanctions.class, nl.hauntedmc.serverfeatures.features.sanctions.meta.Meta::new, Sanctions::new),
-            def(Holograms.class, nl.hauntedmc.serverfeatures.features.holograms.meta.Meta::new, Holograms::new),
-            def(Actionbar.class, nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta::new, Actionbar::new),
-            def(Broadcast.class, nl.hauntedmc.serverfeatures.features.broadcast.meta.Meta::new, Broadcast::new),
-            def(Scoreboard.class, nl.hauntedmc.serverfeatures.features.scoreboard.meta.Meta::new, Scoreboard::new),
-            def(InstaSkull.class, nl.hauntedmc.serverfeatures.features.instaskull.meta.Meta::new, InstaSkull::new),
-            def(EnderFrame.class, nl.hauntedmc.serverfeatures.features.enderframe.meta.Meta::new, EnderFrame::new),
-            def(LiquidTank.class, nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta::new, LiquidTank::new),
-            def(LagMonitor.class, nl.hauntedmc.serverfeatures.features.lagmonitor.meta.Meta::new, LagMonitor::new),
-            def(VoteReward.class, nl.hauntedmc.serverfeatures.features.votereward.meta.Meta::new, VoteReward::new),
-            def(RepairNPC.class, nl.hauntedmc.serverfeatures.features.repairnpc.meta.Meta::new, RepairNPC::new),
-            def(BetterCoral.class, nl.hauntedmc.serverfeatures.features.bettercoral.meta.Meta::new, BetterCoral::new),
-            def(NightVision.class, nl.hauntedmc.serverfeatures.features.nightvision.meta.Meta::new, NightVision::new),
-            def(BetterDoors.class, nl.hauntedmc.serverfeatures.features.betterdoors.meta.Meta::new, BetterDoors::new),
-            def(NotifyLogin.class, nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta::new, NotifyLogin::new),
-            def(AntiRaidFarm.class, nl.hauntedmc.serverfeatures.features.antiraidfarm.meta.Meta::new, AntiRaidFarm::new),
-            def(SilkSpawners.class, nl.hauntedmc.serverfeatures.features.silkspawners.meta.Meta::new, SilkSpawners::new),
-            def(Nickname.class, nl.hauntedmc.serverfeatures.features.nickname.meta.Meta::new, Nickname::new),
-            def(CustomRecipes.class, nl.hauntedmc.serverfeatures.features.customrecipes.meta.Meta::new, CustomRecipes::new),
-            def(CommandLogger.class, nl.hauntedmc.serverfeatures.features.commandlogger.meta.Meta::new, CommandLogger::new),
-            def(Portals.class, nl.hauntedmc.serverfeatures.features.portals.meta.Meta::new, Portals::new),
-            def(PlayerLanguage.class, nl.hauntedmc.serverfeatures.features.playerlanguage.meta.Meta::new, PlayerLanguage::new),
-            def(DurabilityAlert.class, nl.hauntedmc.serverfeatures.features.durabilityalert.meta.Meta::new, DurabilityAlert::new),
-            def(ChatFilter.class, nl.hauntedmc.serverfeatures.features.chatfilter.meta.Meta::new, ChatFilter::new),
-            def(VillagerOptimizer.class, nl.hauntedmc.serverfeatures.features.villageroptimizer.meta.Meta::new, VillagerOptimizer::new),
-            def(Teleportation.class, nl.hauntedmc.serverfeatures.features.teleportation.meta.Meta::new, Teleportation::new),
-            def(VersionRecommender.class, nl.hauntedmc.serverfeatures.features.versionrecommender.meta.Meta::new, VersionRecommender::new),
-            def(Capacity.class, nl.hauntedmc.serverfeatures.features.capacity.meta.Meta::new, Capacity::new),
-            def(Votifier.class, nl.hauntedmc.serverfeatures.features.votifier.meta.Meta::new, Votifier::new),
-            def(ChatLayout.class, nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta::new, ChatLayout::new),
-            def(Nametags.class, nl.hauntedmc.serverfeatures.features.nametags.meta.Meta::new, Nametags::new),
-            def(SpawnerToggle.class, nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta::new, SpawnerToggle::new),
-            def(PlayerCount.class, nl.hauntedmc.serverfeatures.features.playercount.meta.Meta::new, PlayerCount::new),
-            def(Vanish.class, nl.hauntedmc.serverfeatures.features.vanish.meta.Meta::new, Vanish::new),
-            def(Parcour.class, nl.hauntedmc.serverfeatures.features.parcour.meta.Meta::new, Parcour::new),
-            def(CommandRelay.class, nl.hauntedmc.serverfeatures.features.commandrelay.meta.Meta::new, CommandRelay::new),
-            def(WorldEditVisualizer.class, nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta::new, WorldEditVisualizer::new),
-            def(Economy.class, nl.hauntedmc.serverfeatures.features.economy.meta.Meta::new, Economy::new),
-            def(AutoPickup.class, nl.hauntedmc.serverfeatures.features.autopickup.meta.Meta::new, AutoPickup::new),
-            def(Restart.class, nl.hauntedmc.serverfeatures.features.restart.meta.Meta::new, Restart::new),
-            def(InvTools.class, nl.hauntedmc.serverfeatures.features.invtools.meta.Meta::new, InvTools::new),
-            def(LimitSpawners.class, nl.hauntedmc.serverfeatures.features.limitspawners.meta.Meta::new, LimitSpawners::new),
-            def(CombatTag.class, nl.hauntedmc.serverfeatures.features.combattag.meta.Meta::new, CombatTag::new),
-            def(Lottery.class, nl.hauntedmc.serverfeatures.features.lottery.meta.Meta::new, Lottery::new),
-            def(Graveyard.class, nl.hauntedmc.serverfeatures.features.graveyard.meta.Meta::new, Graveyard::new),
-            def(CommandScheduler.class, nl.hauntedmc.serverfeatures.features.commandscheduler.meta.Meta::new, CommandScheduler::new),
-            def(FairPerks.class, nl.hauntedmc.serverfeatures.features.fairperks.meta.Meta::new, FairPerks::new)
+            def("AFK", nl.hauntedmc.serverfeatures.features.afk.meta.Meta::new),
+            def("Skins", nl.hauntedmc.serverfeatures.features.skins.meta.Meta::new),
+            def("Backup", nl.hauntedmc.serverfeatures.features.backup.meta.Meta::new),
+            def("Titles", nl.hauntedmc.serverfeatures.features.titles.meta.Meta::new),
+            def("Tablist", nl.hauntedmc.serverfeatures.features.tablist.meta.Meta::new),
+            def("ChatLog", nl.hauntedmc.serverfeatures.features.chatlog.meta.Meta::new),
+            def("Bossbars", nl.hauntedmc.serverfeatures.features.bossbar.meta.Meta::new),
+            def("Glow", nl.hauntedmc.serverfeatures.features.glow.meta.Meta::new),
+            def("Sanitize", nl.hauntedmc.serverfeatures.features.sanitize.meta.Meta::new),
+            def("Balloons", nl.hauntedmc.serverfeatures.features.balloons.meta.Meta::new),
+            def("ItemEdit", nl.hauntedmc.serverfeatures.features.itemedit.meta.Meta::new),
+            def("Whitelist", nl.hauntedmc.serverfeatures.features.whitelist.meta.Meta::new),
+            def("ChatTools", nl.hauntedmc.serverfeatures.features.chattools.meta.Meta::new),
+            def("StaffChat", nl.hauntedmc.serverfeatures.features.staffchat.meta.Meta::new),
+            def("AutoLapis", nl.hauntedmc.serverfeatures.features.autolapis.meta.Meta::new),
+            def("DeepHaste", nl.hauntedmc.serverfeatures.features.deephaste.meta.Meta::new),
+            def("JoinItems", nl.hauntedmc.serverfeatures.features.joinitems.meta.Meta::new),
+            def("Sanctions", nl.hauntedmc.serverfeatures.features.sanctions.meta.Meta::new),
+            def("Holograms", nl.hauntedmc.serverfeatures.features.holograms.meta.Meta::new),
+            def("Actionbar", nl.hauntedmc.serverfeatures.features.actionbar.meta.Meta::new),
+            def("Broadcast", nl.hauntedmc.serverfeatures.features.broadcast.meta.Meta::new),
+            def("Scoreboard", nl.hauntedmc.serverfeatures.features.scoreboard.meta.Meta::new),
+            def("InstaSkull", nl.hauntedmc.serverfeatures.features.instaskull.meta.Meta::new),
+            def("EnderFrame", nl.hauntedmc.serverfeatures.features.enderframe.meta.Meta::new),
+            def("LiquidTank", nl.hauntedmc.serverfeatures.features.liquidtank.meta.Meta::new),
+            def("LagMonitor", nl.hauntedmc.serverfeatures.features.lagmonitor.meta.Meta::new),
+            def("VoteReward", nl.hauntedmc.serverfeatures.features.votereward.meta.Meta::new),
+            def("RepairNPC", nl.hauntedmc.serverfeatures.features.repairnpc.meta.Meta::new),
+            def("BetterCoral", nl.hauntedmc.serverfeatures.features.bettercoral.meta.Meta::new),
+            def("NightVision", nl.hauntedmc.serverfeatures.features.nightvision.meta.Meta::new),
+            def("BetterDoors", nl.hauntedmc.serverfeatures.features.betterdoors.meta.Meta::new),
+            def("NotifyLogin", nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta::new),
+            def("AntiRaidFarm", nl.hauntedmc.serverfeatures.features.antiraidfarm.meta.Meta::new),
+            def("SilkSpawners", nl.hauntedmc.serverfeatures.features.silkspawners.meta.Meta::new),
+            def("Nickname", nl.hauntedmc.serverfeatures.features.nickname.meta.Meta::new),
+            def("CustomRecipes", nl.hauntedmc.serverfeatures.features.customrecipes.meta.Meta::new),
+            def("CommandLogger", nl.hauntedmc.serverfeatures.features.commandlogger.meta.Meta::new),
+            def("Portals", nl.hauntedmc.serverfeatures.features.portals.meta.Meta::new),
+            def("PlayerLanguage", nl.hauntedmc.serverfeatures.features.playerlanguage.meta.Meta::new),
+            def("DurabilityAlert", nl.hauntedmc.serverfeatures.features.durabilityalert.meta.Meta::new),
+            def("ChatFilter", nl.hauntedmc.serverfeatures.features.chatfilter.meta.Meta::new),
+            def("VillagerOptimizer", nl.hauntedmc.serverfeatures.features.villageroptimizer.meta.Meta::new),
+            def("Teleportation", nl.hauntedmc.serverfeatures.features.teleportation.meta.Meta::new),
+            def("VersionRecommender", nl.hauntedmc.serverfeatures.features.versionrecommender.meta.Meta::new),
+            def("Capacity", nl.hauntedmc.serverfeatures.features.capacity.meta.Meta::new),
+            def("Votifier", nl.hauntedmc.serverfeatures.features.votifier.meta.Meta::new),
+            def("ChatLayout", nl.hauntedmc.serverfeatures.features.chatlayout.meta.Meta::new),
+            def("Nametags", nl.hauntedmc.serverfeatures.features.nametags.meta.Meta::new),
+            def("SpawnerToggle", nl.hauntedmc.serverfeatures.features.spawnertoggle.meta.Meta::new),
+            def("PlayerCount", nl.hauntedmc.serverfeatures.features.playercount.meta.Meta::new),
+            def("Vanish", nl.hauntedmc.serverfeatures.features.vanish.meta.Meta::new),
+            def("Parcour", nl.hauntedmc.serverfeatures.features.parcour.meta.Meta::new),
+            def("CommandRelay", nl.hauntedmc.serverfeatures.features.commandrelay.meta.Meta::new),
+            def("WorldEditVisualizer", nl.hauntedmc.serverfeatures.features.worldeditvisualizer.meta.Meta::new),
+            def("Economy", nl.hauntedmc.serverfeatures.features.economy.meta.Meta::new),
+            def("AutoPickup", nl.hauntedmc.serverfeatures.features.autopickup.meta.Meta::new),
+            def("Restart", nl.hauntedmc.serverfeatures.features.restart.meta.Meta::new),
+            def("InvTools", nl.hauntedmc.serverfeatures.features.invtools.meta.Meta::new),
+            def("LimitSpawners", nl.hauntedmc.serverfeatures.features.limitspawners.meta.Meta::new),
+            def("CombatTag", nl.hauntedmc.serverfeatures.features.combattag.meta.Meta::new),
+            def("Lottery", nl.hauntedmc.serverfeatures.features.lottery.meta.Meta::new),
+            def("Graveyard", nl.hauntedmc.serverfeatures.features.graveyard.meta.Meta::new),
+            def("CommandScheduler", nl.hauntedmc.serverfeatures.features.commandscheduler.meta.Meta::new),
+            def("FairPerks", nl.hauntedmc.serverfeatures.features.fairperks.meta.Meta::new)
     );
     private static final Map<String, Definition> BY_IMPLEMENTATION = indexByImplementation();
 
@@ -152,14 +161,14 @@ public final class BuiltInFeatures {
             throw new IllegalStateException("Expected 64 built-in ServerFeatures definitions");
         }
         Set<String> names = new HashSet<>();
-        Set<Class<?>> implementations = new HashSet<>();
+        Set<String> implementations = new HashSet<>();
         for (Definition definition : DEFINITIONS) {
-            if (!names.add(definition.registryName().toLowerCase(java.util.Locale.ROOT))) {
+            if (!names.add(definition.registryName().toLowerCase(Locale.ROOT))) {
                 throw new IllegalStateException("Duplicate feature name: " + definition.registryName());
             }
-            if (!implementations.add(definition.implementationType())) {
+            if (!implementations.add(definition.implementationClassName())) {
                 throw new IllegalStateException("Duplicate feature implementation: "
-                        + definition.implementationType().getName());
+                        + definition.implementationClassName());
             }
         }
     }
@@ -180,25 +189,23 @@ public final class BuiltInFeatures {
     private static Map<String, Definition> indexByImplementation() {
         Map<String, Definition> definitions = new LinkedHashMap<>();
         for (Definition definition : DEFINITIONS) {
-            Definition previous = definitions.put(definition.implementationType().getName(), definition);
+            Definition previous = definitions.put(definition.implementationClassName(), definition);
             if (previous != null) {
                 throw new IllegalStateException("Duplicate feature implementation: "
-                        + definition.implementationType().getName());
+                        + definition.implementationClassName());
             }
         }
         return Map.copyOf(definitions);
     }
 
-    private static <M extends BaseMeta, F extends BukkitBaseFeature<M>> Definition def(
-            Class<F> implementation,
-            Supplier<M> metaFactory,
-            TypedFeatureFactory<M, F> featureFactory
-    ) {
+    private static Definition def(String registryName, Supplier<? extends BaseMeta> metaFactory) {
+        String packageName = registryName.equals("Bossbars")
+                ? "bossbar"
+                : registryName.toLowerCase(Locale.ROOT);
         return new Definition(
-                implementation.getSimpleName(),
-                implementation,
-                metaFactory,
-                context -> featureFactory.create(castContext(context))
+                registryName,
+                FEATURE_PACKAGE + packageName + "." + registryName,
+                metaFactory
         );
     }
 
@@ -207,27 +214,104 @@ public final class BuiltInFeatures {
         return (FeatureContext<M>) Objects.requireNonNull(context, "context");
     }
 
-    @FunctionalInterface
-    private interface TypedFeatureFactory<M extends BaseMeta, F extends BukkitBaseFeature<M>> {
-        F create(FeatureContext<M> context);
+    private static BukkitBaseFeature<?> instantiate(String registryName, FeatureContext<?> context) {
+        Objects.requireNonNull(context, "context");
+        return switch (registryName) {
+            case "AFK" -> new AFK(castContext(context));
+            case "Skins" -> new Skins(castContext(context));
+            case "Backup" -> new Backup(castContext(context));
+            case "Titles" -> new Titles(castContext(context));
+            case "Tablist" -> new Tablist(castContext(context));
+            case "ChatLog" -> new ChatLog(castContext(context));
+            case "Bossbars" -> new Bossbars(castContext(context));
+            case "Glow" -> new Glow(castContext(context));
+            case "Sanitize" -> new Sanitize(castContext(context));
+            case "Balloons" -> new Balloons(castContext(context));
+            case "ItemEdit" -> new ItemEdit(castContext(context));
+            case "Whitelist" -> new Whitelist(castContext(context));
+            case "ChatTools" -> new ChatTools(castContext(context));
+            case "StaffChat" -> new StaffChat(castContext(context));
+            case "AutoLapis" -> new AutoLapis(castContext(context));
+            case "DeepHaste" -> new DeepHaste(castContext(context));
+            case "JoinItems" -> new JoinItems(castContext(context));
+            case "Sanctions" -> new Sanctions(castContext(context));
+            case "Holograms" -> new Holograms(castContext(context));
+            case "Actionbar" -> new Actionbar(castContext(context));
+            case "Broadcast" -> new Broadcast(castContext(context));
+            case "Scoreboard" -> new Scoreboard(castContext(context));
+            case "InstaSkull" -> new InstaSkull(castContext(context));
+            case "EnderFrame" -> new EnderFrame(castContext(context));
+            case "LiquidTank" -> new LiquidTank(castContext(context));
+            case "LagMonitor" -> new LagMonitor(castContext(context));
+            case "VoteReward" -> new VoteReward(castContext(context));
+            case "RepairNPC" -> new RepairNPC(castContext(context));
+            case "BetterCoral" -> new BetterCoral(castContext(context));
+            case "NightVision" -> new NightVision(castContext(context));
+            case "BetterDoors" -> new BetterDoors(castContext(context));
+            case "NotifyLogin" -> new NotifyLogin(castContext(context));
+            case "AntiRaidFarm" -> new AntiRaidFarm(castContext(context));
+            case "SilkSpawners" -> new SilkSpawners(castContext(context));
+            case "Nickname" -> new Nickname(castContext(context));
+            case "CustomRecipes" -> new CustomRecipes(castContext(context));
+            case "CommandLogger" -> new CommandLogger(castContext(context));
+            case "Portals" -> new Portals(castContext(context));
+            case "PlayerLanguage" -> new PlayerLanguage(castContext(context));
+            case "DurabilityAlert" -> new DurabilityAlert(castContext(context));
+            case "ChatFilter" -> new ChatFilter(castContext(context));
+            case "VillagerOptimizer" -> new VillagerOptimizer(castContext(context));
+            case "Teleportation" -> new Teleportation(castContext(context));
+            case "VersionRecommender" -> new VersionRecommender(castContext(context));
+            case "Capacity" -> new Capacity(castContext(context));
+            case "Votifier" -> new Votifier(castContext(context));
+            case "ChatLayout" -> new ChatLayout(castContext(context));
+            case "Nametags" -> new Nametags(castContext(context));
+            case "SpawnerToggle" -> new SpawnerToggle(castContext(context));
+            case "PlayerCount" -> new PlayerCount(castContext(context));
+            case "Vanish" -> new Vanish(castContext(context));
+            case "Parcour" -> new Parcour(castContext(context));
+            case "CommandRelay" -> new CommandRelay(castContext(context));
+            case "WorldEditVisualizer" -> new WorldEditVisualizer(castContext(context));
+            case "Economy" -> new Economy(castContext(context));
+            case "AutoPickup" -> new AutoPickup(castContext(context));
+            case "Restart" -> new Restart(castContext(context));
+            case "InvTools" -> new InvTools(castContext(context));
+            case "LimitSpawners" -> new LimitSpawners(castContext(context));
+            case "CombatTag" -> new CombatTag(castContext(context));
+            case "Lottery" -> new Lottery(castContext(context));
+            case "Graveyard" -> new Graveyard(castContext(context));
+            case "CommandScheduler" -> new CommandScheduler(castContext(context));
+            case "FairPerks" -> new FairPerks(castContext(context));
+            default -> throw new IllegalArgumentException("Unknown built-in feature: " + registryName);
+        };
     }
 
-    @FunctionalInterface
-    public interface FeatureInstantiator {
-        BukkitBaseFeature<?> create(FeatureContext<?> context);
+    /**
+     * Compatibility view for the transitional loader. This intentionally contains only the
+     * implementation binary name; it must not resolve the implementation class during discovery.
+     */
+    public record ImplementationType(String name) {
+        public ImplementationType {
+            name = Objects.requireNonNull(name, "name");
+        }
+
+        public String getName() {
+            return name;
+        }
     }
 
     public record Definition(
             String registryName,
-            Class<? extends BukkitBaseFeature<?>> implementationType,
-            Supplier<? extends BaseMeta> metaFactory,
-            FeatureInstantiator featureInstantiator
+            String implementationClassName,
+            Supplier<? extends BaseMeta> metaFactory
     ) {
         public Definition {
             registryName = Objects.requireNonNull(registryName, "registryName");
-            implementationType = Objects.requireNonNull(implementationType, "implementationType");
+            implementationClassName = Objects.requireNonNull(implementationClassName, "implementationClassName");
             metaFactory = Objects.requireNonNull(metaFactory, "metaFactory");
-            featureInstantiator = Objects.requireNonNull(featureInstantiator, "featureInstantiator");
+        }
+
+        public ImplementationType implementationType() {
+            return new ImplementationType(implementationClassName);
         }
 
         public BaseMeta createMeta() {
@@ -235,8 +319,10 @@ public final class BuiltInFeatures {
         }
 
         public BukkitBaseFeature<?> createFeature(FeatureContext<?> context) {
-            BukkitBaseFeature<?> feature = featureInstantiator.create(Objects.requireNonNull(context, "context"));
-            return Objects.requireNonNull(feature, "featureInstantiator returned null");
+            return Objects.requireNonNull(
+                    instantiate(registryName, Objects.requireNonNull(context, "context")),
+                    "feature instantiation returned null"
+            );
         }
     }
 }
