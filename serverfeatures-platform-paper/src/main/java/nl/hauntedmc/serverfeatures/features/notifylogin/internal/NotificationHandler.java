@@ -2,7 +2,7 @@ package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.notifylogin.NotifyLogin;
-import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishVisibilityPort;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerJoinEvent;
