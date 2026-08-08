@@ -6,13 +6,15 @@ PhantomToggle lets permitted players choose whether vanilla insomnia phantoms ma
 
 ## Player behavior
 
-The feature listens to Paper's `PhantomPreSpawnEvent`, which exposes the exhausted entity the phantom is being spawned for. If that entity is a player who has disabled phantom spawning, the pre-spawn event is cancelled and the remaining phantom spawn attempt is aborted.
+The primary path listens to Paper's `PhantomPreSpawnEvent`, which exposes the exhausted entity the phantom is being spawned for. If that entity is a player who has disabled phantom spawning, the pre-spawn event is cancelled and the remaining phantom spawn attempt is aborted.
+
+Paper documents pre-creature spawn events as an optimization hook with limited coverage, so the feature also listens to `CreatureSpawnEvent` as a fallback. The fallback only considers `NATURAL` phantom spawns with a non-null `Phantom#getSpawningEntity()` UUID and cancels the spawn when that UUID resolves to an opted-out player in the phantom's world.
 
 This is deliberately scoped to vanilla insomnia phantom spawning for that player:
 
 - phantoms spawned for other players are unaffected;
 - already-existing phantoms are not removed;
-- manually or plugin-spawned phantoms are not blocked;
+- ordinary manually or plugin-spawned `CUSTOM` phantoms are not blocked;
 - the player's `TIME_SINCE_REST` statistic is not changed or reset;
 - disabling phantom spawning does not make the player immune to an existing phantom.
 
@@ -65,9 +67,9 @@ Paper persists PDC with ordinary local playerdata, so the preference normally su
 
 ## Lifecycle and performance
 
-The feature has no scheduler, database work or per-player polling. Runtime work only occurs when Paper is already attempting an insomnia phantom spawn. Cancelling `PhantomPreSpawnEvent` happens before a phantom entity is created, and `setShouldAbortSpawn(true)` prevents unnecessary follow-up attempts for the blocked player.
+The feature has no scheduler, database work or per-player polling. The fast path cancels `PhantomPreSpawnEvent` before a phantom entity is created, and `setShouldAbortSpawn(true)` prevents unnecessary follow-up attempts for the blocked player. `CreatureSpawnEvent` is only the correctness fallback recommended by Paper for cases where the pre-spawn optimization hook is skipped.
 
-Framework cleanup unregisters the listener and command when the feature is disabled. The preference service owns no external resources and remains valid until the feature instance itself is discarded, avoiding a temporary invalid state during cleanup.
+Framework cleanup unregisters the listeners and command when the feature is disabled. The preference service owns no external resources and remains valid until the feature instance itself is discarded, avoiding a temporary invalid state during cleanup.
 
 ## Verification
 
@@ -79,6 +81,8 @@ Automated tests cover:
 - invalid stored values falling back safely;
 - PDC writes for explicit choices;
 - cancelling and aborting a phantom pre-spawn for an opted-out player;
-- leaving allowed and non-player spawn cases untouched.
+- leaving allowed and non-player pre-spawn cases untouched;
+- cancelling a matching natural phantom through the `CreatureSpawnEvent` fallback;
+- ignoring `CUSTOM` phantoms and natural phantoms without a spawning-player UUID.
 
 In game, verify `/phantomtoggle off`, wait until the player is normally eligible for phantoms, and confirm no phantom is created for that player while another eligible player can still receive normal phantom spawns.
