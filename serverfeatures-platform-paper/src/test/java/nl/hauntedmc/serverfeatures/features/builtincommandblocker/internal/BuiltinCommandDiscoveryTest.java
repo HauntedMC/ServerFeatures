@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
+import io.papermc.paper.SparksFly;
 import io.papermc.paper.testing.PluginOwnedPaperWrapperCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -121,6 +122,19 @@ class BuiltinCommandDiscoveryTest {
         );
 
         assertTrue(snapshot.blockedCommands().isEmpty());
+    }
+
+    @Test
+    void bundledSparkUsesSparkScopeDespitePaperFallbackNamespace() {
+        Command spark = new SparksFly.CommandImpl();
+
+        BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(
+                registrations("spark", spark, "paper:spark", spark),
+                allBlocked(true, Set.of())
+        );
+
+        assertEquals(2, snapshot.detectedSources().get("spark"));
+        assertEquals(0, snapshot.detectedSources().get("paper"));
     }
 
     @Test
