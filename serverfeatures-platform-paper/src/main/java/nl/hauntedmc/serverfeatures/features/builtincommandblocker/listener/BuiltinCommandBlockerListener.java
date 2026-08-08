@@ -46,17 +46,17 @@ public final class BuiltinCommandBlockerListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onPluginEnable(PluginEnableEvent event) {
+    public void onPluginEnable(PluginEnableEvent ignored) {
         scheduleRegistryRefresh();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onPluginDisable(PluginDisableEvent event) {
+    public void onPluginDisable(PluginDisableEvent ignored) {
         scheduleRegistryRefresh();
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onServerLoad(ServerLoadEvent event) {
+    public void onServerLoad(ServerLoadEvent ignored) {
         scheduleRegistryRefresh();
     }
 
