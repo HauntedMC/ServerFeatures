@@ -13,9 +13,7 @@ import nl.hauntedmc.serverfeatures.features.playercount.meta.Meta;
 
 import java.util.Optional;
 
-/**
- * Receives proxy player-count snapshots and exposes them locally and through PlaceholderAPI.
- */
+/** Receives proxy player-count snapshots and exposes them through PlaceholderAPI. */
 public final class PlayerCount extends BukkitBaseFeature<Meta> {
 
     static final String DEFAULT_CHANNEL = "proxy.playercount.snapshot";
@@ -70,7 +68,6 @@ public final class PlayerCount extends BukkitBaseFeature<Meta> {
                 publisherId
         );
         api = new PlayerCountAPI(store);
-        getLifecycleManager().getApiManager().registerService(PlayerCountAPI.class, api);
 
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             PlayerCountPlaceholder candidate = new PlayerCountPlaceholder(api);

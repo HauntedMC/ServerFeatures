@@ -52,63 +52,53 @@ public final class FeatureLoadManager {
     }
 
     private void discoverFeatures() {
-        plugin.getLogger().info("[FeatureScanner] Scanning for features...");
-        try (var scanResult = new io.github.classgraph.ClassGraph()
-                .enableClassInfo()
-                .acceptPackages("nl.hauntedmc.serverfeatures.features")
-                .scan()) {
-            scanResult.getSubclasses(BukkitBaseFeature.class.getName()).forEach(classInfo -> {
-                if (classInfo.isAbstract()) {
-                    return;
-                }
+        plugin.getLogger().info("[FeatureManifest] Loading built-in feature inventory...");
+        for (BuiltInFeatures.Definition definition : BuiltInFeatures.definitions()) {
+            String registryName = definition.registryName();
+            String featureClassName = definition.implementationType().getName();
+            BaseMeta meta;
+            try {
+                meta = definition.createMeta();
+            } catch (Throwable failure) {
+                plugin.getLogger().log(Level.SEVERE,
+                        "Skipping built-in feature '" + registryName + "': metadata construction failed.", failure);
+                continue;
+            }
 
-                String registryName = classInfo.getSimpleName();
-                String featureClassName = classInfo.getName();
-                Optional<FeatureDescriptor> descriptorOptional = buildDescriptor(registryName, featureClassName);
-                if (descriptorOptional.isEmpty()) {
-                    return;
-                }
+            Optional<FeatureDescriptor> descriptorOptional = buildDescriptor(registryName, featureClassName, meta);
+            if (descriptorOptional.isEmpty()) {
+                continue;
+            }
 
-                FeatureDescriptor descriptor = descriptorOptional.get();
-                String conflictingKey = FeatureKeyResolver.findCaseInsensitiveMatch(
-                        descriptor.registryName(),
-                        featureRegistry.getAvailableFeatures().keySet()
+            FeatureDescriptor descriptor = descriptorOptional.get();
+            String conflictingKey = FeatureKeyResolver.findCaseInsensitiveMatch(
+                    descriptor.registryName(),
+                    featureRegistry.getAvailableFeatures().keySet()
+            );
+            if (conflictingKey != null) {
+                FeatureDescriptor existing = featureRegistry.getAvailableFeature(conflictingKey);
+                plugin.getLogger().severe(
+                        "Skipping feature class '" + descriptor.featureClassName()
+                                + "' because feature key '" + descriptor.registryName()
+                                + "' conflicts with '" + existing.featureClassName() + "'."
                 );
-                if (conflictingKey != null) {
-                    FeatureDescriptor existing = featureRegistry.getAvailableFeature(conflictingKey);
-                    plugin.getLogger().severe(
-                            "Skipping feature class '" + descriptor.featureClassName()
-                                    + "' because feature key '" + descriptor.registryName()
-                                    + "' conflicts with '" + existing.featureClassName() + "'."
-                    );
-                    return;
-                }
+                continue;
+            }
 
-                featureRegistry.registerAvailableFeature(descriptor);
-            });
+            featureRegistry.registerAvailableFeature(descriptor);
         }
 
         pruneFeaturesWithMissingDependencies();
         prepareFeatureStorage();
 
-        plugin.getLogger().info("Discovered features: " + featureRegistry.getAvailableFeatures().keySet());
+        plugin.getLogger().info("Built-in features: " + featureRegistry.getAvailableFeatures().keySet());
     }
 
-    private Optional<FeatureDescriptor> buildDescriptor(String registryName, String featureClassName) {
-        Optional<BaseMeta> metaOptional = resolveMeta(featureClassName);
-        if (metaOptional.isEmpty()) {
-            int lastDot = featureClassName.lastIndexOf('.');
-            String expectedMetaClass = lastDot < 0
-                    ? featureClassName + ".meta.Meta"
-                    : featureClassName.substring(0, lastDot) + ".meta.Meta";
-            plugin.getLogger().severe(
-                    "Skipping feature class '" + featureClassName
-                            + "' because required meta class '" + expectedMetaClass + "' is missing or invalid."
-            );
-            return Optional.empty();
-        }
-
-        BaseMeta meta = metaOptional.get();
+    private Optional<FeatureDescriptor> buildDescriptor(
+            String registryName,
+            String featureClassName,
+            BaseMeta meta
+    ) {
         String featureName = (meta.getFeatureName() == null || meta.getFeatureName().isBlank())
                 ? registryName
                 : meta.getFeatureName().trim();
@@ -158,33 +148,6 @@ public final class FeatureLoadManager {
                 optionalDependencies,
                 pluginDependencies
         ));
-    }
-
-    private Optional<BaseMeta> resolveMeta(String featureClassName) {
-        int lastDot = featureClassName.lastIndexOf('.');
-        if (lastDot < 0) {
-            return Optional.empty();
-        }
-
-        String packageName = featureClassName.substring(0, lastDot);
-        String metaClassName = packageName + ".meta.Meta";
-
-        try {
-            Class<?> metaClass = Class.forName(metaClassName, true, plugin.getClass().getClassLoader());
-            if (!BaseMeta.class.isAssignableFrom(metaClass)) {
-                plugin.getLogger().warning("Meta class does not implement BaseMeta: " + metaClassName);
-                return Optional.empty();
-            }
-
-            BaseMeta meta = (BaseMeta) metaClass.getDeclaredConstructor().newInstance();
-            return Optional.of(meta);
-        } catch (ClassNotFoundException e) {
-            plugin.getLogger().warning("Meta class not found: " + metaClassName);
-            return Optional.empty();
-        } catch (ReflectiveOperationException | LinkageError t) {
-            plugin.getLogger().log(Level.WARNING, "Could not resolve meta for " + featureClassName, t);
-            return Optional.empty();
-        }
     }
 
     private Set<String> normalizeFeatureDependencies(String featureClassName, String featureKey, Collection<String> dependencies) {
@@ -285,7 +248,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public void initializeFeatures() {
+    public synchronized void initializeFeatures() {
         FeatureLoadOrderResolver.Result result = FeatureLoadOrderResolver.resolveLoadOrder(
                 featureRegistry.getAvailableFeatures().keySet(),
                 featureRegistry::getAvailableFeature,
@@ -335,7 +298,7 @@ public final class FeatureLoadManager {
         return featureRegistry.getAvailableFeature(featureKey);
     }
 
-    public FeatureEnableResponse enableFeature(String featureName) {
+    public synchronized FeatureEnableResponse enableFeature(String featureName) {
         FeatureDescriptor descriptor = requireAvailableDescriptor(featureName);
         if (descriptor == null) {
             plugin.getLogger().warning("Feature not found: " + featureName);
@@ -393,7 +356,7 @@ public final class FeatureLoadManager {
         return new FeatureEnableResponse(FeatureEnableResult.SUCCESS, Set.of(), Set.of());
     }
 
-    public FeatureDisableResponse disableFeature(String featureName) {
+    public synchronized FeatureDisableResponse disableFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -442,7 +405,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public FeatureSoftReloadResponse softReloadFeature(String featureName) {
+    public synchronized FeatureSoftReloadResponse softReloadFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null || !featureRegistry.isFeatureLoaded(featureKey)) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -460,7 +423,7 @@ public final class FeatureLoadManager {
         }
     }
 
-    public FeatureReloadResponse reloadFeature(String featureName) {
+    public synchronized FeatureReloadResponse reloadFeature(String featureName) {
         String featureKey = resolveFeatureKey(featureName);
         if (featureKey == null || !featureRegistry.isFeatureLoaded(featureKey)) {
             plugin.getLogger().warning("Feature not currently loaded: " + featureName);
@@ -554,7 +517,7 @@ public final class FeatureLoadManager {
         return featureRegistry;
     }
 
-    public void unloadAllFeatures() {
+    public synchronized void unloadAllFeatures() {
         plugin.getLogger().info("Unloading all loaded features...");
         List<String> loadedFeatureNames = new ArrayList<>(featureRegistry.getLoadedFeatureNames());
         ListIterator<String> iterator = loadedFeatureNames.listIterator(loadedFeatureNames.size());
@@ -590,7 +553,7 @@ public final class FeatureLoadManager {
         return missingPlugins;
     }
 
-    public boolean loadFeature(String featureName) {
+    public synchronized boolean loadFeature(String featureName) {
         return loadFeature(featureName, null);
     }
 
@@ -651,6 +614,8 @@ public final class FeatureLoadManager {
             if (reloadState != null) {
                 restoreReloadState(featureKey, feature, reloadState);
             }
+
+            feature.getLifecycleManager().getApiManager().activateServices();
 
             featureRegistry.registerLoadedFeature(featureKey, feature);
             plugin.getLogger().info("Feature loaded: " + featureKey);

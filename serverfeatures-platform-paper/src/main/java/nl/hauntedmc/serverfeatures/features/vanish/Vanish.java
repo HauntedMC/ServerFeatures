@@ -4,13 +4,13 @@ import nl.hauntedmc.dataprovider.api.orm.ORMContext;
 import nl.hauntedmc.dataprovider.database.DatabaseType;
 import nl.hauntedmc.dataprovider.database.messaging.MessagingDatabaseProvider;
 import nl.hauntedmc.dataprovider.database.messaging.durable.DurableMessagingDataAccess;
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.api.util.BukkitTime;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.vanish.command.VanishCommand;
 import nl.hauntedmc.serverfeatures.features.vanish.entities.PlayerVanishEntity;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
@@ -22,9 +22,10 @@ import nl.hauntedmc.serverfeatures.features.vanish.listener.InteractionListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.TabListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -37,10 +38,7 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
     private VanishService service;
     private VanishRepository repository;
     private ORMContext ormContext;
-
-    // Redis messaging (optional)
     private EventBusHandler eventBusHandler;
-
     private VanishAPI api;
 
     public Vanish(FeatureContext<Meta> context) {
@@ -83,7 +81,6 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
     @Override
     public MessageMap getDefaultMessages() {
         MessageMap m = new MessageMap();
-
         m.add("vanish.enabled_self", "&7[&cVanish&7] &fJe zit nu in vanish mode.");
         m.add("vanish.disabled_self", "&7[&cVanish&7] &fJe zit niet meer in vanish mode.");
         m.add("vanish.usage", "&eGebruik: /vanish [on|off|<speler>]");
@@ -97,13 +94,11 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
         m.add("vanish.staff_disabled", "&7[&cVanish&7] &f{target} zit niet meer in vanish mode.");
         m.add("vanish.staff_joined_vanished", "&7[&cVanish&7] &f{name} heeft de gamemode in vanish mode gejoined.");
         m.add("vanish.actionbar", "&eJe bent nu onzichtbaar voor anderen.");
-
         return m;
     }
 
     @Override
     public void initialize() {
-        // --- Data layer (ORM) ---
         getLifecycleManager().getDataManager().initDataProvider(getFeatureName());
         getLifecycleManager().getDataManager().registerConnection("ormConnection", DatabaseType.MYSQL, "player_data_rw");
         ormContext = getLifecycleManager().getDataManager().createORMContext(
@@ -112,22 +107,15 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
         ).orElseThrow();
 
         this.repository = new VanishRepository(this);
-
-        // Service (runtime logic)
         this.service = new VanishService(this);
-
         this.api = new VanishAPI(this);
-        getLifecycleManager().getApiManager().registerService(VanishAPI.class, this.api);
+        getLifecycleManager().getApiManager().registerInternalService(VanishVisibilityPort.class, this.api);
 
-        // Commands
         getLifecycleManager().getCommandManager().registerFeatureCommand(new VanishCommand(this));
-
-        // Listeners
         getLifecycleManager().getListenerManager().registerListener(new VisibilityListener(this));
         getLifecycleManager().getListenerManager().registerListener(new InteractionListener(this));
         getLifecycleManager().getListenerManager().registerListener(new TabListener(this));
 
-        // Actionbar loop
         int interval = Math.max(5, (int) getConfigHandler().get("actionbar_interval_ticks"));
         getLifecycleManager().getTaskManager().scheduleRepeatingTask(() -> {
             try {
@@ -137,12 +125,10 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
             }
         }, BukkitTime.ticks(interval), BukkitTime.ticks(interval));
 
-        // Register PlaceholderAPI expansion
         if (getPlugin().getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new VanishPlaceholder(this).register();
         }
 
-        // --- Redis messaging (optional) ---
         try {
             Optional<MessagingDatabaseProvider> redisProvider = getLifecycleManager()
                     .getDataManager()
@@ -185,19 +171,19 @@ public class Vanish extends BukkitBaseFeature<Meta> implements StatefulFeature<V
                 );
                 getLogger().info("Durable Redis messaging for Vanish initialized on '" + stream + "'.");
             } else {
-                getLogger().warning("Redis messaging connection 'redis' not available. Vanish updates will not be published to proxy.");
+                getLogger().warning(
+                        "Redis messaging connection 'redis' not available. Vanish updates will not be published to proxy."
+                );
             }
         } catch (Throwable t) {
             getLogger().warning("Failed to initialize Redis messaging for Vanish: " + t.getMessage());
         }
 
-        // Restored online vanish state must be published only after Redis messaging is ready.
         this.service.bootstrapOnlinePlayers();
     }
 
     @Override
     public void disable() {
-        // Restore player flags on shutdown
         if (service != null) {
             service.cleanupOnDisable();
         }

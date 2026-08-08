@@ -9,107 +9,56 @@
     <artifactId>serverfeatures-api</artifactId>
     <name>ServerFeatures API</name>
     <properties>
-        <coverage.line.minimum>0.50</coverage.line.minimum>
+        <coverage.line.minimum>0.80</coverage.line.minimum>
     </properties>
     <dependencies>
-        <dependency>
-            <groupId>io.papermc.paper</groupId>
-            <artifactId>paper-api</artifactId>
-            <version>${paper.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-key</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-minimessage</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-gson</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-legacy</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>net.kyori</groupId>
-            <artifactId>adventure-text-serializer-plain</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.viaversion</groupId>
-            <artifactId>viaversion-api</artifactId>
-            <version>${viaversion.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.retrooper</groupId>
-            <artifactId>packetevents-spigot</artifactId>
-            <version>${packetevents.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.github.retrooper</groupId>
-            <artifactId>packetevents-api</artifactId>
-            <version>${packetevents.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.mojang</groupId>
-            <artifactId>brigadier</artifactId>
-            <version>${brigadier.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>me.clip</groupId>
-            <artifactId>placeholderapi</artifactId>
-            <version>${placeholderapi.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
-        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>${mockito.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>serverfeatures-testkit</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>nl/hauntedmc/serverfeatures/api/ApiFailureCode.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ApiOperationException.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/AsyncContract.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/RuntimeState.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApi.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApiVersion.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/capability/**/*.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/economy/**/*.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/graveyard/**/*.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalog.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalogListener.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureClassification.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureDescriptor.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureFailure.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureId.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureRole.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureSnapshot.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureState.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityListener.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityRef.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityRegistry.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityUnavailableException.java</include>
+                    </includes>
+                    <testIncludes>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/FeatureContractsTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/IdentityAndServiceContractsTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/PublicApiSourceBoundaryTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/capability/**/*.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/economy/**/*.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/graveyard/**/*.java</testInclude>
+                    </testIncludes>
+                </configuration>
+            </plugin>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>

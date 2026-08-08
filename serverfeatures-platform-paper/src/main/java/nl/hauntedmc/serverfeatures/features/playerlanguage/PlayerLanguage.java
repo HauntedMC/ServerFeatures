@@ -2,10 +2,10 @@ package nl.hauntedmc.serverfeatures.features.playerlanguage;
 
 import nl.hauntedmc.dataregistry.api.DataRegistryApi;
 import nl.hauntedmc.dataregistry.api.DataRegistryFeature;
-import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigMap;
 import nl.hauntedmc.serverfeatures.api.io.localization.MessageMap;
 import nl.hauntedmc.serverfeatures.features.BukkitBaseFeature;
+import nl.hauntedmc.serverfeatures.features.FeatureContext;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.api.LanguageAPI;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.listener.LanguageListener;
 import nl.hauntedmc.serverfeatures.features.playerlanguage.meta.Meta;
@@ -42,8 +42,7 @@ public class PlayerLanguage extends BukkitBaseFeature<Meta> {
         this.service = new LanguageService(this, dataRegistry);
 
         getLifecycleManager().getListenerManager().registerListener(new LanguageListener(this));
-
-        getLifecycleManager().getApiManager().registerService(LanguageAPI.class, service);
+        getLifecycleManager().getApiManager().registerInternalService(LanguageAPI.class, service);
 
         for (Player player : getPlugin().getServer().getOnlinePlayers()) {
             initializePlayer(player);

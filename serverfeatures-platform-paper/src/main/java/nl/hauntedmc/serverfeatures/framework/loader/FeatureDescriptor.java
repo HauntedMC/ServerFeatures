@@ -74,14 +74,12 @@ public record FeatureDescriptor(
         pluginDependencies = normalizeDependencies(pluginDependencies, null);
     }
 
+    /**
+     * Creates an immutable metadata snapshot for a feature scope. The runtime deliberately does not
+     * instantiate per-feature meta companions here: discovery has already validated and normalized
+     * their values into this descriptor.
+     */
     public BaseMeta createMeta() {
-        if (metaClass != null) {
-            try {
-                return metaClass.getDeclaredConstructor().newInstance();
-            } catch (ReflectiveOperationException | LinkageError ignored) {
-                // Fall through to the immutable descriptor snapshot.
-            }
-        }
         return new StaticMeta(
                 featureName,
                 featureVersion,

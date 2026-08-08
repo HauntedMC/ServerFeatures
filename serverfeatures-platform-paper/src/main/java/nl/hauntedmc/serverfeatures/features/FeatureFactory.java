@@ -1,10 +1,17 @@
 package nl.hauntedmc.serverfeatures.features;
 
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
+import nl.hauntedmc.serverfeatures.framework.loader.BuiltInFeatures;
 
 import java.util.logging.Level;
 
-public class FeatureFactory {
+/**
+ * Transitional construction entry point used by the loader while feature metadata is moved into
+ * the manifest. Built-in construction itself is compile-time typed and performs no reflection.
+ */
+public final class FeatureFactory {
+
+    private FeatureFactory() { }
 
     public static BukkitBaseFeature<?> createFeature(
             String featureClassName,
@@ -16,20 +23,22 @@ public class FeatureFactory {
         }
 
         try {
-            var plugin = context.plugin();
-            Class<?> rawClass = Class.forName(featureClassName, true, plugin.getClass().getClassLoader());
-            if (!BukkitBaseFeature.class.isAssignableFrom(rawClass)) {
-                plugin.getLogger().severe("Feature class does not extend BukkitBaseFeature: " + featureClassName);
-                return null;
-            }
-
-            @SuppressWarnings("unchecked")
-            Class<? extends BukkitBaseFeature<?>> featureClass = (Class<? extends BukkitBaseFeature<?>>) rawClass;
-            var constructor = featureClass.getDeclaredConstructor(FeatureContext.class);
-            constructor.setAccessible(true);
-            return constructor.newInstance(context);
-        } catch (ReflectiveOperationException | LinkageError t) {
-            context.plugin().getLogger().log(Level.SEVERE, "Failed to instantiate feature class: " + featureClassName, t);
+            return BuiltInFeatures.findByImplementationClassName(featureClassName)
+                    .map(definition -> definition.createFeature(context))
+                    .orElseGet(() -> {
+                        context.plugin().getLogger().severe(
+                                "Failed to instantiate feature: implementation is not present in the built-in manifest: "
+                                        + featureClassName
+                        );
+                        return null;
+                    });
+        } catch (LinkageError linkageError) {
+            context.plugin().getLogger().log(
+                    Level.WARNING,
+                    "Cannot instantiate feature '" + featureClassName
+                            + "' because a required runtime dependency is unavailable or incompatible.",
+                    linkageError
+            );
             return null;
         }
     }

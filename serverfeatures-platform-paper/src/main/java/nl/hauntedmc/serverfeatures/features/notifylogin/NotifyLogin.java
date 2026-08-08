@@ -9,6 +9,7 @@ import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotificationHan
 import nl.hauntedmc.serverfeatures.features.notifylogin.internal.NotifyLoginAPI;
 import nl.hauntedmc.serverfeatures.features.notifylogin.listener.PlayerListener;
 import nl.hauntedmc.serverfeatures.features.notifylogin.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.port.ConnectionVisibilityPort;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -74,8 +75,8 @@ public final class NotifyLogin extends BukkitBaseFeature<Meta> {
                 message -> getLogger().warning(message)
         );
         this.notificationHandler = new NotificationHandler(this, settings);
-        getLifecycleManager().getApiManager().registerService(
-                NotifyLoginAPI.class,
+        getLifecycleManager().getApiManager().registerInternalService(
+                ConnectionVisibilityPort.class,
                 new NotifyLoginAPI(notificationHandler)
         );
         getLifecycleManager().getListenerManager().registerListener(new PlayerListener(this));

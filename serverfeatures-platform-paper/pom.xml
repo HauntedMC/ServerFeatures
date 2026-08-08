@@ -72,6 +72,21 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-gson</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-minimessage</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.kyori</groupId>
+            <artifactId>adventure-text-serializer-legacy</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.joml</groupId>
             <artifactId>joml</artifactId>
             <version>${joml.version}</version>
@@ -93,11 +108,6 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-text</artifactId>
             <version>${commons.text.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.classgraph</groupId>
-            <artifactId>classgraph</artifactId>
-            <version>${classgraph.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.retrooper</groupId>
@@ -284,14 +294,6 @@
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <relocations>
                         <relocation>
-                            <pattern>io.github.classgraph</pattern>
-                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.classgraph</shadedPattern>
-                        </relocation>
-                        <relocation>
-                            <pattern>nonapi.io.github.classgraph</pattern>
-                            <shadedPattern>nl.hauntedmc.serverfeatures.shaded.nonapi.classgraph</shadedPattern>
-                        </relocation>
-                        <relocation>
                             <pattern>org.apache.commons.text</pattern>
                             <shadedPattern>nl.hauntedmc.serverfeatures.shaded.commons_text</shadedPattern>
                         </relocation>
@@ -371,8 +373,6 @@
                                            property="distribution.has.commons.text"/>
                                 <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/commons_lang3/StringUtils.class"
                                            property="distribution.has.commons.lang"/>
-                                <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/classgraph/ClassGraph.class"
-                                           property="distribution.has.classgraph"/>
                                 <available file="${distribution.audit}/nl/hauntedmc/serverfeatures/shaded/snakeyaml/Yaml.class"
                                            property="distribution.has.snakeyaml"/>
                                 <fail unless="distribution.has.metadata"
@@ -391,8 +391,6 @@
                                       message="ServerFeatures.jar is missing relocated Commons Text classes."/>
                                 <fail unless="distribution.has.commons.lang"
                                       message="ServerFeatures.jar is missing relocated Commons Lang classes."/>
-                                <fail unless="distribution.has.classgraph"
-                                      message="ServerFeatures.jar is missing relocated ClassGraph classes."/>
                                 <fail unless="distribution.has.snakeyaml"
                                       message="ServerFeatures.jar is missing relocated SnakeYAML classes."/>
 
@@ -400,8 +398,6 @@
                                            property="distribution.leaks.commons.text"/>
                                 <available file="${distribution.audit}/org/apache/commons/lang3/StringUtils.class"
                                            property="distribution.leaks.commons.lang"/>
-                                <available file="${distribution.audit}/io/github/classgraph/ClassGraph.class"
-                                           property="distribution.leaks.classgraph"/>
                                 <available file="${distribution.audit}/org/yaml/snakeyaml/Yaml.class"
                                            property="distribution.leaks.snakeyaml"/>
                                 <available file="${distribution.audit}/jakarta/persistence/Entity.class"
@@ -420,8 +416,6 @@
                                       message="ServerFeatures.jar contains unrelocated Commons Text classes."/>
                                 <fail if="distribution.leaks.commons.lang"
                                       message="ServerFeatures.jar contains unrelocated Commons Lang classes."/>
-                                <fail if="distribution.leaks.classgraph"
-                                      message="ServerFeatures.jar contains unrelocated ClassGraph classes."/>
                                 <fail if="distribution.leaks.snakeyaml"
                                       message="ServerFeatures.jar contains unrelocated SnakeYAML classes."/>
                                 <fail if="distribution.leaks.persistence"

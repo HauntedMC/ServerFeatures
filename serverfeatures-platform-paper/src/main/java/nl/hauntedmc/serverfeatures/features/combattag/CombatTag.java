@@ -1,7 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.combattag;
 
+import nl.hauntedmc.serverfeatures.api.capability.combat.CombatTagApi;
 import nl.hauntedmc.serverfeatures.api.combat.CombatTagResult;
-import nl.hauntedmc.serverfeatures.api.combat.CombatTags;
 import nl.hauntedmc.serverfeatures.api.command.brigadier.BrigadierCommand;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.SnapshotState;
 import nl.hauntedmc.serverfeatures.api.feature.stateful.StatefulFeature;
@@ -17,6 +17,7 @@ import nl.hauntedmc.serverfeatures.features.combattag.config.CombatTagSettings;
 import nl.hauntedmc.serverfeatures.features.combattag.event.CombatTagAppliedEvent;
 import nl.hauntedmc.serverfeatures.features.combattag.listener.CombatTagListener;
 import nl.hauntedmc.serverfeatures.features.combattag.meta.Meta;
+import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagCapability;
 import nl.hauntedmc.serverfeatures.features.combattag.service.CombatTagService;
 import nl.hauntedmc.serverfeatures.features.combattag.source.CombatSourceResolver;
 import org.bukkit.command.CommandSender;
@@ -168,6 +169,10 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     public void initialize() {
         settings = CombatTagSettings.load(getConfigHandler());
         service = new CombatTagService(this, settings);
+        getLifecycleManager().getApiManager().registerService(
+                CombatTagApi.class,
+                new CombatTagCapability(service)
+        );
         listener = new CombatTagListener(
                 settings,
                 service,
@@ -182,7 +187,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
                 BukkitTime.ticks(settings.display().actionBar().updateIntervalTicks())
         );
 
-        CombatTags.bootstrap(service);
         getLogger().info(
                 "CombatTag loaded in " + settings.tagging().mode()
                         + " mode with a " + settings.tagging().durationSeconds() + " second timer."
@@ -192,7 +196,6 @@ public final class CombatTag extends BukkitBaseFeature<Meta>
     @Override
     public void disable() {
         if (service != null) {
-            CombatTags.shutdown(service);
             service.shutdown();
         }
         if (listener != null) {

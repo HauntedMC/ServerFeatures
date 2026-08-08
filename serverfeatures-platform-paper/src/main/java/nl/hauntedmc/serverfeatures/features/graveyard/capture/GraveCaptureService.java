@@ -9,8 +9,8 @@ import nl.hauntedmc.serverfeatures.features.graveyard.journal.CaptureJournalStat
 import nl.hauntedmc.serverfeatures.features.graveyard.journal.GraveOperationJournal;
 import nl.hauntedmc.serverfeatures.features.graveyard.journal.PlayerOperationReceiptService;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.Grave;
-import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveItemEntry;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveIdentifier;
+import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveItemEntry;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GraveLocation;
 import nl.hauntedmc.serverfeatures.features.graveyard.model.GravePayload;
 import nl.hauntedmc.serverfeatures.features.graveyard.persistence.EncodedGravePayload;
@@ -18,7 +18,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadCo
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementResult;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
-import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
@@ -144,8 +144,8 @@ public final class GraveCaptureService {
         GravePayload payload = new GravePayload(0L, entries, experience);
         EncodedGravePayload encoded = payloadCodec.encode(payload);
         GraveLocation deathLocation = GraveLocation.from(snapshot.deathLocation());
-        boolean vanished = feature.getLifecycleManager().getApiManager()
-                .findService(VanishAPI.class)
+        boolean vanished = feature.getPlugin().getInternalServiceRegistry()
+                .find(VanishVisibilityPort.class)
                 .map(api -> api.isVanished(player.getUniqueId()))
                 .orElse(false);
         Grave grave = new Grave(
