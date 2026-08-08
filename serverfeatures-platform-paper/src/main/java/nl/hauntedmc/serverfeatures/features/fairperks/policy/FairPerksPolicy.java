@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.policy;
 
-import nl.hauntedmc.serverfeatures.api.combat.CombatTagApi;
+import nl.hauntedmc.serverfeatures.api.capability.combat.CombatTagApi;
+import nl.hauntedmc.serverfeatures.api.service.CapabilityRef;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
@@ -12,12 +13,12 @@ public final class FairPerksPolicy {
 
     private final FairPerksSettings settings;
     private final HostileEntityClassifier hostileClassifier;
-    private final CombatTagApi combatTagApi;
+    private final CapabilityRef<CombatTagApi> combatTagApi;
 
     public FairPerksPolicy(
             FairPerksSettings settings,
             HostileEntityClassifier hostileClassifier,
-            CombatTagApi combatTagApi
+            CapabilityRef<CombatTagApi> combatTagApi
     ) {
         this.settings = Objects.requireNonNull(settings, "settings");
         this.hostileClassifier = Objects.requireNonNull(hostileClassifier, "hostileClassifier");
@@ -52,7 +53,9 @@ public final class FairPerksPolicy {
     }
 
     public boolean isCombatTagged(Player player) {
-        return combatTagApi.isTagged(player);
+        return combatTagApi.get()
+                .map(api -> api.isTagged(player.getUniqueId()))
+                .orElse(false);
     }
 
     public boolean allowsEnvironment(Player player, PerkType perk) {
