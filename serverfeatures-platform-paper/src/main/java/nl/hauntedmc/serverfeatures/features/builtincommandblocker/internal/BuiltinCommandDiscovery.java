@@ -15,6 +15,7 @@ import java.util.Map;
 public final class BuiltinCommandDiscovery {
 
     private static final String LEGACY_ALIASES = "legacy_aliases";
+    private static final String BUNDLED_SPARK_COMMAND_CLASS = "io.papermc.paper.sparksfly$commandimpl";
 
     private BuiltinCommandDiscovery() {
     }
@@ -69,31 +70,35 @@ public final class BuiltinCommandDiscovery {
     static BuiltinCommandSource classify(Command command, Collection<String> registrationKeys) {
         String className = command.getClass().getName().toLowerCase(Locale.ROOT);
 
-        if (isSparkCommand(command, className)) {
+        // Modern Paper command registrations are exposed through PluginVanillaCommandWrapper, which lives in
+        // io.papermc.paper.*. Plugin ownership therefore has to win over implementation-package heuristics.
+        if (command instanceof PluginIdentifiableCommand identifiable) {
+            String pluginName = identifiable.getPlugin().getName().toLowerCase(Locale.ROOT);
+            if (pluginName.equals("spark") || pluginName.equals("spark-paper")) {
+                return BuiltinCommandSource.SPARK;
+            }
+            return sourceFromRegistrationNamespace(registrationKeys);
+        }
+
+        if (isBundledSparkCommand(command, className)) {
             return BuiltinCommandSource.SPARK;
-        }
-        if (className.startsWith("io.papermc.paper.") || className.startsWith("com.destroystokyo.paper.")) {
-            return BuiltinCommandSource.PAPER;
-        }
-        if (className.startsWith("org.spigotmc.")) {
-            return BuiltinCommandSource.SPIGOT;
-        }
-        if (className.startsWith("net.minecraft.") || className.contains("vanillacommandwrapper")) {
-            return BuiltinCommandSource.MINECRAFT;
         }
         if (className.startsWith("org.bukkit.command.defaults.")) {
             return BuiltinCommandSource.BUKKIT;
         }
+        if (className.startsWith("org.spigotmc.")) {
+            return BuiltinCommandSource.SPIGOT;
+        }
+        if (className.startsWith("io.papermc.paper.") || className.startsWith("com.destroystokyo.paper.")) {
+            return BuiltinCommandSource.PAPER;
+        }
 
-        for (String key : registrationKeys) {
-            int colon = key.indexOf(':');
-            if (colon <= 0) {
-                continue;
-            }
-            BuiltinCommandSource source = BuiltinCommandSource.fromNamespace(key.substring(0, colon));
-            if (source != null) {
-                return source;
-            }
+        BuiltinCommandSource namespacedSource = sourceFromRegistrationNamespace(registrationKeys);
+        if (namespacedSource != null) {
+            return namespacedSource;
+        }
+        if (className.startsWith("net.minecraft.") || className.contains("vanillacommandwrapper")) {
+            return BuiltinCommandSource.MINECRAFT;
         }
         return null;
     }
@@ -116,15 +121,29 @@ public final class BuiltinCommandDiscovery {
         return true;
     }
 
-    private static boolean isSparkCommand(Command command, String className) {
-        if (className.startsWith("me.lucko.spark.") || className.startsWith("org.papermc.spark.")) {
+    private static boolean isBundledSparkCommand(Command command, String className) {
+        if (className.equals(BUNDLED_SPARK_COMMAND_CLASS)
+                || className.startsWith("me.lucko.spark.")
+                || className.startsWith("org.papermc.spark.")) {
             return true;
         }
-        if (command instanceof PluginIdentifiableCommand identifiable) {
-            String pluginName = identifiable.getPlugin().getName().toLowerCase(Locale.ROOT);
-            return pluginName.equals("spark") || pluginName.equals("spark-paper");
+        return BuiltinCommandBlockerSettings.normalizeCommand(command.getName()).equals("spark")
+                && command.getClass().getEnclosingClass() != null
+                && command.getClass().getEnclosingClass().getName().equals("io.papermc.paper.SparksFly");
+    }
+
+    private static BuiltinCommandSource sourceFromRegistrationNamespace(Collection<String> registrationKeys) {
+        for (String key : registrationKeys) {
+            int colon = key.indexOf(':');
+            if (colon <= 0) {
+                continue;
+            }
+            BuiltinCommandSource source = BuiltinCommandSource.fromNamespace(key.substring(0, colon));
+            if (source != null) {
+                return source;
+            }
         }
-        return false;
+        return null;
     }
 
     private static boolean isAllowed(
