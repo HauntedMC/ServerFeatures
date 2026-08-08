@@ -22,10 +22,17 @@ class PhantomPreferenceServiceTest {
     }
 
     @Test
-    void storedPreferenceOverridesConfiguredDefault() {
+    void storedDisabledPreferenceOverridesEnabledDefault() {
         Fixture fixture = fixture((byte) 0, true, true);
 
         assertFalse(fixture.service().phantomsEnabled(fixture.player()));
+    }
+
+    @Test
+    void storedEnabledPreferenceOverridesDisabledDefault() {
+        Fixture fixture = fixture((byte) 1, false, true);
+
+        assertTrue(fixture.service().phantomsEnabled(fixture.player()));
     }
 
     @Test
@@ -37,7 +44,7 @@ class PhantomPreferenceServiceTest {
     }
 
     @Test
-    void writesExplicitPreferenceToPlayerPdc() {
+    void writesExplicitDisabledPreferenceToPlayerPdc() {
         Fixture fixture = fixture(null, true, true);
 
         fixture.service().setPhantomsEnabled(fixture.player(), false);
@@ -46,6 +53,19 @@ class PhantomPreferenceServiceTest {
                 PhantomPreferenceService.PHANTOMS_ENABLED_KEY,
                 PersistentDataType.BYTE,
                 (byte) 0
+        );
+    }
+
+    @Test
+    void writesExplicitEnabledPreferenceToPlayerPdc() {
+        Fixture fixture = fixture(null, false, true);
+
+        fixture.service().setPhantomsEnabled(fixture.player(), true);
+
+        verify(fixture.data()).set(
+                PhantomPreferenceService.PHANTOMS_ENABLED_KEY,
+                PersistentDataType.BYTE,
+                (byte) 1
         );
     }
 
