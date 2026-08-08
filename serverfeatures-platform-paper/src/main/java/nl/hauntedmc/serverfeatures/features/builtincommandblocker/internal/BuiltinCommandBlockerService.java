@@ -43,9 +43,12 @@ public final class BuiltinCommandBlockerService {
     }
 
     public void refreshAndUpdatePlayers() {
-        if (!refresh()) {
-            return;
+        if (refresh()) {
+            updatePlayers();
         }
+    }
+
+    public void updatePlayers() {
         for (Player player : feature.getPlugin().getServer().getOnlinePlayers()) {
             player.updateCommands();
         }
