@@ -14,7 +14,7 @@ This directory documents all **65** feature modules currently present in ServerF
 - [AFK](afk.md) — Tracks active and idle players, supports manual AFK toggling, optional state broadcasts, automatic kicks, and anti-AFK pattern detection.
 - [Skins](skins.md) — Allows players to apply another Minecraft account's skin to themselves and lets staff apply or remove skins for online players.
 - [Titles](titles.md) — Displays configured title/subtitle content to players when they join or finish logging in.
-- [Tablist](tablist.md) — Builds and refreshes the server tab-list header, footer, and player presentation.
+- [Tablist](tablist.md) — Builds and refreshes the server tab-list header, footer and player presentation.
 - [Bossbar](bossbar.md) — Shows configurable rotating or persistent boss bars to eligible players.
 - [Glow](glow.md) — Provides a GUI for choosing a permitted glowing color and persists the active selection through the feature's handler.
 - [Balloons](balloons.md) — Offers cosmetic balloon companions through an inventory GUI and maintains their entity attachment while players move between normal gameplay states.
@@ -79,7 +79,7 @@ This directory documents all **65** feature modules currently present in ServerF
 - [Votifier](votifier.md) — Receives vote notifications on the Paper side and publishes or persists them for network reward processing.
 - [VoteReward](votereward.md) — Consumes vote events or queued vote state and grants configured rewards, including delayed delivery on join.
 - [ChatLog](chatlog.md) — Persists local chat messages and provides a report workflow for moderation review.
-- [PlayerCount](playercount.md) — Receives validated, versioned PlayerCount snapshots from ProxyFeatures and exposes local APIs and PlaceholderAPI values without I/O on placeholder reads.
+- [PlayerCount](playercount.md) — Receives validated, versioned PlayerCount snapshots from ProxyFeatures and exposes local APIs and PlaceholderAPI values without Redis access on placeholder reads.
 - [Capacity](capacity.md) — Receives validated authoritative Capacity snapshots and exposes network, gameplay, group and exact-server PlaceholderAPI values without I/O on placeholder reads.
 - [CommandRelay](commandrelay.md) — Relays allowlisted commands between Paper servers/proxy components with authentication, replay protection, result handling, and database audit logging.
 - [CommandLogger](commandlogger.md) — Records commands executed on the Paper server for audit and moderation purposes.
