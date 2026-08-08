@@ -1,0 +1,95 @@
+package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
+
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Test;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class BuiltinCommandMapRemovalTest {
+
+    @Test
+    void removesAndRestoresExactBlockedRegistrations() {
+        Command give = new FakeCommand("give");
+        Map<String, Command> live = new LinkedHashMap<>();
+        live.put("give", give);
+        live.put("minecraft:give", give);
+        Map<String, Command> removed = new LinkedHashMap<>();
+
+        assertTrue(BuiltinCommandMapRemoval.reconcile(live, removed, Set.of("give", "minecraft:give")));
+        assertTrue(live.isEmpty());
+        assertEquals(Set.of("give", "minecraft:give"), removed.keySet());
+
+        assertTrue(BuiltinCommandMapRemoval.restoreAll(live, removed));
+        assertSame(give, live.get("give"));
+        assertSame(give, live.get("minecraft:give"));
+        assertTrue(removed.isEmpty());
+    }
+
+    @Test
+    void effectiveCommandsKeepRemovedEntriesDiscoverable() {
+        Command help = new FakeCommand("help");
+        Map<String, Command> live = new LinkedHashMap<>();
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("bukkit:help", help);
+
+        Map<String, Command> effective = BuiltinCommandMapRemoval.effectiveCommands(live, removed);
+
+        assertSame(help, effective.get("bukkit:help"));
+        assertFalse(live.containsKey("bukkit:help"));
+    }
+
+    @Test
+    void restoringDoesNotOverwriteAReplacementCommand() {
+        Command oldBuiltin = new FakeCommand("help");
+        Command replacement = new FakeCommand("help");
+        Map<String, Command> live = new LinkedHashMap<>();
+        live.put("help", replacement);
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("help", oldBuiltin);
+
+        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed));
+
+        assertSame(replacement, live.get("help"));
+        assertTrue(removed.isEmpty());
+    }
+
+    @Test
+    void reconcileDropsStaleRemovedEntryWhenReplacementOwnsTheLabel() {
+        Command oldBuiltin = new FakeCommand("paper");
+        Command replacement = new FakeCommand("paper");
+        Map<String, Command> live = new LinkedHashMap<>();
+        live.put("paper", replacement);
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("paper", oldBuiltin);
+
+        assertFalse(BuiltinCommandMapRemoval.reconcile(live, removed, Set.of()));
+
+        assertSame(replacement, live.get("paper"));
+        assertTrue(removed.isEmpty());
+    }
+
+    private static final class FakeCommand extends Command {
+
+        private FakeCommand(String name) {
+            super(name);
+        }
+
+        @Override
+        public boolean execute(
+                @NotNull CommandSender sender,
+                @NotNull String commandLabel,
+                @NotNull String @NotNull [] args
+        ) {
+            return true;
+        }
+    }
+}
