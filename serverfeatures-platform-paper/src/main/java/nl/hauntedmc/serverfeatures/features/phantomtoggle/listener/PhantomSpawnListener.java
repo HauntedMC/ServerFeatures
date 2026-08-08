@@ -15,7 +15,7 @@ public final class PhantomSpawnListener implements Listener {
         this.feature = feature;
     }
 
-    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPhantomPreSpawn(PhantomPreSpawnEvent event) {
         if (!(event.getSpawningEntity() instanceof Player player)) {
             return;
