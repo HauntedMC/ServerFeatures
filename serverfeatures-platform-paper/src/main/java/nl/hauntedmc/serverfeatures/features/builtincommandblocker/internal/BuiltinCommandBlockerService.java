@@ -47,7 +47,11 @@ public final class BuiltinCommandBlockerService {
                 liveCommands,
                 removedCommands
         );
-        BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(effectiveCommands, settings);
+        BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(
+                effectiveCommands,
+                feature.getPlugin().getServer().getCommandAliases(),
+                settings
+        );
 
         if (settings.removeFromCommandMap()) {
             commandMapChanged |= BuiltinCommandMapRemoval.reconcile(
