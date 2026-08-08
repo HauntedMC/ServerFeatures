@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal.Built
 import nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal.BuiltinCommandSource;
 import nl.hauntedmc.serverfeatures.features.builtincommandblocker.listener.BuiltinCommandBlockerListener;
 import nl.hauntedmc.serverfeatures.features.builtincommandblocker.meta.Meta;
+import org.bukkit.event.HandlerList;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Map;
 public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
     private BuiltinCommandBlockerService service;
+    private BuiltinCommandBlockerListener listener;
 
     public BuiltinCommandBlocker(FeatureContext<Meta> context) {
         super(context);
@@ -50,14 +52,22 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
                 this,
                 getPlugin().getServer().getCommandMap()
         );
-        getLifecycleManager().getListenerManager().registerListener(new BuiltinCommandBlockerListener(this, service));
+        listener = new BuiltinCommandBlockerListener(this, service);
+        getLifecycleManager().getListenerManager().registerListener(listener);
         service.refreshAndUpdatePlayers();
     }
 
     @Override
     public void disable() {
+        if (listener != null) {
+            // BukkitBaseFeature invokes disable() before lifecycle cleanup unregisters listeners. Detach this listener
+            // first so the command-tree refresh below cannot immediately filter the restored commands again.
+            HandlerList.unregisterAll(listener);
+            listener = null;
+        }
         if (service != null) {
             service.restoreRemovedCommands();
+            service.updatePlayers();
             service = null;
         }
     }
