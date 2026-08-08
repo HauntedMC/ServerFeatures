@@ -54,6 +54,32 @@ public record BuiltinCommandBlockerSettings(
         return allowedCommands.contains(normalizeCommand(command));
     }
 
+    public boolean allows(BuiltinCommandSource source, String command) {
+        String normalized = normalizeCommand(command);
+        if (normalized.isEmpty()) {
+            return false;
+        }
+        if (allowedCommands.contains(normalized)) {
+            return true;
+        }
+
+        String terminalLabel = terminalLabel(normalized);
+        for (String allowed : allowedCommands) {
+            if (!terminalLabel(allowed).equals(terminalLabel)) {
+                continue;
+            }
+            int colon = allowed.indexOf(':');
+            if (colon < 0) {
+                return true;
+            }
+            BuiltinCommandSource allowedSource = BuiltinCommandSource.fromNamespace(allowed.substring(0, colon));
+            if (allowedSource == source) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static String normalizeCommand(String command) {
         if (command == null) {
             return "";
@@ -63,5 +89,10 @@ public record BuiltinCommandBlockerSettings(
             normalized = normalized.substring(1);
         }
         return normalized.toLowerCase(Locale.ROOT);
+    }
+
+    private static String terminalLabel(String command) {
+        int colon = command.lastIndexOf(':');
+        return colon < 0 ? command : command.substring(colon + 1);
     }
 }
