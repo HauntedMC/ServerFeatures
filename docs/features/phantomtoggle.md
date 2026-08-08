@@ -49,7 +49,7 @@ plugins/ServerFeatures/features/PhantomToggle/config.yml
 | `enabled` | `false` | Loads the feature, listener and command. |
 | `default-phantoms-enabled` | `true` | Preference used when a permitted player has not made an explicit choice. |
 
-The default preserves vanilla behavior until a player explicitly disables phantom spawning.
+The default preserves vanilla behavior until a player explicitly disables phantom spawning. `default-phantoms-enabled` is captured when the feature initializes, so changing it requires a full feature reload; a soft reload only refreshes the underlying config and localization files.
 
 ## Persistence
 
@@ -67,7 +67,7 @@ Paper persists PDC with ordinary local playerdata, so the preference normally su
 
 The feature has no scheduler, database work or per-player polling. Runtime work only occurs when Paper is already attempting an insomnia phantom spawn. Cancelling `PhantomPreSpawnEvent` happens before a phantom entity is created, and `setShouldAbortSpawn(true)` prevents unnecessary follow-up attempts for the blocked player.
 
-Framework cleanup unregisters the listener and command when the feature is disabled.
+Framework cleanup unregisters the listener and command when the feature is disabled. The preference service owns no external resources and remains valid until the feature instance itself is discarded, avoiding a temporary invalid state during cleanup.
 
 ## Verification
 
