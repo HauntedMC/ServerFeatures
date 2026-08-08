@@ -8,6 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuiltInFeaturesTest {
@@ -25,6 +26,16 @@ class BuiltInFeaturesTest {
             assertTrue(implementations.add(definition.implementationType()),
                     () -> "Duplicate implementation: " + definition.implementationType().getName());
             assertNotNull(definition.createMeta());
+            assertNotNull(definition.featureInstantiator());
         });
+    }
+
+    @Test
+    void everyImplementationResolvesBackToItsManifestDefinition() {
+        BuiltInFeatures.definitions().forEach(definition -> assertSame(
+                definition,
+                BuiltInFeatures.findByImplementationClassName(definition.implementationType().getName()).orElseThrow()
+        ));
+        assertTrue(BuiltInFeatures.findByImplementationClassName("not.a.real.Feature").isEmpty());
     }
 }
