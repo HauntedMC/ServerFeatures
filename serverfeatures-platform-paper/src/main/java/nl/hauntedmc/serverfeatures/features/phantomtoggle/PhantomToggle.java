@@ -8,6 +8,7 @@ import nl.hauntedmc.serverfeatures.features.phantomtoggle.command.PhantomToggleC
 import nl.hauntedmc.serverfeatures.features.phantomtoggle.listener.PhantomSpawnListener;
 import nl.hauntedmc.serverfeatures.features.phantomtoggle.meta.Meta;
 import nl.hauntedmc.serverfeatures.features.phantomtoggle.persistence.PhantomPreferenceService;
+import org.bukkit.entity.Player;
 
 public final class PhantomToggle extends BukkitBaseFeature<Meta> {
 
@@ -55,14 +56,13 @@ public final class PhantomToggle extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        preferenceService = null;
     }
 
     public PhantomPreferenceService preferences() {
         return preferenceService;
     }
 
-    public void sendPlayerMessage(org.bukkit.entity.Player player, String key) {
+    public void sendPlayerMessage(Player player, String key) {
         player.sendMessage(getLocalizationHandler().getMessage(key)
                 .forAudience(player)
                 .build());
