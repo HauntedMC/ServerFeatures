@@ -70,7 +70,9 @@ The commands themselves stay registered in this mode. Console, command-block, sc
 
 With `remove_from_command_map: true`, every blocked registration is removed from Paper's live command map/Brigadier root. This is global: players, console, command blocks and other senders can no longer execute those removed registrations. ServerFeatures remembers the exact registrations it removes and restores them when hard removal is turned off or when the feature is disabled/reloaded. A command that has been replaced by another registration while it was removed is never overwritten during restoration, and registrations owned by a plugin that has since disabled are never resurrected.
 
-The discovered command snapshot is refreshed when the feature starts, when the server finishes loading, when plugins enable or disable, and while Paper rebuilds a player's command list. Online players receive a command-tree refresh when the effective blocked set or hard-removal state changes.
+Initial hard removal is deferred until the next server tick. Bukkit finishes registering `commands.yml` aliases after plugins have enabled, so removing a built-in target during plugin enable could otherwise prevent a valid server alias from registering at all. Once the command registry has settled, the blocker discovers and removes both the built-in registrations and forwarding aliases according to policy.
+
+The discovered command snapshot is refreshed when the feature starts, after configuration soft reloads, when the server finishes loading, when plugins enable or disable, and while Paper rebuilds a player's command list. Online players receive a command-tree refresh when the effective blocked set or hard-removal state changes. Disabling or fully reloading the feature restores hard-removed registrations and refreshes online command trees so player-only suppression is removed immediately as well.
 
 ## Generated diagnostics
 
