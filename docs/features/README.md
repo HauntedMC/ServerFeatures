@@ -14,7 +14,7 @@ This directory documents all **65** feature modules currently present in ServerF
 - [AFK](afk.md) — Tracks active and idle players, supports manual AFK toggling, optional state broadcasts, automatic kicks, and anti-AFK pattern detection.
 - [Skins](skins.md) — Allows players to apply another Minecraft account's skin to themselves and lets staff apply or remove skins for online players.
 - [Titles](titles.md) — Displays configured title/subtitle content to players when they join or finish logging in.
-- [Tablist](tablist.md) — Builds and refreshes the server tab-list header, footer and player presentation.
+- [Tablist](tablist.md) — Builds and refreshes the server tab-list header, footer, and player presentation.
 - [Bossbar](bossbar.md) — Shows configurable rotating or persistent boss bars to eligible players.
 - [Glow](glow.md) — Provides a GUI for choosing a permitted glowing color and persists the active selection through the feature's handler.
 - [Balloons](balloons.md) — Offers cosmetic balloon companions through an inventory GUI and maintains their entity attachment while players move between normal gameplay states.
