@@ -36,13 +36,15 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
     private void verifyBuiltinCommandBlocker() throws Exception {
         boolean valid = Bukkit.getScheduler().callSyncMethod(this, () ->
                 Bukkit.getCommandMap().getCommand("version") == null
+                        && Bukkit.getCommandMap().getCommand("version-alias") == null
+                        && Bukkit.getCommandMap().getCommand("version-alias-chain") == null
                         && Bukkit.getCommandMap().getCommand("stop") != null
                         && Bukkit.getCommandMap().getCommand("serverfeatures") != null
         ).get(10L, TimeUnit.SECONDS);
         if (!valid) {
             throw new IllegalStateException(
-                    "BuiltinCommandBlocker hard-removal acceptance failed: expected /version removed, "
-                            + "/stop allowlisted and /serverfeatures preserved."
+                    "BuiltinCommandBlocker hard-removal acceptance failed: expected /version and its server aliases "
+                            + "removed, /stop allowlisted and /serverfeatures preserved."
             );
         }
     }
