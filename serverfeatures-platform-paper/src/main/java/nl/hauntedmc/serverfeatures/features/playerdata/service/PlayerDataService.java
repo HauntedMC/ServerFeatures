@@ -103,7 +103,7 @@ public final class PlayerDataService {
                     throw new CompletionException(exception);
                 }
             }).whenComplete((result, failure) -> scheduleMain(() ->
-                    completeOffline(sender, target, result, failure)
+                    completeOffline(sender, target, view, result, failure)
             ));
         } catch (RuntimeException exception) {
             feature.getLogger().warning("Could not schedule PlayerData inspection: " + exception.getMessage());
@@ -205,12 +205,23 @@ public final class PlayerDataService {
     private void completeOffline(
             CommandSender sender,
             String requestedTarget,
+            View view,
             OfflineResult result,
             Throwable failure
     ) {
         if (!active.get() || !canReceive(sender)) {
             return;
         }
+
+        Player online = findOnline(requestedTarget);
+        if (online == null && result != null && result.target() != null) {
+            online = Bukkit.getPlayer(result.target().playerId());
+        }
+        if (online != null) {
+            inspectOnline(sender, online, view);
+            return;
+        }
+
         if (failure != null) {
             Throwable cause = rootCause(failure);
             feature.getLogger().warning(
