@@ -92,7 +92,7 @@ exec {paper_input_fd}>"$work_directory/paper/console.in"
 wait_for_log "$work_directory/paper/paper.log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
 grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$work_directory/paper/paper.log" \
     || fail "AutoPickup did not load during Paper acceptance."
-grep -Eq "Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$work_directory/paper/paper.log" \
+grep -Eq "Feature loaded: BuiltinCommandBlocker|Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$work_directory/paper/paper.log" \
     || fail "BuiltinCommandBlocker did not load during Paper acceptance."
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
