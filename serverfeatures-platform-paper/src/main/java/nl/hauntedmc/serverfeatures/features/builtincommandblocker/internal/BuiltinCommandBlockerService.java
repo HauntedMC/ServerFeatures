@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Level;
 
 public final class BuiltinCommandBlockerService {
 
@@ -38,7 +39,15 @@ public final class BuiltinCommandBlockerService {
         BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(knownCommands, settings);
         BuiltinCommandSnapshot previous = snapshot;
         snapshot = next;
-        persistGeneratedSnapshot(next);
+        try {
+            persistGeneratedSnapshot(next);
+        } catch (RuntimeException exception) {
+            feature.getPlugin().getLogger().log(
+                    Level.WARNING,
+                    "Could not update BuiltinCommandBlocker generated command diagnostics.",
+                    exception
+            );
+        }
         return !next.equals(previous);
     }
 
