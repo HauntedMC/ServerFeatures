@@ -24,6 +24,14 @@ public final class BuiltinCommandDiscovery {
             Map<String, Command> knownCommands,
             BuiltinCommandBlockerSettings settings
     ) {
+        return discover(knownCommands, Map.of(), settings);
+    }
+
+    public static BuiltinCommandSnapshot discover(
+            Map<String, Command> knownCommands,
+            Map<String, String[]> serverAliases,
+            BuiltinCommandBlockerSettings settings
+    ) {
         IdentityHashMap<Command, List<String>> registrations = new IdentityHashMap<>();
         knownCommands.forEach((key, command) -> {
             if (key != null && command != null) {
@@ -55,14 +63,15 @@ public final class BuiltinCommandDiscovery {
                             (ignored, count) -> count == null ? 1 : count + 1
                     );
                     if (alias) {
-                        detectedSources.compute(
-                                LEGACY_ALIASES,
-                                (ignored, count) -> count == null ? 1 : count + 1
-                        );
+                        incrementLegacyAliasCount(detectedSources);
                     }
                 }
             }
         });
+
+        if (settings.blockLegacyAliases()) {
+            addBlockedServerAliases(knownCommands, serverAliases, blocked, detectedSources);
+        }
 
         return new BuiltinCommandSnapshot(blocked, detectedSources);
     }
@@ -119,6 +128,57 @@ public final class BuiltinCommandDiscovery {
         // A second registration for the same Command instance that is not its canonical name is an alias,
         // even if the command implementation does not expose it through getAliases().
         return true;
+    }
+
+    private static void addBlockedServerAliases(
+            Map<String, Command> knownCommands,
+            Map<String, String[]> serverAliases,
+            LinkedHashSet<String> blocked,
+            LinkedHashMap<String, Integer> detectedSources
+    ) {
+        boolean changed;
+        do {
+            changed = false;
+            for (Map.Entry<String, String[]> entry : serverAliases.entrySet()) {
+                String alias = BuiltinCommandBlockerSettings.normalizeCommand(entry.getKey());
+                if (alias.isEmpty() || blocked.contains(alias) || !knownCommands.containsKey(alias)) {
+                    continue;
+                }
+                if (!targetsBlockedCommand(entry.getValue(), blocked)) {
+                    continue;
+                }
+                blocked.add(alias);
+                incrementLegacyAliasCount(detectedSources);
+                changed = true;
+            }
+        } while (changed);
+    }
+
+    private static boolean targetsBlockedCommand(String[] targets, Collection<String> blocked) {
+        if (targets == null) {
+            return false;
+        }
+        for (String target : targets) {
+            String root = commandRoot(target);
+            if (!root.isEmpty() && blocked.contains(root)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String commandRoot(String commandLine) {
+        String normalized = BuiltinCommandBlockerSettings.normalizeCommand(commandLine);
+        for (int index = 0; index < normalized.length(); index++) {
+            if (Character.isWhitespace(normalized.charAt(index))) {
+                return normalized.substring(0, index);
+            }
+        }
+        return normalized;
+    }
+
+    private static void incrementLegacyAliasCount(Map<String, Integer> detectedSources) {
+        detectedSources.compute(LEGACY_ALIASES, (ignored, count) -> count == null ? 1 : count + 1);
     }
 
     private static boolean isBundledSparkCommand(Command command, String className) {
