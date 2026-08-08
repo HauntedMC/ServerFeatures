@@ -109,13 +109,23 @@ if grep -Eq 'Could not register alias version-alias|Could not register alias ver
     fail "BuiltinCommandBlocker removed alias targets before commands.yml aliases were registered."
 fi
 
-# Hard mode has been verified by the acceptance consumer. Disable it and prove that the exact commands.yml alias
-# chain is restored and executable, then re-enable it so the final /stop also runs while hard removal is active.
+# Prove that removing the Bukkit wrapper also prevents execution through Minecraft's native dispatcher.
+printf 'say SERVERFEATURES_BLOCKER_INITIAL_SAY\n' >&"$paper_input_fd"
+printf 'minecraft:say SERVERFEATURES_BLOCKER_INITIAL_NAMESPACED_SAY\n' >&"$paper_input_fd"
+sleep 2
+if grep -Eq '\[Server\][[:space:]]+SERVERFEATURES_BLOCKER_INITIAL_(SAY|NAMESPACED_SAY)' "$paper_log"; then
+    fail "A native Minecraft /say command remained executable in hard-removal mode."
+fi
+
+# Hard mode has been verified by the acceptance consumer. Disable it and prove that both the exact commands.yml
+# alias chain and a native vanilla command are restored and executable. Then re-enable it and prove both disappear.
 printf 'serverfeatures disable BuiltinCommandBlocker\n' >&"$paper_input_fd"
 wait_for_log "$paper_log" 'Feature disabled: BuiltinCommandBlocker'
 version_count="$(log_count "$paper_log" 'This server is running Paper version')"
 printf 'version-alias-chain\n' >&"$paper_input_fd"
 wait_for_new_log "$paper_log" 'This server is running Paper version' "$version_count"
+printf 'minecraft:say SERVERFEATURES_BLOCKER_RESTORED_SAY\n' >&"$paper_input_fd"
+wait_for_log "$paper_log" '\[Server\][[:space:]]+SERVERFEATURES_BLOCKER_RESTORED_SAY'
 
 loaded_count="$(log_count "$paper_log" 'Feature loaded: BuiltinCommandBlocker')"
 printf 'serverfeatures enable BuiltinCommandBlocker\n' >&"$paper_input_fd"
@@ -123,9 +133,14 @@ wait_for_new_log "$paper_log" 'Feature loaded: BuiltinCommandBlocker' "$loaded_c
 sleep 2
 version_count="$(log_count "$paper_log" 'This server is running Paper version')"
 printf 'version-alias-chain\n' >&"$paper_input_fd"
+printf 'say SERVERFEATURES_BLOCKER_REENABLED_SAY\n' >&"$paper_input_fd"
+printf 'minecraft:say SERVERFEATURES_BLOCKER_REENABLED_NAMESPACED_SAY\n' >&"$paper_input_fd"
 sleep 2
 [[ "$(log_count "$paper_log" 'This server is running Paper version')" == "$version_count" ]] \
     || fail "Hard-removal mode did not remove the restored commands.yml alias chain after re-enable."
+if grep -Eq '\[Server\][[:space:]]+SERVERFEATURES_BLOCKER_REENABLED_(SAY|NAMESPACED_SAY)' "$paper_log"; then
+    fail "A restored native Minecraft /say command remained executable after hard-removal re-enable."
+fi
 
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
