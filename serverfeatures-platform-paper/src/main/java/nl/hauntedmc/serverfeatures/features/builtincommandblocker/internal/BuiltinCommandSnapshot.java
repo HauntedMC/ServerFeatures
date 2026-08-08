@@ -1,5 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,7 +15,7 @@ public record BuiltinCommandSnapshot(
 
     public BuiltinCommandSnapshot {
         blockedCommands = Set.copyOf(blockedCommands);
-        detectedSources = Map.copyOf(detectedSources);
+        detectedSources = Collections.unmodifiableMap(new LinkedHashMap<>(detectedSources));
     }
 
     public boolean isBlocked(String command) {
