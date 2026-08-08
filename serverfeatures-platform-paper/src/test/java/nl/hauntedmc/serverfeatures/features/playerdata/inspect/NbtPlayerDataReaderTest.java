@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -51,6 +52,41 @@ class NbtPlayerDataReaderTest {
     }
 
     @Test
+    void readsServerFeaturesSettingsFromOldPlayerdataWithoutConvertingIt() throws IOException {
+        UUID playerId = UUID.randomUUID();
+        Path level = temporaryDirectory.resolve("old-version");
+        Files.createDirectories(PlayerDataFiles.dataDirectory(level));
+
+        Path file = PlayerDataFiles.playerFile(level, playerId);
+        writePlayerData(file, "LegacyPlayer", 100, output -> {
+            writeCompoundStart(output, "BukkitValues");
+            writeByte(output, "serverfeatures:autopickup_enabled", (byte) 0);
+            writeByte(output, "serverfeatures:fairperks_fly_enabled", (byte) 1);
+            writeEnd(output);
+        });
+        byte[] before = Files.readAllBytes(file);
+
+        NbtPlayerDataReader reader = new NbtPlayerDataReader(
+                level,
+                4 * 1024 * 1024,
+                32 * 1024 * 1024
+        );
+        NbtPlayerDataReader.ResolvedPlayerData resolved = reader.resolve("LegacyPlayer", playerId).orElseThrow();
+        NbtPlayerDataReader.Inspection overview = reader.inspectOverview(resolved, 240);
+        NbtPlayerDataReader.Inspection settings = reader.inspectSettings(resolved, 100, 240);
+
+        assertEquals("100", overview.entries().stream()
+                .filter(entry -> entry.key().equals("data-version"))
+                .findFirst()
+                .orElseThrow()
+                .value());
+        assertEquals(2, settings.totalEntries());
+        assertEquals("0 (false)", settings.entries().getFirst().value());
+        assertEquals("1 (true)", settings.entries().get(1).value());
+        assertArrayEquals(before, Files.readAllBytes(file));
+    }
+
+    @Test
     void browsesCompoundPathsWithoutMutatingPlayerdata() throws IOException {
         UUID playerId = UUID.randomUUID();
         Path level = temporaryDirectory.resolve("level-two");
@@ -75,15 +111,24 @@ class NbtPlayerDataReaderTest {
         assertEquals(1, inspection.totalEntries());
         assertEquals("flySpeed", inspection.entries().getFirst().key());
         assertTrue(inspection.entries().getFirst().value().startsWith("0.05"));
-        assertTrue(java.util.Arrays.equals(before, Files.readAllBytes(file)));
+        assertArrayEquals(before, Files.readAllBytes(file));
     }
 
     private static void writePlayerData(Path file, String playerName, NbtWriter extraTags) throws IOException {
+        writePlayerData(file, playerName, 4444, extraTags);
+    }
+
+    private static void writePlayerData(
+            Path file,
+            String playerName,
+            int dataVersion,
+            NbtWriter extraTags
+    ) throws IOException {
         try (OutputStream fileOutput = Files.newOutputStream(file);
              GZIPOutputStream gzipOutput = new GZIPOutputStream(fileOutput);
              DataOutputStream output = new DataOutputStream(gzipOutput)) {
             writeCompoundStart(output, "");
-            writeInt(output, "DataVersion", 4444);
+            writeInt(output, "DataVersion", dataVersion);
             writeCompoundStart(output, "bukkit");
             writeString(output, "lastKnownName", playerName);
             writeEnd(output);
