@@ -208,7 +208,11 @@ public final class LocalizationHandler {
     }
 
     private Language resolvePlayerLanguage(Player player) {
-        return plugin.getInternalServiceRegistry().find(LanguageAPI.class)
+        var registry = plugin.getInternalServiceRegistry();
+        if (registry == null) {
+            return Language.NL;
+        }
+        return registry.find(LanguageAPI.class)
                 .map(api -> api.get(player.getUniqueId()))
                 .orElse(Language.NL);
     }
