@@ -45,7 +45,8 @@ docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable."
 mkdir -p \
     "$work_directory/paper/plugins/DataProvider/databases" \
     "$work_directory/paper/plugins/DataRegistry" \
-    "$work_directory/paper/plugins/ServerFeatures/features/AutoPickup"
+    "$work_directory/paper/plugins/ServerFeatures/features/AutoPickup" \
+    "$work_directory/paper/plugins/ServerFeatures/features/BuiltinCommandBlocker"
 
 dataregistry_version="$(property dataregistry.version)"
 dataprovider_version="$(property dataprovider.version)"
@@ -73,6 +74,7 @@ cp "$plugin" "$work_directory/paper/plugins/ServerFeatures.jar"
 cp "$consumer" "$work_directory/paper/plugins/ServerFeaturesAcceptance.jar"
 printf '%s\n' 'orm:' '  schema_mode: update' 'databases:' '  mysql: { enabled: true }' '  mongodb: { enabled: false }' '  redis: { enabled: false }' '  redis_messaging: { enabled: false }' >"$work_directory/paper/plugins/DataProvider/config.yml"
 printf '%s\n' 'enabled: true' >"$work_directory/paper/plugins/ServerFeatures/features/AutoPickup/config.yml"
+printf '%s\n' 'enabled: true' 'remove_from_command_map: true' 'allowed:' '  - minecraft:stop' >"$work_directory/paper/plugins/ServerFeatures/features/BuiltinCommandBlocker/config.yml"
 
 docker compose --file "$compose_file" up --detach --wait
 mysql_port="$(docker compose --file "$compose_file" port mysql 3306 | sed -n 's/.*://p' | head -n 1)"
@@ -89,6 +91,8 @@ exec {paper_input_fd}>"$work_directory/paper/console.in"
 wait_for_log "$work_directory/paper/paper.log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
 grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$work_directory/paper/paper.log" \
     || fail "AutoPickup did not load during Paper acceptance."
+grep -Eq "Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$work_directory/paper/paper.log" \
+    || fail "BuiltinCommandBlocker did not load during Paper acceptance."
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
 while kill -0 "$paper_pid" 2>/dev/null && (( SECONDS < deadline )); do sleep 1; done
