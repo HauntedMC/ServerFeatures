@@ -11,7 +11,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 
 public final class BuiltinCommandDiscovery {
 
@@ -50,9 +49,15 @@ public final class BuiltinCommandDiscovery {
                     continue;
                 }
                 if (blocked.add(key)) {
-                    detectedSources.compute(source.configKey(), (ignored, count) -> count == null ? 1 : count + 1);
+                    detectedSources.compute(
+                            source.configKey(),
+                            (ignored, count) -> count == null ? 1 : count + 1
+                    );
                     if (alias) {
-                        detectedSources.compute(LEGACY_ALIASES, (ignored, count) -> count == null ? 1 : count + 1);
+                        detectedSources.compute(
+                                LEGACY_ALIASES,
+                                (ignored, count) -> count == null ? 1 : count + 1
+                        );
                     }
                 }
             }
