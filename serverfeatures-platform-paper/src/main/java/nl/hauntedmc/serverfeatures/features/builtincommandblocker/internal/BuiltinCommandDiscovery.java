@@ -37,7 +37,7 @@ public final class BuiltinCommandDiscovery {
 
         registrations.forEach((command, keys) -> {
             BuiltinCommandSource source = classify(command, keys);
-            if (source == null || !settings.blocks(source) || isAllowed(command, keys, settings)) {
+            if (source == null || !settings.blocks(source) || isAllowed(command, keys, source, settings)) {
                 return;
             }
 
@@ -149,18 +149,19 @@ public final class BuiltinCommandDiscovery {
     private static boolean isAllowed(
             Command command,
             Collection<String> registrationKeys,
+            BuiltinCommandSource source,
             BuiltinCommandBlockerSettings settings
     ) {
-        if (settings.allows(command.getName()) || settings.allows(command.getLabel())) {
+        if (settings.allows(source, command.getName()) || settings.allows(source, command.getLabel())) {
             return true;
         }
         for (String alias : command.getAliases()) {
-            if (settings.allows(alias)) {
+            if (settings.allows(source, alias)) {
                 return true;
             }
         }
         for (String key : registrationKeys) {
-            if (settings.allows(key)) {
+            if (settings.allows(source, key)) {
                 return true;
             }
         }
