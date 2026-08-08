@@ -6,7 +6,6 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -79,28 +78,16 @@ public final class PersistentDataInspector {
             return entry(key, "string", container.get(key, PersistentDataType.STRING), maxValueLength);
         }
         if (container.has(key, PersistentDataType.BYTE_ARRAY)) {
-            return entry(
-                    key,
-                    "byte[]",
-                    Arrays.toString(container.get(key, PersistentDataType.BYTE_ARRAY)),
-                    maxValueLength
-            );
+            byte[] values = container.get(key, PersistentDataType.BYTE_ARRAY);
+            return entry(key, "byte[]", arrayLength(values == null ? 0 : values.length), maxValueLength);
         }
         if (container.has(key, PersistentDataType.INTEGER_ARRAY)) {
-            return entry(
-                    key,
-                    "int[]",
-                    Arrays.toString(container.get(key, PersistentDataType.INTEGER_ARRAY)),
-                    maxValueLength
-            );
+            int[] values = container.get(key, PersistentDataType.INTEGER_ARRAY);
+            return entry(key, "int[]", arrayLength(values == null ? 0 : values.length), maxValueLength);
         }
         if (container.has(key, PersistentDataType.LONG_ARRAY)) {
-            return entry(
-                    key,
-                    "long[]",
-                    Arrays.toString(container.get(key, PersistentDataType.LONG_ARRAY)),
-                    maxValueLength
-            );
+            long[] values = container.get(key, PersistentDataType.LONG_ARRAY);
+            return entry(key, "long[]", arrayLength(values == null ? 0 : values.length), maxValueLength);
         }
         if (container.has(key, PersistentDataType.TAG_CONTAINER)) {
             PersistentDataContainer nested = container.get(key, PersistentDataType.TAG_CONTAINER);
@@ -108,6 +95,10 @@ public final class PersistentDataInspector {
             return entry(key, "container", keyCount + " keys", maxValueLength);
         }
         return new PlayerDataEntry(key.toString(), "custom/unknown", "<value not decoded>");
+    }
+
+    private static String arrayLength(int length) {
+        return length + (length == 1 ? " entry" : " entries");
     }
 
     private static PlayerDataEntry entry(
