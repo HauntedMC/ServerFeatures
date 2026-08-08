@@ -42,9 +42,9 @@ The blocker discovers the server's current command registrations instead of rely
 - `paper` covers Paper-owned commands.
 - `spigot` covers Spigot-owned compatibility commands.
 - `spark` covers the Spark profiler bundled with Paper or installed as Spark.
-- `legacy_aliases` controls aliases that point at an otherwise blocked built-in command.
+- `legacy_aliases` covers ordinary aliases of blocked built-ins and `commands.yml` aliases whose target eventually resolves to a blocked built-in command. Alias chains are followed transitively.
 
-Modern plugin commands may be represented internally by Paper wrapper classes. Plugin ownership is checked before Paper implementation-package heuristics so ordinary ServerFeatures and third-party commands are not mistaken for Paper built-ins. Third-party namespaces are not blocked just because they exist. If a third-party plugin deliberately registers a command in a built-in namespace, that registration is treated as belonging to that built-in source.
+Modern plugin commands may be represented internally by Paper wrapper classes. Plugin ownership is checked before Paper implementation-package heuristics so ordinary ServerFeatures and third-party commands are not mistaken for Paper built-ins. Third-party namespaces are not blocked just because they exist. A specific registration deliberately placed in a built-in namespace is treated as belonging to that built-in source.
 
 ## Allowlist
 
@@ -55,7 +55,7 @@ allowed:
   - minecraft:gamemode
 ```
 
-An allowlist match applies to the whole logical command. Its canonical name, namespaced registration and aliases remain available together; this avoids creating an accidental bypass in only one direction.
+A namespaced built-in allowlist entry also covers the matching unnamespaced root from the same built-in source. Bukkit-style aliases that belong to the same `Command` object are allowed with their logical command. For `commands.yml` forwarding aliases, allow the underlying built-in target if that alias should continue to work in hard-removal mode.
 
 ## Enforcement
 
@@ -64,9 +64,11 @@ With the default `remove_from_command_map: false`, the feature uses two player-f
 1. blocked roots are removed from the command list sent to players, hiding them from normal client suggestions;
 2. player command execution is checked server-side and cancelled before dispatch, so manually typing a hidden namespaced command does not bypass the blocker.
 
+`commands.yml` aliases that forward to blocked built-ins are included in those blocked roots. This matters because Bukkit server aliases dispatch their configured target programmatically rather than re-entering the normal player preprocess event.
+
 The commands themselves stay registered in this mode. Console, command-block, scheduler and internal server usage therefore keeps working.
 
-With `remove_from_command_map: true`, every blocked registration is removed from Paper's live command map/Brigadier root. This is global: players, console, command blocks and other senders can no longer execute those removed registrations. ServerFeatures remembers the exact registrations it removes and restores them when hard removal is turned off or when the feature is disabled/reloaded. A command that has been replaced by another registration while it was removed is never overwritten during restoration.
+With `remove_from_command_map: true`, every blocked registration is removed from Paper's live command map/Brigadier root. This is global: players, console, command blocks and other senders can no longer execute those removed registrations. ServerFeatures remembers the exact registrations it removes and restores them when hard removal is turned off or when the feature is disabled/reloaded. A command that has been replaced by another registration while it was removed is never overwritten during restoration, and registrations owned by a plugin that has since disabled are never resurrected.
 
 The discovered command snapshot is refreshed when the feature starts, when the server finishes loading, when plugins enable or disable, and while Paper rebuilds a player's command list. Online players receive a command-tree refresh when the effective blocked set or hard-removal state changes.
 
@@ -76,6 +78,6 @@ Everything below `generated` is informational output. It is never used as blocke
 
 - `blocked_command_count` is the number of command registrations currently blocked by policy, including registrations currently removed in hard-removal mode.
 - `blocked_commands` is the alphabetically sorted set of registrations that were actually found and blocked.
-- `detected_sources` shows how many blocked registrations were attributed to each source. `legacy_aliases` is an overlapping diagnostic count for blocked alias registrations.
+- `detected_sources` shows how many blocked registrations were attributed to each source. `legacy_aliases` is an overlapping diagnostic count for aliases that expose blocked built-ins.
 
 Manual changes to `generated` have no effect. The feature replaces stale generated values with the currently discovered snapshot. The config file is only written when that generated snapshot actually changes. A failure to save these diagnostics does not disable command enforcement.
