@@ -37,10 +37,10 @@ public final class BuiltinCommandBlockerService {
     public boolean refresh() {
         BuiltinCommandBlockerSettings settings = BuiltinCommandBlockerSettings.load(feature.getConfigHandler());
         Map<String, Command> liveCommands = commandMap.getKnownCommands();
-        boolean commandMapChanged = false;
+        boolean commandMapChanged = BuiltinCommandMapRemoval.pruneDisabledPluginCommands(removedCommands);
 
         if (!settings.removeFromCommandMap() && !removedCommands.isEmpty()) {
-            commandMapChanged = BuiltinCommandMapRemoval.restoreAll(liveCommands, removedCommands);
+            commandMapChanged |= BuiltinCommandMapRemoval.restoreAll(liveCommands, removedCommands);
         }
 
         Map<String, Command> effectiveCommands = BuiltinCommandMapRemoval.effectiveCommands(
