@@ -15,6 +15,8 @@ import java.util.Map;
 
 public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
+    private BuiltinCommandBlockerService service;
+
     public BuiltinCommandBlocker(FeatureContext<Meta> context) {
         super(context);
     }
@@ -27,6 +29,7 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
             defaults.put("block." + source.configKey(), true);
         }
         defaults.put("block.legacy_aliases", true);
+        defaults.put("remove_from_command_map", false);
         defaults.put("allowed", List.of());
         defaults.put("generated.blocked_command_count", 0);
         defaults.put("generated.blocked_commands", List.of());
@@ -43,7 +46,7 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        BuiltinCommandBlockerService service = new BuiltinCommandBlockerService(
+        service = new BuiltinCommandBlockerService(
                 this,
                 getPlugin().getServer().getCommandMap()
         );
@@ -53,7 +56,10 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
     @Override
     public void disable() {
-        // Listener and task cleanup are owned by the feature lifecycle manager.
+        if (service != null) {
+            service.restoreRemovedCommands();
+            service = null;
+        }
     }
 
     private static Map<String, Integer> emptySourceCounts() {
