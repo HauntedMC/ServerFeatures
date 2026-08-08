@@ -37,30 +37,30 @@ class FeatureDefaultsContractTest {
         for (BuiltInFeatures.Definition definition : BuiltInFeatures.definitions()) {
             discovered++;
             BukkitBaseFeature<?> feature = definition.createFeature(context);
-            Class<?> featureClass = definition.implementationType();
+            String featureClassName = definition.implementationType().getName();
 
             ConfigMap config = feature.getDefaultConfig();
-            assertNotNull(config, featureClass.getName() + " returned null config defaults");
-            assertTrue(config.contains("enabled"), featureClass.getName() + " has no enabled default");
+            assertNotNull(config, featureClassName + " returned null config defaults");
+            assertTrue(config.contains("enabled"), featureClassName + " has no enabled default");
             config.entrySet().forEach(entry -> {
-                assertFalse(entry.getKey().isBlank(), featureClass.getName() + " has a blank config key");
-                assertNotNull(entry.getValue(), featureClass.getName() + " has a null config default");
+                assertFalse(entry.getKey().isBlank(), featureClassName + " has a blank config key");
+                assertNotNull(entry.getValue(), featureClassName + " has a null config default");
             });
 
             MessageMap messages = feature.getDefaultMessages();
-            assertNotNull(messages, featureClass.getName() + " returned null message defaults");
+            assertNotNull(messages, featureClassName + " returned null message defaults");
             validateMeta(definition);
             messages.getMessages().forEach((key, value) -> {
                 int separator = key.indexOf('.');
-                assertTrue(separator > 0, featureClass.getName() + " has an unscoped message key: " + key);
+                assertTrue(separator > 0, featureClassName + " has an unscoped message key: " + key);
                 String root = key.substring(0, separator);
-                String previousOwner = messageRootOwners.putIfAbsent(root, featureClass.getName());
+                String previousOwner = messageRootOwners.putIfAbsent(root, featureClassName);
                 assertTrue(
-                        previousOwner == null || previousOwner.equals(featureClass.getName()),
+                        previousOwner == null || previousOwner.equals(featureClassName),
                         "Message root '" + root + "' is shared by " + previousOwner
-                                + " and " + featureClass.getName()
+                                + " and " + featureClassName
                 );
-                assertNotNull(value, featureClass.getName() + " has a null message default");
+                assertNotNull(value, featureClassName + " has a null message default");
             });
         }
         assertEquals(64, discovered, "Built-in manifest size changed unexpectedly");
@@ -68,10 +68,11 @@ class FeatureDefaultsContractTest {
 
     private static void validateMeta(BuiltInFeatures.Definition definition) {
         BaseMeta meta = definition.createMeta();
-        assertNotNull(meta, definition.implementationType().getName() + " returned null metadata");
+        String featureClassName = definition.implementationType().getName();
+        assertNotNull(meta, featureClassName + " returned null metadata");
         String featureName = meta.getFeatureName();
-        assertNotNull(featureName, definition.implementationType().getName() + " returned a null feature name");
-        assertFalse(featureName.isBlank(), definition.implementationType().getName() + " returned a blank feature name");
+        assertNotNull(featureName, featureClassName + " returned a null feature name");
+        assertFalse(featureName.isBlank(), featureClassName + " returned a blank feature name");
     }
 
     private static final class EmptyCapabilityRegistry implements CapabilityRegistry {
