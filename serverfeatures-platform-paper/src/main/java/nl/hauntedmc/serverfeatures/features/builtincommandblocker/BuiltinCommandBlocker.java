@@ -53,12 +53,14 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
                 getPlugin().getServer().getCommandMap()
         );
         BuiltinCommandBlockerService initializedService = service;
-        getConfigHandler().registerReloadListener(() ->
-                getLifecycleManager().getTaskManager().scheduleOneTimeTask(initializedService::refreshAndUpdatePlayers)
-        );
+        getConfigHandler().registerReloadListener(() -> scheduleRefresh(initializedService));
         listener = new BuiltinCommandBlockerListener(this, service);
         getLifecycleManager().getListenerManager().registerListener(listener);
-        service.refreshAndUpdatePlayers();
+
+        // During plugin startup Bukkit registers commands.yml aliases after plugins have enabled. Hard-removing their
+        // targets here would make those aliases fail registration entirely. The first scheduler tick runs after the
+        // startup command registry has settled; runtime feature enables likewise become effective on the next tick.
+        scheduleRefresh(initializedService);
     }
 
     @Override
@@ -74,6 +76,10 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
             service.updatePlayers();
             service = null;
         }
+    }
+
+    private void scheduleRefresh(BuiltinCommandBlockerService targetService) {
+        getLifecycleManager().getTaskManager().scheduleOneTimeTask(targetService::refreshAndUpdatePlayers);
     }
 
     private static Map<String, Integer> emptySourceCounts() {
