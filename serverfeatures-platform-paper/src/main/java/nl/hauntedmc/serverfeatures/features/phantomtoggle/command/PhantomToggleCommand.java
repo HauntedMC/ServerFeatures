@@ -75,6 +75,9 @@ public final class PhantomToggleCommand implements BrigadierCommand {
         };
 
         if (desired == current) {
+            if (intent == Intent.ENABLE || intent == Intent.DISABLE) {
+                feature.preferences().setPhantomsEnabled(player, desired);
+            }
             feature.sendPlayerMessage(player, desired
                     ? "phantomtoggle.already_enabled"
                     : "phantomtoggle.already_disabled");
