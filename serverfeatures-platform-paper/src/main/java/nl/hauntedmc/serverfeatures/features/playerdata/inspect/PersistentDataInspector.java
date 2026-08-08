@@ -107,15 +107,6 @@ public final class PersistentDataInspector {
             int keyCount = nested == null ? 0 : nested.getKeys().size();
             return entry(key, "container", keyCount + " keys", maxValueLength);
         }
-        if (container.has(key, PersistentDataType.TAG_CONTAINER_ARRAY)) {
-            PersistentDataContainer[] nested = container.get(key, PersistentDataType.TAG_CONTAINER_ARRAY);
-            return entry(
-                    key,
-                    "container[]",
-                    (nested == null ? 0 : nested.length) + " entries",
-                    maxValueLength
-            );
-        }
         return new PlayerDataEntry(key.toString(), "custom/unknown", "<value not decoded>");
     }
 
