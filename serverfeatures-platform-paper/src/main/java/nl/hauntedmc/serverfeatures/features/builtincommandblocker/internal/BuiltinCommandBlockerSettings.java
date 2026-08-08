@@ -11,6 +11,7 @@ import java.util.Set;
 public record BuiltinCommandBlockerSettings(
         Set<BuiltinCommandSource> blockedSources,
         boolean blockLegacyAliases,
+        boolean removeFromCommandMap,
         Set<String> allowedCommands
 ) {
 
@@ -40,6 +41,7 @@ public record BuiltinCommandBlockerSettings(
         return new BuiltinCommandBlockerSettings(
                 blockedSources,
                 config.get("block.legacy_aliases", Boolean.class, true),
+                config.get("remove_from_command_map", Boolean.class, false),
                 allowed
         );
     }
