@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.vanish.internal;
 
 import nl.hauntedmc.serverfeatures.features.vanish.Vanish;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 
 import java.util.Set;
 import java.util.UUID;
