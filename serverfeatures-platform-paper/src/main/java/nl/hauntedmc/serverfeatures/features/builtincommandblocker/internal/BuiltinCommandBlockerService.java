@@ -21,6 +21,7 @@ public final class BuiltinCommandBlockerService {
 
     private final BuiltinCommandBlocker feature;
     private final CommandMap commandMap;
+    private final Map<String, Command> removedCommands = new LinkedHashMap<>();
     private volatile BuiltinCommandSnapshot snapshot = BuiltinCommandSnapshot.EMPTY;
 
     public BuiltinCommandBlockerService(BuiltinCommandBlocker feature, CommandMap commandMap) {
@@ -29,14 +30,33 @@ public final class BuiltinCommandBlockerService {
     }
 
     /**
-     * Rebuilds the immutable command snapshot from Paper's current command map.
+     * Rebuilds the immutable command snapshot from Paper's current command map and reconciles hard removal.
      *
-     * @return whether the effective blocked-command set changed
+     * @return whether the effective blocked-command set or command-map state changed
      */
     public boolean refresh() {
         BuiltinCommandBlockerSettings settings = BuiltinCommandBlockerSettings.load(feature.getConfigHandler());
-        Map<String, Command> knownCommands = new LinkedHashMap<>(commandMap.getKnownCommands());
-        BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(knownCommands, settings);
+        Map<String, Command> liveCommands = commandMap.getKnownCommands();
+        boolean commandMapChanged = false;
+
+        if (!settings.removeFromCommandMap() && !removedCommands.isEmpty()) {
+            commandMapChanged = BuiltinCommandMapRemoval.restoreAll(liveCommands, removedCommands);
+        }
+
+        Map<String, Command> effectiveCommands = BuiltinCommandMapRemoval.effectiveCommands(
+                liveCommands,
+                removedCommands
+        );
+        BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(effectiveCommands, settings);
+
+        if (settings.removeFromCommandMap()) {
+            commandMapChanged |= BuiltinCommandMapRemoval.reconcile(
+                    liveCommands,
+                    removedCommands,
+                    next.blockedCommands()
+            );
+        }
+
         BuiltinCommandSnapshot previous = snapshot;
         snapshot = next;
         try {
@@ -48,7 +68,7 @@ public final class BuiltinCommandBlockerService {
                     exception
             );
         }
-        return !next.equals(previous);
+        return commandMapChanged || !next.equals(previous);
     }
 
     public void refreshAndUpdatePlayers() {
@@ -61,6 +81,13 @@ public final class BuiltinCommandBlockerService {
         for (Player player : feature.getPlugin().getServer().getOnlinePlayers()) {
             player.updateCommands();
         }
+    }
+
+    public void restoreRemovedCommands() {
+        if (removedCommands.isEmpty()) {
+            return;
+        }
+        BuiltinCommandMapRemoval.restoreAll(commandMap.getKnownCommands(), removedCommands);
     }
 
     public void removeBlockedCommands(Collection<String> commands) {
