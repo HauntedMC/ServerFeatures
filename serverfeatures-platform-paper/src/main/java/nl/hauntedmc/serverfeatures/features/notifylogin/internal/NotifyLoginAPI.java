@@ -1,5 +1,6 @@
 package nl.hauntedmc.serverfeatures.features.notifylogin.internal;
 
+import nl.hauntedmc.serverfeatures.framework.port.ConnectionVisibilityPort;
 import org.bukkit.entity.Player;
 
 import java.util.Objects;
