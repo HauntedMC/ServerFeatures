@@ -8,9 +8,11 @@ import org.bukkit.entity.Player;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.logging.Level;
 
 public final class BuiltinCommandBlockerService {
@@ -37,19 +39,29 @@ public final class BuiltinCommandBlockerService {
     public boolean refresh() {
         BuiltinCommandBlockerSettings settings = BuiltinCommandBlockerSettings.load(feature.getConfigHandler());
         Map<String, Command> liveCommands = commandMap.getKnownCommands();
-        boolean commandMapChanged = BuiltinCommandMapRemoval.pruneDisabledPluginCommands(removedCommands);
+        Map<String, String[]> serverAliases = feature.getPlugin().getServer().getCommandAliases();
+        Set<String> configuredServerAliases = configuredServerAliasNames(serverAliases);
+        boolean commandMapChanged = BuiltinCommandMapRemoval.pruneInvalidRemovedCommands(
+                removedCommands,
+                configuredServerAliases
+        );
 
         if (!settings.removeFromCommandMap() && !removedCommands.isEmpty()) {
-            commandMapChanged |= BuiltinCommandMapRemoval.restoreAll(liveCommands, removedCommands);
+            commandMapChanged |= BuiltinCommandMapRemoval.restoreAll(
+                    liveCommands,
+                    removedCommands,
+                    configuredServerAliases
+            );
         }
 
         Map<String, Command> effectiveCommands = BuiltinCommandMapRemoval.effectiveCommands(
                 liveCommands,
-                removedCommands
+                removedCommands,
+                configuredServerAliases
         );
         BuiltinCommandSnapshot next = BuiltinCommandDiscovery.discover(
                 effectiveCommands,
-                feature.getPlugin().getServer().getCommandAliases(),
+                serverAliases,
                 settings
         );
 
@@ -57,7 +69,8 @@ public final class BuiltinCommandBlockerService {
             commandMapChanged |= BuiltinCommandMapRemoval.reconcile(
                     liveCommands,
                     removedCommands,
-                    next.blockedCommands()
+                    next.blockedCommands(),
+                    configuredServerAliases
             );
         }
 
@@ -91,7 +104,12 @@ public final class BuiltinCommandBlockerService {
         if (removedCommands.isEmpty()) {
             return;
         }
-        BuiltinCommandMapRemoval.restoreAll(commandMap.getKnownCommands(), removedCommands);
+        Map<String, String[]> serverAliases = feature.getPlugin().getServer().getCommandAliases();
+        BuiltinCommandMapRemoval.restoreAll(
+                commandMap.getKnownCommands(),
+                removedCommands,
+                configuredServerAliasNames(serverAliases)
+        );
     }
 
     public void removeBlockedCommands(Collection<String> commands) {
@@ -115,6 +133,17 @@ public final class BuiltinCommandBlockerService {
             }
         }
         return normalized;
+    }
+
+    private static Set<String> configuredServerAliasNames(Map<String, String[]> serverAliases) {
+        LinkedHashSet<String> aliases = new LinkedHashSet<>();
+        for (String alias : serverAliases.keySet()) {
+            String normalized = BuiltinCommandBlockerSettings.normalizeCommand(alias);
+            if (!normalized.isEmpty()) {
+                aliases.add(normalized);
+            }
+        }
+        return Set.copyOf(aliases);
     }
 
     private void persistGeneratedSnapshot(BuiltinCommandSnapshot current) {
