@@ -3,6 +3,8 @@ package nl.hauntedmc.serverfeatures.features;
 import nl.hauntedmc.serverfeatures.api.feature.meta.BaseMeta;
 import nl.hauntedmc.serverfeatures.framework.loader.BuiltInFeatures;
 
+import java.util.logging.Level;
+
 /**
  * Transitional construction entry point used by the loader while feature metadata is moved into
  * the manifest. Built-in construction itself is compile-time typed and performs no reflection.
@@ -20,14 +22,24 @@ public final class FeatureFactory {
             return null;
         }
 
-        return BuiltInFeatures.findByImplementationClassName(featureClassName)
-                .map(definition -> definition.createFeature(context))
-                .orElseGet(() -> {
-                    context.plugin().getLogger().severe(
-                            "Failed to instantiate feature: implementation is not present in the built-in manifest: "
-                                    + featureClassName
-                    );
-                    return null;
-                });
+        try {
+            return BuiltInFeatures.findByImplementationClassName(featureClassName)
+                    .map(definition -> definition.createFeature(context))
+                    .orElseGet(() -> {
+                        context.plugin().getLogger().severe(
+                                "Failed to instantiate feature: implementation is not present in the built-in manifest: "
+                                        + featureClassName
+                        );
+                        return null;
+                    });
+        } catch (LinkageError linkageError) {
+            context.plugin().getLogger().log(
+                    Level.WARNING,
+                    "Cannot instantiate feature '" + featureClassName
+                            + "' because a required runtime dependency is unavailable or incompatible.",
+                    linkageError
+            );
+            return null;
+        }
     }
 }
