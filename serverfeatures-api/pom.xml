@@ -23,6 +23,37 @@
     <build>
         <plugins>
             <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <includes>
+                        <include>nl/hauntedmc/serverfeatures/api/ApiFailureCode.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ApiOperationException.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/AsyncContract.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/RuntimeState.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApi.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApiVersion.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalog.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalogListener.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureClassification.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureDescriptor.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureFailure.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureId.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureRole.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureSnapshot.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/feature/FeatureState.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityListener.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityRef.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityRegistry.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/service/CapabilityUnavailableException.java</include>
+                    </includes>
+                    <testIncludes>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/FeatureContractsTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/IdentityAndServiceContractsTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/PublicApiSourceBoundaryTest.java</testInclude>
+                    </testIncludes>
+                </configuration>
+            </plugin>
+            <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
                     <archive>
