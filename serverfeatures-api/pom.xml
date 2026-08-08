@@ -53,6 +53,9 @@
                         <testInclude>nl/hauntedmc/serverfeatures/api/FeatureContractsTest.java</testInclude>
                         <testInclude>nl/hauntedmc/serverfeatures/api/IdentityAndServiceContractsTest.java</testInclude>
                         <testInclude>nl/hauntedmc/serverfeatures/api/PublicApiSourceBoundaryTest.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/capability/**/*.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/economy/**/*.java</testInclude>
+                        <testInclude>nl/hauntedmc/serverfeatures/api/graveyard/**/*.java</testInclude>
                     </testIncludes>
                 </configuration>
             </plugin>
