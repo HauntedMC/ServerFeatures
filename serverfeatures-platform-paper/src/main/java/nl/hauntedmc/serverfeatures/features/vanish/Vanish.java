@@ -17,12 +17,12 @@ import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishAPI;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishPlaceholder;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishRepository;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishService;
-import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishVisibilityPort;
 import nl.hauntedmc.serverfeatures.features.vanish.internal.messaging.EventBusHandler;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.InteractionListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.TabListener;
 import nl.hauntedmc.serverfeatures.features.vanish.listener.VisibilityListener;
 import nl.hauntedmc.serverfeatures.features.vanish.meta.Meta;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 
 import java.util.Map;
 import java.util.Optional;
