@@ -44,28 +44,36 @@ class FeatureDescriptorTest {
     }
 
     @Test
-    void createsFreshMetadataForEveryFeatureContext() {
+    void createsFreshMetadataSnapshotsForEveryFeatureContext() {
         FeatureDescriptor descriptor = new FeatureDescriptor(
                 "Example",
                 "example.Example",
                 ExampleMeta.class,
                 "Example",
                 "2.0",
-                Set.of(),
-                Set.of(),
-                Set.of()
+                Set.of("Required"),
+                Set.of("Optional"),
+                Set.of("Plugin")
         );
 
         BaseMeta first = descriptor.createMeta();
         BaseMeta second = descriptor.createMeta();
 
-        assertTrue(first instanceof ExampleMeta);
-        assertTrue(second instanceof ExampleMeta);
         assertNotSame(first, second);
+        assertEquals("Example", first.getFeatureName());
+        assertEquals("2.0", first.getFeatureVersion());
+        assertEquals(List.of("Required"), first.getDependencies());
+        assertEquals(List.of("Optional"), first.getOptionalDependencies());
+        assertEquals(List.of("Plugin"), first.getPluginDependencies());
+        assertEquals(first.getFeatureName(), second.getFeatureName());
+        assertEquals(first.getFeatureVersion(), second.getFeatureVersion());
+        assertEquals(first.getDependencies(), second.getDependencies());
+        assertEquals(first.getOptionalDependencies(), second.getOptionalDependencies());
+        assertEquals(first.getPluginDependencies(), second.getPluginDependencies());
     }
 
     @Test
-    void fallsBackToDescriptorSnapshotWhenMetadataCannotBeConstructed() {
+    void metadataConstructionNeverExecutesLegacyCompanionConstructors() {
         FeatureDescriptor descriptor = new FeatureDescriptor(
                 "Fallback",
                 "example.Fallback",
