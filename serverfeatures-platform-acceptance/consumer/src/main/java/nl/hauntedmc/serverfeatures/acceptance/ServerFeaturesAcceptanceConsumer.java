@@ -3,8 +3,11 @@ package nl.hauntedmc.serverfeatures.acceptance;
 import nl.hauntedmc.dataregistry.api.DataRegistryApiProvider;
 import nl.hauntedmc.serverfeatures.api.ui.inventory.menu.MenuNavigator;
 import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Map;
 
 /** Verifies the bundled ServerFeatures artifact against the current shared platform APIs. */
 public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
@@ -23,11 +26,45 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
                 if (MenuNavigator.class.getName().isBlank()) {
                     throw new IllegalStateException("ServerFeatures public API is unavailable.");
                 }
-                getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
+
+                // Run after the server has entered its ticking lifecycle. This also gives ServerLoadEvent command
+                // refreshes one full tick to settle before validating the final command registry.
+                Bukkit.getScheduler().runTaskLater(this, this::runStableVerification, 20L);
             } catch (Exception exception) {
                 getLogger().severe("SERVERFEATURES_ACCEPTANCE_FAIL platform=paper cause=" + exception);
             }
         });
+    }
+
+    private void runStableVerification() {
+        try {
+            Map<String, Command> knownCommands = Bukkit.getCommandMap().getKnownCommands();
+            boolean versionRemoved = !knownCommands.containsKey("version");
+            boolean directAliasRemoved = !knownCommands.containsKey("version-alias");
+            boolean chainedAliasRemoved = !knownCommands.containsKey("version-alias-chain");
+            boolean seedRemoved = !knownCommands.containsKey("seed") && !knownCommands.containsKey("minecraft:seed");
+            boolean stopPreserved = knownCommands.containsKey("stop") || knownCommands.containsKey("minecraft:stop");
+            boolean serverFeaturesPreserved = knownCommands.containsKey("serverfeatures");
+
+            if (!versionRemoved
+                    || !directAliasRemoved
+                    || !chainedAliasRemoved
+                    || !seedRemoved
+                    || !stopPreserved
+                    || !serverFeaturesPreserved) {
+                throw new IllegalStateException(
+                        "BuiltinCommandBlocker hard-removal acceptance failed: versionRemoved=" + versionRemoved
+                                + ", directAliasRemoved=" + directAliasRemoved
+                                + ", chainedAliasRemoved=" + chainedAliasRemoved
+                                + ", seedRemoved=" + seedRemoved
+                                + ", stopPreserved=" + stopPreserved
+                                + ", serverFeaturesPreserved=" + serverFeaturesPreserved
+                );
+            }
+            getLogger().info("SERVERFEATURES_ACCEPTANCE_PASS platform=paper");
+        } catch (Throwable throwable) {
+            getLogger().severe("SERVERFEATURES_ACCEPTANCE_FAIL platform=paper cause=" + throwable);
+        }
     }
 
     private static void awaitReady(DataRegistryApiProvider provider) throws InterruptedException {

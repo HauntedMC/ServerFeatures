@@ -30,6 +30,7 @@ trap cleanup EXIT
 fail() { echo "ServerFeatures acceptance failure: $*" >&2; exit 1; }
 require() { command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"; }
 property() { sed -n "s|.*<$1>\\(.*\\)</$1>.*|\\1|p" "$root_directory/pom.xml" | head -n 1; }
+log_count() { grep -Ec -- "$2" "$1" 2>/dev/null || true; }
 wait_for_log() {
     local file=$1 expected=$2 deadline=$((SECONDS + 180))
     while (( SECONDS < deadline )); do
@@ -39,13 +40,23 @@ wait_for_log() {
     done
     fail "Timed out waiting for $expected"
 }
+wait_for_new_log() {
+    local file=$1 expected=$2 previous_count=$3 deadline=$((SECONDS + 45))
+    while (( SECONDS < deadline )); do
+        (( $(log_count "$file" "$expected") > previous_count )) && return
+        grep -Eq 'SERVERFEATURES_ACCEPTANCE_FAIL|Exception in thread|Could not load|Error occurred while enabling' "$file" && fail "Paper reported a runtime failure."
+        sleep 1
+    done
+    fail "Timed out waiting for a new $expected log entry"
+}
 
 for command in curl docker java jq jar sha256sum; do require "$command"; done
 docker info >/dev/null 2>&1 || fail "Docker daemon is unavailable."
 mkdir -p \
     "$work_directory/paper/plugins/DataProvider/databases" \
     "$work_directory/paper/plugins/DataRegistry" \
-    "$work_directory/paper/plugins/ServerFeatures/features/AutoPickup"
+    "$work_directory/paper/plugins/ServerFeatures/features/AutoPickup" \
+    "$work_directory/paper/plugins/ServerFeatures/features/BuiltinCommandBlocker"
 
 dataregistry_version="$(property dataregistry.version)"
 dataprovider_version="$(property dataprovider.version)"
@@ -73,6 +84,8 @@ cp "$plugin" "$work_directory/paper/plugins/ServerFeatures.jar"
 cp "$consumer" "$work_directory/paper/plugins/ServerFeaturesAcceptance.jar"
 printf '%s\n' 'orm:' '  schema_mode: update' 'databases:' '  mysql: { enabled: true }' '  mongodb: { enabled: false }' '  redis: { enabled: false }' '  redis_messaging: { enabled: false }' >"$work_directory/paper/plugins/DataProvider/config.yml"
 printf '%s\n' 'enabled: true' >"$work_directory/paper/plugins/ServerFeatures/features/AutoPickup/config.yml"
+printf '%s\n' 'enabled: true' 'remove_from_command_map: true' 'allowed:' '  - minecraft:stop' >"$work_directory/paper/plugins/ServerFeatures/features/BuiltinCommandBlocker/config.yml"
+printf '%s\n' 'aliases:' '  version-alias:' '    - version' '  version-alias-chain:' '    - version-alias' >"$work_directory/paper/commands.yml"
 
 docker compose --file "$compose_file" up --detach --wait
 mysql_port="$(docker compose --file "$compose_file" port mysql 3306 | sed -n 's/.*://p' | head -n 1)"
@@ -86,13 +99,55 @@ mkfifo "$work_directory/paper/console.in"
 (cd "$work_directory/paper" && exec java -Xms512M -Xmx1G -jar "$work_directory/paper.jar" --nogui <console.in >paper.log 2>&1) &
 paper_pid=$!
 exec {paper_input_fd}>"$work_directory/paper/console.in"
-wait_for_log "$work_directory/paper/paper.log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
-grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$work_directory/paper/paper.log" \
+paper_log="$work_directory/paper/paper.log"
+wait_for_log "$paper_log" 'SERVERFEATURES_ACCEPTANCE_PASS platform=paper'
+grep -Eq "Loaded feature 'AutoPickup'|Loaded feature AutoPickup|AutoPickup.*loaded" "$paper_log" \
     || fail "AutoPickup did not load during Paper acceptance."
+grep -Eq "Feature loaded: BuiltinCommandBlocker|Loaded feature 'BuiltinCommandBlocker'|Loaded feature BuiltinCommandBlocker|BuiltinCommandBlocker.*loaded" "$paper_log" \
+    || fail "BuiltinCommandBlocker did not load during Paper acceptance."
+if grep -Eq 'Could not register alias version-alias|Could not register alias version-alias-chain' "$paper_log"; then
+    fail "BuiltinCommandBlocker removed alias targets before commands.yml aliases were registered."
+fi
+
+# Prove that removing the Bukkit wrapper also prevents execution through Minecraft's native dispatcher. /seed has
+# deterministic console output and does not need an online player, unlike /say.
+seed_count="$(log_count "$paper_log" 'Seed:')"
+printf 'seed\n' >&"$paper_input_fd"
+printf 'minecraft:seed\n' >&"$paper_input_fd"
+sleep 2
+[[ "$(log_count "$paper_log" 'Seed:')" == "$seed_count" ]] \
+    || fail "A native Minecraft /seed command remained executable in hard-removal mode."
+
+# Hard mode has been verified by the acceptance consumer. Disable it and prove that both the exact commands.yml
+# alias chain and a native vanilla command are restored and executable. Then re-enable it and prove both disappear.
+printf 'serverfeatures disable BuiltinCommandBlocker\n' >&"$paper_input_fd"
+wait_for_log "$paper_log" 'Feature disabled: BuiltinCommandBlocker'
+version_count="$(log_count "$paper_log" 'This server is running Paper version')"
+printf 'version-alias-chain\n' >&"$paper_input_fd"
+wait_for_new_log "$paper_log" 'This server is running Paper version' "$version_count"
+seed_count="$(log_count "$paper_log" 'Seed:')"
+printf 'minecraft:seed\n' >&"$paper_input_fd"
+wait_for_new_log "$paper_log" 'Seed:' "$seed_count"
+
+loaded_count="$(log_count "$paper_log" 'Feature loaded: BuiltinCommandBlocker')"
+printf 'serverfeatures enable BuiltinCommandBlocker\n' >&"$paper_input_fd"
+wait_for_new_log "$paper_log" 'Feature loaded: BuiltinCommandBlocker' "$loaded_count"
+sleep 2
+version_count="$(log_count "$paper_log" 'This server is running Paper version')"
+seed_count="$(log_count "$paper_log" 'Seed:')"
+printf 'version-alias-chain\n' >&"$paper_input_fd"
+printf 'seed\n' >&"$paper_input_fd"
+printf 'minecraft:seed\n' >&"$paper_input_fd"
+sleep 2
+[[ "$(log_count "$paper_log" 'This server is running Paper version')" == "$version_count" ]] \
+    || fail "Hard-removal mode did not remove the restored commands.yml alias chain after re-enable."
+[[ "$(log_count "$paper_log" 'Seed:')" == "$seed_count" ]] \
+    || fail "A restored native Minecraft /seed command remained executable after hard-removal re-enable."
+
 printf 'stop\n' >&"$paper_input_fd"
 deadline=$((SECONDS + 45))
 while kill -0 "$paper_pid" 2>/dev/null && (( SECONDS < deadline )); do sleep 1; done
 kill -0 "$paper_pid" 2>/dev/null && fail "Paper did not stop cleanly."
 wait "$paper_pid" || true
-grep -Eq 'ServerFeatures is shutting down' "$work_directory/paper/paper.log" || fail "ServerFeatures did not shut down cleanly."
+grep -Eq 'ServerFeatures is shutting down' "$paper_log" || fail "ServerFeatures did not shut down cleanly."
 echo "ServerFeatures platform acceptance passed."

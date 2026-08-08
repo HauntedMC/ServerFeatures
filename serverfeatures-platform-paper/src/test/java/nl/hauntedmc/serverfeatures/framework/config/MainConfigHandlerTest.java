@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,6 +69,20 @@ class MainConfigHandlerTest {
 
         assertEquals(5, feature.get("animation.steps_per_second", Integer.class));
         assertEquals(0, feature.get("animation.fade_delay", Integer.class));
+    }
+
+    @Test
+    void notifiesRegisteredListenersAfterConfigReload() {
+        ConfigService service = new ConfigService(plugin(dataDirectory));
+        MainConfigHandler main = new MainConfigHandler(Logger.getLogger("main-config-test"), service);
+        FeatureConfigHandler feature = main.openFeatureConfig("Demo");
+        AtomicInteger reloads = new AtomicInteger();
+        feature.registerReloadListener(reloads::incrementAndGet);
+
+        feature.reloadConfig();
+        feature.reloadConfig();
+
+        assertEquals(2, reloads.get());
     }
 
     private static Plugin plugin(Path dataDirectory) {

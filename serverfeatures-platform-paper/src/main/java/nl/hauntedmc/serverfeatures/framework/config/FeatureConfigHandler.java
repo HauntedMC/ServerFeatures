@@ -5,7 +5,9 @@ import nl.hauntedmc.serverfeatures.api.io.config.ConfigNode;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigService;
 import nl.hauntedmc.serverfeatures.api.io.config.ConfigView;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Logger;
 
 /**
@@ -16,6 +18,7 @@ public class FeatureConfigHandler extends ConfigView {
     private final String featureName;
     private final Logger logger;
     private final ConfigView globalView;
+    private final List<Runnable> reloadListeners = new CopyOnWriteArrayList<>();
 
     FeatureConfigHandler(ConfigService service, ConfigView globalView, String featureName, Logger logger) {
         super(service.open(FeatureStoragePaths.configPath(featureName), false), "");
@@ -26,6 +29,15 @@ public class FeatureConfigHandler extends ConfigView {
 
     public void reloadConfig() {
         file.reload();
+        reloadListeners.forEach(Runnable::run);
+    }
+
+    /**
+     * Registers a callback that runs after this feature's configuration has been reloaded from disk.
+     * Listeners are scoped to this handler instance and are discarded with the owning feature context.
+     */
+    public void registerReloadListener(Runnable listener) {
+        reloadListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     public String featureName() {
