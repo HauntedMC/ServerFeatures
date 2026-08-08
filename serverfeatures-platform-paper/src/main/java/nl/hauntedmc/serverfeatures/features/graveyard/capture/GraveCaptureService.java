@@ -18,7 +18,7 @@ import nl.hauntedmc.serverfeatures.features.graveyard.persistence.GravePayloadCo
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementResult;
 import nl.hauntedmc.serverfeatures.features.graveyard.placement.GravePlacementService;
 import nl.hauntedmc.serverfeatures.features.graveyard.runtime.GraveManager;
-import nl.hauntedmc.serverfeatures.features.vanish.internal.VanishVisibilityPort;
+import nl.hauntedmc.serverfeatures.framework.port.VanishVisibilityPort;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
