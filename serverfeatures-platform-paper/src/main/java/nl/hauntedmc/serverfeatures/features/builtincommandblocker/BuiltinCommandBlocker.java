@@ -14,8 +14,6 @@ import java.util.Map;
 
 public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
-    private BuiltinCommandBlockerService service;
-
     public BuiltinCommandBlocker(FeatureContext<Meta> context) {
         super(context);
     }
@@ -46,18 +44,17 @@ public final class BuiltinCommandBlocker extends BukkitBaseFeature<Meta> {
 
     @Override
     public void initialize() {
-        service = new BuiltinCommandBlockerService(this, getPlugin().getServer().getCommandMap());
+        BuiltinCommandBlockerService service = new BuiltinCommandBlockerService(
+                this,
+                getPlugin().getServer().getCommandMap()
+        );
         getLifecycleManager().getListenerManager().registerListener(new BuiltinCommandBlockerListener(this, service));
         service.refreshAndUpdatePlayers();
     }
 
     @Override
     public void disable() {
-        service = null;
-    }
-
-    public BuiltinCommandBlockerService service() {
-        return service;
+        // Listener and task cleanup are owned by the feature lifecycle manager.
     }
 
     private static Map<String, Integer> emptySourceCounts() {
