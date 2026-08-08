@@ -99,7 +99,7 @@ public final class BuiltinCommandDiscovery {
     }
 
     static boolean isAliasRegistration(Command command, String registrationKey) {
-        String label = stripNamespace(BuiltinCommandBlockerSettings.normalizeCommand(registrationKey));
+        String label = stripNamespaces(BuiltinCommandBlockerSettings.normalizeCommand(registrationKey));
         if (label.equals(BuiltinCommandBlockerSettings.normalizeCommand(command.getName()))
                 || label.equals(BuiltinCommandBlockerSettings.normalizeCommand(command.getLabel()))) {
             return false;
@@ -148,8 +148,8 @@ public final class BuiltinCommandDiscovery {
         return false;
     }
 
-    private static String stripNamespace(String command) {
-        int colon = command.indexOf(':');
+    private static String stripNamespaces(String command) {
+        int colon = command.lastIndexOf(':');
         return colon < 0 ? command : command.substring(colon + 1);
     }
 
