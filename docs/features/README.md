@@ -1,6 +1,6 @@
 # ServerFeatures Feature Reference
 
-This directory documents all **64** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
+This directory documents all **65** feature modules currently present in ServerFeatures. Each page combines operator-facing behavior with the Paper lifecycle and developer contracts.
 
 ## How to use these pages
 
@@ -61,6 +61,7 @@ This directory documents all **64** feature modules currently present in ServerF
 
 - [Vanish](vanish.md) — Provides staff invisibility with persisted state, visibility filtering, interaction protections, tab-list handling, and cross-feature availability through `VanishAPI`.
 - [InvTools](invtools.md) — Provides safe online and offline inventory and ender-chest inspection, editing, clearing, conflict detection, and audit logging.
+- [PlayerData](playerdata.md) — Provides read-only live and offline playerdata diagnostics, including runtime state, ServerFeatures PDC settings, all PDC namespaces, and bounded raw NBT browsing.
 - [ChatFilter](chatfilter.md) — Filters local chat against configured rules while preserving the server's broader chat pipeline.
 - [ChatLayout](chatlayout.md) — Formats Paper chat messages with ranks, names, hover/click content, and signed-chat compatibility.
 - [ChatTools](chattools.md) — Provides staff chat-management utilities such as clearing or controlling the local server chat.
