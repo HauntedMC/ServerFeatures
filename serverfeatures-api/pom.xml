@@ -32,6 +32,8 @@
                         <include>nl/hauntedmc/serverfeatures/api/RuntimeState.java</include>
                         <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApi.java</include>
                         <include>nl/hauntedmc/serverfeatures/api/ServerFeaturesApiVersion.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/economy/**/*.java</include>
+                        <include>nl/hauntedmc/serverfeatures/api/graveyard/**/*.java</include>
                         <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalog.java</include>
                         <include>nl/hauntedmc/serverfeatures/api/feature/FeatureCatalogListener.java</include>
                         <include>nl/hauntedmc/serverfeatures/api/feature/FeatureClassification.java</include>
