@@ -51,6 +51,20 @@ class BuiltinCommandDiscoveryTest {
     }
 
     @Test
+    void repeatedFallbackNamespacesRemainBlockedWhenAliasesAreDisabled() {
+        FakeCommand help = new FakeCommand("help", "?");
+        Map<String, Command> commands = registrations(
+                "bukkit:bukkit:help", help,
+                "bukkit:bukkit:?", help
+        );
+
+        BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(commands, allBlocked(false, Set.of()));
+
+        assertTrue(snapshot.isBlocked("bukkit:bukkit:help"));
+        assertFalse(snapshot.isBlocked("bukkit:bukkit:?"));
+    }
+
+    @Test
     void allowlistEntryAllowsTheWholeLogicalCommand() {
         FakeCommand give = new FakeCommand("give", "g");
         Map<String, Command> commands = registrations(
