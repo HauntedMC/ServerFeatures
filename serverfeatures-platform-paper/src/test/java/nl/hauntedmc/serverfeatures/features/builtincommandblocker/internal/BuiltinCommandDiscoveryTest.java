@@ -1,7 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
+import io.papermc.paper.testing.PluginOwnedPaperWrapperCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -13,7 +15,10 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class BuiltinCommandDiscoveryTest {
 
@@ -96,6 +101,20 @@ class BuiltinCommandDiscoveryTest {
     }
 
     @Test
+    void modernPluginCommandsWrappedByPaperRemainThirdParty() {
+        Plugin plugin = mock(Plugin.class);
+        when(plugin.getName()).thenReturn("ServerFeatures");
+        Command command = new PluginOwnedPaperWrapperCommand("friends", plugin);
+
+        BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(
+                registrations("friends", command, "serverfeatures:friends", command),
+                allBlocked(true, Set.of())
+        );
+
+        assertTrue(snapshot.blockedCommands().isEmpty());
+    }
+
+    @Test
     void eachBuiltinNamespaceCanBeDetectedIndependently() {
         Map<String, Command> commands = new LinkedHashMap<>();
         commands.put("minecraft:give", new FakeCommand("give"));
@@ -116,7 +135,12 @@ class BuiltinCommandDiscoveryTest {
     void disabledSourceIsNotBlocked() {
         EnumSet<BuiltinCommandSource> sources = EnumSet.allOf(BuiltinCommandSource.class);
         sources.remove(BuiltinCommandSource.PAPER);
-        BuiltinCommandBlockerSettings settings = new BuiltinCommandBlockerSettings(sources, true, Set.of());
+        BuiltinCommandBlockerSettings settings = new BuiltinCommandBlockerSettings(
+                sources,
+                true,
+                false,
+                Set.of()
+        );
 
         BuiltinCommandSnapshot snapshot = BuiltinCommandDiscovery.discover(
                 Map.of("paper:paper", new FakeCommand("paper")),
@@ -132,11 +156,24 @@ class BuiltinCommandDiscoveryTest {
         assertEquals("plugins", BuiltinCommandBlockerService.rootCommand("/plugins"));
     }
 
+    @Test
+    void registrationsRejectOddEntryCount() {
+        assertThrows(IllegalArgumentException.class, () -> registrations("give", new FakeCommand("give"), "extra"));
+    }
+
     private static BuiltinCommandBlockerSettings allBlocked(boolean aliases, Set<String> allowed) {
-        return new BuiltinCommandBlockerSettings(EnumSet.allOf(BuiltinCommandSource.class), aliases, allowed);
+        return new BuiltinCommandBlockerSettings(
+                EnumSet.allOf(BuiltinCommandSource.class),
+                aliases,
+                false,
+                allowed
+        );
     }
 
     private static Map<String, Command> registrations(Object... entries) {
+        if ((entries.length & 1) != 0) {
+            throw new IllegalArgumentException("Command registrations must contain alternating label/command pairs.");
+        }
         LinkedHashMap<String, Command> result = new LinkedHashMap<>();
         for (int index = 0; index < entries.length; index += 2) {
             result.put((String) entries[index], (Command) entries[index + 1]);
