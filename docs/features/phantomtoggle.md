@@ -33,7 +33,6 @@ serverfeatures.feature.phantomtoggle.use
 | `/phantomtoggle off` | Disables phantom spawning idempotently. |
 | `/phantomtoggle toggle` | Explicit toggle form. |
 | `/phantomtoggle status` | Reports the current preference. |
-| `/phantoms ...` | Alias for `/phantomtoggle`. |
 
 The command is player-only and uses Paper's Brigadier command tree. Players without the use permission always retain normal vanilla phantom spawning, even if an old stored preference says `off`.
 
