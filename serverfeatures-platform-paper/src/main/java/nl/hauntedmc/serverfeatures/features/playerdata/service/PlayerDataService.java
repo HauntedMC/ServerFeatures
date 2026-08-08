@@ -17,7 +17,6 @@ import org.bukkit.persistence.PersistentDataContainer;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -74,7 +73,7 @@ public final class PlayerDataService {
 
         Player online = findOnline(target);
         if (online != null) {
-            inspectOnline(sender, online, view, nbtPath);
+            inspectOnline(sender, online, view);
             return;
         }
 
@@ -86,7 +85,7 @@ public final class PlayerDataService {
                     Optional<NbtPlayerDataReader.ResolvedPlayerData> resolved =
                             offlineReader.resolve(target, preferredPlayerId);
                     if (resolved.isEmpty()) {
-                        return OfflineResult.notFound(target);
+                        return OfflineResult.notFound();
                     }
                     NbtPlayerDataReader.ResolvedPlayerData player = resolved.get();
                     if (view == View.RUNTIME) {
@@ -116,7 +115,7 @@ public final class PlayerDataService {
         active.set(false);
     }
 
-    private void inspectOnline(CommandSender sender, Player player, View view, String nbtPath) {
+    private void inspectOnline(CommandSender sender, Player player, View view) {
         switch (view) {
             case OVERVIEW -> sendOnlineOverview(sender, player);
             case RUNTIME -> sendOnlineRuntime(sender, player);
@@ -361,7 +360,7 @@ public final class PlayerDataService {
             return new OfflineResult(Kind.INSPECTION, inspection.target(), inspection);
         }
 
-        static OfflineResult notFound(String ignoredTarget) {
+        static OfflineResult notFound() {
             return new OfflineResult(Kind.NOT_FOUND, null, null);
         }
 
