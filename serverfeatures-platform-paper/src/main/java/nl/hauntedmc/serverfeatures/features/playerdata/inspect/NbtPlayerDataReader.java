@@ -1,13 +1,12 @@
 package nl.hauntedmc.serverfeatures.features.playerdata.inspect;
 
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.NBTType;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
 import nl.hauntedmc.serverfeatures.features.playerdata.model.PlayerDataEntry;
+import nl.hauntedmc.serverfeatures.features.playerdata.inspect.BinaryNbtReader.ArrayInfo;
+import nl.hauntedmc.serverfeatures.features.playerdata.inspect.BinaryNbtReader.NbtCompound;
+import nl.hauntedmc.serverfeatures.features.playerdata.inspect.BinaryNbtReader.NbtType;
+import nl.hauntedmc.serverfeatures.features.playerdata.inspect.BinaryNbtReader.NbtValue;
 import nl.hauntedmc.serverfeatures.framework.playerdata.PlayerDataFiles;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.DirectoryStream;
@@ -24,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.zip.GZIPInputStream;
 
 /**
  * Bounded, read-only access to Paper player .dat files for staff diagnostics.
@@ -92,15 +90,15 @@ public final class NbtPlayerDataReader {
         entries.add(entry("uuid", "uuid", target.playerId().toString(), maxValueLength));
         entries.add(entry("name", "string", lastKnownName(loaded.root()).orElse(target.playerName()), maxValueLength));
         entries.add(entry("data-version", "int", integerValue(loaded.root(), "DataVersion"), maxValueLength));
-        entries.add(entry("compressed-size", "bytes", loaded.compressedBytes().length, maxValueLength));
+        entries.add(entry("compressed-size", "bytes", loaded.compressedBytes(), maxValueLength));
         entries.add(entry("last-modified", "instant", Files.getLastModifiedTime(loaded.file()).toInstant(), maxValueLength));
-        entries.add(entry("top-level-tags", "count", loaded.root().getKeys().size(), maxValueLength));
-        ReadableNBT pdc = bukkitValues(loaded.root());
-        entries.add(entry("pdc-keys", "count", pdc == null ? 0 : pdc.getKeys().size(), maxValueLength));
+        entries.add(entry("top-level-tags", "count", loaded.root().keys().size(), maxValueLength));
+        NbtCompound pdc = bukkitValues(loaded.root());
+        entries.add(entry("pdc-keys", "count", pdc == null ? 0 : pdc.keys().size(), maxValueLength));
         entries.add(entry(
                 "serverfeatures-settings",
                 "count",
-                pdc == null ? 0 : pdc.getKeys().stream().filter(NbtPlayerDataReader::isServerFeaturesKey).count(),
+                pdc == null ? 0 : pdc.keys().stream().filter(NbtPlayerDataReader::isServerFeaturesKey).count(),
                 maxValueLength
         ));
         return new Inspection(target, "overview", List.copyOf(entries), entries.size());
@@ -111,7 +109,7 @@ public final class NbtPlayerDataReader {
             int maxEntries,
             int maxValueLength
     ) throws IOException {
-        ReadableNBT pdc = bukkitValues(load(target.playerId()).root());
+        NbtCompound pdc = bukkitValues(load(target.playerId()).root());
         return inspectCompound(target, "settings", pdc, NbtPlayerDataReader::isServerFeaturesKey,
                 maxEntries, maxValueLength);
     }
@@ -121,7 +119,7 @@ public final class NbtPlayerDataReader {
             int maxEntries,
             int maxValueLength
     ) throws IOException {
-        ReadableNBT pdc = bukkitValues(load(target.playerId()).root());
+        NbtCompound pdc = bukkitValues(load(target.playerId()).root());
         return inspectCompound(target, "pdc", pdc, ignored -> true, maxEntries, maxValueLength);
     }
 
@@ -131,7 +129,7 @@ public final class NbtPlayerDataReader {
             int maxEntries,
             int maxValueLength
     ) throws IOException {
-        ReadableNBT root = load(target.playerId()).root();
+        NbtCompound root = load(target.playerId()).root();
         String normalizedPath = path == null ? "" : path.trim();
         if (normalizedPath.isEmpty()) {
             return inspectCompound(target, "nbt:<root>", root, ignored -> true, maxEntries, maxValueLength);
@@ -144,28 +142,28 @@ public final class NbtPlayerDataReader {
             throw new IOException("NBT path is invalid");
         }
 
-        ReadableNBT current = root;
+        NbtCompound current = root;
         for (int index = 0; index < parts.length - 1; index++) {
             String part = parts[index];
-            if (!current.hasTag(part, NBTType.NBTTagCompound)) {
+            if (!current.has(part, NbtType.COMPOUND)) {
                 throw new IOException("NBT path is not a compound at '" + part + "'");
             }
-            current = current.getCompound(part);
+            current = current.compound(part);
             if (current == null) {
                 throw new IOException("NBT path does not exist");
             }
         }
 
         String leaf = parts[parts.length - 1];
-        if (!current.hasTag(leaf)) {
+        NbtValue leafValue = current.get(leaf);
+        if (leafValue == null) {
             throw new IOException("NBT path does not exist: " + normalizedPath);
         }
-        if (current.hasTag(leaf, NBTType.NBTTagCompound)) {
-            ReadableNBT compound = current.getCompound(leaf);
+        if (leafValue.type() == NbtType.COMPOUND) {
             return inspectCompound(
                     target,
                     "nbt:" + normalizedPath,
-                    compound,
+                    (NbtCompound) leafValue.value(),
                     ignored -> true,
                     maxEntries,
                     maxValueLength
@@ -182,7 +180,7 @@ public final class NbtPlayerDataReader {
     private Inspection inspectCompound(
             ResolvedPlayerData target,
             String section,
-            ReadableNBT compound,
+            NbtCompound compound,
             java.util.function.Predicate<String> filter,
             int maxEntries,
             int maxValueLength
@@ -190,7 +188,7 @@ public final class NbtPlayerDataReader {
         if (compound == null) {
             return new Inspection(target, section, List.of(), 0);
         }
-        List<String> keys = compound.getKeys().stream()
+        List<String> keys = compound.keys().stream()
                 .filter(filter)
                 .sorted(String.CASE_INSENSITIVE_ORDER)
                 .toList();
@@ -250,8 +248,9 @@ public final class NbtPlayerDataReader {
     private LoadedData loadFile(Path file) throws IOException {
         byte[] bytes = readPlayerData(file);
         try {
-            return new LoadedData(file, bytes, NBT.readNBT(new ByteArrayInputStream(bytes)));
-        } catch (RuntimeException | LinkageError exception) {
+            NbtCompound root = BinaryNbtReader.readGzip(bytes, maxDecompressedBytes);
+            return new LoadedData(file, bytes.length, root);
+        } catch (IOException | RuntimeException exception) {
             throw new IOException("Could not parse playerdata file " + file.getFileName(), exception);
         }
     }
@@ -269,24 +268,7 @@ public final class NbtPlayerDataReader {
             if (bytes.length > maxCompressedBytes) {
                 throw new IOException("Playerdata file exceeds the safe compressed read limit");
             }
-            validateDecompressedSize(bytes, file);
             return bytes;
-        }
-    }
-
-    private void validateDecompressedSize(byte[] bytes, Path file) throws IOException {
-        try (GZIPInputStream gzip = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
-            byte[] buffer = new byte[8192];
-            int total = 0;
-            int count;
-            while ((count = gzip.read(buffer)) >= 0) {
-                total = Math.addExact(total, count);
-                if (total > maxDecompressedBytes) {
-                    throw new IOException("Playerdata expands beyond the safe read limit: " + file.getFileName());
-                }
-            }
-        } catch (ArithmeticException exception) {
-            throw new IOException("Playerdata expands beyond the safe read limit", exception);
         }
     }
 
@@ -314,68 +296,46 @@ public final class NbtPlayerDataReader {
         return parseUuid(name.substring(0, name.length() - 4));
     }
 
-    private static Optional<String> lastKnownName(ReadableNBT root) {
-        if (!root.hasTag("bukkit", NBTType.NBTTagCompound)) {
+    private static Optional<String> lastKnownName(NbtCompound root) {
+        NbtCompound bukkit = root.compound("bukkit");
+        if (bukkit == null || !bukkit.has("lastKnownName", NbtType.STRING)) {
             return Optional.empty();
         }
-        ReadableNBT bukkit = root.getCompound("bukkit");
-        if (bukkit == null || !bukkit.hasTag("lastKnownName", NBTType.NBTTagString)) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(bukkit.getString("lastKnownName"));
+        return Optional.of((String) bukkit.get("lastKnownName").value());
     }
 
-    private static ReadableNBT bukkitValues(ReadableNBT root) {
-        return root.hasTag("BukkitValues", NBTType.NBTTagCompound)
-                ? root.getCompound("BukkitValues")
-                : null;
+    private static NbtCompound bukkitValues(NbtCompound root) {
+        return root.compound("BukkitValues");
     }
 
     private static boolean isServerFeaturesKey(String key) {
         return key != null && key.regionMatches(true, 0, "serverfeatures:", 0, "serverfeatures:".length());
     }
 
-    private static Object integerValue(ReadableNBT root, String key) {
-        return root.hasTag(key, NBTType.NBTTagInt) ? root.getInteger(key) : "<missing>";
+    private static Object integerValue(NbtCompound root, String key) {
+        NbtValue value = root.get(key);
+        return value != null && value.type() == NbtType.INT ? value.value() : "<missing>";
     }
 
-    private static PlayerDataEntry readEntry(ReadableNBT compound, String key, int maxValueLength) {
-        NBTType type = compound.getType(key);
-        String typeName = type == null ? "unknown" : type.name();
-        Object value;
-        if (type == NBTType.NBTTagByte) {
-            byte raw = compound.getByte(key);
-            value = (raw == 0 || raw == 1) ? raw + (raw == 1 ? " (true)" : " (false)") : raw;
-        } else if (type == NBTType.NBTTagShort) {
-            value = compound.getShort(key);
-        } else if (type == NBTType.NBTTagInt) {
-            value = compound.getInteger(key);
-        } else if (type == NBTType.NBTTagLong) {
-            value = compound.getLong(key);
-        } else if (type == NBTType.NBTTagFloat) {
-            value = compound.getFloat(key);
-        } else if (type == NBTType.NBTTagDouble) {
-            value = compound.getDouble(key);
-        } else if (type == NBTType.NBTTagString) {
-            value = compound.getString(key);
-        } else if (type == NBTType.NBTTagByteArray) {
-            byte[] values = compound.getByteArray(key);
-            value = arrayLength(values == null ? 0 : values.length);
-        } else if (type == NBTType.NBTTagIntArray) {
-            int[] values = compound.getIntArray(key);
-            value = arrayLength(values == null ? 0 : values.length);
-        } else if (type == NBTType.NBTTagLongArray) {
-            long[] values = compound.getLongArray(key);
-            value = arrayLength(values == null ? 0 : values.length);
-        } else if (type == NBTType.NBTTagCompound) {
-            ReadableNBT nested = compound.getCompound(key);
-            value = "{" + (nested == null ? 0 : nested.getKeys().size()) + " keys}";
-        } else if (type == NBTType.NBTTagList) {
-            value = "<list>";
-        } else {
-            value = "<not decoded>";
+    private static PlayerDataEntry readEntry(NbtCompound compound, String key, int maxValueLength) {
+        NbtValue tag = compound.get(key);
+        if (tag == null) {
+            return entry(key, "unknown", "<missing>", maxValueLength);
         }
-        return entry(key, typeName, value, maxValueLength);
+        NbtType type = tag.type();
+        Object value = switch (type) {
+            case BYTE -> byteValue((Byte) tag.value());
+            case SHORT, INT, LONG, FLOAT, DOUBLE, STRING -> tag.value();
+            case BYTE_ARRAY, INT_ARRAY, LONG_ARRAY -> arrayLength(((ArrayInfo) tag.value()).length());
+            case COMPOUND -> "{" + ((NbtCompound) tag.value()).keys().size() + " keys}";
+            case LIST -> "<list>";
+            case END -> "<not decoded>";
+        };
+        return entry(key, type.displayName(), value, maxValueLength);
+    }
+
+    private static Object byteValue(byte raw) {
+        return raw == 0 || raw == 1 ? raw + (raw == 1 ? " (true)" : " (false)") : raw;
     }
 
     private static String arrayLength(int length) {
@@ -413,7 +373,7 @@ public final class NbtPlayerDataReader {
         }
     }
 
-    private record LoadedData(Path file, byte[] compressedBytes, ReadWriteNBT root) {
+    private record LoadedData(Path file, int compressedBytes, NbtCompound root) {
     }
 
     private record Candidate(UUID playerId, long modifiedMillis) {
