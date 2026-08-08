@@ -75,6 +75,7 @@ cp "$consumer" "$work_directory/paper/plugins/ServerFeaturesAcceptance.jar"
 printf '%s\n' 'orm:' '  schema_mode: update' 'databases:' '  mysql: { enabled: true }' '  mongodb: { enabled: false }' '  redis: { enabled: false }' '  redis_messaging: { enabled: false }' >"$work_directory/paper/plugins/DataProvider/config.yml"
 printf '%s\n' 'enabled: true' >"$work_directory/paper/plugins/ServerFeatures/features/AutoPickup/config.yml"
 printf '%s\n' 'enabled: true' 'remove_from_command_map: true' 'allowed:' '  - minecraft:stop' >"$work_directory/paper/plugins/ServerFeatures/features/BuiltinCommandBlocker/config.yml"
+printf '%s\n' 'aliases:' '  version-alias:' '    - version' '  version-alias-chain:' '    - version-alias' >"$work_directory/paper/commands.yml"
 
 docker compose --file "$compose_file" up --detach --wait
 mysql_port="$(docker compose --file "$compose_file" port mysql 3306 | sed -n 's/.*://p' | head -n 1)"
