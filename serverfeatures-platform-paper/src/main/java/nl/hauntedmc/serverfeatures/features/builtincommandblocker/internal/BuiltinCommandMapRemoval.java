@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
 import org.bukkit.command.Command;
+import org.bukkit.command.PluginIdentifiableCommand;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -12,13 +13,17 @@ final class BuiltinCommandMapRemoval {
     private BuiltinCommandMapRemoval() {
     }
 
+    static boolean pruneDisabledPluginCommands(Map<String, Command> removedCommands) {
+        return removedCommands.entrySet().removeIf(entry -> !isRestorable(entry.getValue()));
+    }
+
     static Map<String, Command> effectiveCommands(
             Map<String, Command> liveCommands,
             Map<String, Command> removedCommands
     ) {
         LinkedHashMap<String, Command> effective = new LinkedHashMap<>(liveCommands);
         removedCommands.forEach((label, command) -> {
-            if (!effective.containsKey(label)) {
+            if (isRestorable(command) && !effective.containsKey(label)) {
                 effective.put(label, command);
             }
         });
@@ -35,6 +40,11 @@ final class BuiltinCommandMapRemoval {
         while (iterator.hasNext()) {
             Map.Entry<String, Command> entry = iterator.next();
             String label = entry.getKey();
+            if (!isRestorable(entry.getValue())) {
+                iterator.remove();
+                changed = true;
+                continue;
+            }
             if (blockedCommands.contains(label)) {
                 continue;
             }
@@ -62,12 +72,17 @@ final class BuiltinCommandMapRemoval {
     static boolean restoreAll(Map<String, Command> liveCommands, Map<String, Command> removedCommands) {
         boolean changed = false;
         for (Map.Entry<String, Command> entry : removedCommands.entrySet()) {
-            if (!liveCommands.containsKey(entry.getKey())) {
+            if (isRestorable(entry.getValue()) && !liveCommands.containsKey(entry.getKey())) {
                 liveCommands.put(entry.getKey(), entry.getValue());
                 changed = true;
             }
         }
         removedCommands.clear();
         return changed;
+    }
+
+    private static boolean isRestorable(Command command) {
+        return !(command instanceof PluginIdentifiableCommand identifiable)
+                || identifiable.getPlugin().isEnabled();
     }
 }
