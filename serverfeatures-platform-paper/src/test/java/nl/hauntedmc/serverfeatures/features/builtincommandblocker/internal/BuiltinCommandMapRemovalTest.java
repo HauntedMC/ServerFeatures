@@ -1,7 +1,9 @@
 package nl.hauntedmc.serverfeatures.features.builtincommandblocker.internal;
 
+import io.papermc.paper.testing.PluginOwnedPaperWrapperCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class BuiltinCommandMapRemovalTest {
 
@@ -75,6 +79,21 @@ class BuiltinCommandMapRemovalTest {
 
         assertSame(replacement, live.get("paper"));
         assertTrue(removed.isEmpty());
+    }
+
+    @Test
+    void disabledPluginCommandsAreNeverRestored() {
+        Plugin plugin = mock(Plugin.class);
+        when(plugin.isEnabled()).thenReturn(false);
+        Command stale = new PluginOwnedPaperWrapperCommand("paperthing", plugin);
+        Map<String, Command> live = new LinkedHashMap<>();
+        Map<String, Command> removed = new LinkedHashMap<>();
+        removed.put("paper:paperthing", stale);
+
+        assertTrue(BuiltinCommandMapRemoval.pruneDisabledPluginCommands(removed));
+        assertTrue(removed.isEmpty());
+        assertFalse(BuiltinCommandMapRemoval.restoreAll(live, removed));
+        assertTrue(live.isEmpty());
     }
 
     private static final class FakeCommand extends Command {
