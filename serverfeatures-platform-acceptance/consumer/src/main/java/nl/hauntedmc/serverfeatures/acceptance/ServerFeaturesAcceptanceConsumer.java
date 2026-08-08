@@ -42,21 +42,21 @@ public final class ServerFeaturesAcceptanceConsumer extends JavaPlugin {
             boolean versionRemoved = !knownCommands.containsKey("version");
             boolean directAliasRemoved = !knownCommands.containsKey("version-alias");
             boolean chainedAliasRemoved = !knownCommands.containsKey("version-alias-chain");
-            boolean sayRemoved = !knownCommands.containsKey("say") && !knownCommands.containsKey("minecraft:say");
+            boolean seedRemoved = !knownCommands.containsKey("seed") && !knownCommands.containsKey("minecraft:seed");
             boolean stopPreserved = knownCommands.containsKey("stop") || knownCommands.containsKey("minecraft:stop");
             boolean serverFeaturesPreserved = knownCommands.containsKey("serverfeatures");
 
             if (!versionRemoved
                     || !directAliasRemoved
                     || !chainedAliasRemoved
-                    || !sayRemoved
+                    || !seedRemoved
                     || !stopPreserved
                     || !serverFeaturesPreserved) {
                 throw new IllegalStateException(
                         "BuiltinCommandBlocker hard-removal acceptance failed: versionRemoved=" + versionRemoved
                                 + ", directAliasRemoved=" + directAliasRemoved
                                 + ", chainedAliasRemoved=" + chainedAliasRemoved
-                                + ", sayRemoved=" + sayRemoved
+                                + ", seedRemoved=" + seedRemoved
                                 + ", stopPreserved=" + stopPreserved
                                 + ", serverFeaturesPreserved=" + serverFeaturesPreserved
                 );
