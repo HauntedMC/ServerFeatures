@@ -1,6 +1,7 @@
 package nl.hauntedmc.serverfeatures.features.fairperks.policy;
 
-import nl.hauntedmc.serverfeatures.api.combat.CombatTagApi;
+import nl.hauntedmc.serverfeatures.api.capability.combat.CombatTagApi;
+import nl.hauntedmc.serverfeatures.api.service.CapabilityRef;
 import nl.hauntedmc.serverfeatures.features.fairperks.config.FairPerksSettings;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkChangeResult;
 import nl.hauntedmc.serverfeatures.features.fairperks.model.PerkType;
@@ -12,7 +13,9 @@ import org.bukkit.entity.Player;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,11 +74,14 @@ class FairPerksPolicyTest {
 
     private static FairPerksPolicy policy(FairPerksSettings settings, boolean tagged) {
         CombatTagApi combatTagApi = mock(CombatTagApi.class);
-        when(combatTagApi.isTagged(any(Player.class))).thenReturn(tagged);
+        when(combatTagApi.isTagged(any(UUID.class))).thenReturn(tagged);
+        @SuppressWarnings("unchecked")
+        CapabilityRef<CombatTagApi> combatTagRef = mock(CapabilityRef.class);
+        when(combatTagRef.get()).thenReturn(Optional.of(combatTagApi));
         return new FairPerksPolicy(
                 settings,
                 new HostileEntityClassifier(settings.hostiles()),
-                combatTagApi
+                combatTagRef
         );
     }
 
@@ -83,6 +89,7 @@ class FairPerksPolicyTest {
         World world = mock(World.class);
         when(world.getName()).thenReturn(worldName);
         Player player = mock(Player.class);
+        when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getGameMode()).thenReturn(gameMode);
         when(player.getWorld()).thenReturn(world);
         when(player.getNearbyEntities(16.0D, 16.0D, 16.0D)).thenReturn(List.of());
